@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+.env
+node_modules/
+edge-impulse-sdk/
+model-parameters/
+tflite-model/
+.cxx
+build/

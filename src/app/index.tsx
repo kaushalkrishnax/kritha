@@ -1,98 +1,183 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  PermissionsAndroid,
+  Platform,
+  StyleSheet,
+} from "react-native";
+import { wakeWordService } from "../services/wakeword.service";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function Index() {
+  const [hasPermission, setHasPermission] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+  const [lastDetected, setLastDetected] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState<number | null>(null);
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    async function requestMicPermission() {
+      if (Platform.OS === "android") {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: "Microphone Permission",
+            message:
+              "This app needs access to your microphone to detect the wake word.",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          },
+        );
+        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
+      }
+    }
+
+    requestMicPermission();
+
+    return () => {
+      wakeWordService.stop();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const toggleListening = async () => {
+    if (!hasPermission) {
+      console.warn("Cannot start: Microphone permission denied.");
+      return;
+    }
+
+    if (isListening) {
+      await wakeWordService.stop();
+      setIsListening(false);
+
+      setLastDetected(null);
+      setConfidence(null);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    } else {
+      await wakeWordService.start((keyword, score) => {
+        console.log(
+          `Wake word detected from Kotlin: ${keyword}, Confidence: ${score}`,
+        );
+
+        setLastDetected(keyword);
+        setConfidence(score as number);
+
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
+          setLastDetected(null);
+          setConfidence(null);
+        }, 2000);
+      });
+      setIsListening(true);
+    }
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      <Text style={styles.title}>AI Assistant</Text>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <View style={styles.statusCard}>
+        <Text style={styles.statusText}>
+          Engine Status: {isListening ? "🟢 Listening..." : "🔴 Stopped"}
+        </Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        {lastDetected && confidence !== null && (
+          <View style={styles.detectionContainer}>
+            <Text style={styles.detectedText}>Detected: "{lastDetected}"</Text>
+            <Text style={styles.confidenceText}>
+              Confidence: {(confidence * 100).toFixed(1)}%
+            </Text>
+          </View>
+        )}
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <TouchableOpacity
+        style={[
+          styles.button,
+          isListening ? styles.buttonStop : styles.buttonStart,
+        ]}
+        onPress={toggleListening}
+      >
+        <Text style={styles.buttonText}>
+          {isListening ? "Stop Engine" : "Start Engine"}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f5f5f5",
   },
   title: {
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 40,
+    color: "#333",
   },
-  code: {
-    textTransform: 'uppercase',
+  statusCard: {
+    width: "100%",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 40,
+    alignItems: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    minHeight: 120,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  statusText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#555",
+  },
+  detectionContainer: {
+    marginTop: 15,
+    alignItems: "center",
+  },
+  detectedText: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#007AFF",
+  },
+  confidenceText: {
+    fontSize: 16,
+    color: "#34C759",
+    marginTop: 5,
+    fontWeight: "500",
+  },
+  button: {
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 30,
+  },
+  buttonStart: {
+    backgroundColor: "#007AFF",
+  },
+  buttonStop: {
+    backgroundColor: "#FF3B30",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
