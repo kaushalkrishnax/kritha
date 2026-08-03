@@ -1,2 +1,28 @@
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+  <application>
+    <service
+      android:name=".WakeWordForegroundService"
+      android:enabled="true"
+      android:exported="false"
+      android:foregroundServiceType="microphone"
+      android:stopWithTask="false" />
+    <activity
+      android:name=".WakeWordListeningActivity"
+      android:excludeFromRecents="true"
+      android:exported="false"
+      android:launchMode="singleInstance"
+      android:noHistory="true"
+      android:showOnLockScreen="true"
+      android:showWhenLocked="true"
+      android:theme="@style/WakeWordListeningTheme"
+      android:turnScreenOn="true" />
+  </application>
 </manifest>

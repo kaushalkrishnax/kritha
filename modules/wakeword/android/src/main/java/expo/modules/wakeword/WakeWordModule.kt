@@ -1,98 +1,106 @@
 package expo.modules.wakeword
 
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import kotlin.concurrent.thread
 
 class WakeWordModule : Module() {
-
-    companion object {
-        init {
-            try {
-                System.loadLibrary("wakeword_bridge")
-                Log.i("WakeWord", "Successfully loaded Cpp library")
-            } catch (e: Throwable) {
-                // This will print the EXACT reason it failed to load
-                Log.e("WakeWord", "Failed to load Cpp library: ${e.message}", e)
-            }
-        }
-        private const val SAMPLE_RATE = 16000
-        private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
-        private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        private const val BUFFER_SIZE = 16000
-    }
-
-    private var audioRecord: AudioRecord? = null
-    private var isRecording = false
-
-    private external fun runInference(samples: ShortArray): FloatArray?
-
     override fun definition() = ModuleDefinition {
         Name("WakeWord")
 
-        Events("onWakeWordDetected")
+        Events("onWakeWordDetected", "onAssistantEvent")
 
-        Function("start") {
-            if (!isRecording) {
-                val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-                val recordBufferSize = maxOf(minBufferSize, BUFFER_SIZE)
-
-                audioRecord = AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
-                    SAMPLE_RATE,
-                    CHANNEL_CONFIG,
-                    AUDIO_FORMAT,
-                    recordBufferSize
-                )
-
-                audioRecord?.startRecording()
-                isRecording = true
-
-                thread(start = true) {
-                    processAudioStream()
+        OnStartObserving {
+            WakeWordEventHub.listener = { keyword, confidence ->
+                Handler(Looper.getMainLooper()).post {
+                    sendEvent(
+                        "onWakeWordDetected",
+                        mapOf("keyword" to keyword, "confidence" to confidence)
+                    )
                 }
             }
+            WakeWordEventHub.assistantListener = { state, transcript, response, error ->
+                Handler(Looper.getMainLooper()).post {
+                    sendEvent(
+                        "onAssistantEvent",
+                        mapOf(
+                            "state" to state,
+                            "transcript" to transcript,
+                            "response" to response,
+                            "error" to error
+                        )
+                    )
+                }
+            }
+        }
+
+        OnStopObserving {
+            WakeWordEventHub.listener = null
+            WakeWordEventHub.assistantListener = null
+        }
+
+        Function("start") {
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: throw Exceptions.ReactContextLost()
+            WakeWordForegroundService.start(context)
         }
 
         Function("stop") {
-            isRecording = false
-            audioRecord?.apply {
-                stop()
-                release()
-            }
-            audioRecord = null
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: throw Exceptions.ReactContextLost()
+            WakeWordForegroundService.stop(context)
         }
 
-        OnDestroy {
-            if (isRecording) {
-                isRecording = false
-                audioRecord?.stop()
-                audioRecord?.release()
-                audioRecord = null
-            }
+        Function("isRunning") {
+            WakeWordForegroundService.isRunning
+        }
+
+        Function("stopAssistantSession") {
+            WakeWordForegroundService.stopAssistantSession()
+        }
+    }
+}
+
+internal object WakeWordNative {
+    init {
+        try {
+            System.loadLibrary("wakeword_bridge")
+            Log.i("WakeWord", "Loaded wake-word inference library")
+        } catch (error: Throwable) {
+            Log.e("WakeWord", "Unable to load wake-word inference library", error)
         }
     }
 
-    private fun processAudioStream() {
-        val audioBuffer = ShortArray(BUFFER_SIZE)
-        while (isRecording) {
-            val shortsRead = audioRecord?.read(audioBuffer, 0, BUFFER_SIZE) ?: 0
-            if (shortsRead > 0) {
-                // Add this line to see if the mic is actually hearing you, or just returning [0, 0, 0]
-                Log.d("WakeWord", "Audio check: ${audioBuffer[0]}, ${audioBuffer[500]}, ${audioBuffer[1000]}")
-                
-                val results = runInference(audioBuffer)
-                if (results != null && results.isNotEmpty()) {
-                    Log.d("WakeWord", "Inference results: ${results.joinToString(", ")}")
-                    if (results[0] > 0.5f) {
-                        sendEvent("onWakeWordDetected", mapOf("keyword" to "hey_kritha", "confidence" to results[0]))
-                    }
-                }
-            }
-        }
+    external fun runInference(samples: ShortArray): FloatArray?
+}
+
+internal object WakeWordEventHub {
+    @Volatile
+    var listener: ((keyword: String, confidence: Float) -> Unit)? = null
+
+    @Volatile
+    var assistantListener: ((
+        state: String,
+        transcript: String?,
+        response: String?,
+        error: String?
+    ) -> Unit)? = null
+
+    fun emit(keyword: String, confidence: Float) {
+        listener?.invoke(keyword, confidence)
+    }
+
+    fun emitAssistant(
+        state: String,
+        transcript: String? = null,
+        response: String? = null,
+        error: String? = null
+    ) {
+        assistantListener?.invoke(state, transcript, response, error)
     }
 }

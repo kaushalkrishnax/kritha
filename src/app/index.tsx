@@ -11,7 +11,7 @@ import { wakeWordService } from "../services/wakeword.service";
 
 export default function Index() {
   const [hasPermission, setHasPermission] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  const [isListening, setIsListening] = useState(wakeWordService.getIsRunning());
 
   const [lastDetected, setLastDetected] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
@@ -19,37 +19,45 @@ export default function Index() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    async function requestMicPermission() {
+    async function checkMicPermission() {
       if (Platform.OS === "android") {
-        const granted = await PermissionsAndroid.request(
+        const granted = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: "Microphone Permission",
-            message:
-              "This app needs access to your microphone to detect the wake word.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          },
         );
-        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
+        setHasPermission(granted);
+        setIsListening(wakeWordService.getIsRunning());
       }
     }
 
-    requestMicPermission();
+    void checkMicPermission();
+    const unsubscribe = wakeWordService.subscribe((keyword, score) => {
+      console.log(
+        `Wake word detected from Android: ${keyword}, Confidence: ${score}`,
+      );
+      setLastDetected(keyword);
+      setConfidence(score ?? null);
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        setLastDetected(null);
+        setConfidence(null);
+      }, 8000);
+    });
 
     return () => {
-      wakeWordService.stop();
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      unsubscribe();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
   const toggleListening = async () => {
     if (!hasPermission) {
-      console.warn("Cannot start: Microphone permission denied.");
-      return;
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      );
+      const allowed = granted === PermissionsAndroid.RESULTS.GRANTED;
+      setHasPermission(allowed);
+      if (!allowed) return;
     }
 
     if (isListening) {
@@ -62,23 +70,7 @@ export default function Index() {
         clearTimeout(timeoutRef.current);
       }
     } else {
-      await wakeWordService.start((keyword, score) => {
-        console.log(
-          `Wake word detected from Kotlin: ${keyword}, Confidence: ${score}`,
-        );
-
-        setLastDetected(keyword);
-        setConfidence(score as number);
-
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-
-        timeoutRef.current = setTimeout(() => {
-          setLastDetected(null);
-          setConfidence(null);
-        }, 2000);
-      });
+      await wakeWordService.start();
       setIsListening(true);
     }
   };
@@ -89,7 +81,7 @@ export default function Index() {
 
       <View style={styles.statusCard}>
         <Text style={styles.statusText}>
-          Engine Status: {isListening ? "🟢 Listening..." : "🔴 Stopped"}
+          Engine Status: {isListening ? "🟢 Background listening" : "🔴 Stopped"}
         </Text>
 
         {lastDetected && confidence !== null && (

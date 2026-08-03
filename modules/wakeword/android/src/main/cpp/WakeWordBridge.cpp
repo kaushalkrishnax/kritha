@@ -4,7 +4,7 @@
 
 extern "C"
 JNIEXPORT jfloatArray JNICALL
-Java_expo_modules_wakeword_WakeWordModule_runInference(JNIEnv *env, jobject thiz, jshortArray samples) {
+Java_expo_modules_wakeword_WakeWordNative_runInference(JNIEnv *env, jobject thiz, jshortArray samples) {
     jsize length = env->GetArrayLength(samples);
     jshort *body = env->GetShortArrayElements(samples, 0);
 

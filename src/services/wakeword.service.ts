@@ -1,28 +1,84 @@
-import { start, stop, addWakeWordListener } from "../../modules/wakeword/src";
 import { EventSubscription } from "expo-modules-core";
+
+import {
+  addAssistantListener,
+  addWakeWordListener,
+  AssistantEvent,
+  isRunning,
+  start,
+  stop,
+  stopAssistantSession,
+} from "../../modules/wakeword/src";
+
+type DetectionListener = (keyword: string, confidence?: number) => void;
+type AssistantListener = (event: AssistantEvent) => void;
 
 export class WakeWordService {
   private subscription: EventSubscription | null = null;
-  private isRunning = false;
+  private assistantSubscription: EventSubscription | null = null;
+  private listeners = new Set<DetectionListener>();
+  private assistantListeners = new Set<AssistantListener>();
 
-  public async start(onDetected: (keyword: string, confidence?: number) => void): Promise<void> {
-    if (this.isRunning) return;
-
-    this.subscription = addWakeWordListener((event) => {
-      onDetected(event.keyword, event.confidence);
-    });
-
-    start();
-    this.isRunning = true;
+  public async start(onDetected?: DetectionListener): Promise<void> {
+    if (onDetected) this.listeners.add(onDetected);
+    this.ensureNativeSubscription();
+    if (!isRunning()) start();
   }
 
   public async stop(): Promise<void> {
-    if (!this.isRunning) return;
+    if (isRunning()) stop();
+  }
 
-    stop();
-    this.subscription?.remove();
-    this.subscription = null;
-    this.isRunning = false;
+  public async stopAssistantSession(): Promise<void> {
+    stopAssistantSession();
+  }
+
+  public getIsRunning(): boolean {
+    return isRunning();
+  }
+
+  public subscribe(listener: DetectionListener): () => void {
+    this.listeners.add(listener);
+    this.ensureNativeSubscription();
+
+    return () => {
+      this.listeners.delete(listener);
+      if (this.listeners.size === 0) {
+        this.subscription?.remove();
+        this.subscription = null;
+      }
+    };
+  }
+
+  public subscribeToAssistant(listener: AssistantListener): () => void {
+    this.assistantListeners.add(listener);
+    this.ensureAssistantSubscription();
+
+    return () => {
+      this.assistantListeners.delete(listener);
+      if (this.assistantListeners.size === 0) {
+        this.assistantSubscription?.remove();
+        this.assistantSubscription = null;
+      }
+    };
+  }
+
+  private ensureNativeSubscription(): void {
+    if (this.subscription) return;
+    this.subscription = addWakeWordListener((event) => {
+      this.listeners.forEach((listener) => {
+        listener(event.keyword, event.confidence);
+      });
+    });
+  }
+
+  private ensureAssistantSubscription(): void {
+    if (this.assistantSubscription) return;
+    this.assistantSubscription = addAssistantListener((event) => {
+      this.assistantListeners.forEach((listener) => {
+        listener(event);
+      });
+    });
   }
 }
 
