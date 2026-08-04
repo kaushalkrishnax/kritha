@@ -6,7 +6,7 @@ class AssistantService {
   public async startAssistantPipeline(): Promise<void> {
     this.unsubscribeFromAssistant?.();
     this.unsubscribeFromAssistant = wakeWordService.subscribeToAssistant((event) => {
-      console.log("Native assistant event", event);
+      console.log("Native assistant event (for UI):", event);
     });
     await wakeWordService.start();
   }

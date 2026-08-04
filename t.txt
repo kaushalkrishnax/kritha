@@ -1,0 +1,852 @@
+diff --git a/modules/wakeword/android/src/main/AndroidManifest.xml b/modules/wakeword/android/src/main/AndroidManifest.xml
+index fba9c52..5b437bf 100644
+--- a/modules/wakeword/android/src/main/AndroidManifest.xml
++++ b/modules/wakeword/android/src/main/AndroidManifest.xml
+@@ -7,6 +7,27 @@
+   <uses-permission android:name="android.permission.WAKE_LOCK" />
+   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+ 
++  <!-- Native Command Permissions -->
++  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
++  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
++  <uses-permission android:name="android.permission.BLUETOOTH" />
++  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
++  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++  <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
++  <uses-permission android:name="android.permission.READ_CONTACTS" />
++  <uses-permission android:name="android.permission.READ_CALENDAR" />
++  <uses-permission android:name="android.permission.CALL_PHONE" />
++
++  <queries>
++    <intent>
++      <action android:name="android.intent.action.MAIN" />
++      <category android:name="android.intent.category.LAUNCHER" />
++    </intent>
++    <intent>
++      <data android:scheme="sausico" />
++    </intent>
++  </queries>
++
+   <application>
+     <service
+       android:name=".WakeWordForegroundService"
+@@ -14,6 +35,17 @@
+       android:exported="false"
+       android:foregroundServiceType="microphone"
+       android:stopWithTask="false" />
++    
++    <service
++      android:name=".KrithaNotificationListener"
++      android:label="Kritha Notification Listener"
++      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
++      android:exported="true">
++      <intent-filter>
++        <action android:name="android.service.notification.NotificationListenerService" />
++      </intent-filter>
++    </service>
++
+     <activity
+       android:name=".WakeWordListeningActivity"
+       android:excludeFromRecents="true"
+diff --git a/modules/wakeword/android/src/main/java/expo/modules/wakeword/NativeAssistantSession.kt b/modules/wakeword/android/src/main/java/expo/modules/wakeword/NativeAssistantSession.kt
+index da24a24..3e4d4a8 100644
+--- a/modules/wakeword/android/src/main/java/expo/modules/wakeword/NativeAssistantSession.kt
++++ b/modules/wakeword/android/src/main/java/expo/modules/wakeword/NativeAssistantSession.kt
+@@ -11,6 +11,7 @@ import android.speech.SpeechRecognizer
+ import android.speech.tts.TextToSpeech
+ import android.speech.tts.UtteranceProgressListener
+ import android.util.Log
++import expo.modules.wakeword.commands.*
+ import java.util.Locale
+ 
+ internal class NativeAssistantSession(
+@@ -67,6 +68,13 @@ internal class NativeAssistantSession(
+     private var recognizer: SpeechRecognizer? = null
+     private var tts: TextToSpeech? = null
+     private var hasCompleted = false
++    private var lastTranscript: String? = null
++
++    fun speakAndFinish(response: String) {
++        mainHandler.post {
++            finishWithResponse(lastTranscript, response)
++        }
++    }
+ 
+     fun start() {
+         mainHandler.post {
+@@ -132,11 +140,12 @@ internal class NativeAssistantSession(
+             ?.trim()
+             .orEmpty()
+ 
+-        val lower = transcript.lowercase(Locale.US)
+-        var commandText = transcript
++        lastTranscript = transcript
++        callback.onAssistantProcessing(transcript)
+ 
+-        callback.onAssistantProcessing(commandText)
+-        finishWithResponse(commandText, processCommand(commandText))
++        // Process command natively and speak response
++        val response = processCommand(transcript)
++        finishWithResponse(transcript, response)
+     }
+ 
+     override fun onError(error: Int) {
+@@ -177,18 +186,42 @@ internal class NativeAssistantSession(
+     private fun processCommand(command: String): String {
+         val lower = command.lowercase(Locale.US)
+         return when {
+-            lower in setOf("stop", "cancel", "never mind", "nevermind") ->
++            lower in setOf("stop", "cancel", "never mind", "nevermind") -> {
+                 "Okay."
+-            "time" in lower ->
++            }
++            lower.startsWith("hello") || lower.startsWith("hi") -> {
++                "Hi, I am listening."
++            }
++            "help" in lower || "what can you do" in lower -> {
++                "I can control your alarm, timer, music, volume, wifi, bluetooth, flashlight, and read notifications or calendar events."
++            }
++            "time" in lower -> {
+                 "The current time is ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}."
+-            "date" in lower || "day" in lower ->
++            }
++            "date" in lower || "day" in lower -> {
+                 "Today is ${java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL).format(java.util.Date())}."
+-            lower.startsWith("hello") || lower.startsWith("hi") ->
+-                "Hi, I am listening."
+-            "help" in lower || "what can you do" in lower ->
+-                "I can listen after the wake word and handle native commands."
+-            else ->
++            }
++            DeviceCommandHandler.canHandle(lower) -> {
++                DeviceCommandHandler.handle(lower, appContext)
++            }
++            MediaCommandHandler.canHandle(lower) -> {
++                MediaCommandHandler.handle(lower, appContext)
++            }
++            OrganizerCommandHandler.canHandle(lower) -> {
++                OrganizerCommandHandler.handle(lower, appContext)
++            }
++            CommunicationCommandHandler.canHandle(lower, command) -> {
++                CommunicationCommandHandler.handle(command, lower, appContext)
++            }
++            InfoCommandHandler.canHandle(lower) -> {
++                InfoCommandHandler.handle(lower, appContext)
++            }
++            AppLauncherCommandHandler.canHandle(lower) -> {
++                AppLauncherCommandHandler.handle(command, lower, appContext)
++            }
++            else -> {
+                 "I heard: $command"
++            }
+         }
+     }
+ 
+@@ -211,18 +244,20 @@ internal class NativeAssistantSession(
+ 
+     private fun cleanupRecognizer() {
+         recognizer?.let {
+-            runCatching { it.stopListening() }
++            runCatching { it.cancel() }
+             it.setRecognitionListener(null)
+         }
+         recognizer = null
+     }
+ 
+     private fun speak(text: String) {
+-        val engine = tts
+-        if (engine == null || !isTtsInitialized) {
+-            pendingSpeech = text
+-            return
++        mainHandler.post {
++            if (isTtsInitialized) {
++                sharedTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kritha-native-response")
++            } else {
++                pendingSpeech = text
++                prewarm(appContext)
++            }
+         }
+-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kritha-native-response")
+     }
+ }
+diff --git a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordForegroundService.kt b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordForegroundService.kt
+index 020188b..f5f8e56 100644
+--- a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordForegroundService.kt
++++ b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordForegroundService.kt
+@@ -81,6 +81,9 @@ class WakeWordForegroundService : Service() {
+             isRunning = false
+             context.stopService(Intent(context, WakeWordForegroundService::class.java))
+         }
++
++        internal val activeSession: NativeAssistantSession?
++            get() = activeService?.assistantSession
+     }
+ 
+     private val listening = AtomicBoolean(false)
+@@ -90,7 +93,7 @@ class WakeWordForegroundService : Service() {
+     private var audioRecord: AudioRecord? = null
+     private var wakeLock: PowerManager.WakeLock? = null
+     private var lastDetectionAt = 0L
+-    private var assistantSession: NativeAssistantSession? = null
++    internal var assistantSession: NativeAssistantSession? = null
+     override fun onCreate() {
+         super.onCreate()
+         activeService = this
+diff --git a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordListeningActivity.kt b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordListeningActivity.kt
+index 53f624e..0797b8b 100644
+--- a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordListeningActivity.kt
++++ b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordListeningActivity.kt
+@@ -27,9 +27,12 @@ class WakeWordListeningActivity : Activity() {
+                 activity.finishAndRemoveTask()
+             }
+         }
++
++        internal val activeSession: NativeAssistantSession?
++            get() = instance?.assistantSession
+     }
+ 
+-    private var assistantSession: NativeAssistantSession? = null
++    internal var assistantSession: NativeAssistantSession? = null
+     private var pulseAnimator: AnimatorSet? = null
+ 
+     private lateinit var titleView: TextView
+diff --git a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordModule.kt b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordModule.kt
+index 429c0bd..e61db43 100644
+--- a/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordModule.kt
++++ b/modules/wakeword/android/src/main/java/expo/modules/wakeword/WakeWordModule.kt
+@@ -1,11 +1,30 @@
+ package expo.modules.wakeword
+ 
++import android.bluetooth.BluetoothManager
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.media.AudioManager
++import android.hardware.camera2.CameraManager
++import android.net.wifi.WifiManager
++import android.os.BatteryManager
++import android.os.Build
+ import android.os.Handler
+ import android.os.Looper
++import android.os.SystemClock
++import android.view.KeyEvent
++import android.provider.AlarmClock
++import android.provider.Settings
++import android.provider.ContactsContract
++import android.provider.CalendarContract
++import android.net.Uri
++import android.content.pm.PackageManager
++import android.content.pm.ApplicationInfo
+ import android.util.Log
+ import expo.modules.kotlin.exception.Exceptions
+ import expo.modules.kotlin.modules.Module
+ import expo.modules.kotlin.modules.ModuleDefinition
++import java.util.Locale
+ 
+ class WakeWordModule : Module() {
+     override fun definition() = ModuleDefinition {
+@@ -63,6 +82,328 @@ class WakeWordModule : Module() {
+         Function("stopAssistantSession") {
+             WakeWordForegroundService.stopAssistantSession()
+         }
++
++        Function("respondToAssistant") { response: String ->
++            val session = WakeWordListeningActivity.activeSession ?: WakeWordForegroundService.activeSession
++            session?.speakAndFinish(response)
++        }
++
++        Function("toggleFlashlight") { enable: Boolean ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            try {
++                val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
++                val cameraId = cameraManager.cameraIdList.firstOrNull()
++                if (cameraId != null) {
++                    cameraManager.setTorchMode(cameraId, enable)
++                }
++            } catch (e: Exception) {
++                Log.e("WakeWordModule", "Error toggling flashlight", e)
++            }
++        }
++
++        Function("getVolume") {
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
++            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
++            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
++            if (maxVolume > 0) currentVolume.toDouble() / maxVolume.toDouble() else 0.0
++        }
++
++        Function("setVolume") { level: Double ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
++            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
++            val targetVolume = (level * maxVolume).toInt().coerceIn(0, maxVolume)
++            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, AudioManager.FLAG_SHOW_UI)
++        }
++
++        Function("getBatteryStatus") {
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val batteryStatus = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
++            val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
++            val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
++            val batteryPct = if (level >= 0 && scale > 0) (level / scale.toFloat() * 100).toInt() else -1
++            val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
++            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
++            mapOf("level" to batteryPct, "isCharging" to isCharging)
++        }
++
++        Function("setWifi") { enable: Boolean ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            try {
++                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
++                @Suppress("DEPRECATION")
++                wifiManager.isWifiEnabled = enable
++            } catch (e: Exception) {
++                val intent = Intent(Settings.ACTION_WIFI_SETTINGS).apply {
++                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                }
++                context.startActivity(intent)
++            }
++        }
++
++        Function("setBluetooth") { enable: Boolean ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            try {
++                val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
++                val bluetoothAdapter = bluetoothManager.adapter
++                if (bluetoothAdapter != null) {
++                    if (enable) {
++                        @Suppress("DEPRECATION")
++                        bluetoothAdapter.enable()
++                    } else {
++                        @Suppress("DEPRECATION")
++                        bluetoothAdapter.disable()
++                    }
++                }
++            } catch (e: Exception) {
++                val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
++                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                }
++                context.startActivity(intent)
++            }
++        }
++
++        Function("setAlarm") { hour: Int, minute: Int, message: String ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
++                putExtra(AlarmClock.EXTRA_HOUR, hour)
++                putExtra(AlarmClock.EXTRA_MINUTES, minute)
++                putExtra(AlarmClock.EXTRA_MESSAGE, message)
++                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
++                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++            }
++            context.startActivity(intent)
++        }
++
++        Function("setTimer") { durationSeconds: Int, message: String ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val intent = Intent(AlarmClock.ACTION_SET_TIMER).apply {
++                putExtra(AlarmClock.EXTRA_LENGTH, durationSeconds)
++                putExtra(AlarmClock.EXTRA_MESSAGE, message)
++                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
++                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++            }
++            context.startActivity(intent)
++        }
++
++        Function("openApp") { appName: String ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val pm = context.packageManager
++            val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
++            var launched = false
++            val searchName = appName.lowercase(Locale.US).trim()
++            for (app in apps) {
++                val name = pm.getApplicationLabel(app).toString().lowercase(Locale.US).trim()
++                if (name == searchName || name.contains(searchName) || searchName.contains(name)) {
++                    val launchIntent = pm.getLaunchIntentForPackage(app.packageName)
++                    if (launchIntent != null) {
++                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                        context.startActivity(launchIntent)
++                        launched = true
++                        break
++                    }
++                }
++            }
++            launched
++        }
++
++        Function("callContact") { contactName: String ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            var number: String? = null
++            var resolvedName: String? = null
++            try {
++                val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
++                val projection = arrayOf(
++                    ContactsContract.CommonDataKinds.Phone.NUMBER,
++                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
++                )
++                val cursor = context.contentResolver.query(uri, projection, null, null, null)
++                cursor?.use {
++                    val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
++                    val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
++                    val queryName = contactName.lowercase(Locale.US).trim()
++                    while (it.moveToNext()) {
++                        val displayName = it.getString(nameIndex) ?: ""
++                        val lowerDisplay = displayName.lowercase(Locale.US).trim()
++                        if (lowerDisplay == queryName || lowerDisplay.contains(queryName) || queryName.contains(lowerDisplay)) {
++                            number = it.getString(numberIndex)
++                            resolvedName = displayName
++                            break
++                        }
++                    }
++                }
++                if (number != null) {
++                    val hasCallPermission = context.checkSelfPermission(android.Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
++                    val intent = if (hasCallPermission) {
++                        Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")).apply {
++                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                        }
++                    } else {
++                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).apply {
++                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                        }
++                    }
++                    context.startActivity(intent)
++                }
++            } catch (e: Exception) {
++                Log.e("WakeWordModule", "Error calling contact", e)
++            }
++            mapOf("success" to (number != null), "resolvedName" to (resolvedName ?: ""))
++        }
++
++        Function("sendSMS") { contactName: String, message: String ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            var number: String? = null
++            var resolvedName: String? = null
++            try {
++                val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
++                val projection = arrayOf(
++                    ContactsContract.CommonDataKinds.Phone.NUMBER,
++                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
++                )
++                val cursor = context.contentResolver.query(uri, projection, null, null, null)
++                cursor?.use {
++                    val nameIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
++                    val numberIndex = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
++                    val queryName = contactName.lowercase(Locale.US).trim()
++                    while (it.moveToNext()) {
++                        val displayName = it.getString(nameIndex) ?: ""
++                        val lowerDisplay = displayName.lowercase(Locale.US).trim()
++                        if (lowerDisplay == queryName || lowerDisplay.contains(queryName) || queryName.contains(lowerDisplay)) {
++                            number = it.getString(numberIndex)
++                            resolvedName = displayName
++                            break
++                        }
++                    }
++                }
++                val smsUri = Uri.parse("smsto:${number ?: ""}")
++                val intent = Intent(Intent.ACTION_SENDTO, smsUri).apply {
++                    putExtra("sms_body", message)
++                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                }
++                context.startActivity(intent)
++            } catch (e: Exception) {
++                Log.e("WakeWordModule", "Error sending SMS", e)
++            }
++            mapOf("success" to true, "resolvedName" to (resolvedName ?: ""))
++        }
++
++        Function("isNotificationListenerEnabled") {
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val enabledListeners = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
++            enabledListeners != null && enabledListeners.contains(context.packageName)
++        }
++
++        Function("requestNotificationListenerPermission") {
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS").apply {
++                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++            }
++            context.startActivity(intent)
++        }
++
++        Function("readNotifications") {
++            val notifications = mutableListOf<Map<String, Any>>()
++            val instance = KrithaNotificationListener.instance
++            if (instance != null) {
++                try {
++                    val active = instance.activeNotifications
++                    for (sbn in active) {
++                        val extras = sbn.notification.extras
++                        val title = extras.getString("android.title") ?: ""
++                        val text = extras.getCharSequence("android.text")?.toString() ?: ""
++                        val appName = sbn.packageName
++                        notifications.add(mapOf(
++                            "packageName" to appName,
++                            "title" to title,
++                            "text" to text
++                        ))
++                    }
++                } catch (e: Exception) {
++                    Log.e("WakeWordModule", "Error reading notifications", e)
++                }
++            }
++            notifications
++        }
++
++        Function("getCalendarEvents") {
++            val events = mutableListOf<Map<String, Any>>()
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            try {
++                val uri = CalendarContract.Events.CONTENT_URI
++                val projection = arrayOf(
++                    CalendarContract.Events.TITLE,
++                    CalendarContract.Events.DTSTART,
++                    CalendarContract.Events.DESCRIPTION
++                )
++                val selection = "${CalendarContract.Events.DTSTART} >= ?"
++                val selectionArgs = arrayOf(System.currentTimeMillis().toString())
++                val sortOrder = "${CalendarContract.Events.DTSTART} ASC"
++
++                val cursor = context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)
++                cursor?.use {
++                    val titleIndex = it.getColumnIndex(CalendarContract.Events.TITLE)
++                    val startIndex = it.getColumnIndex(CalendarContract.Events.DTSTART)
++                    val descIndex = it.getColumnIndex(CalendarContract.Events.DESCRIPTION)
++                    var count = 0
++                    while (it.moveToNext() && count < 5) {
++                        val title = it.getString(titleIndex) ?: ""
++                        val start = it.getLong(startIndex)
++                        val desc = it.getString(descIndex) ?: ""
++                        events.add(mapOf(
++                            "title" to title,
++                            "startTime" to start,
++                            "description" to desc
++                        ))
++                        count++
++                    }
++                }
++            } catch (e: Exception) {
++                Log.e("WakeWordModule", "Error reading calendar events", e)
++            }
++            events
++        }
++
++        Function("dispatchMediaKey") { keyCode: Int ->
++            val context = appContext.reactContext
++                ?: appContext.currentActivity?.applicationContext
++                ?: throw Exceptions.ReactContextLost()
++            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
++            val eventTime = SystemClock.uptimeMillis()
++            val downEvent = KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0)
++            val upEvent = KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0)
++            audioManager.dispatchMediaKeyEvent(downEvent)
++            audioManager.dispatchMediaKeyEvent(upEvent)
++        }
+     }
+ }
+ 
+diff --git a/modules/wakeword/src/WakeWordModule.ts b/modules/wakeword/src/WakeWordModule.ts
+index e3801ed..361bee3 100644
+--- a/modules/wakeword/src/WakeWordModule.ts
++++ b/modules/wakeword/src/WakeWordModule.ts
+@@ -22,6 +22,23 @@ declare class WakeWordModule extends NativeModule<WakeWordModuleEvents> {
+   stop(): void;
+   isRunning(): boolean;
+   stopAssistantSession(): void;
++  dispatchMediaKey(keyCode: number): void;
++  respondToAssistant(response: string): void;
++  toggleFlashlight(enable: boolean): void;
++  getVolume(): number;
++  setVolume(level: number): void;
++  getBatteryStatus(): { level: number; isCharging: boolean };
++  setWifi(enable: boolean): void;
++  setBluetooth(enable: boolean): void;
++  setAlarm(hour: number, minute: number, message: string): void;
++  setTimer(durationSeconds: number, message: string): void;
++  openApp(appName: string): boolean;
++  callContact(contactName: string): { success: boolean; resolvedName: string };
++  sendSMS(contactName: string, message: string): { success: boolean; resolvedName: string };
++  isNotificationListenerEnabled(): boolean;
++  requestNotificationListenerPermission(): void;
++  readNotifications(): Array<{ packageName: string; title: string; text: string }>;
++  getCalendarEvents(): Array<{ title: string; startTime: number; description: string }>;
+ }
+ 
+ export default requireNativeModule<WakeWordModule>('WakeWord');
+diff --git a/modules/wakeword/src/index.ts b/modules/wakeword/src/index.ts
+index 3d98ec9..d144073 100644
+--- a/modules/wakeword/src/index.ts
++++ b/modules/wakeword/src/index.ts
+@@ -22,6 +22,10 @@ export function stopAssistantSession(): void {
+   WakeWordNativeModule.stopAssistantSession();
+ }
+ 
++export function dispatchMediaKey(keyCode: number): void {
++  WakeWordNativeModule.dispatchMediaKey(keyCode);
++}
++
+ export function addWakeWordListener(
+   listener: (event: WakeWordEvent) => void
+ ): EventSubscription {
+@@ -34,4 +38,68 @@ export function addAssistantListener(
+   return emitter.addListener('onAssistantEvent', listener);
+ }
+ 
++export function respondToAssistant(response: string): void {
++  WakeWordNativeModule.respondToAssistant(response);
++}
++
++export function toggleFlashlight(enable: boolean): void {
++  WakeWordNativeModule.toggleFlashlight(enable);
++}
++
++export function getVolume(): number {
++  return WakeWordNativeModule.getVolume();
++}
++
++export function setVolume(level: number): void {
++  WakeWordNativeModule.setVolume(level);
++}
++
++export function getBatteryStatus(): { level: number; isCharging: boolean } {
++  return WakeWordNativeModule.getBatteryStatus();
++}
++
++export function setWifi(enable: boolean): void {
++  WakeWordNativeModule.setWifi(enable);
++}
++
++export function setBluetooth(enable: boolean): void {
++  WakeWordNativeModule.setBluetooth(enable);
++}
++
++export function setAlarm(hour: number, minute: number, message: string): void {
++  WakeWordNativeModule.setAlarm(hour, minute, message);
++}
++
++export function setTimer(durationSeconds: number, message: string): void {
++  WakeWordNativeModule.setTimer(durationSeconds, message);
++}
++
++export function openApp(appName: string): boolean {
++  return WakeWordNativeModule.openApp(appName);
++}
++
++export function callContact(contactName: string): { success: boolean; resolvedName: string } {
++  return WakeWordNativeModule.callContact(contactName);
++}
++
++export function sendSMS(contactName: string, message: string): { success: boolean; resolvedName: string } {
++  return WakeWordNativeModule.sendSMS(contactName, message);
++}
++
++export function isNotificationListenerEnabled(): boolean {
++  return WakeWordNativeModule.isNotificationListenerEnabled();
++}
++
++export function requestNotificationListenerPermission(): void {
++  WakeWordNativeModule.requestNotificationListenerPermission();
++}
++
++export function readNotifications(): Array<{ packageName: string; title: string; text: string }> {
++  return WakeWordNativeModule.readNotifications();
++}
++
++export function getCalendarEvents(): Array<{ title: string; startTime: number; description: string }> {
++  return WakeWordNativeModule.getCalendarEvents();
++}
++
+ export { AssistantEvent, WakeWordEvent };
+diff --git a/src/hooks/use-wakeword-bootstrap.ts b/src/hooks/use-wakeword-bootstrap.ts
+index fa62cf0..cf470f7 100644
+--- a/src/hooks/use-wakeword-bootstrap.ts
++++ b/src/hooks/use-wakeword-bootstrap.ts
+@@ -9,31 +9,22 @@ export function useWakeWordBootstrap() {
+ 
+     let cancelled = false;
+     const requestPermissionsAndStart = async () => {
+-      const microphone = await PermissionsAndroid.request(
++      const permissions = [
+         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+-        {
+-          title: "Allow microphone access",
+-          message:
+-            "Kritha uses the microphone to listen locally for your wake word, including while the app is in the background.",
+-          buttonPositive: "Allow",
+-          buttonNegative: "Not now",
+-        },
+-      );
+-      if (cancelled || microphone !== PermissionsAndroid.RESULTS.GRANTED) return;
++        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
++        PermissionsAndroid.PERMISSIONS.READ_CALENDAR,
++        PermissionsAndroid.PERMISSIONS.CALL_PHONE,
++      ];
+ 
+       if (Number(Platform.Version) >= 33) {
+-        await PermissionsAndroid.request(
+-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+-          {
+-            title: "Allow wake-word notifications",
+-            message:
+-              "Kritha shows an ongoing listening indicator and alerts you when the wake word is detected.",
+-            buttonPositive: "Allow",
+-            buttonNegative: "Not now",
+-          },
+-        );
++        permissions.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+       }
+ 
++      const results = await PermissionsAndroid.requestMultiple(permissions);
++      
++      const recordGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
++      if (cancelled || !recordGranted) return;
++
+       if (!cancelled) await wakeWordService.start();
+     };
+ 
+diff --git a/src/services/assistant.service.ts b/src/services/assistant.service.ts
+index e8b354a..a7c3a9d 100644
+--- a/src/services/assistant.service.ts
++++ b/src/services/assistant.service.ts
+@@ -6,7 +6,7 @@ class AssistantService {
+   public async startAssistantPipeline(): Promise<void> {
+     this.unsubscribeFromAssistant?.();
+     this.unsubscribeFromAssistant = wakeWordService.subscribeToAssistant((event) => {
+-      console.log("Native assistant event", event);
++      console.log("Native assistant event (for UI):", event);
+     });
+     await wakeWordService.start();
+   }
+diff --git a/src/services/wakeword.service.ts b/src/services/wakeword.service.ts
+index d4b4196..065d83b 100644
+--- a/src/services/wakeword.service.ts
++++ b/src/services/wakeword.service.ts
+@@ -8,6 +8,23 @@ import {
+   start,
+   stop,
+   stopAssistantSession,
++  dispatchMediaKey,
++  respondToAssistant,
++  toggleFlashlight,
++  getVolume,
++  setVolume,
++  getBatteryStatus,
++  setWifi,
++  setBluetooth,
++  setAlarm,
++  setTimer,
++  openApp,
++  callContact,
++  sendSMS,
++  isNotificationListenerEnabled,
++  requestNotificationListenerPermission,
++  readNotifications,
++  getCalendarEvents,
+ } from "../../modules/wakeword/src";
+ 
+ type DetectionListener = (keyword: string, confidence?: number) => void;
+@@ -80,6 +97,75 @@ export class WakeWordService {
+       });
+     });
+   }
++
++  // Native Command Wrappers
++  public respondToAssistant(response: string): void {
++    respondToAssistant(response);
++  }
++
++  public dispatchMediaKey(keyCode: number): void {
++    dispatchMediaKey(keyCode);
++  }
++
++  public toggleFlashlight(enable: boolean): void {
++    toggleFlashlight(enable);
++  }
++
++  public getVolume(): number {
++    return getVolume();
++  }
++
++  public setVolume(level: number): void {
++    setVolume(level);
++  }
++
++  public getBatteryStatus(): { level: number; isCharging: boolean } {
++    return getBatteryStatus();
++  }
++
++  public setWifi(enable: boolean): void {
++    setWifi(enable);
++  }
++
++  public setBluetooth(enable: boolean): void {
++    setBluetooth(enable);
++  }
++
++  public setAlarm(hour: number, minute: number, message: string): void {
++    setAlarm(hour, minute, message);
++  }
++
++  public setTimer(durationSeconds: number, message: string): void {
++    setTimer(durationSeconds, message);
++  }
++
++  public openApp(appName: string): boolean {
++    return openApp(appName);
++  }
++
++  public callContact(contactName: string): { success: boolean; resolvedName: string } {
++    return callContact(contactName);
++  }
++
++  public sendSMS(contactName: string, message: string): { success: boolean; resolvedName: string } {
++    return sendSMS(contactName, message);
++  }
++
++  public isNotificationListenerEnabled(): boolean {
++    return isNotificationListenerEnabled();
++  }
++
++  public requestNotificationListenerPermission(): void {
++    requestNotificationListenerPermission();
++  }
++
++  public readNotifications(): Array<{ packageName: string; title: string; text: string }> {
++    return readNotifications();
++  }
++
++  public getCalendarEvents(): Array<{ title: string; startTime: number; description: string }> {
++    return getCalendarEvents();
++  }
+ }
+ 
+ export const wakeWordService = new WakeWordService();

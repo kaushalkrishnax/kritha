@@ -11,6 +11,7 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import expo.modules.wakeword.commands.*
 import java.util.Locale
 
 internal class NativeAssistantSession(
@@ -67,6 +68,13 @@ internal class NativeAssistantSession(
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var hasCompleted = false
+    private var lastTranscript: String? = null
+
+    fun speakAndFinish(response: String) {
+        mainHandler.post {
+            finishWithResponse(lastTranscript, response)
+        }
+    }
 
     fun start() {
         mainHandler.post {
@@ -132,11 +140,12 @@ internal class NativeAssistantSession(
             ?.trim()
             .orEmpty()
 
-        val lower = transcript.lowercase(Locale.US)
-        var commandText = transcript
+        lastTranscript = transcript
+        callback.onAssistantProcessing(transcript)
 
-        callback.onAssistantProcessing(commandText)
-        finishWithResponse(commandText, processCommand(commandText))
+        // Process command natively and speak response
+        val response = processCommand(transcript)
+        finishWithResponse(transcript, response)
     }
 
     override fun onError(error: Int) {
@@ -177,18 +186,42 @@ internal class NativeAssistantSession(
     private fun processCommand(command: String): String {
         val lower = command.lowercase(Locale.US)
         return when {
-            lower in setOf("stop", "cancel", "never mind", "nevermind") ->
+            lower in setOf("stop", "cancel", "never mind", "nevermind") -> {
                 "Okay."
-            "time" in lower ->
-                "The current time is ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}."
-            "date" in lower || "day" in lower ->
-                "Today is ${java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL).format(java.util.Date())}."
-            lower.startsWith("hello") || lower.startsWith("hi") ->
+            }
+            lower.startsWith("hello") || lower.startsWith("hi") -> {
                 "Hi, I am listening."
-            "help" in lower || "what can you do" in lower ->
-                "I can listen after the wake word and handle native commands."
-            else ->
+            }
+            "help" in lower || "what can you do" in lower -> {
+                "I can control your alarm, timer, music, volume, wifi, bluetooth, flashlight, and read notifications or calendar events."
+            }
+            "time" in lower -> {
+                "The current time is ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}."
+            }
+            "date" in lower || "day" in lower -> {
+                "Today is ${java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL).format(java.util.Date())}."
+            }
+            DeviceCommandHandler.canHandle(lower) -> {
+                DeviceCommandHandler.handle(lower, appContext)
+            }
+            MediaCommandHandler.canHandle(lower) -> {
+                MediaCommandHandler.handle(lower, appContext)
+            }
+            OrganizerCommandHandler.canHandle(lower) -> {
+                OrganizerCommandHandler.handle(lower, appContext)
+            }
+            CommunicationCommandHandler.canHandle(lower, command) -> {
+                CommunicationCommandHandler.handle(command, lower, appContext)
+            }
+            InfoCommandHandler.canHandle(lower) -> {
+                InfoCommandHandler.handle(lower, appContext)
+            }
+            AppLauncherCommandHandler.canHandle(lower) -> {
+                AppLauncherCommandHandler.handle(command, lower, appContext)
+            }
+            else -> {
                 "I heard: $command"
+            }
         }
     }
 
@@ -211,18 +244,20 @@ internal class NativeAssistantSession(
 
     private fun cleanupRecognizer() {
         recognizer?.let {
-            runCatching { it.stopListening() }
+            runCatching { it.cancel() }
             it.setRecognitionListener(null)
         }
         recognizer = null
     }
 
     private fun speak(text: String) {
-        val engine = tts
-        if (engine == null || !isTtsInitialized) {
-            pendingSpeech = text
-            return
+        mainHandler.post {
+            if (isTtsInitialized) {
+                sharedTts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kritha-native-response")
+            } else {
+                pendingSpeech = text
+                prewarm(appContext)
+            }
         }
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kritha-native-response")
     }
 }

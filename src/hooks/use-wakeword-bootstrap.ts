@@ -9,30 +9,21 @@ export function useWakeWordBootstrap() {
 
     let cancelled = false;
     const requestPermissionsAndStart = async () => {
-      const microphone = await PermissionsAndroid.request(
+      const permissions = [
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: "Allow microphone access",
-          message:
-            "Kritha uses the microphone to listen locally for your wake word, including while the app is in the background.",
-          buttonPositive: "Allow",
-          buttonNegative: "Not now",
-        },
-      );
-      if (cancelled || microphone !== PermissionsAndroid.RESULTS.GRANTED) return;
+        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+        PermissionsAndroid.PERMISSIONS.READ_CALENDAR,
+        PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+      ];
 
       if (Number(Platform.Version) >= 33) {
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-          {
-            title: "Allow wake-word notifications",
-            message:
-              "Kritha shows an ongoing listening indicator and alerts you when the wake word is detected.",
-            buttonPositive: "Allow",
-            buttonNegative: "Not now",
-          },
-        );
+        permissions.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
       }
+
+      const results = await PermissionsAndroid.requestMultiple(permissions);
+      
+      const recordGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+      if (cancelled || !recordGranted) return;
 
       if (!cancelled) await wakeWordService.start();
     };

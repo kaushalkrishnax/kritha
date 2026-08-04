@@ -27,9 +27,12 @@ class WakeWordListeningActivity : Activity() {
                 activity.finishAndRemoveTask()
             }
         }
+
+        internal val activeSession: NativeAssistantSession?
+            get() = instance?.assistantSession
     }
 
-    private var assistantSession: NativeAssistantSession? = null
+    internal var assistantSession: NativeAssistantSession? = null
     private var pulseAnimator: AnimatorSet? = null
 
     private lateinit var titleView: TextView

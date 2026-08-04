@@ -22,6 +22,23 @@ declare class WakeWordModule extends NativeModule<WakeWordModuleEvents> {
   stop(): void;
   isRunning(): boolean;
   stopAssistantSession(): void;
+  dispatchMediaKey(keyCode: number): void;
+  respondToAssistant(response: string): void;
+  toggleFlashlight(enable: boolean): void;
+  getVolume(): number;
+  setVolume(level: number): void;
+  getBatteryStatus(): { level: number; isCharging: boolean };
+  setWifi(enable: boolean): void;
+  setBluetooth(enable: boolean): void;
+  setAlarm(hour: number, minute: number, message: string): void;
+  setTimer(durationSeconds: number, message: string): void;
+  openApp(appName: string): boolean;
+  callContact(contactName: string): { success: boolean; resolvedName: string };
+  sendSMS(contactName: string, message: string): { success: boolean; resolvedName: string };
+  isNotificationListenerEnabled(): boolean;
+  requestNotificationListenerPermission(): void;
+  readNotifications(): Array<{ packageName: string; title: string; text: string }>;
+  getCalendarEvents(): Array<{ title: string; startTime: number; description: string }>;
 }
 
 export default requireNativeModule<WakeWordModule>('WakeWord');

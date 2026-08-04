@@ -81,6 +81,9 @@ class WakeWordForegroundService : Service() {
             isRunning = false
             context.stopService(Intent(context, WakeWordForegroundService::class.java))
         }
+
+        internal val activeSession: NativeAssistantSession?
+            get() = activeService?.assistantSession
     }
 
     private val listening = AtomicBoolean(false)
@@ -90,7 +93,7 @@ class WakeWordForegroundService : Service() {
     private var audioRecord: AudioRecord? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastDetectionAt = 0L
-    private var assistantSession: NativeAssistantSession? = null
+    internal var assistantSession: NativeAssistantSession? = null
     override fun onCreate() {
         super.onCreate()
         activeService = this
