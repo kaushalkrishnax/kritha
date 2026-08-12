@@ -82,6 +82,46 @@ class WakeWordForegroundService : Service() {
             context.stopService(Intent(context, WakeWordForegroundService::class.java))
         }
 
+        fun triggerAssistantSession(context: Context) {
+            if (!isRunning) {
+                start(context)
+            }
+            val handler = Handler(Looper.getMainLooper())
+            fun attemptTrigger() {
+                val service = activeService
+                if (service != null) {
+                    if (service.assistantActive.compareAndSet(false, true)) {
+                        val wasListening = service.listening.getAndSet(false)
+                        service.stopRecorder()
+                        
+                        if (!wasListening) {
+                            if (service.isAppInForeground()) {
+                                service.startNativeAssistantSession()
+                            } else {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(service)) {
+                                    Toast.makeText(service, "Enable 'Display over other apps' to use the assistant", Toast.LENGTH_LONG).show()
+                                    val i = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${service.packageName}")).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    service.startActivity(i)
+                                    service.assistantActive.set(false)
+                                    service.startListening()
+                                } else {
+                                    val intent = Intent(service, WakeWordListeningActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                                    }
+                                    service.startActivity(intent)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    handler.postDelayed({ attemptTrigger() }, 100)
+                }
+            }
+            handler.post { attemptTrigger() }
+        }
+
         internal val activeSession: NativeAssistantSession?
             get() = activeService?.assistantSession
     }

@@ -12,6 +12,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import expo.modules.wakeword.commands.*
+import expo.modules.wakeword.intelligence.*
+import kotlinx.coroutines.*
 import java.util.Locale
 
 internal class NativeAssistantSession(
@@ -70,6 +72,10 @@ internal class NativeAssistantSession(
     private var hasCompleted = false
     private var lastTranscript: String? = null
 
+    // Hierarchical Intelligence Pipeline
+    private val intelligencePipeline = IntelligencePipeline(appContext)
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
     fun speakAndFinish(response: String) {
         mainHandler.post {
             finishWithResponse(lastTranscript, response)
@@ -115,6 +121,8 @@ internal class NativeAssistantSession(
 
     fun shutdown() {
         mainHandler.post {
+            scope.cancel()
+            intelligencePipeline.close()
             recognizer?.let {
                 runCatching { it.cancel() }
                 it.setRecognitionListener(null)
@@ -143,12 +151,32 @@ internal class NativeAssistantSession(
         lastTranscript = transcript
         callback.onAssistantProcessing(transcript)
 
-        // Process command natively and speak response
-        val response = processCommand(transcript)
-        finishWithResponse(transcript, response)
+        // Process command through hierarchical cache
+        scope.launch {
+            try {
+                val result = intelligencePipeline.process(transcript)
+                withContext(Dispatchers.Main) {
+                    when (result) {
+                        is PipelineResult.Hit -> {
+                            finishWithResponse(transcript, result.response)
+                        }
+                        is PipelineResult.Miss -> {
+                            callback.onAssistantProcessing(transcript)
+                            WakeWordEventHub.emitAssistant("needs_cloud", transcript = transcript)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("NativeAssistant", "Error running intelligence pipeline", e)
+                withContext(Dispatchers.Main) {
+                    finishWithError("Failed to process command.")
+                }
+            }
+        }
     }
 
     override fun onError(error: Int) {
+        Log.e("NativeAssistant", "Speech recognition error: $error")
         val response = when (error) {
             SpeechRecognizer.ERROR_NO_MATCH -> "I did not catch that."
             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I did not hear anything."
@@ -182,48 +210,6 @@ internal class NativeAssistantSession(
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1_200L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
         }
-
-    private fun processCommand(command: String): String {
-        val lower = command.lowercase(Locale.US)
-        return when {
-            lower in setOf("stop", "cancel", "never mind", "nevermind") -> {
-                "Okay."
-            }
-            lower.startsWith("hello") || lower.startsWith("hi") -> {
-                "Hi, I am listening."
-            }
-            "help" in lower || "what can you do" in lower -> {
-                "I can control your alarm, timer, music, volume, wifi, bluetooth, flashlight, and read notifications or calendar events."
-            }
-            "time" in lower -> {
-                "The current time is ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}."
-            }
-            "date" in lower || "day" in lower -> {
-                "Today is ${java.text.DateFormat.getDateInstance(java.text.DateFormat.FULL).format(java.util.Date())}."
-            }
-            DeviceCommandHandler.canHandle(lower) -> {
-                DeviceCommandHandler.handle(lower, appContext)
-            }
-            MediaCommandHandler.canHandle(lower) -> {
-                MediaCommandHandler.handle(lower, appContext)
-            }
-            OrganizerCommandHandler.canHandle(lower) -> {
-                OrganizerCommandHandler.handle(lower, appContext)
-            }
-            CommunicationCommandHandler.canHandle(lower, command) -> {
-                CommunicationCommandHandler.handle(command, lower, appContext)
-            }
-            InfoCommandHandler.canHandle(lower) -> {
-                InfoCommandHandler.handle(lower, appContext)
-            }
-            AppLauncherCommandHandler.canHandle(lower) -> {
-                AppLauncherCommandHandler.handle(command, lower, appContext)
-            }
-            else -> {
-                "I heard: $command"
-            }
-        }
-    }
 
     private fun finishWithError(message: String) {
         if (hasCompleted) return
@@ -261,3 +247,4 @@ internal class NativeAssistantSession(
         }
     }
 }
+

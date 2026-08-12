@@ -22,6 +22,10 @@ export function stopAssistantSession(): void {
   WakeWordNativeModule.stopAssistantSession();
 }
 
+export function triggerAssistantSession(): void {
+  WakeWordNativeModule.triggerAssistantSession();
+}
+
 export function dispatchMediaKey(keyCode: number): void {
   WakeWordNativeModule.dispatchMediaKey(keyCode);
 }

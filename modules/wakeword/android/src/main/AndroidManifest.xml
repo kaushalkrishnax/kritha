@@ -26,6 +26,9 @@
     <intent>
       <data android:scheme="sausico" />
     </intent>
+    <intent>
+      <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+    </intent>
   </queries>
 
   <application>

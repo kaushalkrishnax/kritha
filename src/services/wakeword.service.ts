@@ -8,6 +8,7 @@ import {
   start,
   stop,
   stopAssistantSession,
+  triggerAssistantSession,
   dispatchMediaKey,
   respondToAssistant,
   toggleFlashlight,
@@ -48,6 +49,10 @@ export class WakeWordService {
 
   public async stopAssistantSession(): Promise<void> {
     stopAssistantSession();
+  }
+
+  public triggerAssistantSession(): void {
+    triggerAssistantSession();
   }
 
   public getIsRunning(): boolean {

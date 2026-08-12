@@ -83,6 +83,13 @@ class WakeWordModule : Module() {
             WakeWordForegroundService.stopAssistantSession()
         }
 
+        Function("triggerAssistantSession") {
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: throw Exceptions.ReactContextLost()
+            WakeWordForegroundService.triggerAssistantSession(context)
+        }
+
         Function("respondToAssistant") { response: String ->
             val session = WakeWordListeningActivity.activeSession ?: WakeWordForegroundService.activeSession
             session?.speakAndFinish(response)

@@ -6,7 +6,7 @@ export type WakeWordEvent = {
 };
 
 export type AssistantEvent = {
-  state: 'listening' | 'processing' | 'finished' | 'error';
+  state: 'listening' | 'processing' | 'finished' | 'error' | 'needs_cloud';
   transcript?: string;
   response?: string;
   error?: string;
@@ -22,6 +22,7 @@ declare class WakeWordModule extends NativeModule<WakeWordModuleEvents> {
   stop(): void;
   isRunning(): boolean;
   stopAssistantSession(): void;
+  triggerAssistantSession(): void;
   dispatchMediaKey(keyCode: number): void;
   respondToAssistant(response: string): void;
   toggleFlashlight(enable: boolean): void;
