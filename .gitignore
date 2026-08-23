@@ -36,7 +36,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-example
+# ai related
+.openbrowser
 
 # generated native folders
 /ios

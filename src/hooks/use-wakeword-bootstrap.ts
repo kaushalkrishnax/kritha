@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { PermissionsAndroid, Platform } from "react-native";
+import { useEffect } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
 
-import { wakeWordService } from "@/services/wakeword.service";
+import { wakeWordService } from '../services/wakeword.service';
 
 export function useWakeWordBootstrap() {
   useEffect(() => {
-    if (Platform.OS !== "android") return;
+    if (Platform.OS !== 'android') return;
 
     let cancelled = false;
     const requestPermissionsAndStart = async () => {
@@ -21,8 +21,10 @@ export function useWakeWordBootstrap() {
       }
 
       const results = await PermissionsAndroid.requestMultiple(permissions);
-      
-      const recordGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+
+      const recordGranted =
+        results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
+        PermissionsAndroid.RESULTS.GRANTED;
       if (cancelled || !recordGranted) return;
 
       if (!cancelled) await wakeWordService.start();

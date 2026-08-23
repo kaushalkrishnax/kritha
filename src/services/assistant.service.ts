@@ -1,13 +1,15 @@
-import { wakeWordService } from "./wakeword.service";
+import { wakeWordService } from './wakeword.service';
 
 class AssistantService {
   private unsubscribeFromAssistant?: () => void;
 
   public async startAssistantPipeline(): Promise<void> {
     this.unsubscribeFromAssistant?.();
-    this.unsubscribeFromAssistant = wakeWordService.subscribeToAssistant((event) => {
-      console.log("Native assistant event (for UI):", event);
-    });
+    this.unsubscribeFromAssistant = wakeWordService.subscribeToAssistant(
+      (event) => {
+        console.log('Native assistant event (for UI):', event);
+      },
+    );
     await wakeWordService.start();
   }
 
@@ -15,7 +17,7 @@ class AssistantService {
     this.unsubscribeFromAssistant?.();
     this.unsubscribeFromAssistant = undefined;
     await wakeWordService.stop();
-    console.log("Assistant execution pipeline entirely shutdown");
+    console.log('Assistant execution pipeline entirely shutdown');
   }
 }
 
