@@ -1,5 +1,5 @@
 import { ChatMessage } from '@/components/chat/types';
-import { ChatInput } from '@/components/chat/ui';
+import { ChatInput, DictationCornerGlow, LiveTalkBar } from '@/components/chat/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dbService } from '@/services/db.service';
 import KrithaNativeModule from '../../../../modules/kritha/src/KrithaModule';
 import { AssistantResponseCard } from './AssistantResponseCard';
 
@@ -19,6 +20,10 @@ export function AssistantOverlay() {
   const [draft, setDraft] = useState('');
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing' | 'sending'>('idle');
   const [error, setError] = useState<string | null>(null);
+
+  const [isLiveTalk, setIsLiveTalk] = useState(false);
+  const isLiveTalkRef = useRef(isLiveTalk);
+  useEffect(() => { isLiveTalkRef.current = isLiveTalk; }, [isLiveTalk]);
 
   const [ttsState, setTtsState] = useState<{ isSpeaking: boolean; isPaused: boolean; msgId: string | null }>({
     isSpeaking: false,
@@ -60,6 +65,35 @@ export function AssistantOverlay() {
       console.warn('Failed to stop assistant session:', e);
     }
   }, []);
+
+  const handleExpandPress = useCallback(() => {
+    if (messages.length > 0) {
+      try {
+        const firstUserMsg = messages.find((m) => m.role === 'user');
+        const title = firstUserMsg ? firstUserMsg.text.slice(0, 28) : 'Voice Chat';
+        const session = dbService.createSession(title);
+        messages.forEach((m, idx) => {
+          dbService.addMessage({
+            id: m.id || `${Date.now()}_${idx}`,
+            session_id: session.id,
+            role: m.role,
+            text: m.text,
+            created_at: Date.now() + idx,
+          });
+        });
+      } catch (e) {
+        console.warn('Failed to save overlay session to DB:', e);
+      }
+    }
+    try {
+      KrithaNativeModule.stopAssistantSession();
+      if (KrithaNativeModule.openMainApp) {
+        KrithaNativeModule.openMainApp();
+      }
+    } catch (e) {
+      console.warn('Failed to open main app:', e);
+    }
+  }, [messages]);
 
   const showResponse = useCallback(() => {
     if (responseVisibleRef.current) return;
@@ -152,6 +186,7 @@ export function AssistantOverlay() {
           if (!nativeAssistantMsgId) {
             nativeAssistantMsgId = `${Date.now()}_native_assistant`;
             setMessages((prev) => [...prev, { id: nativeAssistantMsgId!, role: 'assistant', text: event.chunk! }]);
+            setTtsState((prev) => ({ ...prev, msgId: nativeAssistantMsgId }));
           } else {
             setMessages((prev) => prev.map((m) => (m.id === nativeAssistantMsgId ? { ...m, text: m.text + event.chunk } : m)));
           }
@@ -162,6 +197,7 @@ export function AssistantOverlay() {
       if (event.state === 'finished') {
         setStatus('idle');
         setDraft('');
+        showResponse();
 
         if (!appendedUserMsgForNative && event.transcript) {
           appendedUserMsgForNative = true;
@@ -177,7 +213,8 @@ export function AssistantOverlay() {
           }
         }
 
-        setTtsState((prev) => ({ ...prev, msgId: nativeAssistantMsgId }));
+        const activeId = nativeAssistantMsgId;
+        setTtsState((prev) => ({ ...prev, msgId: activeId || prev.msgId }));
         
         nativeAssistantMsgId = null;
         appendedUserMsgForNative = false;
@@ -186,7 +223,12 @@ export function AssistantOverlay() {
       }
 
       if (event.state === 'tts_start') {
-        setTtsState((prev) => ({ ...prev, isSpeaking: true, isPaused: false }));
+        setTtsState((prev) => ({
+          ...prev,
+          isSpeaking: true,
+          isPaused: false,
+          msgId: prev.msgId || (messages.length > 0 ? messages[messages.length - 1].id : null),
+        }));
         return;
       }
 
@@ -197,6 +239,9 @@ export function AssistantOverlay() {
 
       if (event.state === 'tts_done') {
         setTtsState((prev) => ({ ...prev, isSpeaking: false, isPaused: false }));
+        if (isLiveTalkRef.current && !isRecordingRef.current) {
+          handleDictatePress();
+        }
         return;
       }
 
@@ -216,20 +261,27 @@ export function AssistantOverlay() {
       }
     });
 
+    const sub3 = KrithaNativeModule.addListener('onWakeWordDetected', () => {
+      if (!mountedRef.current) return;
+      try { KrithaNativeModule.stopTts(); } catch { }
+      try { KrithaNativeModule.stopGeneration(); } catch { }
+      setTtsState({ isSpeaking: false, isPaused: false, msgId: null });
+      try { KrithaNativeModule.triggerAssistantSession(); } catch { }
+    });
+
     return () => {
       sub1.remove();
       sub2.remove();
+      sub3.remove();
     };
   }, [hideResponse, showResponse]);
 
-  // Is typed? Yes, if not recorded via mic button.
   const [isTyped, setIsTyped] = useState(true);
 
   const handleSendMessage = useCallback(async () => {
     const text = draft.trim();
     if (!text || isSending || isProcessing) return;
-    
-    // Auto TTS if it was dictated manually via mic, no Auto TTS if typed manually
+
     const autoTts = !isTyped;
     
     setDraft('');
@@ -257,6 +309,11 @@ export function AssistantOverlay() {
       handleStopDictation();
       return;
     }
+
+    try { KrithaNativeModule.stopTts(); } catch { }
+    try { KrithaNativeModule.stopGeneration(); } catch { }
+    setTtsState({ isSpeaking: false, isPaused: false, msgId: null });
+
     setIsTyped(false); // Mark as dictated
     setStatus('recording');
     setDraft('');
@@ -266,12 +323,36 @@ export function AssistantOverlay() {
       setStatus('idle');
       if (userText && userText.trim().length > 0) {
         setDraft(userText.trim());
-        // Wait for user to tap send manually so they can edit
       }
     } catch {
       setStatus('idle');
     }
   }, [isRecording, handleStopDictation]);
+
+  const handleLiveTalkToggle = useCallback(() => {
+    if (isLiveTalkRef.current) {
+      setIsLiveTalk(false);
+      try { KrithaNativeModule.stopDictation(); } catch { }
+      try { KrithaNativeModule.stopTts(); } catch { }
+      setStatus('idle');
+    } else {
+      setIsLiveTalk(true);
+      try { KrithaNativeModule.stopTts(); } catch { }
+      handleDictatePress();
+    }
+  }, [handleDictatePress]);
+
+  const handleLiveTalkPauseResume = useCallback(() => {
+    if (ttsState.isSpeaking || isRecording) {
+      try { KrithaNativeModule.stopTts(); } catch { }
+      try { KrithaNativeModule.stopDictation(); } catch { }
+      setTtsState({ isSpeaking: false, isPaused: true, msgId: null });
+      setStatus('idle');
+    } else {
+      setTtsState({ isSpeaking: false, isPaused: false, msgId: null });
+      handleDictatePress();
+    }
+  }, [handleDictatePress, isRecording, ttsState.isSpeaking]);
 
   const handleStopResponse = useCallback(() => {
     setStatus('idle');
@@ -325,6 +406,7 @@ export function AssistantOverlay() {
 
   return (
     <View style={styles.root}>
+      <DictationCornerGlow active={isRecording} />
       <Pressable style={styles.backdrop} onPress={handleClose} />
 
       <Animated.View
@@ -359,25 +441,37 @@ export function AssistantOverlay() {
             isTtsPaused={ttsState.isPaused}
             ttsMsgId={ttsState.msgId}
             onSpeakerPress={(id) => handleSpeakerPress(id)}
+            onExpandPress={handleExpandPress}
+            hideActions={isLiveTalk}
           />
 
           <View style={styles.composerWrapper}>
-            <ChatInput
-              draft={draft}
-              setDraft={(val) => {
-                setDraft(val);
-                if (val.trim() === '') setIsTyped(true);
-              }}
-              isSending={isSending}
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              isLiveTalk={false}
-              onSendMessage={handleSendMessage}
-              onDictatePress={handleDictatePress}
-              onLiveTalkPress={() => {}} // Disabled in overlay
-              onStopDictation={handleStopDictation}
-              onStopResponse={handleStopResponse}
-            />
+            {isLiveTalk ? (
+              <LiveTalkBar
+                isRecording={isRecording}
+                isSpeaking={ttsState.isSpeaking}
+                isPaused={ttsState.isPaused}
+                onPauseResumePress={handleLiveTalkPauseResume}
+                onEndPress={handleLiveTalkToggle}
+              />
+            ) : (
+              <ChatInput
+                draft={draft}
+                setDraft={(val) => {
+                  setDraft(val);
+                  if (val.trim() === '') setIsTyped(true);
+                }}
+                isSending={isSending}
+                isRecording={isRecording}
+                isProcessing={isProcessing}
+                isLiveTalk={isLiveTalk}
+                onSendMessage={handleSendMessage}
+                onDictatePress={handleDictatePress}
+                onLiveTalkPress={handleLiveTalkToggle}
+                onStopDictation={handleStopDictation}
+                onStopResponse={handleStopResponse}
+              />
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>

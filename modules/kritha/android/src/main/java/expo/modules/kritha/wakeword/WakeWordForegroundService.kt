@@ -136,6 +136,7 @@ class WakeWordForegroundService : Service() {
         super.onCreate()
         instance = this
         isRunning = true
+        expo.modules.kritha.TtsManager.prewarm(this)
         createNotificationChannel()
         startForegroundCompat(buildNotification())
         acquireWakeLock()
@@ -184,8 +185,6 @@ class WakeWordForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // Wake word detection loop 
-
     private fun startListening() {
         if (isListeningPaused) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -220,16 +219,14 @@ class WakeWordForegroundService : Service() {
         val sliceBuffer = ShortArray(SLICE_SIZE)
 
         while (listening.get()) {
-            // Fill one 250ms slice
             var offset = 0
             while (offset < SLICE_SIZE && listening.get()) {
                 val read = recorder.read(sliceBuffer, offset, SLICE_SIZE - offset)
-                if (read <= 0) return   // mic error / service stopping
+                if (read <= 0) return
                 offset += read
             }
             if (offset < SLICE_SIZE) return
 
-            // Shift ring buffer and append new slice
             System.arraycopy(ringBuffer, SLICE_SIZE, ringBuffer, 0, SAMPLE_COUNT - SLICE_SIZE)
             System.arraycopy(sliceBuffer, 0, ringBuffer, SAMPLE_COUNT - SLICE_SIZE, SLICE_SIZE)
 
@@ -247,6 +244,14 @@ class WakeWordForegroundService : Service() {
 
     private fun onDetected(confidence: Float) {
         Log.i(TAG, "Wake word detected (confidence=$confidence)")
+
+        if (WakeWordListeningActivity.isInstanceActive) {
+            listening.set(false)
+            stopRecorder()
+            WakeWordListeningActivity.onWakeWordDetected()
+            WakeWordEventHub.emit("hey_kritha", confidence)
+            return
+        }
 
         if (isAppInForeground()) {
             WakeWordEventHub.emit("hey_kritha", confidence)

@@ -442,15 +442,15 @@ export function ChatInput({
               )}
 
               <TextInput
-                value={draft}
+                value={isProcessing ? '' : draft}
                 onChangeText={handleTextChange}
                 style={[
                   styles.input,
                   isExpanded && styles.expandedInput,
                 ]}
                 placeholder={
-                  isSending || isProcessing
-                    ? 'Kritha is responding...'
+                  isProcessing
+                    ? 'Just a Sec...'
                     : 'Ask Kritha...'
                 }
                 placeholderTextColor="rgba(232,234,237,0.46)"

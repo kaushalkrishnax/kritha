@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Square } from 'lucide-react-native';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgGradient, Stop, Rect } from 'react-native-svg';
 import Colors from '@/theme';
 
 import { dbService } from '@/services/db.service';
-import { cloudService } from '@/services/cloud.service';
 import KrithaNativeModule from '../../../../modules/kritha/src/KrithaModule';
-import * as Speech from 'expo-speech';
 
 import { useChatState } from '@/hooks/use-chat-state';
 import { useModelLoader } from '@/hooks/use-model-loader';
@@ -18,7 +16,7 @@ import { useNativeEvents } from '@/hooks/use-native-events';
 import { useWakeWordBootstrap } from '@/hooks/use-wakeword-bootstrap';
 import { wakeWordService } from '@/services/wakeword.service';
 
-import { ChatHeader, ChatInput, ChatMessages, ChatSidebar } from '@/components/chat/ui';
+import { ChatHeader, ChatInput, ChatMessages, ChatSidebar, DictationCornerGlow, LiveTalkBar } from '@/components/chat/ui';
 import { ModelSelectModal } from './ModelSelectModal';
 import { ChatMessage, ModelRecord } from '@/components/chat/types';
 
@@ -40,13 +38,17 @@ export function ChatInterface() {
     draft,
     isWakeWordOn,
     sidebarOpen,
+    ttsState,
   } = state;
 
   const [isModelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [downloadModalModel, setDownloadModalModel] = useState<ModelRecord | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLiveTalk, setIsLiveTalk] = useState(false);
 
-  // Keep stable refs so async callbacks always read latest values
+  const isLiveTalkRef = useRef(isLiveTalk);
+  useEffect(() => { isLiveTalkRef.current = isLiveTalk; }, [isLiveTalk]);
+
   const messagesRef = useRef(messages);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
@@ -59,27 +61,37 @@ export function ChatInterface() {
   const isRecordingRef = useRef(isRecording);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
-  // Load sessions on mount
   useEffect(() => {
-    const loadedSessions = dbService.getSessions();
-    dispatch({ type: 'SET_SESSIONS', sessions: loadedSessions });
-    if (loadedSessions.length > 0) {
-      dispatch({ type: 'SET_SESSION_ID', sessionId: loadedSessions[0].id });
-      dispatch({
-        type: 'SET_MESSAGES',
-        messages: dbService.getMessages(loadedSessions[0].id),
-      });
-    } else {
-      const newSession = dbService.createSession('New Chat');
-      dispatch({ type: 'SET_SESSIONS', sessions: [newSession] });
-      dispatch({ type: 'SET_SESSION_ID', sessionId: newSession.id });
-      dispatch({ type: 'SET_MESSAGES', messages: [] });
-    }
+    const reloadSessions = () => {
+      const loadedSessions = dbService.getSessions();
+      dispatch({ type: 'SET_SESSIONS', sessions: loadedSessions });
+      if (loadedSessions.length > 0) {
+        dispatch({ type: 'SET_SESSION_ID', sessionId: loadedSessions[0].id });
+        dispatch({
+          type: 'SET_MESSAGES',
+          messages: dbService.getMessages(loadedSessions[0].id),
+        });
+      } else {
+        const newSession = dbService.createSession('New Chat');
+        dispatch({ type: 'SET_SESSIONS', sessions: [newSession] });
+        dispatch({ type: 'SET_SESSION_ID', sessionId: newSession.id });
+        dispatch({ type: 'SET_MESSAGES', messages: [] });
+      }
+    };
+
+    reloadSessions();
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        reloadSessions();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
   }, [dispatch]);
 
   useModelLoader(dispatch);
-
-  // Session handlers
 
   const handleSessionSelect = useCallback((id: string) => {
     dispatch({ type: 'SET_SESSION_ID', sessionId: id });
@@ -118,8 +130,6 @@ export function ChatInterface() {
     dispatch({ type: 'SET_SESSIONS', sessions: dbService.getSessions() });
   }, [dispatch]);
 
-  // Model handlers
-
   const selectedModel = useMemo(
     () => models.find((m) => m.id === selectedModelId) || models[0],
     [models, selectedModelId],
@@ -142,8 +152,6 @@ export function ChatInterface() {
     KrithaNativeModule.downloadModel(model.id);
   }, [dispatch]);
 
-  // Live Talk / TTS
-
   const handleStatusChange = useCallback(
     (status: 'idle' | 'recording' | 'processing' | 'sending') => {
       if (status === 'recording') {
@@ -163,10 +171,6 @@ export function ChatInterface() {
   const handleDraftChange = useCallback((text: string) => {
     dispatch({ type: 'SET_DRAFT', text });
   }, [dispatch]);
-
-  
-
-  // Send message
 
   const sendMessageWithText = useCallback(
     async (text: string, autoTts = false) => {
@@ -213,15 +217,25 @@ export function ChatInterface() {
 
       try {
         let responseText = '';
-        if (!selectedModel?.isCloud && selectedModel?.downloaded) {
-          responseText = await KrithaNativeModule.generateLocalResponse(userText, selectedModel.id);
-        } else {
-          responseText = await cloudService.generateStreamingResponse(
-            [...currentMsgs, userMessage],
-            (chunk) => {
-              dispatch({ type: 'STREAM_CHUNK', id: assistantMsgId, chunk });
-            },
-          );
+        const sub = KrithaNativeModule.addListener('onAssistantEvent', (event) => {
+          if ((event as any).state === 'streaming' && (event as any).chunk) {
+            const chunk = (event as any).chunk;
+            dispatch({ type: 'STREAM_CHUNK', id: assistantMsgId, chunk });
+            if (autoTts) {
+              try { KrithaNativeModule.speakChunk(chunk); } catch { }
+            }
+          }
+        });
+        try {
+          if (autoTts) {
+            dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: true, isPaused: false, msgId: assistantMsgId } });
+          }
+          responseText = await KrithaNativeModule.generateLocalResponse(userText, selectedModel?.id || '');
+          if (autoTts) {
+            try { KrithaNativeModule.flushTts(); } catch { }
+          }
+        } finally {
+          sub.remove();
         }
 
         if (currentSessionId) {
@@ -239,15 +253,6 @@ export function ChatInterface() {
           id: assistantMsgId,
           fullText: responseText,
         });
-
-        if (autoTts) {
-          dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: true, isPaused: false, msgId: assistantMsgId } });
-          Speech.speak(responseText, {
-            onDone: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-            onError: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-            onStopped: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-          });
-        }
       } catch (err: any) {
         dispatch({ type: 'SET_ERROR', error: err?.message || 'Failed to generate response.' });
       } finally {
@@ -273,7 +278,7 @@ export function ChatInterface() {
       return;
     }
 
-    Speech.stop();
+    try { KrithaNativeModule.stopTts(); } catch { }
     dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } });
     
     dispatch({ type: 'SET_PRE_DICTATION_DRAFT', text: draft });
@@ -303,17 +308,54 @@ export function ChatInterface() {
     }
   }, [dispatch, draft, isRecording, sendMessageWithText]);
 
-  const handleWakeWordDetected = useCallback(() => {
-    if (!isRecordingRef.current && !isSendingRef.current) {
+  const handleLiveTalkToggle = useCallback(() => {
+    if (isLiveTalkRef.current) {
+      setIsLiveTalk(false);
+      try { KrithaNativeModule.stopDictation(); } catch { }
+      try { KrithaNativeModule.stopTts(); } catch { }
+      dispatch({ type: 'SET_RECORDING', value: false });
+      setIsProcessing(false);
+    } else {
+      setIsLiveTalk(true);
+      try { KrithaNativeModule.stopTts(); } catch { }
+      handleDictatePress(true);
+    }
+  }, [dispatch, handleDictatePress]);
+
+  const handleLiveTalkPauseResume = useCallback(() => {
+    if (ttsState.isSpeaking || isRecordingRef.current) {
+      try { KrithaNativeModule.stopTts(); } catch { }
+      try { KrithaNativeModule.stopDictation(); } catch { }
+      dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: true, msgId: null } });
+      dispatch({ type: 'SET_RECORDING', value: false });
+    } else {
+      dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } });
+      handleDictatePress(true);
+    }
+  }, [dispatch, handleDictatePress, ttsState.isSpeaking]);
+
+  const handleTtsDone = useCallback(() => {
+    if (isLiveTalkRef.current && !isRecordingRef.current && !isSendingRef.current) {
       handleDictatePress(true);
     }
   }, [handleDictatePress]);
+
+  const handleWakeWordDetected = useCallback(() => {
+    if (!isRecordingRef.current) {
+      try { KrithaNativeModule.stopTts(); } catch { }
+      try { KrithaNativeModule.stopGeneration(); } catch { }
+      dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } });
+      dispatch({ type: 'SET_SENDING', value: false });
+      handleDictatePress(true);
+    }
+  }, [dispatch, handleDictatePress]);
 
   useNativeEvents({
     dispatch,
     isSendingRef,
     onWakeWordDetected: handleWakeWordDetected,
     isRecordingRef,
+    onTtsDone: handleTtsDone,
   });
 
   const insets = useSafeAreaInsets();
@@ -338,6 +380,7 @@ export function ChatInterface() {
 
   return (
     <View style={styles.shell}>
+      <DictationCornerGlow active={isRecording} />
       <StatusBar style="light" />
 
       <View style={styles.appFrame}>
@@ -401,16 +444,12 @@ export function ChatInterface() {
                   const msg = messages.find((m) => m.id === id);
                   if (!msg) return;
                   if (state.ttsState.isSpeaking && state.ttsState.msgId === id) {
-                    Speech.stop();
+                    try { KrithaNativeModule.stopTts(); } catch { }
                     dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } });
                   } else {
-                    Speech.stop();
+                    try { KrithaNativeModule.stopTts(); } catch { }
                     dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: true, isPaused: false, msgId: id } });
-                    Speech.speak(msg.text, {
-                      onDone: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-                      onError: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-                      onStopped: () => dispatch({ type: 'SET_TTS_STATE', state: { isSpeaking: false, isPaused: false, msgId: null } }),
-                    });
+                    try { KrithaNativeModule.speakText(msg.text); } catch { }
                   }
                 }}
               />
@@ -444,19 +483,29 @@ export function ChatInterface() {
                 </View>
               )}
 
-              <ChatInput
-                draft={draft}
-                setDraft={(text) => dispatch({ type: 'SET_DRAFT', text })}
-                isSending={isSending}
-                isRecording={isRecording}
-                isProcessing={isProcessing}
-                isLiveTalk={false}
-                onSendMessage={sendMessage}
-                onDictatePress={handleDictatePress}
-                onLiveTalkPress={() => {}}
-                onStopDictation={() => KrithaNativeModule.stopDictation()}
-                onStopResponse={() => KrithaNativeModule.stopGeneration()}
-              />
+              {isLiveTalk ? (
+                <LiveTalkBar
+                  isRecording={isRecording}
+                  isSpeaking={ttsState.isSpeaking}
+                  isPaused={ttsState.isPaused}
+                  onPauseResumePress={handleLiveTalkPauseResume}
+                  onEndPress={handleLiveTalkToggle}
+                />
+              ) : (
+                <ChatInput
+                  draft={draft}
+                  setDraft={(text) => dispatch({ type: 'SET_DRAFT', text })}
+                  isSending={isSending}
+                  isRecording={isRecording}
+                  isProcessing={isProcessing}
+                  isLiveTalk={isLiveTalk}
+                  onSendMessage={sendMessage}
+                  onDictatePress={handleDictatePress}
+                  onLiveTalkPress={handleLiveTalkToggle}
+                  onStopDictation={() => KrithaNativeModule.stopDictation()}
+                  onStopResponse={() => KrithaNativeModule.stopGeneration()}
+                />
+              )}
             </Animated.View>
           </View>
         </View>

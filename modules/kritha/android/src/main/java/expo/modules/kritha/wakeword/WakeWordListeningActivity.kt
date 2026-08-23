@@ -18,8 +18,28 @@ class WakeWordListeningActivity : ReactActivity() {
         @Volatile
         private var instance: WakeWordListeningActivity? = null
 
+        val isInstanceActive: Boolean
+            get() = instance != null
+
+        fun onWakeWordDetected() {
+            instance?.let { activity ->
+                activity.runOnUiThread {
+                    activity.assistantSession?.stopTts()
+                    activity.startAssistantSession()
+                }
+            }
+        }
+
         fun stopSessionIfActive() {
             instance?.finishAndRemoveTask()
+        }
+
+        fun processPrompt(text: String, autoTts: Boolean) {
+            val activity = instance ?: return
+            if (activity.assistantSession == null) {
+                activity.startAssistantSession()
+            }
+            activity.assistantSession?.processPrompt(text, autoTts)
         }
 
         internal val activeSession: NativeAssistantSession?
@@ -54,6 +74,16 @@ class WakeWordListeningActivity : ReactActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         startAssistantSession()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        assistantSession?.stopTts()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        assistantSession?.stopTts()
     }
 
     override fun onDestroy() {

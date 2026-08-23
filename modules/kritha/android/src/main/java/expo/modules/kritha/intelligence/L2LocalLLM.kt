@@ -9,19 +9,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 
-/**
- * Local LLM inference via LiteRT-LM.
- *
- * Responsibilities:
- *  - Resolve the model file path from [ModelManager].
- *  - Obtain a ready [Engine] from [LiteRTEngineManager] (cached, mutex-protected).
- *  - Run a single-turn inference, streaming each token through [onChunk].
- *  - Schedule engine idle TTL after inference completes.
- *  - Return the full response string, or null if the model is unavailable.
- *  - Support instant mid-stream cancellation via [cancelInference].
- *
- * This class is stateless — safe to construct and call from any coroutine context.
- */
 internal class L2LocalLLM(private val context: Context) {
 
     suspend fun infer(

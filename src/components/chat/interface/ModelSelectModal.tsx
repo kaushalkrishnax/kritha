@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   View,
   Text,
@@ -37,7 +36,6 @@ export function ModelSelectModal({
 }: ModelSelectModalProps) {
   return (
     <>
-      {/* MODEL DROPDOWN MENU */}
       <Modal
         visible={isDropdownOpen}
         transparent
@@ -55,16 +53,16 @@ export function ModelSelectModal({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.dropdownItemText}>{m.name}</Text>
                   <Text style={styles.dropdownItemSub}>
-                    {m.totalMb ? `${Math.round(m.totalMb)} MB` : ''}
+                    {m.downloaded ? 'Downloaded' : 'Not downloaded'}
+                    {m.totalMb ? ` • ${Math.round(m.totalMb)} MB` : ''}
                   </Text>
                 </View>
-                {m.downloaded ? (
+                {m.id === selectedModelId && (
                   <CheckCircle2
-                    size={16}
-                    color={m.id === selectedModelId ? Colors.borderAccent : Colors.success}
+                    size={24}
+                    color={Colors.bgElevated}
+                    fill={Colors.borderAccent}
                   />
-                ) : (
-                  <Circle size={16} color={Colors.textDimmed} />
                 )}
               </TouchableOpacity>
             ))}
@@ -72,7 +70,6 @@ export function ModelSelectModal({
         </Pressable>
       </Modal>
 
-      {/* DOWNLOAD MODAL */}
       <Modal
         visible={downloadModalModel !== null}
         transparent

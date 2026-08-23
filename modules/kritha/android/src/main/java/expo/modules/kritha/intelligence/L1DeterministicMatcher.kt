@@ -4,10 +4,6 @@ import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Instant, zero-latency matcher for simple known commands.
- * No model, no network — runs on the calling thread synchronously.
- */
 internal class L1DeterministicMatcher {
 
     fun match(input: String): String? {

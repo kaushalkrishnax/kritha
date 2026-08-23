@@ -1,25 +1,27 @@
-import React, { useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-  StyleSheet,
-  Share,
-} from 'react-native';
+import { ChatMessage } from '@/components/chat/types';
+import { MarkdownRenderer } from '@/components/chat/ui';
+import Colors from '@/theme';
 import * as Clipboard from 'expo-clipboard';
 import {
-  ThumbsUp,
-  ThumbsDown,
-  Copy,
   Check,
-  Share2,
+  Copy,
+  Maximize2,
   Pause,
+  Share2,
+  ThumbsDown,
+  ThumbsUp,
   Volume2,
 } from 'lucide-react-native';
-import { MarkdownRenderer } from '@/components/chat/ui';
-import { ChatMessage } from '@/components/chat/types';
+import { useRef, useState } from 'react';
+import {
+  Animated,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export interface AssistantResponseCardProps {
   responseVisible: boolean;
@@ -31,6 +33,8 @@ export interface AssistantResponseCardProps {
   isTtsPaused: boolean;
   ttsMsgId: string | null;
   onSpeakerPress: (msgId: string) => void;
+  onExpandPress?: () => void;
+  hideActions?: boolean;
 }
 
 export function AssistantResponseCard({
@@ -43,6 +47,8 @@ export function AssistantResponseCard({
   isTtsPaused,
   ttsMsgId,
   onSpeakerPress,
+  onExpandPress,
+  hideActions = false,
 }: AssistantResponseCardProps) {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
@@ -98,83 +104,95 @@ export function AssistantResponseCard({
           </Text>
         )}
 
-        <View style={styles.responseActions}>
-          <TouchableOpacity
-            style={styles.responseIcon}
-            activeOpacity={0.7}
-            onPress={() => setFeedback((p) => (p === 'like' ? null : 'like'))}
-          >
-            <ThumbsUp
-              size={18}
-              color={feedback === 'like' ? '#38BDF8' : '#9AA0A6'}
-              fill={feedback === 'like' ? 'rgba(56, 189, 248, 0.2)' : 'transparent'}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.responseIcon}
-            activeOpacity={0.7}
-            onPress={() => setFeedback((p) => (p === 'dislike' ? null : 'dislike'))}
-          >
-            <ThumbsDown
-              size={18}
-              color={feedback === 'dislike' ? '#F87171' : '#9AA0A6'}
-              fill={feedback === 'dislike' ? 'rgba(248, 113, 113, 0.2)' : 'transparent'}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.responseIcon}
-            activeOpacity={0.7}
-            onPress={() =>
-              latestAssistant && handleCopyText(latestAssistant.text)
-            }
-          >
-            {copied ? (
-              <Check size={18} color="#10B981" />
-            ) : (
-              <Copy size={18} color="#9AA0A6" />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.responseIcon}
-            activeOpacity={0.7}
-            onPress={() =>
-              latestAssistant && handleShareText(latestAssistant.text)
-            }
-          >
-            <Share2 size={18} color="#9AA0A6" />
-          </TouchableOpacity>
-
-          <View style={styles.responseSpacer} />
-
-          {latestAssistant && (
+        {!hideActions && (
+          <View style={styles.responseActions}>
             <TouchableOpacity
-              activeOpacity={0.8}
-              style={[
-                styles.responseIcon,
-                isTtsSpeaking &&
-                ttsMsgId === latestAssistant.id &&
-                styles.speakerActive,
-              ]}
-              onPress={() => onSpeakerPress(latestAssistant.id)}
+              style={styles.responseIcon}
+              activeOpacity={0.7}
+              onPress={() => setFeedback((p) => (p === 'like' ? null : 'like'))}
             >
-              {isTtsSpeaking && ttsMsgId === latestAssistant.id ? (
-                <Pause fill="#9AA0A6" size={20} color="transparent" />
+              <ThumbsUp
+                size={18}
+                color={feedback === 'like' ? '#38BDF8' : '#9AA0A6'}
+                fill={feedback === 'like' ? 'rgba(56, 189, 248, 0.2)' : 'transparent'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.responseIcon}
+              activeOpacity={0.7}
+              onPress={() => setFeedback((p) => (p === 'dislike' ? null : 'dislike'))}
+            >
+              <ThumbsDown
+                size={18}
+                color={feedback === 'dislike' ? '#F87171' : '#9AA0A6'}
+                fill={feedback === 'dislike' ? 'rgba(248, 113, 113, 0.2)' : 'transparent'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.responseIcon}
+              activeOpacity={0.7}
+              onPress={() =>
+                latestAssistant && handleCopyText(latestAssistant.text)
+              }
+            >
+              {copied ? (
+                <Check size={18} color="#10B981" />
               ) : (
-                <Volume2
-                  size={20}
-                  color={
-                    isTtsPaused && ttsMsgId === latestAssistant.id
-                      ? '#8AB4F8'
-                      : '#9AA0A6'
-                  }
-                />
+                <Copy size={18} color="#9AA0A6" />
               )}
             </TouchableOpacity>
-          )}
-        </View>
+
+            <TouchableOpacity
+              style={styles.responseIcon}
+              activeOpacity={0.7}
+              onPress={() =>
+                latestAssistant && handleShareText(latestAssistant.text)
+              }
+            >
+              <Share2 size={18} color="#9AA0A6" />
+            </TouchableOpacity>
+
+            <View style={styles.responseSpacer} />
+
+            {latestAssistant && (
+              <>
+                {onExpandPress && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.responseIcon}
+                    onPress={onExpandPress}
+                  >
+                    <Maximize2 size={18} color="#9AA0A6" />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={[
+                    styles.responseIcon,
+                    isTtsSpeaking && styles.speakerActive,
+                  ]}
+                  onPress={() => onSpeakerPress(latestAssistant.id)}
+                >
+                  {isTtsSpeaking && (!ttsMsgId || ttsMsgId === latestAssistant.id) ? (
+                    <Pause size={20} color={Colors.iconMuted} fill="transparent" />
+                  ) : (
+                    <Volume2
+                      size={20}
+                      color={
+                        isTtsPaused && (!ttsMsgId || ttsMsgId === latestAssistant.id)
+                          ? Colors.iconSlate
+                          : '#9AA0A6'
+                      }
+                    />
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
     </Animated.View>
   );
@@ -192,6 +210,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     marginBottom: 10,
     maxHeight: 280,
+    width: '100%',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     shadowColor: '#000',
@@ -209,8 +228,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   responseScroll: {
-    minHeight: 44, // 2 lines at 22 line-height
-    maxHeight: 176, // 8 lines at 22 line-height
+    minHeight: 44,
+    maxHeight: 176,
   },
   responseContent: {
     paddingBottom: 4,

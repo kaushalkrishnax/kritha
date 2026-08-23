@@ -8,6 +8,7 @@ interface Options {
   isSendingRef: React.RefObject<boolean>;
   onWakeWordDetected: () => void;
   isRecordingRef: React.RefObject<boolean>;
+  onTtsDone?: () => void;
 }
 
 export function useNativeEvents({
@@ -15,6 +16,7 @@ export function useNativeEvents({
   isSendingRef,
   onWakeWordDetected,
   isRecordingRef,
+  onTtsDone,
 }: Options) {
   useEffect(() => {
     const subWakeWord = KrithaNativeModule.addListener(
@@ -144,9 +146,25 @@ export function useNativeEvents({
         dispatch({ type: 'SET_ASSISTANT_BANNER', banner: { status: 'idle' } });
         if (event.error) dispatch({ type: 'SET_ERROR', error: event.error });
         currentStreamingId = null;
+      } else if (event.state === 'tts_start') {
+        dispatch({
+          type: 'SET_TTS_STATE',
+          state: { isSpeaking: true, isPaused: false, msgId: currentStreamingId },
+        });
+      } else if (event.state === 'tts_pause') {
+        dispatch({
+          type: 'SET_TTS_STATE',
+          state: { isSpeaking: false, isPaused: true, msgId: currentStreamingId },
+        });
+      } else if (event.state === 'tts_done') {
+        dispatch({
+          type: 'SET_TTS_STATE',
+          state: { isSpeaking: false, isPaused: false, msgId: null },
+        });
+        onTtsDone?.();
       }
     });
 
     return unsub;
-  }, [dispatch, isSendingRef]);
+  }, [dispatch, isSendingRef, onTtsDone]);
 }

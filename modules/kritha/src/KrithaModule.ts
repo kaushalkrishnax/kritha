@@ -64,8 +64,12 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   setCloudApiKey(apiKey: string): void;
   stopGeneration(): void;
   stopAssistantSession(): void;
+  openMainApp(): void;
   triggerAssistantSession(): void;
   sendToAssistant(text: string, autoTts: boolean): void;
+  speakText(text: string): void;
+  speakChunk(chunk: string): void;
+  flushTts(): void;
   pauseTts(): void;
   resumeTts(): void;
   replayTts(): void;

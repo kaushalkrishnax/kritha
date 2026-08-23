@@ -17,7 +17,6 @@ import {
 import { useState, useCallback, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import Colors from '@/theme';
-import { cloudService } from '@/services/cloud.service';
 import KrithaNativeModule from '../../../../modules/kritha/src/KrithaModule';
 
 import { ChatSession } from '@/services/db.service';
@@ -55,7 +54,6 @@ export function ChatSidebar({
 
   const handleApiKeyChange = useCallback((text: string) => {
     setApiKey(text);
-    cloudService.setApiKey(text);
     if (KrithaNativeModule.setCloudApiKey) {
       KrithaNativeModule.setCloudApiKey(text);
     }

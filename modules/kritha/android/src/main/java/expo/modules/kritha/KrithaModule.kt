@@ -117,7 +117,21 @@ class KrithaModule : Module() {
         Function("stopAssistantSession") {
             L2LocalLLM.cancelInference()
             expo.modules.kritha.intelligence.L3CloudLLM.cancelInference()
+            WakeWordListeningActivity.activeSession?.cancelPipeline()
             WakeWordForegroundService.stopAssistantSession()
+        }
+
+        Function("openMainApp") {
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+            if (context != null) {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    context.startActivity(launchIntent)
+                }
+            }
+            WakeWordListeningActivity.stopSessionIfActive()
         }
 
         Function("triggerAssistantSession") {
@@ -128,7 +142,7 @@ class KrithaModule : Module() {
         }
 
         Function("sendToAssistant") { text: String, autoTts: Boolean ->
-            WakeWordListeningActivity.activeSession?.processPrompt(text, autoTts)
+            WakeWordListeningActivity.processPrompt(text, autoTts)
         }
 
         Function("pauseTts") {
@@ -311,6 +325,31 @@ class KrithaModule : Module() {
                 ?: appContext.currentActivity?.applicationContext
                 ?: throw Exceptions.ReactContextLost()
             ModelManager.getDownloadManager(context).cancelDownload(modelId)
+        }
+
+        Function("speakText") { text: String ->
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: return@Function null
+            TtsManager.speak(context, text)
+        }
+
+        Function("speakChunk") { chunk: String ->
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: return@Function null
+            TtsManager.handleStreamingChunk(context, chunk)
+        }
+
+        Function("flushTts") {
+            val context = appContext.reactContext
+                ?: appContext.currentActivity?.applicationContext
+                ?: return@Function null
+            TtsManager.flushStreaming(context)
+        }
+
+        Function("stopTts") {
+            TtsManager.stop()
         }
 
         AsyncFunction("generateLocalResponse") Coroutine { prompt: String, modelId: String? ->

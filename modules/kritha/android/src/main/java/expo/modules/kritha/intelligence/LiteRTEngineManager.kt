@@ -14,16 +14,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * Manages a single LiteRT-LM Engine instance across the app.
- *
- * Key design decisions (based on LiteRT-LM best practices):
- *  - Only ONE model loaded in memory at a time (enforced by mutex).
- *  - Engine.initialize() is expensive (~10s), so we cache and reuse the instance.
- *  - A 90-second idle TTL releases the engine to free RAM when not in use.
- *  - GPU/NPU are user-configurable but CPU is the safe default.
- *  - On model switch the old engine is closed before loading the new one.
- */
 internal object LiteRTEngineManager {
 
     enum class Device { CPU, GPU, NPU;
@@ -38,7 +28,7 @@ internal object LiteRTEngineManager {
 
     private const val PREFS          = "kritha_intelligence"
     private const val KEY_DEVICE     = "local_model_device"
-    private const val IDLE_TTL_MS    = 90_000L
+    private const val IDLE_TTL_MS    = 120_000L
     private const val TAG            = "LiteRTEngineManager"
 
     private val mutex = Mutex()
@@ -49,8 +39,6 @@ internal object LiteRTEngineManager {
     private var loadedDevice: Device?    = null
     private var idleJob: Job?            = null
 
-    // Device preference
-
     fun getDevice(context: Context): Device =
         Device.from(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_DEVICE, null))
@@ -58,28 +46,18 @@ internal object LiteRTEngineManager {
     fun setDevice(context: Context, device: Device) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_DEVICE, device.name.lowercase()).apply()
-        // Invalidate cached engine so next call re-initialises on the new backend
         scope.launch { mutex.withLock { releaseEngine() } }
     }
 
-    // Engine access (the only hot path) 
 
-    /**
-     * Returns a ready-to-use [Engine] for the given model path and device.
-     *
-     * Thread-safe: concurrent callers wait behind the mutex; only one
-     * initialization ever runs at a time.
-     */
     suspend fun getEngine(modelPath: String, device: Device): Engine = mutex.withLock {
         cancelIdleTimer()
 
-        // If model or backend changed, release the old engine first
         if (engine != null && (loadedModelPath != modelPath || loadedDevice != device)) {
             Log.i(TAG, "Model/device changed — releasing engine ($loadedModelPath / $loadedDevice)")
             releaseEngine()
         }
 
-        // Re-use cached engine if still valid
         engine?.let { return@withLock it }
 
         Log.i(TAG, "Initialising engine: $modelPath on ${device.name}")
@@ -90,12 +68,10 @@ internal object LiteRTEngineManager {
         created
     }
 
-    /** Release resources immediately (e.g. on app destroy or model switch). */
     fun close() {
         scope.launch { mutex.withLock { cancelIdleTimer(); releaseEngine() } }
     }
 
-    /** Start idle TTL countdown. Call after inference finishes. */
     fun startIdleTimer() {
         idleJob?.cancel()
         idleJob = scope.launch {
@@ -109,7 +85,6 @@ internal object LiteRTEngineManager {
         }
     }
 
-    // Private helpers
 
     private fun cancelIdleTimer() { idleJob?.cancel(); idleJob = null }
 
@@ -120,10 +95,6 @@ internal object LiteRTEngineManager {
         loadedDevice     = null
     }
 
-    /**
-     * Builds and initialises an [Engine].
-     * Falls back to CPU if the preferred backend fails.
-     */
     private fun buildEngine(modelPath: String, preferredDevice: Device): Engine {
         return try {
             val backend = when (preferredDevice) {

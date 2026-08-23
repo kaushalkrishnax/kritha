@@ -1,9 +1,9 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import { Brain, ChevronUp, ChevronDown, ThumbsUp, ThumbsDown, Share2, Pause, Volume2, Copy, Check } from 'lucide-react-native';
-import Colors from '@/theme';
 import { ChatMessage } from '@/components/chat/types';
+import Colors from '@/theme';
+import * as Clipboard from 'expo-clipboard';
+import { Brain, Check, ChevronDown, ChevronUp, Copy, Pause, Share2, ThumbsDown, ThumbsUp, Volume2 } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 export interface ChatMessagesProps {
@@ -261,8 +261,8 @@ export function ChatMessages({
                 <ResponseActions
                   msgId={msg.id}
                   textToCopy={answer || msg.text}
-                  isTtsSpeaking={isTtsSpeaking && ttsMsgId === msg.id}
-                  isTtsPaused={isTtsPaused && ttsMsgId === msg.id}
+                  isTtsSpeaking={isTtsSpeaking && (!ttsMsgId || ttsMsgId === msg.id)}
+                  isTtsPaused={isTtsPaused && (!ttsMsgId || ttsMsgId === msg.id)}
                   onSpeakerPress={() => onSpeakerPress?.(msg.id)}
                 />
               )}

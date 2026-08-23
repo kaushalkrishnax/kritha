@@ -1,8 +1,3 @@
-/**
- * use-model-loader.ts
- *
- * Loads model state from the native module on mount and syncs it into the reducer.
- */
 import { useEffect } from 'react';
 import KrithaNativeModule from '../../modules/kritha/src/KrithaModule';
 import { ChatAction } from './use-chat-state';

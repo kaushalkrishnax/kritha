@@ -73,6 +73,11 @@ internal class NativeAssistantSession(
 
     private var pipelineJob: Job? = null
 
+    private var ttsStreamingBuffer = StringBuilder()
+    private var ttsSentenceCount = 0
+    private var ttsFinishedSentences = 0
+    private var isPipelineDone = false
+
     fun start() {
         mainHandler.post {
             initTts()
@@ -82,6 +87,8 @@ internal class NativeAssistantSession(
 
     fun shutdown() {
         mainHandler.post {
+            autoTts = false
+            ttsStreamingBuffer.clear()
             pipelineJob?.cancel()
             pipelineJob = null
             scope.cancel()
@@ -94,6 +101,8 @@ internal class NativeAssistantSession(
     }
 
     fun cancelPipeline() {
+        autoTts = false
+        ttsStreamingBuffer.clear()
         pipelineJob?.cancel()
         pipelineJob = null
         stopTts()
@@ -120,21 +129,114 @@ internal class NativeAssistantSession(
     }
 
     private fun runPipeline(transcript: String) {
+        ttsStreamingBuffer.clear()
+        ttsSentenceCount = 0
+        ttsFinishedSentences = 0
+        isPipelineDone = false
+
         pipelineJob = scope.launch {
             val result = pipeline.process(transcript) { chunk ->
                 withContext(Dispatchers.Main) {
                     callback.onStreaming(transcript, chunk)
-                }
-            }
-            withContext(Dispatchers.Main) {
-                when (result) {
-                    is IntelligencePipeline.Result.Hit -> finish(transcript, result.response)
-                    is IntelligencePipeline.Result.Miss -> {
-                        WakeWordEventHub.emitAssistant("needs_cloud", transcript = transcript)
-                        finish(transcript, "")
+                    if (autoTts) {
+                        handleStreamingTts(chunk)
                     }
                 }
             }
+            withContext(Dispatchers.Main) {
+                isPipelineDone = true
+                when (result) {
+                    is IntelligencePipeline.Result.Hit -> {
+                        callback.onFinished(transcript, result.response)
+                        if (autoTts) {
+                            flushRemainingTts()
+                        } else {
+                            finishSession()
+                        }
+                    }
+                    is IntelligencePipeline.Result.Miss -> {
+                        val msg = "I'm sorry, I couldn't process that request."
+                        callback.onFinished(transcript, msg)
+                        if (autoTts) {
+                            speakText(msg)
+                        } else {
+                            finishSession()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleStreamingTts(chunk: String) {
+        ttsStreamingBuffer.append(chunk)
+        
+        var text = ttsStreamingBuffer.toString()
+        var splitIndex = -1
+
+        for (i in 0 until text.length) {
+            val c = text[i]
+            if (c == '.' || c == '!' || c == '?' || c == '\n' || c == ',' || c == ';' || c == ':') {
+                if (i == text.length - 1 || text[i + 1].isWhitespace()) {
+                    splitIndex = i + 1
+                    break
+                }
+            }
+        }
+
+        if (splitIndex == -1 && text.length >= 35) {
+            val spaceIndex = text.indexOf(' ', 25)
+            if (spaceIndex > 0) {
+                splitIndex = spaceIndex + 1
+            }
+        }
+
+        if (splitIndex > 0) {
+            val sentence = text.substring(0, splitIndex).trim()
+            ttsStreamingBuffer.delete(0, splitIndex)
+            if (sentence.isNotBlank()) {
+                queueSentence(sentence)
+            }
+        }
+    }
+
+    private fun flushRemainingTts() {
+        val remaining = ttsStreamingBuffer.toString().trim()
+        if (remaining.isNotBlank()) {
+            queueSentence(remaining)
+        }
+        checkIfTtsFinished()
+    }
+
+    private fun queueSentence(sentence: String) {
+        val uttId = "kritha-utt-$ttsSentenceCount"
+        
+        if (ttsSentenceCount == 0) {
+            fullTtsText = sentence
+            remainingTtsText = sentence
+            ttsStatus = TtsStatus.SPEAKING
+            callback.onTtsStart()
+            
+            val params = Bundle().apply {
+                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, uttId)
+            }
+            tts?.speak(sentence, TextToSpeech.QUEUE_FLUSH, params, uttId)
+        } else {
+            fullTtsText += " $sentence"
+            val params = Bundle().apply {
+                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, uttId)
+            }
+            tts?.speak(sentence, TextToSpeech.QUEUE_ADD, params, uttId)
+        }
+        
+        ttsSentenceCount++
+    }
+
+    private fun checkIfTtsFinished() {
+        if (isPipelineDone && ttsFinishedSentences >= ttsSentenceCount) {
+            ttsStatus = TtsStatus.IDLE
+            callback.onTtsDone()
+            finishSession()
         }
     }
 
@@ -144,47 +246,15 @@ internal class NativeAssistantSession(
         remainingTtsText = text
         ttsStatus = TtsStatus.SPEAKING
         callback.onTtsStart()
+        
+        ttsSentenceCount = 1
+        ttsFinishedSentences = 0
+        isPipelineDone = true
 
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                mainHandler.post {
-                    ttsStatus = TtsStatus.SPEAKING
-                    callback.onTtsStart()
-                }
-            }
-
-            override fun onDone(utteranceId: String?) {
-                mainHandler.post {
-                    ttsStatus = TtsStatus.IDLE
-                    callback.onTtsDone()
-                    finishSession()
-                }
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                mainHandler.post {
-                    ttsStatus = TtsStatus.IDLE
-                    callback.onTtsDone()
-                    finishSession()
-                }
-            }
-
-            override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
-                if (start in 0..fullTtsText.length) {
-                    remainingTtsText = fullTtsText.substring(start)
-                }
-            }
-        })
-
-        if (ttsReady) {
-            val params = Bundle().apply {
-                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "kritha-utt")
-            }
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "kritha-utt")
-        } else {
-            pendingTts = text
+        val params = Bundle().apply {
+            putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "kritha-utt-0")
         }
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "kritha-utt-0")
     }
 
     fun pauseTts() {
@@ -210,6 +280,8 @@ internal class NativeAssistantSession(
     }
 
     fun stopTts() {
+        autoTts = false
+        ttsStreamingBuffer.clear()
         tts?.stop()
         ttsStatus = TtsStatus.IDLE
         callback.onTtsDone()
@@ -237,6 +309,7 @@ internal class NativeAssistantSession(
             ?.firstOrNull()?.trim().orEmpty()
 
         cleanupRecognizer()
+        WakeWordForegroundService.resumeListening()
         callback.onProcessing(transcript)
         runPipeline(transcript)
     }
@@ -262,17 +335,43 @@ internal class NativeAssistantSession(
     }
 
     private fun initTts() {
-        tts = TextToSpeech(appContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.US
-                ttsReady = true
-                pendingTts?.let { text ->
-                    pendingTts = null
-                    speakText(text)
+        tts = TtsManager.getInstance(appContext)
+        tts?.language = Locale.US
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                mainHandler.post {
+                    ttsStatus = TtsStatus.SPEAKING
+                    if (utteranceId?.endsWith("-0") == true) {
+                        callback.onTtsStart()
+                    }
                 }
-            } else {
-                Log.w(TAG, "TTS init failed with status $status")
             }
+
+            override fun onDone(utteranceId: String?) {
+                mainHandler.post {
+                    ttsFinishedSentences++
+                    checkIfTtsFinished()
+                }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                mainHandler.post {
+                    ttsFinishedSentences++
+                    checkIfTtsFinished()
+                }
+            }
+
+            override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                if (start in 0..fullTtsText.length) {
+                    remainingTtsText = fullTtsText.substring(start)
+                }
+            }
+        })
+        ttsReady = true
+        pendingTts?.let { text ->
+            pendingTts = null
+            speakText(text)
         }
     }
 
@@ -285,8 +384,8 @@ internal class NativeAssistantSession(
             return
         }
 
-        mainHandler.post {
-            if (done) return@post
+        mainHandler.postDelayed({
+            if (done) return@postDelayed
             cleanupRecognizer()
             try {
                 recognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
@@ -298,7 +397,7 @@ internal class NativeAssistantSession(
                 Log.e(TAG, "Failed to create SpeechRecognizer", e)
                 onError(SpeechRecognizer.ERROR_RECOGNIZER_BUSY)
             }
-        }
+        }, 150)
     }
 
     private fun cleanupRecognizer() {
@@ -320,6 +419,7 @@ internal class NativeAssistantSession(
     private fun finishSession() {
         if (done) return
         done = true
+        WakeWordForegroundService.resumeListening()
         callback.onSessionFinished()
     }
 
@@ -329,7 +429,6 @@ internal class NativeAssistantSession(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1_500L)
         }
 
     companion object {

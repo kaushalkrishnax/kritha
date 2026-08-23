@@ -1,9 +1,0 @@
-src/components/chat/interface/ChatInterface.tsx(13,13): error TS2300: Duplicate identifier 'Speech'.
-src/components/chat/interface/ChatInterface.tsx(23,13): error TS2300: Duplicate identifier 'Speech'.
-src/components/chat/interface/ChatInterface.tsx(220,45): error TS2339: Property 'generateStreamingResponse' does not exist on type 'CloudService'.
-src/components/chat/interface/ChatInterface.tsx(222,14): error TS7006: Parameter 'chunk' implicitly has an 'any' type.
-src/components/chat/interface/index.ts(3,15): error TS2307: Cannot find module './useLiveTalkLoop' or its corresponding type declarations.
-src/components/chat/ui/ChatSidebar.tsx(58,18): error TS2339: Property 'setApiKey' does not exist on type 'CloudService'.
-src/hooks/use-native-events.ts(93,18): error TS2367: This comparison appears to be unintentional because the types '"finished" | "error" | "needs_cloud"' and '"streaming"' have no overlap.
-src/hooks/use-native-events.ts(99,19): error TS2339: Property 'chunk' does not exist on type 'AssistantEvent'.
-src/hooks/use-native-events.ts(110,26): error TS2339: Property 'chunk' does not exist on type 'AssistantEvent'.
