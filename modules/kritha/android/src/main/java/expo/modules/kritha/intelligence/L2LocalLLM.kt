@@ -20,7 +20,7 @@ internal class L2LocalLLM(private val context: Context) {
         val modelFile = ModelManager.getModelFilePath(context, targetModelId)
 
         if (modelFile == null) {
-            Log.w(TAG, "Model '$targetModelId' is not downloaded — skipping local inference")
+            Log.w(TAG, "Model '$targetModelId' is not downloaded")
             return null
         }
 

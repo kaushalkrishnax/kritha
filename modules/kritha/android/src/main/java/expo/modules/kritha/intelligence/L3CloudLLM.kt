@@ -25,7 +25,7 @@ internal class L3CloudLLM(private val context: Context) {
 
         val apiKey = getApiKey()
         if (apiKey.isBlank()) {
-            val fallbackMsg = "[Cloud LLM] Gemini API key missing. Please configure EXPO_PUBLIC_GEMINI_API_KEY."
+            val fallbackMsg = "[Cloud LLM] Gemini API key missing. Please configure Gemini API Key."
             onChunk(fallbackMsg)
             return@withContext fallbackMsg
         }

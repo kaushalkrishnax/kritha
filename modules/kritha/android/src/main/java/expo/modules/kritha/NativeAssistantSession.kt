@@ -23,13 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/**
- * One-shot assistant session:
- *  1. Starts speech recognition (STT)
- *  2. Runs the intelligence pipeline on the transcript
- *  3. Speaks the response via TTS
- *  4. Calls [Callback.onSessionFinished] when done so the caller can restart wake-word listening
- */
 internal class NativeAssistantSession(
     private val context: Context,
     private val callback: Callback
