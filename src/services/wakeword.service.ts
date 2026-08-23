@@ -26,7 +26,7 @@ import {
   requestNotificationListenerPermission,
   readNotifications,
   getCalendarEvents,
-} from "../../modules/wakeword/src";
+} from "../../modules/kritha/src";
 
 type DetectionListener = (keyword: string, confidence?: number) => void;
 type AssistantListener = (event: AssistantEvent) => void;

@@ -1,0 +1,103 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+  <!-- Native Command Permissions -->
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <uses-permission android:name="android.permission.BLUETOOTH" />
+  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+  <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+  <uses-permission android:name="android.permission.READ_CONTACTS" />
+  <uses-permission android:name="android.permission.READ_CALENDAR" />
+  <uses-permission android:name="android.permission.CALL_PHONE" />
+
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+    <intent>
+      <data android:scheme="sausico" />
+    </intent>
+    <intent>
+      <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+    </intent>
+  </queries>
+
+  <application>
+    <service
+      android:name=".wakeword.WakeWordForegroundService"
+      android:enabled="true"
+      android:exported="false"
+      android:foregroundServiceType="microphone"
+      android:stopWithTask="false" />
+    
+    <service
+      android:name=".KrithaNotificationListener"
+      android:label="Kritha Notification Listener"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+
+    <service
+      android:name=".KrithaVoiceInteractionService"
+      android:label="Kritha Assistant"
+      android:permission="android.permission.BIND_VOICE_INTERACTION"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.service.voice.VoiceInteractionService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.voice_interaction"
+        android:resource="@xml/voice_interaction_service" />
+    </service>
+
+    <service
+      android:name=".KrithaVoiceInteractionSessionService"
+      android:permission="android.permission.BIND_VOICE_INTERACTION"
+      android:exported="true" />
+
+    <service
+      android:name=".KrithaRecognitionService"
+      android:label="Kritha Recognition Service"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.speech.RecognitionService" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+      <meta-data
+        android:name="android.speech"
+        android:resource="@xml/voice_interaction_service" />
+    </service>
+
+    <activity
+      android:name=".wakeword.WakeWordListeningActivity"
+      android:excludeFromRecents="true"
+      android:exported="true"
+      android:launchMode="singleInstance"
+      android:showOnLockScreen="true"
+      android:showWhenLocked="true"
+      android:windowSoftInputMode="adjustResize"
+      android:theme="@style/WakeWordListeningTheme"
+      android:turnScreenOn="true">
+      <intent-filter>
+        <action android:name="android.intent.action.ASSIST" />
+        <action android:name="android.intent.action.VOICE_COMMAND" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+      <meta-data
+        android:name="com.android.systemui.action.ASSIST_ICON"
+        android:resource="@android:drawable/ic_btn_speak_now" />
+    </activity>
+  </application>
+</manifest>

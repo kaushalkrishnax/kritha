@@ -68,20 +68,7 @@ export default function Index() {
     const unsubscribeAssistant = wakeWordService.subscribeToAssistant(async (event) => {
       console.log("Assistant event:", event);
 
-      if (event.state === "needs_cloud") {
-        setAssistantState("processing");
-        if (event.transcript) {
-          setTranscript(event.transcript);
-          try {
-            const response = await cloudService.generateResponse(event.transcript);
-            wakeWordService.respondToAssistant(response);
-          } catch (err: any) {
-            console.error("Cloud processing failed:", err);
-            wakeWordService.respondToAssistant("Sorry, I encountered a connection issue while reaching the cloud.");
-          }
-        }
-        return;
-      }
+
 
       setAssistantState(event.state);
       if (event.transcript !== undefined && event.transcript !== null) {
