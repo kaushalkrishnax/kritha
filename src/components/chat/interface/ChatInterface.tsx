@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Square } from 'lucide-react-native';
 import { AppState, AppStateStatus, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgGradient, Stop, Rect } from 'react-native-svg';
 import Colors from '@/theme';
@@ -359,16 +360,16 @@ export function ChatInterface() {
   });
 
   const insets = useSafeAreaInsets();
-  const keyboard = useAnimatedKeyboard();
+  const { height } = useReanimatedKeyboardAnimation();
   const defaultBottom = Math.max(insets.bottom + 16, 28);
 
   const floatingStyle = useAnimatedStyle(() => {
-    const kbHeight = keyboard.height.value;
+    const kbHeight = Math.abs(height.value);
     return { bottom: kbHeight > 0 ? kbHeight + 12 : defaultBottom };
   });
 
   const messagesStyle = useAnimatedStyle(() => {
-    const kbHeight = keyboard.height.value;
+    const kbHeight = Math.abs(height.value);
     const inputHeight = 74;
     return {
       flex: 1,
@@ -458,7 +459,7 @@ export function ChatInterface() {
             <Animated.View style={[styles.floatingInputWrapper, floatingStyle]}>
               {(isRecording || messages.length === 0) && (
                 <View pointerEvents="none" style={styles.ambientGlowContainer}>
-                  <Svg height="240" width="100%">
+                  <Svg height="180" width="100%">
                     <Defs>
                       <SvgGradient id="interfaceBottomGlow" x1="0" y1="1" x2="0" y2="0">
                         <Stop

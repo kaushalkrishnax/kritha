@@ -1,6 +1,7 @@
 import { TamaguiProvider, Theme } from 'tamagui';
 import { Slot } from 'expo-router';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -22,10 +23,12 @@ export default function Layout() {
     <TamaguiProvider config={config} defaultTheme="dark">
       <Theme name="dark">
         <SafeAreaProvider>
-          <StatusBar style="light" />
-          <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-            <Slot />
-          </SafeAreaView>
+          <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+            <StatusBar style="light" />
+            <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+              <Slot />
+            </SafeAreaView>
+          </KeyboardProvider>
         </SafeAreaProvider>
       </Theme>
     </TamaguiProvider>

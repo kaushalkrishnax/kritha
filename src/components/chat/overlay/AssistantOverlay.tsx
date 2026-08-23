@@ -3,12 +3,12 @@ import { ChatInput, DictationCornerGlow, LiveTalkBar } from '@/components/chat/u
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dbService } from '@/services/db.service';
 import KrithaNativeModule from '../../../../modules/kritha/src/KrithaModule';

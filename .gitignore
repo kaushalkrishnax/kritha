@@ -41,7 +41,6 @@ yarn-error.*
 
 # generated native folders
 /ios
-/android
 .env
 node_modules/
 edge-impulse-sdk/
@@ -49,3 +48,10 @@ model-parameters/
 tflite-model/
 .cxx
 build/
+
+android/.gradle/
+android/app/.cxx/
+android/app/build/
+android/build/
+android/.idea/
+android/local.properties

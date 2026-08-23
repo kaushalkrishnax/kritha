@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "kritha",
+    "name": "Kritha",
     "slug": "kritha",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kritha",
@@ -30,10 +30,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.kritha.app"
     },
-    "androidNavigationBar": {
-      "backgroundColor": "#00000000",
-      "barStyle": "light-content"
-    },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -43,6 +39,7 @@
       [
         "expo-navigation-bar",
         {
+          "style": "light",
           "enforceContrast": false
         }
       ],
@@ -55,7 +52,10 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,
