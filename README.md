@@ -1,153 +1,511 @@
 <div align="center">
+
   <img src="assets/images/splash-icon.png" alt="Kritha Logo" width="120" />
 
-  <h1>Kritha</h1>
-  <p><strong>A production-grade, privacy-first, on-device AI assistant engineered for speed and seamless integration.</strong></p>
+  # Kritha
+
+  **A native-powered, privacy-first AI assistant for Android.**
+
+  Voice-first. Local-capable. Cloud-ready. Built for real-time interaction.
 
   <p>
-    <a href="https://reactnative.dev/"><img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" /></a>
-    <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" /></a>
-    <a href="https://kotlinlang.org/"><img src="https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" /></a>
-    <a href="https://edgeimpulse.com/"><img src="https://img.shields.io/badge/Edge_Impulse-1B1F23?style=for-the-badge&logo=edgeimpulse&logoColor=white" alt="Edge Impulse" /></a>
+    <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
+    <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" />
+    <img src="https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" />
+    <img src="https://img.shields.io/badge/LiteRT-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" />
+    <img src="https://img.shields.io/badge/Edge_Impulse-1B1F23?style=for-the-badge&logo=edgeimpulse&logoColor=white" />
   </p>
+
 </div>
 
 ---
 
-## 📖 Overview
+## ✨ What is Kritha?
 
-Kritha is a next-generation local and cloud hybrid AI assistant. Built on **React Native** and **Expo** with a custom high-performance **Kotlin** native bridge, Kritha offers seamless voice interactions, an intelligent dual-mode inference engine (local on-device ML + cloud LLMs), and completely offline wake-word detection. 
+Kritha is an Android AI assistant built around a **native assistant runtime** rather than treating the app as just a React Native chat client.
 
-Designed for both privacy and flexibility, Kritha allows users to keep their data local while having the option to leverage powerful cloud models when necessary.
+The UI is built with React Native + Expo, while the core assistant lifecycle is handled natively through Kotlin. This gives Kritha direct control over things that need to remain reliable outside the React lifecycle: **audio, wake-word detection, speech recognition, inference, TTS, persistence, Android integration, and long-running assistant sessions.**
 
-## ✨ Key Features
+The result is a hybrid system where React Native handles the product experience and Kotlin handles the assistant itself.
 
-- **Hybrid Inference Engine (L1/L2/L3 Architecture)**
-  - **L1/L2 (Local)**: Run quantized LLMs directly on-device using LiteRT for absolute privacy, offline availability, and zero-latency inference.
-  - **L3 (Cloud)**: Seamlessly connect to cloud providers (e.g., Google Gemini) for complex reasoning tasks via a robust streaming API.
-- **Always-on Wake Word Detection**
-  - Ultra-low power wake-word detection utilizing Edge Impulse C++ exports, processed entirely on-device.
-- **Modular Native Integration**
-  - Custom Kotlin-based Expo Modules (`KrithaModule`) that handle audio streaming, model loading, and high-performance threading outside of the React Native JavaScript thread.
-- **Conversational UI & UX**
-  - Beautiful, dynamic chat interface built with Expo Router. Includes a global assistant overlay, real-time typing indicators, markdown rendering, and fluid micro-animations.
-- **Local-First Persistence**
-  - Robust local state management with chat history, API keys, and configurations stored persistently and securely via `expo-sqlite` and `expo-secure-store`.
+---
 
-## 🏗 Architecture
+## 🧠 Architecture
 
-The system is built on a modular 3-tier architecture:
-1. **Frontend (React Native / Expo Router)**: Handles the UI, state management, theming, and user interactions.
-2. **Native Bridge (Expo Modules)**: A custom `kritha` native module that orchestrates hardware APIs and provides a synchronous bridge to the Kotlin backend.
-3. **Core Engine (Kotlin / C++)**: Manages the Edge Impulse wake-word models, device audio capture pipelines, and LiteRT local inference.
+```mermaid
+flowchart TB
+    UI["React Native / Expo<br/>UI + Navigation"]
+    STORE["Zustand<br/>UI State"]
+    API["Typed Native API<br/>Commands + Events"]
 
-## 📚 Terminology
+    CORE["AssistantCore<br/>Native Assistant Runtime"]
 
-**Machine Learning & Intelligence**
-- **L1/L2/L3 Intelligence Routing**: Kritha categorizes tasks by complexity. **L1** handles rapid, on-device offline tasks (like wake-word detection). **L2** leverages quantized local LLMs for private, offline conversational reasoning. **L3** acts as a fallback to large cloud-based LLMs (like Gemini) when L2 is insufficient.
-- **Quantization (e.g., INT8, INT4)**: A technique to compress ML models by reducing the precision of their weights. This allows massive LLMs to run locally on mobile hardware with minimal memory footprint and high speed.
-- **LiteRT (TensorFlow Lite for Runtimes)**: Google's lightweight machine learning framework for edge devices. Used in Kritha to execute `.tflite` model inferences directly on the Android hardware without internet.
-- **Wake Word**: A specific phrase (e.g., "Hey Kritha") that the system constantly listens for in a low-power state to activate the main assistant interface.
-- **Edge Impulse**: A specialized platform for building edge ML models. Used here to train and export the C++ wake-word audio detection pipeline.
+    DB["DBManager<br/>Chat Persistence"]
+    MIC["MicrophoneManager<br/>Audio Ownership"]
+    STT["Speech Recognition"]
+    WAKE["Wake Word Service<br/>Edge Impulse"]
+    TTS["TtsManager<br/>Streaming TTS"]
+    INTEL["Intelligence Pipeline"]
 
-**Native Android & Architecture**
-- **JNI (Java Native Interface)**: The bridge allowing our Kotlin Android code to communicate directly with the high-performance C++ binaries generated by Edge Impulse for ultra-fast audio processing.
-- **Expo Modules API**: A modern, Swift/Kotlin-first framework for writing native React Native modules. It allows us to write native code cleanly without the legacy React Native bridge overhead.
-- **Streaming API (SSE/WebSockets)**: Server-Sent Events or custom data streams used by L3 to render LLM responses character-by-character in the UI as they arrive from the cloud, minimizing perceived latency.
+    LOCAL["Local Inference<br/>LiteRT"]
+    CLOUD["Cloud LLM"]
 
-**Frontend & Tooling**
-- **Expo Router**: A file-based routing framework for React Native (similar to Next.js). It handles all navigation, deep linking, and screen management.
-- **Tamagui**: A high-performance, universal UI kit and styling engine for React Native and Web that compiles to optimal CSS/native stylesheets.
-- **Bun**: A completely new, incredibly fast JavaScript runtime and package manager (a drop-in replacement for Node.js/npm) used to dramatically speed up dependency installation and script execution.
-- **Expo SQLite**: A local, on-device SQL database implementation for React Native used to persistently store chat history and system states across app reboots.
+    ANDROID["Android System APIs"]
 
-## 📁 Repository Structure
+    UI <--> STORE
+    UI <--> API
+    API <--> CORE
+
+    CORE --> DB
+    CORE --> MIC
+    CORE --> STT
+    CORE --> TTS
+    CORE --> INTEL
+    WAKE --> CORE
+
+    INTEL --> LOCAL
+    INTEL --> CLOUD
+
+    CORE --> ANDROID
+
+    CORE --> API
+    API --> STORE
+```
+
+### The important boundary
 
 ```text
-.
-├── android/                 # Auto-generated Android build files
-├── assets/                  # App icons, splash screens, and static images
-├── edge-impulse-exports/    # Exported ML models for Wake Word detection
-├── modules/
-│   └── kritha/              # ⚙️ Core Custom Native Module
-│       ├── android/         # Native Android backend (Kotlin, LiteRT, Audio)
-│       └── src/             # TypeScript bridge for the native module
-├── src/                     # ⚛️ React Native Frontend
-│   ├── app/                 # Expo Router application entry & screens
-│   ├── components/          # Reusable UI components (Chat, Layouts, Overlays)
-│   ├── constants/           # App-wide constants (Themes, Colors, Configs)
-│   ├── hooks/               # Custom React hooks (Assistant, DB, Models)
-│   └── services/            # Business logic and API integrations
-│       ├── assistant.service.ts # Core AI assistant orchestration
-│       ├── cloud.service.ts     # Cloud LLM communication
-│       ├── db.service.ts        # SQLite operations
-│       └── wakeword.service.ts  # Wake word lifecycle management
-├── app.json                 # Expo configuration
-├── package.json             # Project dependencies and scripts
-└── tamagui.config.ts        # UI Configuration
+┌─────────────────────────────────────────────┐
+│              React Native / Expo            │
+│                                             │
+│  Screens • Chat UI • Settings • Navigation  │
+│              • Zustand Store                │
+└──────────────────────┬──────────────────────┘
+                       │
+              Typed Commands / Events
+                       │
+┌──────────────────────▼──────────────────────┐
+│              Kotlin Runtime                 │
+│                                             │
+│  AssistantCore • Sessions • Audio • TTS     │
+│  Wake Word • STT • Models • Persistence     │
+└──────────────────────┬──────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────┐
+│              Android Platform               │
+│                                             │
+│  Microphone • TTS • Foreground Service      │
+│  Notifications • Assistant • System APIs    │
+└─────────────────────────────────────────────┘
 ```
+
+React Native does **not** need to know how an assistant request is executed internally.
+
+It sends a command:
+
+```ts
+dispatchCommand({
+  type: 'SUBMIT_TEXT',
+  text,
+  chatSessionId,
+});
+```
+
+The native runtime owns the execution and sends structured events back.
+
+---
+
+## ⚡ Assistant Runtime
+
+Kritha uses a single canonical assistant lifecycle:
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    IDLE --> LISTENING
+    LISTENING --> THINKING
+    THINKING --> GENERATING
+    GENERATING --> SPEAKING
+    SPEAKING --> IDLE
+
+    LISTENING --> CANCELLING
+    THINKING --> CANCELLING
+    GENERATING --> CANCELLING
+    SPEAKING --> CANCELLING
+
+    CANCELLING --> IDLE
+
+    IDLE --> ERROR
+    LISTENING --> ERROR
+    THINKING --> ERROR
+    GENERATING --> ERROR
+    SPEAKING --> ERROR
+
+    ERROR --> IDLE
+```
+
+This replaces the old approach of having independent flags for recording, sending, generating and speaking.
+
+### Commands
+
+| Command           | Purpose                         |
+| ----------------- | ------------------------------- |
+| `SUBMIT_TEXT`     | Send a text request             |
+| `START_LISTENING` | Begin voice input               |
+| `STOP_LISTENING`  | Stop voice input                |
+| `PLAY_TTS`        | Speak text                      |
+| `PAUSE_TTS`       | Pause speech                    |
+| `RESUME_TTS`      | Resume speech                   |
+| `STOP_TTS`        | Stop speech                     |
+| `CANCEL`          | Cancel the active assistant run |
+| `DISMISS`         | Dismiss the assistant           |
+| `OPEN_MAIN_APP`   | Open the main application       |
+
+### Events
+
+The runtime emits typed events such as:
+
+```text
+SESSION_START
+STATE_CHANGED
+TEXT_DELTA
+TEXT_COMPLETE
+MESSAGE_PERSISTED
+
+TTS_START
+TTS_PAUSE
+TTS_RESUME
+TTS_STOP
+TTS_COMPLETE
+TTS_ERROR
+
+SESSION_END
+ERROR
+```
+
+Every assistant operation can be correlated using:
+
+```text
+chatSessionId
+assistantRunId
+requestId
+messageId
+```
+
+That becomes especially important when **streaming, cancellation and TTS happen concurrently**.
+
+---
+
+## 🎙️ Voice Pipeline
+
+```mermaid
+flowchart LR
+    MIC["Microphone"] --> WAKE["Wake Word"]
+    WAKE -->|Detected| SESSION["Assistant Session"]
+    SESSION --> STT["Speech Recognition"]
+    STT --> CORE["AssistantCore"]
+    CORE --> AI["Local / Cloud Inference"]
+    AI --> STREAM["Streaming Response"]
+    STREAM --> UI["Chat UI"]
+    STREAM --> TTS["TTS"]
+    TTS --> SPEAKER["Speaker"]
+```
+
+### Wake Word
+
+The wake-word system runs independently through an Android foreground service using the Edge Impulse audio pipeline.
+
+```text
+Always-on listener
+       ↓
+Audio capture
+       ↓
+Edge Impulse inference
+       ↓
+"Hey Kritha"
+       ↓
+AssistantCore
+```
+
+The wake-word service is therefore not dependent on whether the React screen is currently mounted.
+
+### Microphone ownership
+
+Kritha explicitly tracks who owns the microphone:
+
+```text
+          ┌─────────────┐
+          │ Microphone  │
+          └──────┬──────┘
+                 │
+       ┌─────────┼─────────┐
+       ▼         ▼         ▼
+     STT     WAKE_WORD    NONE
+```
+
+This prevents wake-word detection and speech recognition from fighting over the same audio input.
+
+---
+
+## 🔊 Streaming TTS
+
+TTS is handled by the native `TtsManager`.
+
+Instead of waiting for an entire response:
+
+```text
+LLM response
+     │
+     ├── "Hey, Kaushal."
+     ├── "Here's what I found..."
+     ├── "The important part is..."
+     │
+     ▼
+TTS queue
+     │
+     ▼
+Speaker
+```
+
+TTS maintains its own lifecycle and correlates speech with the active assistant run and message.
+
+Supported lifecycle:
+
+```text
+START → SPEAKING → PAUSE → RESUME → STOP / COMPLETE
+```
+
+---
+
+## 🤖 Intelligence
+
+Kritha supports both local and cloud inference.
+
+```mermaid
+flowchart TD
+    REQUEST["Assistant Request"]
+    ROUTER["Intelligence Pipeline"]
+
+    REQUEST --> ROUTER
+
+    ROUTER --> LOCAL["Local Model"]
+    ROUTER --> CLOUD["Cloud Model"]
+
+    LOCAL --> RESULT["Unified Response Stream"]
+    CLOUD --> RESULT
+
+    RESULT --> UI["Chat UI"]
+    RESULT --> TTS["TTS"]
+```
+
+### Local
+
+Local models are managed directly by the native runtime and can be downloaded and controlled from the application.
+
+```text
+Available Models
+      ↓
+Download
+      ↓
+Pause / Resume
+      ↓
+Local Storage
+      ↓
+LiteRT
+      ↓
+On-device inference
+```
+
+### Cloud
+
+Cloud models provide an escape hatch when local inference is unavailable or insufficient.
+
+The important part is that **the UI does not need a different architecture for local and cloud responses**. Both feed into the same assistant runtime and event stream.
+
+---
+
+## 💬 Conversations
+
+Chat sessions are now part of the native assistant runtime.
+
+Supported operations include:
+
+| Operation        | Native |
+| ---------------- | :----: |
+| Create chat      |    ✓   |
+| Open chat        |    ✓   |
+| Rename           |    ✓   |
+| Pin              |    ✓   |
+| Archive          |    ✓   |
+| Delete           |    ✓   |
+| Persist messages |    ✓   |
+
+This means chat lifecycle is not tied to a React component or screen.
+
+```mermaid
+flowchart LR
+    UI["Chat UI"]
+    CORE["AssistantCore"]
+    DB["Native DB"]
+
+    UI --> CORE
+    CORE --> DB
+
+    DB --> CORE
+    CORE --> UI
+```
+
+---
+
+## 📱 Android Integration
+
+Kritha is designed to operate as an Android assistant, not simply as a foreground chat application.
+
+Current native integration includes:
+
+* Wake-word foreground service
+* Native speech recognition
+* Native TTS
+* Microphone ownership
+* Assistant/default-assistant integration
+* Notification listener integration
+* Android system APIs
+* Native model management
+
+The native module exposes these capabilities through a controlled TypeScript API rather than exposing the internal implementation directly.
+
+---
+
+## 🗂️ Project Structure
+
+```text
+kritha/
+│
+├── android/
+│
+├── assets/
+│
+├── edge-impulse-exports/
+│
+├── modules/
+│   └── kritha/
+│       ├── android/
+│       │   └── src/main/java/
+│       │       └── expo/modules/kritha/
+│       │           ├── AssistantCore
+│       │           ├── DBManager
+│       │           ├── TtsManager
+│       │           ├── MicrophoneManager
+│       │           ├── intelligence/
+│       │           ├── wakeword/
+│       │           └── tools/
+│       │
+│       └── src/
+│           ├── KrithaModule.ts
+│           └── index.ts
+│
+├── src/
+│   ├── app/
+│   ├── components/
+│   ├── hooks/
+│   ├── services/
+│   ├── store/
+│   └── theme/
+│
+├── app.json
+├── package.json
+└── tamagui.config.ts
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Area            | Technology                 |
+| --------------- | -------------------------- |
+| UI              | React Native               |
+| Framework       | Expo                       |
+| Navigation      | Expo Router                |
+| State           | Zustand                    |
+| Native Runtime  | Kotlin                     |
+| Native Bridge   | Expo Modules API           |
+| Local ML        | LiteRT                     |
+| Wake Word       | Edge Impulse               |
+| STT             | Android Speech Recognition |
+| TTS             | Android TextToSpeech       |
+| Persistence     | Native SQLite              |
+| Package Manager | Bun                        |
+| Platform        | Android                    |
+
+---
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Requirements
 
-Ensure you have the following installed on your local development machine:
-- [Node.js](https://nodejs.org/) (v18+)
-- [Bun](https://bun.sh/) (Fast all-in-one JavaScript runtime)
-- [Android Studio](https://developer.android.com/studio) (for Native Android builds)
-- An Android Emulator or physical Android device connected via ADB.
+* Node.js 18+
+* Bun
+* Android Studio
+* Android SDK
+* Android emulator or physical Android device
 
-### Installation
+### Install
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/kritha.git
-   cd kritha
-   ```
+```bash
+git clone https://github.com/your-org/kritha.git
+cd kritha
 
-2. **Install dependencies**
-   ```bash
-   bun install
-   ```
+bun install
+```
 
-3. **Configure Environment Variables**
-   Rename `.env.example` to `.env` (if available) and add your necessary API keys for cloud fallback:
-   ```env
-   EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
-   ```
+### Environment
 
-### Development Workflow
+```env
+EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
+```
 
-Start the Expo development server:
+### Development
+
+Start Metro / Expo:
+
 ```bash
 bun run start
 ```
 
-Build and run the native Android app (requires a connected device or emulator):
+Build the native Android application:
+
 ```bash
 bun run android
 ```
 
-*Note: Because this project uses custom native code (`modules/kritha`), you cannot use Expo Go. You must compile a development build using `bun run android` or EAS Build.*
+> **Note:** Kritha uses custom native Android code under `modules/kritha`, so **Expo Go is not supported**. Use a native development build.
 
-## 🛠 Tech Stack
+---
 
-- **Framework**: [React Native](https://reactnative.dev/) & [Expo](https://expo.dev/)
-- **Language**: TypeScript & Kotlin
-- **Styling**: [Tamagui](https://tamagui.dev/) / Vanilla CSS
-- **Local DB**: [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-- **Native Modules**: Expo Modules API
-- **Machine Learning**: [Edge Impulse](https://edgeimpulse.com/) (Wake Word) & Google LiteRT (LLM)
+## 🧩 Development Philosophy
 
-## 🤝 Contributing
+Kritha follows a simple ownership model:
 
-Contributions are welcome! Please follow the standard pull request process:
-1. Fork the project.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+| Responsibility      | Owner                    |
+| ------------------- | ------------------------ |
+| Rendering           | React Native             |
+| UI state            | Zustand                  |
+| Assistant execution | `AssistantCore`          |
+| Audio ownership     | `MicrophoneManager`      |
+| Wake word           | Native wake-word service |
+| Speech recognition  | Native Android           |
+| TTS                 | `TtsManager`             |
+| Chat persistence    | Native DB                |
+| Model execution     | Intelligence pipeline    |
+| Android integration | Kotlin                   |
+
+The goal is not to put everything into Kotlin or everything into React Native.
+
+The goal is to put each responsibility **where it can be executed reliably**.
+
+---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License. See [`LICENSE`](LICENSE).

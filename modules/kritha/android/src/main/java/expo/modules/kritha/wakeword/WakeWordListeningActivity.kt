@@ -5,12 +5,16 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import expo.modules.kritha.AssistantCore
 import expo.modules.kritha.NativeAssistantSession
+import expo.modules.kritha.db.DBManager
+import java.util.UUID
 
 class WakeWordListeningActivity : ReactActivity() {
 
@@ -21,11 +25,14 @@ class WakeWordListeningActivity : ReactActivity() {
         val isInstanceActive: Boolean
             get() = instance != null
 
+        val activeSessionId: String
+            get() = AssistantCore.activeChatSessionId
+
         fun onWakeWordDetected() {
             instance?.let { activity ->
                 activity.runOnUiThread {
-                    activity.assistantSession?.stopTts()
-                    activity.startAssistantSession()
+                    AssistantCore.cancel()
+                    AssistantCore.startVoiceSession(activity, origin = "WAKE_WORD")
                 }
             }
         }
@@ -36,17 +43,10 @@ class WakeWordListeningActivity : ReactActivity() {
 
         fun processPrompt(text: String, autoTts: Boolean) {
             val activity = instance ?: return
-            if (activity.assistantSession == null) {
-                activity.startAssistantSession()
-            }
-            activity.assistantSession?.processPrompt(text, autoTts)
+            val origin = if (autoTts) "MANUAL_DICTATION" else "MANUAL_TYPING"
+            AssistantCore.submitText(activity, text, origin = origin)
         }
-
-        internal val activeSession: NativeAssistantSession?
-            get() = instance?.assistantSession
     }
-
-    internal var assistantSession: NativeAssistantSession? = null
 
     override fun getMainComponentName(): String = "AssistantOverlay"
 
@@ -62,111 +62,78 @@ class WakeWordListeningActivity : ReactActivity() {
         super.onCreate(savedInstanceState)
         instance = this
 
+        AssistantCore.init(this)
+
+        window.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
         window.setBackgroundDrawable(
             android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
         )
+        window.clearFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        )
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        )
 
         showAboveLockScreen()
-        startAssistantSession()
+
+        AssistantCore.beginNewChat()
+        AssistantCore.startVoiceSession(this, origin = "WAKE_WORD")
+
+        window.decorView.post {
+            window.decorView.requestFocus()
+            window.decorView.requestLayout()
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-        startAssistantSession()
+
+        AssistantCore.cancel()
+        AssistantCore.startVoiceSession(this, origin = "WAKE_WORD")
+    }
+
+    override fun onBackPressed() {
+        AssistantCore.dismiss()
     }
 
     override fun onPause() {
         super.onPause()
-        assistantSession?.stopTts()
     }
 
     override fun onStop() {
         super.onStop()
-        assistantSession?.stopTts()
     }
 
     override fun onDestroy() {
         if (instance === this) {
             instance = null
         }
-
-        assistantSession?.shutdown()
-        assistantSession = null
-
         WakeWordForegroundService.onAssistantSessionFinished()
-
         super.onDestroy()
     }
 
-    private fun startAssistantSession() {
-        assistantSession?.shutdown()
-
-        assistantSession = NativeAssistantSession(
-            this,
-            object : NativeAssistantSession.Callback {
-                override fun onListening() {
-                    WakeWordEventHub.emitAssistant("listening")
-                }
-
-                override fun onRmsChanged(rmsdB: Float) {
-                    WakeWordEventHub.emitAssistant("rms", rms = rmsdB)
-                }
-
-                override fun onPartial(transcript: String) {
-                    WakeWordEventHub.emitAssistant("partial", transcript = transcript)
-                }
-
-                override fun onProcessing(transcript: String) {
-                    WakeWordEventHub.emitAssistant("processing", transcript = transcript)
-                }
-
-                override fun onStreaming(transcript: String, chunk: String) {
-                    WakeWordEventHub.emitAssistant("streaming", transcript = transcript, chunk = chunk)
-                }
-
-                override fun onFinished(transcript: String?, response: String) {
-                    WakeWordEventHub.emitAssistant("finished", transcript = transcript, response = response)
-                }
-
-                override fun onError(message: String) {
-                    WakeWordEventHub.emitAssistant("error", error = message)
-                }
-
-                override fun onSessionFinished() {
-                    assistantSession = null
-                }
-
-                override fun onTtsStart() {
-                    WakeWordEventHub.emitAssistant("tts_start")
-                }
-
-                override fun onTtsPause() {
-                    WakeWordEventHub.emitAssistant("tts_pause")
-                }
-
-                override fun onTtsDone() {
-                    WakeWordEventHub.emitAssistant("tts_done")
-                }
-            }
-        ).also {
-            it.start()
-        }
+    fun cancelSession() {
+        AssistantCore.cancel()
     }
 
     @Suppress("DEPRECATION")
     private fun showAboveLockScreen() {
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-        )
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
 
-            getSystemService(
-                KeyguardManager::class.java
-            )?.requestDismissKeyguard(this, null)
+            val km = getSystemService(KeyguardManager::class.java)
+            if (km?.isKeyguardLocked == true) {
+                km.requestDismissKeyguard(this, null)
+            }
         } else {
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or

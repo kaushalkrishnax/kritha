@@ -12,7 +12,7 @@ import kotlinx.coroutines.isActive
 internal class L2LocalLLM(private val context: Context) {
 
     suspend fun infer(
-        prompt: String,
+        messages: List<ConversationMessage>,
         modelId: String? = null,
         onChunk: suspend (String) -> Unit = {}
     ): String? {
@@ -41,7 +41,18 @@ internal class L2LocalLLM(private val context: Context) {
             )
 
             engine.createConversation(config).use { conversation ->
-                conversation.sendMessageAsync(prompt).collect { token ->
+                
+                val finalPrompt = buildString {
+                    messages.forEach { msg ->
+                        when (msg.role) {
+                            Role.SYSTEM -> append("System: ${msg.content}\n\n")
+                            Role.USER -> append("User: ${msg.content}\n\n")
+                            Role.ASSISTANT -> append("Kritha: ${msg.content}\n\n")
+                        }
+                    }
+                }.trimEnd()
+                
+                conversation.sendMessageAsync(finalPrompt).collect { token ->
                     if (isCancelled || !currentCoroutineContext().isActive) {
                         Log.i(TAG, "Inference cancelled mid-stream")
                         throw CancellationException("Generation cancelled")

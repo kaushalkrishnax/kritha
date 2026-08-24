@@ -8,19 +8,19 @@
 // Core Palette
 
 /** Deepest background — used for shell, app frame, status bar bg */
-export const BG_DEEPEST = '#0B0F19';
+export const BG_DEEPEST = '#0f0f10ff';
 
 /** Primary surface — chat panel, sidebar */
-export const BG_SURFACE = '#0B0F19';
+export const BG_SURFACE = '#141518';
 
 /** Slightly lighter surface — used for inline cards, banners */
-export const BG_ELEVATED = '#1E293B';
+export const BG_ELEVATED = '#17181b';
 
 /** Input / search box backgrounds */
-export const BG_INPUT = '#0F172A';
+export const BG_INPUT = '#1c1e21';
 
 /** Card / message bubble background (Google Material dark) */
-export const BG_CARD = '#1E1F22';
+export const BG_CARD = '#1c1d1f';
 
 /** Overlay / modal scrim */
 export const BG_SCRIM = 'rgba(0,0,0,0.55)';
@@ -34,10 +34,10 @@ export const TEXT_PRIMARY = '#F1F5F9';
 export const TEXT_SECONDARY = '#E2E8F0';
 
 /** Muted / placeholder text */
-export const TEXT_MUTED = '#94A3B8';
+export const TEXT_MUTED = '#8f959d';
 
 /** Dimmed text */
-export const TEXT_DIMMED = '#64748B';
+export const TEXT_DIMMED = '#79828f';
 
 /** White — used on colored buttons */
 export const TEXT_ON_ACCENT = '#FFFFFF';
@@ -79,7 +79,7 @@ export const WARNING = '#EF4444';
 // Border / Divider
 
 /** Strong border */
-export const BORDER_STRONG = '#334155';
+export const BORDER_STRONG = '#44494fff';
 
 /** Subtle border */
 export const BORDER_SUBTLE = 'rgba(255,255,255,0.12)';

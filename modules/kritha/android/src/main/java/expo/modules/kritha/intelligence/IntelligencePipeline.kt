@@ -22,6 +22,7 @@ internal class IntelligencePipeline(private val context: Context) {
     }
 
     suspend fun process(
+        chatSessionId: String?,
         input: String,
         onChunk: suspend (String) -> Unit = {}
     ): Result {
@@ -74,12 +75,30 @@ internal class IntelligencePipeline(private val context: Context) {
 
         val targetModelId =
             expo.modules.kritha.ModelManager.getSelectedModel(context)
+        val isCloud = expo.modules.kritha.ModelCatalog.isCloudModel(targetModelId)
+        
+        val fullHistory = if (chatSessionId != null) {
+            expo.modules.kritha.db.DBManager.getMessages(chatSessionId)
+        } else {
+            emptyList()
+        }
 
-        if (expo.modules.kritha.ModelCatalog.isCloudModel(targetModelId)) {
+        val systemPrompt = expo.modules.kritha.AssistantCore.systemPrompt
+        val customInstructions = expo.modules.kritha.AssistantCore.customInstructions
+
+        val contextMessages = ConversationContextBuilder.buildContext(
+            systemPrompt,
+            customInstructions,
+            fullHistory,
+            input,
+            isCloud
+        )
+
+        if (isCloud) {
 
             val llmResponse =
                 expo.modules.kritha.intelligence.L3CloudLLM(context)
-                    .infer(input, onChunk = onChunk)
+                    .infer(contextMessages, onChunk = onChunk)
 
             if (!llmResponse.isNullOrBlank()) {
                 Log.i(
@@ -96,7 +115,7 @@ internal class IntelligencePipeline(private val context: Context) {
         } else {
 
             val llmResponse =
-                l2.infer(input, onChunk = onChunk)
+                l2.infer(contextMessages, targetModelId, onChunk = onChunk)
 
             if (!llmResponse.isNullOrBlank()) {
                 Log.i(

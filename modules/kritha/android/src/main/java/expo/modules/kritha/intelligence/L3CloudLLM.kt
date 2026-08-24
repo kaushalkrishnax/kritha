@@ -18,7 +18,7 @@ import java.net.URL
 internal class L3CloudLLM(private val context: Context) {
 
     suspend fun infer(
-        prompt: String,
+        messages: List<ConversationMessage>,
         onChunk: suspend (String) -> Unit = {}
     ): String? = withContext(Dispatchers.IO) {
         isCancelled = false
@@ -45,15 +45,34 @@ internal class L3CloudLLM(private val context: Context) {
             connection.readTimeout = 30000
 
             val requestBody = JSONObject().apply {
-                put("contents", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().apply {
-                                put("text", prompt)
+                val systemParts = JSONArray()
+                val contentsArray = JSONArray()
+
+                messages.forEach { msg ->
+                    when (msg.role) {
+                        Role.SYSTEM -> {
+                            systemParts.put(JSONObject().apply { put("text", msg.content) })
+                        }
+                        Role.USER -> {
+                            contentsArray.put(JSONObject().apply {
+                                put("role", "user")
+                                put("parts", JSONArray().apply { put(JSONObject().apply { put("text", msg.content) }) })
                             })
-                        })
-                    })
-                })
+                        }
+                        Role.ASSISTANT -> {
+                            contentsArray.put(JSONObject().apply {
+                                put("role", "model")
+                                put("parts", JSONArray().apply { put(JSONObject().apply { put("text", msg.content) }) })
+                            })
+                        }
+                    }
+                }
+
+                if (systemParts.length() > 0) {
+                    put("system_instruction", JSONObject().apply { put("parts", systemParts) })
+                }
+                
+                put("contents", contentsArray)
             }
 
             OutputStreamWriter(connection.outputStream, "UTF-8").use { writer ->

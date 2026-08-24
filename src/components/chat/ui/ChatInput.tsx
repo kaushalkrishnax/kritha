@@ -1,8 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  NativeSyntheticEvent,
+  TextLayoutEventData,
+} from 'react-native';
 import { Mic, Square, ArrowUp, Plus, AudioLines } from 'lucide-react-native';
 import Colors from '@/theme';
-import KrithaNativeModule from '../../../../modules/kritha/src/KrithaModule';
+import { useAssistantStore } from '@/store/assistantStore';
 
 export interface ChatInputProps {
   draft?: string;
@@ -19,17 +28,16 @@ export interface ChatInputProps {
 }
 
 const MULTIPLIERS = [
-  0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45,
-  0.9, 1.15, 0.6, 0.9, 0.55, 0.8, 0.35, 0.6, 1.0, 0.45, 0.7,
+  0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
+  0.9, 0.55, 0.8, 0.35, 0.6, 1.0, 0.45, 0.7,
 ];
 
-
-const LINE_HEIGHT = 24;
-const MAX_LINES = 8;
+const LINE_HEIGHT = 22;
+const MAX_LINES = 6;
 const MAX_INPUT_HEIGHT = LINE_HEIGHT * MAX_LINES;
-const COMPACT_HEIGHT = 74;
-const EXPANDED_MIN_HEIGHT = 116;
-const BOTTOM_ROW_HEIGHT = 44;
+const COMPACT_HEIGHT = 58;
+const EXPANDED_MIN_HEIGHT = 96;
+const BOTTOM_ROW_HEIGHT = 38;
 
 export function ChatInput({
   draft = '',
@@ -50,31 +58,25 @@ export function ChatInput({
   const [isExpanded, setIsExpanded] = useState(false);
   const [measuredLines, setMeasuredLines] = useState(1);
 
-  const dotsOpacity = useRef(
-    new Animated.Value(1),
-  ).current;
+  const dotsOpacity = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(new Animated.Value(0.2)).current;
+  const glowScale = useRef(new Animated.Value(1)).current;
 
-  const glowOpacity = useRef(
-    new Animated.Value(0.2),
-  ).current;
+  const requestOrigin = useAssistantStore((s) => s.requestOrigin);
+  const responseText = useAssistantStore((s) => s.response);
+  const canonicalState = useAssistantStore((s) => s.canonicalState);
 
-  const glowScale = useRef(
-    new Animated.Value(1),
-  ).current;
+  const isVoiceRequest =
+    requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION';
+  const isWaitingForFirstToken =
+    canonicalState === 'THINKING' ||
+    (canonicalState === 'GENERATING' && !responseText);
+  const showJustASec = isVoiceRequest && isWaitingForFirstToken;
 
-  const showStop =
-    !isRecording &&
-    (isProcessing || isSending);
+  const showStop = !isRecording && (isProcessing || isSending || showJustASec);
+  const showSend = !isRecording && !isProcessing && !isSending && hasText;
 
-  const showSend =
-    !isRecording &&
-    !isProcessing &&
-    !isSending &&
-    hasText;
-
-  const fadeAnim = useRef(
-    new Animated.Value(1),
-  ).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (isProcessing) {
@@ -109,46 +111,16 @@ export function ChatInput({
     setIsExpanded(measuredLines > 1);
   }, [hasText, measuredLines]);
 
+  const storeVolumeRms = useAssistantStore((state) => state.volumeRms);
+
   useEffect(() => {
     if (!isRecording) {
       setVolume(0);
       return;
     }
-
-    const subDictation =
-      KrithaNativeModule.addListener(
-        'onDictationVolume',
-        event => {
-          const value = Number(
-            event?.volume ?? 0,
-          );
-
-          setVolume(
-            Math.max(
-              0,
-              Math.min(12, value),
-            ),
-          );
-        },
-      );
-
-    const subAssistant =
-      KrithaNativeModule.addListener(
-        'onAssistantEvent',
-        event => {
-          if (event.state === 'rms' && typeof event.rms === 'number') {
-            const rawRms = Number(event.rms);
-            const scaled = Math.max(0, Math.min(12, rawRms * 1.2));
-            setVolume(scaled);
-          }
-        },
-      );
-
-    return () => {
-      subDictation.remove();
-      subAssistant.remove();
-    };
-  }, [isRecording]);
+    const scaled = Math.max(0, Math.min(12, storeVolumeRms * 1.2));
+    setVolume(scaled);
+  }, [isRecording, storeVolumeRms]);
 
   useEffect(() => {
     if (!isProcessing && !isSending) {
@@ -172,27 +144,20 @@ export function ChatInput({
     );
 
     animation.start();
-
     return () => animation.stop();
-  }, [
-    isProcessing,
-    isSending,
-    dotsOpacity,
-  ]);
+  }, [isProcessing, isSending, dotsOpacity]);
 
   useEffect(() => {
     if (isRecording) {
       Animated.parallel([
         Animated.spring(glowScale, {
-          toValue:
-            1 + (volume / 12) * 0.12,
+          toValue: 1 + (volume / 12) * 0.12,
           tension: 120,
           friction: 8,
           useNativeDriver: true,
         }),
         Animated.timing(glowOpacity, {
-          toValue:
-            0.35 + (volume / 12) * 0.4,
+          toValue: 0.35 + (volume / 12) * 0.4,
           duration: 90,
           useNativeDriver: true,
         }),
@@ -208,26 +173,14 @@ export function ChatInput({
         useNativeDriver: true,
       }),
       Animated.timing(glowOpacity, {
-        toValue:
-          isProcessing || isSending
-            ? 0.3
-            : 0.2,
+        toValue: isProcessing || isSending ? 0.3 : 0.2,
         duration: 250,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [
-    isRecording,
-    volume,
-    isProcessing,
-    isSending,
-    glowScale,
-    glowOpacity,
-  ]);
+  }, [isRecording, volume, isProcessing, isSending, glowScale, glowOpacity]);
 
-  const handleTextChange = (
-    text: string,
-  ) => {
+  const handleTextChange = (text: string) => {
     setDraft?.(text);
 
     if (!text.trim()) {
@@ -237,29 +190,15 @@ export function ChatInput({
   };
 
   const handleMeasureText = (
-    event: any,
+    event: NativeSyntheticEvent<TextLayoutEventData>,
   ) => {
-    const lines =
-      event.nativeEvent.lines.length;
-
+    const lines = event.nativeEvent.lines.length;
     setMeasuredLines(lines);
   };
 
-  const getBarHeight = (
-    multiplier: number,
-  ) => {
-    const dynamic =
-      (volume / 12) *
-      22 *
-      multiplier;
-
-    return Math.max(
-      4,
-      Math.min(
-        28,
-        5 + dynamic,
-      ),
-    );
+  const getBarHeight = (multiplier: number) => {
+    const dynamic = (volume / 12) * 20 * multiplier;
+    return Math.max(3, Math.min(22, 4 + dynamic));
   };
 
   const handleActionPress = () => {
@@ -291,15 +230,9 @@ export function ChatInput({
         <TouchableOpacity
           onPress={handleActionPress}
           activeOpacity={0.82}
-          style={[
-            styles.actionButton,
-            styles.recordingButton,
-          ]}
+          style={styles.actionButton}
         >
-          <Mic
-            size={21}
-            color="#FFFFFF"
-          />
+          <ArrowUp size={18} color={Colors.textOnAccent} />
         </TouchableOpacity>
       );
     }
@@ -311,10 +244,7 @@ export function ChatInput({
           activeOpacity={0.82}
           style={styles.actionButton}
         >
-          <Square
-            size={20}
-            color="#FFFFFF"
-          />
+          <Square size={16} color={Colors.textOnAccent} />
         </TouchableOpacity>
       );
     }
@@ -326,10 +256,7 @@ export function ChatInput({
           activeOpacity={0.82}
           style={styles.actionButton}
         >
-          <ArrowUp
-            size={21}
-            color="#FFFFFF"
-          />
+          <ArrowUp size={18} color={Colors.textOnAccent} />
         </TouchableOpacity>
       );
     }
@@ -338,83 +265,51 @@ export function ChatInput({
       <TouchableOpacity
         onPress={handleActionPress}
         activeOpacity={0.82}
-        style={[
-          styles.actionButton,
-          isLiveTalk && styles.liveTalkActiveButton,
-        ]}
+        style={[styles.actionButton, isLiveTalk && styles.liveTalkActiveButton]}
       >
-        <AudioLines size={23} color={isLiveTalk ? Colors.accentCyan : Colors.textOnAccent} />
+        <AudioLines
+          size={19}
+          color={isLiveTalk ? Colors.accentCyan : Colors.textOnAccent}
+        />
       </TouchableOpacity>
     );
   };
 
   const expandedHeight = Math.min(
-    EXPANDED_MIN_HEIGHT +
-    Math.max(
-      0,
-      measuredLines - 2,
-    ) *
-    LINE_HEIGHT,
-    MAX_INPUT_HEIGHT +
-    BOTTOM_ROW_HEIGHT +
-    20,
+    EXPANDED_MIN_HEIGHT + Math.max(0, measuredLines - 2) * LINE_HEIGHT,
+    MAX_INPUT_HEIGHT + BOTTOM_ROW_HEIGHT + 16,
   );
 
   return (
     <View style={styles.container}>
-
       <View
         style={[
           styles.composer,
-          isExpanded &&
-          styles.expandedComposer,
+          isExpanded && styles.expandedComposer,
           {
-            height: isExpanded
-              ? expandedHeight
-              : COMPACT_HEIGHT,
+            height: isExpanded ? expandedHeight : COMPACT_HEIGHT,
           },
         ]}
       >
         {isRecording ? (
-          <View
-            style={styles.recordingRow}
-          >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.plusButton}
-            >
-              <Plus
-                size={25}
-                color={Colors.textSecondary}
-              />
+          <View style={styles.recordingRow}>
+            <TouchableOpacity activeOpacity={0.7} style={styles.plusButton}>
+              <Plus size={22} color={Colors.textSecondary} />
             </TouchableOpacity>
 
-            <View
-              style={styles.waveformContainer}
-            >
-              <View
-                style={styles.waveform}
-                pointerEvents="none"
-              >
-                {MULTIPLIERS.map(
-                  (
-                    multiplier,
-                    index,
-                  ) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.waveBar,
-                        {
-                          height:
-                            getBarHeight(
-                              multiplier,
-                            ),
-                        },
-                      ]}
-                    />
-                  ),
-                )}
+            <View style={styles.waveformContainer}>
+              <View style={styles.waveform} pointerEvents="none">
+                {MULTIPLIERS.map((multiplier, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.waveBar,
+                      {
+                        height: getBarHeight(multiplier),
+                      },
+                    ]}
+                  />
+                ))}
               </View>
             </View>
 
@@ -423,36 +318,29 @@ export function ChatInput({
         ) : (
           <>
             <View
-              style={[
-                styles.inputArea,
-                isExpanded &&
-                styles.inputAreaExpanded,
-              ]}
+              style={[styles.inputArea, isExpanded && styles.inputAreaExpanded]}
             >
               {!isExpanded && (
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  style={styles.plusButton}
+                  style={[styles.plusButton, showJustASec && { opacity: 0.35 }]}
+                  disabled={showJustASec}
                 >
                   <Plus
-                    size={25}
-                    color={Colors.textSecondary}
+                    size={22}
+                    color={
+                      showJustASec ? Colors.textMuted : Colors.textSecondary
+                    }
                   />
                 </TouchableOpacity>
               )}
 
               <TextInput
-                value={isProcessing ? '' : draft}
+                value={showJustASec ? '' : draft}
                 onChangeText={handleTextChange}
-                style={[
-                  styles.input,
-                  isExpanded && styles.expandedInput,
-                ]}
-                placeholder={
-                  isProcessing
-                    ? 'Just a Sec...'
-                    : 'Ask Kritha...'
-                }
+                editable={!showJustASec}
+                style={[styles.input, isExpanded && styles.expandedInput]}
+                placeholder={showJustASec ? 'Just a sec...' : 'Ask Kritha...'}
                 placeholderTextColor="rgba(232,234,237,0.46)"
                 multiline
                 textAlignVertical={isExpanded ? 'top' : 'center'}
@@ -461,16 +349,13 @@ export function ChatInput({
 
               {!isExpanded && (
                 <View style={styles.compactActions}>
-                  {!isRecording && (
+                  {!isRecording && !showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
                       onPress={onDictatePress}
                     >
-                      <Mic
-                        size={22}
-                        color={Colors.iconSlate}
-                      />
+                      <Mic size={20} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
 
@@ -481,27 +366,18 @@ export function ChatInput({
 
             {isExpanded && (
               <View style={styles.expandedBottomRow}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.plusButton}
-                >
-                  <Plus
-                    size={25}
-                    color={Colors.textSecondary}
-                  />
+                <TouchableOpacity activeOpacity={0.7} style={styles.plusButton}>
+                  <Plus size={22} color={Colors.textSecondary} />
                 </TouchableOpacity>
 
                 <View style={styles.compactActions}>
-                  {!isRecording && (
+                  {!isRecording && !showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
                       onPress={onDictatePress}
                     >
-                      <Mic
-                        size={22}
-                        color={Colors.iconSlate}
-                      />
+                      <Mic size={20} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
 
@@ -512,16 +388,8 @@ export function ChatInput({
           </>
         )}
 
-        <View
-          pointerEvents="none"
-          style={styles.measurementContainer}
-        >
-          <Text
-            style={styles.measurementText}
-            onTextLayout={
-              handleMeasureText
-            }
-          >
+        <View pointerEvents="none" style={styles.measurementContainer}>
+          <Text style={styles.measurementText} onTextLayout={handleMeasureText}>
             {draft || ' '}
           </Text>
         </View>
@@ -535,9 +403,9 @@ export default ChatInput;
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 12,
     alignItems: 'center',
     position: 'relative',
     backgroundColor: 'transparent',
@@ -546,58 +414,58 @@ const styles = StyleSheet.create({
   composer: {
     width: '100%',
     minHeight: COMPACT_HEIGHT,
-    borderRadius: 36,
-    backgroundColor: '#1E1F22',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderRadius: 28,
+    backgroundColor: Colors.bgCard,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: Colors.borderSubtle,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 6,
     },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 14,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
   },
 
   expandedComposer: {
-    borderRadius: 36,
-    paddingHorizontal: 10,
-    paddingTop: 14,
-    paddingBottom: 14,
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
 
   recordingRow: {
     width: '100%',
-    height: 48,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   waveformContainer: {
     flex: 1,
-    height: 48,
+    height: 44,
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
 
   waveform: {
     width: '100%',
-    height: 48,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
   },
 
   waveBar: {
     width: 2,
-    minHeight: 4,
-    maxHeight: 28,
+    minHeight: 3,
+    maxHeight: 22,
     borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,
@@ -605,18 +473,18 @@ const styles = StyleSheet.create({
 
   inputArea: {
     width: '100%',
-    height: 48,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 4,
-    paddingRight: 4,
+    paddingLeft: 2,
+    paddingRight: 2,
   },
 
   inputAreaExpanded: {
     flex: 1,
     height: undefined,
     alignItems: 'flex-start',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     paddingTop: 2,
   },
 
@@ -624,7 +492,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: LINE_HEIGHT,
     color: Colors.textSecondary,
-    fontSize: 16.5,
+    fontSize: 15.5,
     fontWeight: '400',
     lineHeight: LINE_HEIGHT,
     padding: 0,
@@ -635,7 +503,7 @@ const styles = StyleSheet.create({
   expandedInput: {
     width: '100%',
     height: '100%',
-    fontSize: 16.5,
+    fontSize: 15.5,
     lineHeight: LINE_HEIGHT,
     textAlignVertical: 'top',
     paddingTop: 0,
@@ -653,22 +521,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+    paddingBottom: 2,
   },
 
   plusButton: {
-    width: 44,
-    height: 44,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   actionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: Colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
@@ -682,8 +550,8 @@ const styles = StyleSheet.create({
       height: 0,
     },
     shadowOpacity: 0.85,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 10,
+    elevation: 6,
   },
 
   liveTalkActiveButton: {
@@ -696,28 +564,28 @@ const styles = StyleSheet.create({
       height: 0,
     },
     shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   voiceModeButton: {
-    width: 40,
-    height: 44,
+    width: 36,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   measurementContainer: {
     position: 'absolute',
-    left: 58,
-    right: 58,
+    left: 48,
+    right: 48,
     top: 0,
     opacity: 0,
     pointerEvents: 'none',
   },
 
   measurementText: {
-    fontSize: 16.5,
+    fontSize: 15.5,
     fontWeight: '400',
     lineHeight: LINE_HEIGHT,
     padding: 0,
@@ -732,7 +600,7 @@ const styles = StyleSheet.create({
 
   justASecText: {
     color: Colors.textSecondary,
-    fontSize: 16.5,
+    fontSize: 15.5,
     fontWeight: '400',
     fontStyle: 'italic',
   },

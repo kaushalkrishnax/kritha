@@ -8,32 +8,21 @@ export function useWakeWordBootstrap() {
     if (Platform.OS !== 'android') return;
 
     let cancelled = false;
-    const requestPermissionsAndStart = async () => {
-      const permissions = [
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-        PermissionsAndroid.PERMISSIONS.READ_CALENDAR,
-        PermissionsAndroid.PERMISSIONS.CALL_PHONE,
-      ];
-
-      if (Number(Platform.Version) >= 33) {
-        permissions.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    const checkAndStartWakeWord = async () => {
+      try {
+        const recordGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        );
+        if (cancelled || !recordGranted) return;
+        await wakeWordService.start();
+      } catch (e) {
+        console.warn('Failed to start wake word service:', e);
       }
-
-      const results = await PermissionsAndroid.requestMultiple(permissions);
-
-      const recordGranted =
-        results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
-        PermissionsAndroid.RESULTS.GRANTED;
-      if (cancelled || !recordGranted) return;
-
-      if (!cancelled) await wakeWordService.start();
     };
 
-    void requestPermissionsAndStart();
+    void checkAndStartWakeWord();
     return () => {
       cancelled = true;
-      // The Android foreground service intentionally outlives React screens.
     };
   }, []);
 }

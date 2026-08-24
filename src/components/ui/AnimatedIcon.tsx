@@ -89,7 +89,7 @@ export function AnimatedIcon() {
       >
         <Image
           style={styles.glow}
-          source={require('@/assets/images/logo-glow.png')}
+          source={require('@assets/images/logo-glow.png')}
         />
       </Animated.View>
 
@@ -103,7 +103,7 @@ export function AnimatedIcon() {
       >
         <Image
           style={styles.image}
-          source={require('@/assets/images/expo-logo.png')}
+          source={require('@assets/images/expo-logo.png')}
         />
       </Animated.View>
     </View>

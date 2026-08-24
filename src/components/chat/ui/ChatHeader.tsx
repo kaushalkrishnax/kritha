@@ -36,12 +36,12 @@ export function ChatHeader({
     <View style={styles.header}>
       <View style={styles.leftSection}>
         <TouchableOpacity onPress={handleToggleSidebar} style={styles.iconBtn}>
-          <Menu size={22} color={Colors.textMuted} />
+          <Menu size={24} color={Colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onModelSelectClick} style={styles.modelBtn}>
           <Text style={styles.modelBtnText}>{modelName}</Text>
-          <ChevronDown size={16} color={Colors.textMuted} />
+          <ChevronDown size={18} color={Colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -66,7 +66,7 @@ export default ChatHeader;
 
 const styles = StyleSheet.create({
   header: {
-    height: 52,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderStrong,
   },
   modelBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
   iconBtn: {

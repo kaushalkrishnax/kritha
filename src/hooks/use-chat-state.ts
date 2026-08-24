@@ -4,7 +4,7 @@ import {
   DownloadState,
   ModelRecord,
 } from '../components/chat/types';
-import { ChatSession } from '../services/db.service';
+import { ChatSession } from '../services/chatApi';
 
 //  State shape
 
@@ -15,11 +15,7 @@ export type AssistantBannerState = {
 
 export type ChatState = {
   // Conversation
-  sessionId: string | null;
-  sessions: ChatSession[];
-  messages: ChatMessage[];
   isSending: boolean;
-  error: string | null;
   assistantBanner: AssistantBannerState;
 
   // Models
@@ -36,7 +32,8 @@ export type ChatState = {
   isWakeWordOn: boolean;
   sidebarOpen: boolean;
   localDevice: 'cpu' | 'gpu';
-  
+  error?: string | null;
+
   ttsState: {
     isSpeaking: boolean;
     isPaused: boolean;
@@ -48,15 +45,8 @@ export type ChatState = {
 
 export type ChatAction =
   // Conversation
-  | { type: 'ADD_MESSAGE'; payload: ChatMessage }
-  | { type: 'STREAM_CHUNK'; id: string; chunk: string }
   | { type: 'SET_SENDING'; value: boolean }
-  | { type: 'SET_ERROR'; error: string | null }
   | { type: 'SET_ASSISTANT_BANNER'; banner: AssistantBannerState }
-  | { type: 'FINISH_ASSISTANT_STREAM'; id: string; fullText: string }
-  | { type: 'SET_SESSIONS'; sessions: ChatSession[] }
-  | { type: 'SET_SESSION_ID'; sessionId: string | null }
-  | { type: 'SET_MESSAGES'; messages: ChatMessage[] }
   // Models
   | { type: 'SET_MODELS'; models: ModelRecord[] }
   | { type: 'SET_SELECTED_MODEL'; modelId: string }
@@ -70,7 +60,11 @@ export type ChatAction =
   | { type: 'TOGGLE_WAKE_WORD'; value: boolean }
   | { type: 'TOGGLE_SIDEBAR'; value: boolean }
   | { type: 'SET_DEVICE'; device: 'cpu' | 'gpu' }
-  | { type: 'SET_TTS_STATE'; state: { isSpeaking: boolean; isPaused: boolean; msgId: string | null } };
+  | {
+      type: 'SET_TTS_STATE';
+      state: { isSpeaking: boolean; isPaused: boolean; msgId: string | null };
+    }
+  | { type: 'SET_ERROR'; error: string | null };
 
 //  Reducer
 
@@ -109,11 +103,7 @@ const BASE_MODELS: ModelRecord[] = [
 ];
 
 const INITIAL_STATE: ChatState = {
-  sessionId: null,
-  sessions: [],
-  messages: [],
   isSending: false,
-  error: null,
   assistantBanner: { status: 'idle' },
 
   models: BASE_MODELS,
@@ -135,7 +125,7 @@ const INITIAL_STATE: ChatState = {
   isWakeWordOn: true,
   sidebarOpen: false,
   localDevice: 'cpu',
-  
+
   ttsState: {
     isSpeaking: false,
     isPaused: false,
@@ -145,37 +135,8 @@ const INITIAL_STATE: ChatState = {
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case 'SET_SESSIONS':
-      return { ...state, sessions: action.sessions };
-
-    case 'SET_SESSION_ID':
-      return { ...state, sessionId: action.sessionId };
-
-    case 'SET_MESSAGES':
-      return { ...state, messages: action.messages };
-
-    case 'ADD_MESSAGE':
-      return { ...state, messages: [...state.messages, action.payload] };
-
-    case 'STREAM_CHUNK':
-      return {
-        ...state,
-        messages: state.messages.map((m) =>
-          m.id === action.id ? { ...m, text: m.text + action.chunk } : m,
-        ),
-      };
-
-    case 'FINISH_ASSISTANT_STREAM':
-      return {
-        ...state,
-        messages: state.messages.map((m) =>
-          m.id === action.id ? { ...m, text: action.fullText || m.text } : m,
-        ),
-      };
-
     case 'SET_SENDING':
       return { ...state, isSending: action.value };
-
     case 'SET_ERROR':
       return { ...state, error: action.error };
 

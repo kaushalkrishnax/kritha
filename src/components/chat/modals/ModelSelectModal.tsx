@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   View,
   Text,
@@ -6,7 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { CheckCircle2, Circle, Download } from 'lucide-react-native';
+import { CheckCircle2, Download } from 'lucide-react-native';
 import Colors from '@/theme';
 
 import { ModelRecord, DownloadState } from '@/components/chat/types';
@@ -78,9 +79,7 @@ export function ModelSelectModal({
       >
         <View style={styles.modalOverlayCenter}>
           <View style={styles.modalDialog}>
-            <Text style={styles.modalTitle}>
-              {downloadModalModel?.name}
-            </Text>
+            <Text style={styles.modalTitle}>{downloadModalModel?.name}</Text>
             {downloadModalModel?.totalMb ? (
               <Text style={styles.modalText}>
                 Size: {Math.round(downloadModalModel.totalMb)} MB
@@ -109,7 +108,10 @@ export function ModelSelectModal({
             <View style={styles.modalActions}>
               <TouchableOpacity
                 onPress={onCloseDownloadModal}
-                style={[styles.modalBtn, { backgroundColor: Colors.borderStrong }]}
+                style={[
+                  styles.modalBtn,
+                  { backgroundColor: Colors.borderStrong },
+                ]}
               >
                 <Text style={styles.modalBtnText}>Cancel</Text>
               </TouchableOpacity>
@@ -118,7 +120,11 @@ export function ModelSelectModal({
                   onPress={() => onStartDownload(downloadModalModel)}
                   style={styles.modalBtn}
                 >
-                  <Download size={16} color={Colors.textOnAccent} style={{ marginRight: 6 }} />
+                  <Download
+                    size={16}
+                    color={Colors.textOnAccent}
+                    style={{ marginRight: 6 }}
+                  />
                   <Text style={styles.modalBtnText}>Download</Text>
                 </TouchableOpacity>
               )}
@@ -137,8 +143,8 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 60,
-    left: 16,
+    top: 100,
+    left: 60,
     backgroundColor: Colors.bgElevated,
     borderRadius: 8,
     borderWidth: 1,

@@ -1,32 +1,15 @@
-import { EventSubscription } from "expo-modules-core";
+import { EventSubscription } from 'expo-modules-core';
 
 import {
   addAssistantListener,
   addWakeWordListener,
   AssistantEvent,
+  cancel,
+  dismiss,
   isRunning,
   start,
   stop,
-  stopAssistantSession,
-  triggerAssistantSession,
-  dispatchMediaKey,
-  respondToAssistant,
-  toggleFlashlight,
-  getVolume,
-  setVolume,
-  getBatteryStatus,
-  setWifi,
-  setBluetooth,
-  setAlarm,
-  setTimer,
-  openApp,
-  callContact,
-  sendSMS,
-  isNotificationListenerEnabled,
-  requestNotificationListenerPermission,
-  readNotifications,
-  getCalendarEvents,
-} from "../../modules/kritha/src";
+} from '@modules/kritha/src';
 
 type DetectionListener = (keyword: string, confidence?: number) => void;
 type AssistantListener = (event: AssistantEvent) => void;
@@ -48,11 +31,7 @@ export class WakeWordService {
   }
 
   public async stopAssistantSession(): Promise<void> {
-    stopAssistantSession();
-  }
-
-  public triggerAssistantSession(): void {
-    triggerAssistantSession();
+    cancel();
   }
 
   public getIsRunning(): boolean {
@@ -104,72 +83,8 @@ export class WakeWordService {
   }
 
   // Native Command Wrappers
-  public respondToAssistant(response: string): void {
-    respondToAssistant(response);
-  }
-
-  public dispatchMediaKey(keyCode: number): void {
-    dispatchMediaKey(keyCode);
-  }
-
-  public toggleFlashlight(enable: boolean): void {
-    toggleFlashlight(enable);
-  }
-
-  public getVolume(): number {
-    return getVolume();
-  }
-
-  public setVolume(level: number): void {
-    setVolume(level);
-  }
-
-  public getBatteryStatus(): { level: number; isCharging: boolean } {
-    return getBatteryStatus();
-  }
-
-  public setWifi(enable: boolean): void {
-    setWifi(enable);
-  }
-
-  public setBluetooth(enable: boolean): void {
-    setBluetooth(enable);
-  }
-
-  public setAlarm(hour: number, minute: number, message: string): void {
-    setAlarm(hour, minute, message);
-  }
-
-  public setTimer(durationSeconds: number, message: string): void {
-    setTimer(durationSeconds, message);
-  }
-
-  public openApp(appName: string): boolean {
-    return openApp(appName);
-  }
-
-  public callContact(contactName: string): { success: boolean; resolvedName: string } {
-    return callContact(contactName);
-  }
-
-  public sendSMS(contactName: string, message: string): { success: boolean; resolvedName: string } {
-    return sendSMS(contactName, message);
-  }
-
-  public isNotificationListenerEnabled(): boolean {
-    return isNotificationListenerEnabled();
-  }
-
-  public requestNotificationListenerPermission(): void {
-    requestNotificationListenerPermission();
-  }
-
-  public readNotifications(): Array<{ packageName: string; title: string; text: string }> {
-    return readNotifications();
-  }
-
-  public getCalendarEvents(): Array<{ title: string; startTime: number; description: string }> {
-    return getCalendarEvents();
+  public respondToAssistant(_response: string): void {
+    dismiss();
   }
 }
 

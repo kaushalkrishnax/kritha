@@ -34,6 +34,7 @@ class WakeWordForegroundService : Service() {
     private val recorderRef     = AtomicReference<AudioRecord?>()
 
     @Volatile private var isListeningPaused = false
+    @Volatile private var isListeningPausedForStt = false
     @Volatile private var lastDetectionAt   = 0L
 
     private var wakeLock: PowerManager.WakeLock? = null
@@ -44,13 +45,13 @@ class WakeWordForegroundService : Service() {
         private const val CHANNEL_ID           = "wakeword_detection"
         private const val NOTIFICATION_ID      = 4101
         private const val SAMPLE_RATE          = 16_000
-        private const val SAMPLE_COUNT         = 16_000  // 1 second window
-        private const val SLICE_SIZE           = 4_000   // 250 ms per slice
+        private const val SAMPLE_COUNT         = 16_000
+        private const val SLICE_SIZE           = 4_000 
         private const val DETECTION_THRESHOLD  = 0.65f
-        private const val DETECTION_COOLDOWN   = 4_000L  // ms
+        private const val DETECTION_COOLDOWN   = 4_000L
         private const val ACTION_FORCE_EXIT    = "expo.modules.kritha.ACTION_FORCE_EXIT"
         private const val ACTION_TOGGLE        = "expo.modules.kritha.ACTION_TOGGLE_LISTENING"
-        private const val TRIGGER_RETRY_DELAY  = 100L    // ms
+        private const val TRIGGER_RETRY_DELAY  = 100L
 
         @Volatile var isRunning = false
             private set
@@ -124,10 +125,29 @@ class WakeWordForegroundService : Service() {
             }
         }
 
+        fun pauseForStt() {
+            instance?.apply {
+                isListeningPausedForStt = true
+                listening.set(false)
+                stopRecorder()
+            }
+        }
+
+        fun resumeFromStt() {
+            instance?.apply {
+                isListeningPausedForStt = false
+                if (!isListeningPaused) {
+                    startListening()
+                }
+            }
+        }
+
         fun resumeListening() {
             instance?.apply {
                 isListeningPaused = false
-                startListening()
+                if (!isListeningPausedForStt) {
+                    startListening()
+                }
             }
         }
     }
@@ -186,7 +206,7 @@ class WakeWordForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startListening() {
-        if (isListeningPaused) return
+        if (isListeningPaused || isListeningPausedForStt) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "RECORD_AUDIO permission missing — stopping service")
             stopSelf()
@@ -201,6 +221,7 @@ class WakeWordForegroundService : Service() {
             }
 
             recorderRef.set(recorder)
+            expo.modules.kritha.MicrophoneManager.setWakeWordOwner()
             try {
                 recorder.startRecording()
                 runDetectionLoop(recorder)
@@ -209,6 +230,7 @@ class WakeWordForegroundService : Service() {
                 recorder.release()
                 recorderRef.compareAndSet(recorder, null)
                 listening.set(false)
+                expo.modules.kritha.MicrophoneManager.releaseWakeWordOwner()
                 Log.d(TAG, "Detection thread exited")
             }
         }
@@ -249,12 +271,12 @@ class WakeWordForegroundService : Service() {
             listening.set(false)
             stopRecorder()
             WakeWordListeningActivity.onWakeWordDetected()
-            WakeWordEventHub.emit("hey_kritha", confidence)
+            WakeWordEventHub.emitWakeWord("hey_kritha", confidence)
             return
         }
 
         if (isAppInForeground()) {
-            WakeWordEventHub.emit("hey_kritha", confidence)
+            WakeWordEventHub.emitWakeWord("hey_kritha", confidence)
             return
         }
 
@@ -333,6 +355,7 @@ class WakeWordForegroundService : Service() {
             .notify(NOTIFICATION_ID, buildNotification())
     }
 
+    @Suppress("DEPRECATION")
     private fun buildNotification(): Notification {
         val paused = isListeningPaused
         val title  = if (paused) "Kritha Assistant (Paused)" else "Kritha is listening"
@@ -351,7 +374,6 @@ class WakeWordForegroundService : Service() {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
         } else {
-            @Suppress("DEPRECATION")
             Notification.Builder(this).setPriority(Notification.PRIORITY_LOW)
         }
 
@@ -369,12 +391,11 @@ class WakeWordForegroundService : Service() {
         val toggleLabel = if (paused) "Resume" else "Pause"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            builder.addAction(Notification.Action.Builder(0, toggleLabel, togglePi).build())
-            builder.addAction(Notification.Action.Builder(0, "Exit", exitPi).build())
+            val emptyIcon = android.graphics.drawable.Icon.createWithResource(this, android.R.color.transparent)
+            builder.addAction(Notification.Action.Builder(emptyIcon, toggleLabel, togglePi).build())
+            builder.addAction(Notification.Action.Builder(emptyIcon, "Exit", exitPi).build())
         } else {
-            @Suppress("DEPRECATION")
             builder.addAction(0, toggleLabel, togglePi)
-            @Suppress("DEPRECATION")
             builder.addAction(0, "Exit", exitPi)
         }
 
