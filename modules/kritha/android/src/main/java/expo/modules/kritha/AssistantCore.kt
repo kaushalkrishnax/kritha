@@ -314,8 +314,26 @@ object AssistantCore {
 
     private var nativeVoiceSession: NativeAssistantSession? = null
 
+    fun cancelTurn() {
+        val targetRunId = activeAssistantRunId
+        val targetChatSessionId = activeChatSessionId
+
+        activeJob?.cancel()
+        activeJob = null
+        L2LocalLLM.cancelInference()
+        L3CloudLLM.cancelInference()
+        nativeVoiceSession?.shutdown()
+        nativeVoiceSession = null
+        if (targetRunId.isNotEmpty()) {
+            TtsManager.stop(targetChatSessionId, targetRunId)
+            MicrophoneManager.releaseFromStt(targetRunId)
+        }
+    }
+
     fun startVoiceSession(context: Context, chatSessionId: String? = null, origin: String = "WAKE_WORD") {
         init(context)
+
+        cancelTurn()
 
         val targetChatSessionId = when {
             !chatSessionId.isNullOrBlank() -> chatSessionId
@@ -334,8 +352,6 @@ object AssistantCore {
 
         WakeWordEventHub.emitSessionStart(targetChatSessionId, runId, reqId, origin = origin)
         WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "IDLE", origin = origin)
-
-        nativeVoiceSession?.shutdown()
 
         var lastRmsEmitAt = 0L
         nativeVoiceSession = NativeAssistantSession(

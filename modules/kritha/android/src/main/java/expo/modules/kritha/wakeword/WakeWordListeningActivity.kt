@@ -28,11 +28,10 @@ class WakeWordListeningActivity : ReactActivity() {
         val activeSessionId: String
             get() = AssistantCore.activeChatSessionId
 
-        fun onWakeWordDetected() {
+        fun onWakeWordDetected(origin: String = "WAKE_WORD") {
             instance?.let { activity ->
                 activity.runOnUiThread {
-                    AssistantCore.cancel()
-                    AssistantCore.startVoiceSession(activity, origin = "WAKE_WORD")
+                    AssistantCore.startVoiceSession(activity, origin = origin)
                 }
             }
         }
@@ -96,8 +95,9 @@ class WakeWordListeningActivity : ReactActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        AssistantCore.cancel()
-        AssistantCore.startVoiceSession(this, origin = "WAKE_WORD")
+        val launchSource = intent?.getStringExtra("EXTRA_LAUNCH_SOURCE")
+        val origin = if (launchSource == "voice_interaction") "MANUAL_DICTATION" else "WAKE_WORD"
+        AssistantCore.startVoiceSession(this, origin = origin)
     }
 
     override fun onBackPressed() {

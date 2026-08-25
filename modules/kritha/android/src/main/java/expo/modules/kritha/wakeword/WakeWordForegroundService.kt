@@ -102,6 +102,10 @@ class WakeWordForegroundService : Service() {
                 val svc = instance
                 when {
                     svc != null -> {
+                        if (WakeWordListeningActivity.isInstanceActive) {
+                            WakeWordListeningActivity.onWakeWordDetected(origin = "MANUAL_DICTATION")
+                            return@post
+                        }
                         if (svc.assistantActive.compareAndSet(false, true)) {
                             svc.listening.set(false)
                             svc.stopRecorder()

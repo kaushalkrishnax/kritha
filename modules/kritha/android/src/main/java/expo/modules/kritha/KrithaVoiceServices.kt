@@ -36,6 +36,11 @@ class KrithaVoiceInteractionSessionService : VoiceInteractionSessionService() {
                 )
                 setUiEnabled(false)
 
+                if (WakeWordListeningActivity.isInstanceActive) {
+                    WakeWordListeningActivity.onWakeWordDetected(origin = "MANUAL_DICTATION")
+                    return
+                }
+
                 val intent = Intent(
                     context,
                     WakeWordListeningActivity::class.java
