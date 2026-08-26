@@ -1,6 +1,5 @@
 export * from './ChatHeader';
 export * from './ChatMessages';
-export * from './PromptMessage';
 export * from './ResponseMessage';
 export * from './ResponseActions';
 export * from './ThinkingBlock';

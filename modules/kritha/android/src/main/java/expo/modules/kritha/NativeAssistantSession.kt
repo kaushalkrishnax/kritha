@@ -39,13 +39,13 @@ internal class NativeAssistantSession(
         fun onSessionFinished()
     }
 
-    private val appContext   = context.applicationContext
-    private val mainHandler  = Handler(Looper.getMainLooper())
-    private val scope        = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val pipeline     = IntelligencePipeline(appContext)
+    private val appContext = context.applicationContext
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val pipeline = IntelligencePipeline(appContext)
 
     private var recognizer: SpeechRecognizer? = null
-    private var done                          = false
+    private var done = false
 
     private var pipelineJob: Job? = null
     private var isPipelineDone = false
@@ -94,7 +94,8 @@ internal class NativeAssistantSession(
         }
     }
 
-    @Volatile var autoTts: Boolean = false
+    @Volatile
+    var autoTts: Boolean = false
 
     fun processPrompt(transcript: String, shouldAutoTts: Boolean) {
         if (transcript.isBlank()) return
@@ -130,6 +131,7 @@ internal class NativeAssistantSession(
                         }
                         finishSession()
                     }
+
                     is IntelligencePipeline.Result.Miss -> {
                         val msg = "I'm sorry, I couldn't process that request."
                         callback.onFinished(transcript, msg)
@@ -148,20 +150,24 @@ internal class NativeAssistantSession(
     }
 
 
+    override fun onReadyForSpeech(params: Bundle?) {
+        callback.onListening()
+    }
 
-    override fun onReadyForSpeech(params: Bundle?)  { callback.onListening() }
-    override fun onBeginningOfSpeech()              = Unit
+    override fun onBeginningOfSpeech() = Unit
     override fun onRmsChanged(rmsdB: Float) {
         callback.onRmsChanged(rmsdB)
     }
+
     override fun onBufferReceived(buffer: ByteArray?) = Unit
-    override fun onEndOfSpeech()                    = Unit
+    override fun onEndOfSpeech() = Unit
     override fun onPartialResults(partial: Bundle?) {
         val transcript = partial?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
         if (!transcript.isNullOrBlank()) {
             callback.onPartial(transcript)
         }
     }
+
     override fun onEvent(type: Int, params: Bundle?) = Unit
 
     override fun onResults(results: Bundle?) {
@@ -184,9 +190,9 @@ internal class NativeAssistantSession(
             return
         }
         val message = when (error) {
-            SpeechRecognizer.ERROR_NO_MATCH          -> "I didn't catch that."
-            SpeechRecognizer.ERROR_SPEECH_TIMEOUT    -> "I didn't hear anything."
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY   -> "Speech recognition is busy."
+            SpeechRecognizer.ERROR_NO_MATCH -> "I didn't catch that."
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I didn't hear anything."
+            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Speech recognition is busy."
             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission missing."
             else -> "Speech recognition failed (code $error)."
         }
@@ -201,7 +207,6 @@ internal class NativeAssistantSession(
         }
         finishSession()
     }
-
 
 
     private var busyRetryCount = 0

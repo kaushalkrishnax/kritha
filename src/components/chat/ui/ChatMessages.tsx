@@ -1,30 +1,23 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ChatMessage } from '@/components/chat/types';
-import { PromptMessage } from './PromptMessage';
 import { ResponseMessage } from './ResponseMessage';
 import Colors from '@/theme';
+import { useAssistantStore } from '@/store/assistantStore';
+import { useAssistantActions } from '@/hooks/use-assistant-interaction';
 
-export interface ChatMessagesProps {
-  messages?: ChatMessage[];
-  isSending?: boolean;
-  error?: string | null;
-  ttsMsgId?: string | null;
-  isTtsSpeaking?: boolean;
-  isTtsPaused?: boolean;
-  onSpeakerPress?: (msgId: string) => void;
-}
+export function ChatMessages() {
+  const messages = useAssistantStore((s) => s.messages);
+  const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const error = useAssistantStore((s) => s.error);
+  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
+  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
+  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
 
-export function ChatMessages({
-  messages = [],
-  isSending = false,
-  error = null,
-  ttsMsgId = null,
-  isTtsSpeaking = false,
-  isTtsPaused = false,
-  onSpeakerPress,
-}: ChatMessagesProps) {
+  const { handleSpeakerPress } = useAssistantActions();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const isSending =
+    canonicalState === 'THINKING' || canonicalState === 'GENERATING';
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -59,7 +52,13 @@ export function ChatMessages({
           isLastAssistant && !isStreamingThisMessage && msg.text.length > 0;
 
         if (isUser) {
-          return <PromptMessage key={msg.id} message={msg} />;
+          return (
+            <View style={[styles.messageWrapper, styles.userWrapper]} key={msg.id}>
+              <View style={styles.userBubble}>
+                <Text style={styles.userText}>{msg.text}</Text>
+              </View>
+            </View>
+          );
         }
 
         return (
@@ -68,9 +67,9 @@ export function ChatMessages({
             message={msg}
             isStreaming={isStreamingThisMessage}
             showActions={showActions}
-            isTtsSpeaking={isTtsSpeaking && (!ttsMsgId || ttsMsgId === msg.id)}
-            isTtsPaused={isTtsPaused && (!ttsMsgId || ttsMsgId === msg.id)}
-            onSpeakerPress={onSpeakerPress}
+            isTtsSpeaking={isTtsSpeaking && (!currentTtsMsgId || currentTtsMsgId === msg.id)}
+            isTtsPaused={isTtsPaused && (!currentTtsMsgId || currentTtsMsgId === msg.id)}
+            onSpeakerPress={() => handleSpeakerPress(msg.id, msg.text)}
           />
         );
       })}
@@ -94,6 +93,26 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingHorizontal: 16,
     gap: 16,
+  },
+  messageWrapper: {
+    width: '100%',
+  },
+  userWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  userBubble: {
+    backgroundColor: Colors.userBubbleBg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderBottomRightRadius: 4,
+    maxWidth: '82%',
+  },
+  userText: {
+    color: Colors.textOnAccent,
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   errorWrapper: {
     alignSelf: 'center',

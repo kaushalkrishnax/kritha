@@ -1,5 +1,5 @@
 import Colors from '@/theme';
-import { Pause, Play, Tv, Video, X } from 'lucide-react-native';
+import { Mic, Pause, Tv, Video, X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import {
   Animated,
@@ -15,25 +15,18 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
-export interface LiveTalkBarProps {
-  isRecording?: boolean;
-  isSpeaking?: boolean;
-  isPaused?: boolean;
-  onPauseResumePress: () => void;
-  onEndPress: () => void;
-  onVideoPress?: () => void;
-  onScreenSharePress?: () => void;
-}
+import { useAssistantStore } from '@/store/assistantStore';
+import { useAssistantActions } from '@/hooks/use-assistant-interaction';
 
-export function LiveTalkBar({
-  isRecording,
-  isSpeaking,
-  isPaused,
-  onPauseResumePress,
-  onEndPress,
-  onVideoPress,
-  onScreenSharePress,
-}: LiveTalkBarProps) {
+export function LiveTalkBar() {
+  const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
+  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
+  const isLiveTalkHeld = useAssistantStore((s) => s.isLiveTalkHeld);
+
+  const isRecording = canonicalState === 'LISTENING';
+  const { handleLiveTalkToggle, handleLiveTalkPauseResume } =
+    useAssistantActions();
   const pulseAnim = useRef(new Animated.Value(0.2)).current;
 
   useEffect(() => {
@@ -51,19 +44,21 @@ export function LiveTalkBar({
         }),
       ]),
     );
-    if (isRecording || isSpeaking) {
+
+    if (isRecording || isTtsSpeaking) {
       animation.start();
     } else {
       animation.stop();
       pulseAnim.setValue(0.2);
     }
+
     return () => animation.stop();
-  }, [isRecording, isSpeaking, pulseAnim]);
+  }, [isRecording, isTtsSpeaking, pulseAnim]);
 
   const getStatusText = () => {
-    if (isPaused) return 'Paused';
+    if (isTtsPaused || isLiveTalkHeld) return 'Paused';
     if (isRecording) return 'Listening...';
-    if (isSpeaking) return 'Speaking...';
+    if (isTtsSpeaking) return 'Speaking...';
     return 'Live';
   };
 
@@ -103,7 +98,7 @@ export function LiveTalkBar({
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.circleBtn}
-              onPress={onVideoPress}
+              onPress={() => {}}
             >
               <Video size={18} color={Colors.textOnAccent} />
             </TouchableOpacity>
@@ -111,7 +106,7 @@ export function LiveTalkBar({
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.circleBtn}
-              onPress={onScreenSharePress}
+              onPress={() => {}}
             >
               <Tv size={18} color={Colors.textOnAccent} />
             </TouchableOpacity>
@@ -125,14 +120,10 @@ export function LiveTalkBar({
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.circleBtn, styles.actionBtnActive]}
-              onPress={onPauseResumePress}
+              onPress={handleLiveTalkPauseResume}
             >
-              {isPaused ? (
-                <Play
-                  size={18}
-                  fill={Colors.textOnAccent}
-                  color="transparent"
-                />
+              {(isTtsPaused || isLiveTalkHeld) ? (
+                <Mic size={18} color={Colors.textOnAccent} />
               ) : (
                 <Pause
                   size={18}
@@ -145,7 +136,7 @@ export function LiveTalkBar({
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.circleBtn, styles.closeBtn]}
-              onPress={onEndPress}
+              onPress={handleLiveTalkToggle}
             >
               <X size={18} color={Colors.textOnAccent} />
             </TouchableOpacity>

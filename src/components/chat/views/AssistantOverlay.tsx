@@ -1,66 +1,39 @@
-import { ChatMessage } from '@/components/chat/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+import { dismiss, openMainApp } from '@modules/kritha/src';
+
 import {
-  ChatInput,
   DictationCornerGlow,
-  LiveTalkBar,
   AssistantResponseCard,
+  ChatInput,
+  LiveTalkBar,
 } from '@/components/chat/ui';
 import { useAssistantStore } from '@/store/assistantStore';
-import {
-  cancel,
-  dismiss,
-  openMainApp,
-  startListening,
-  stopListening,
-  submitText,
-  playTts,
-  pauseTts,
-  resumeTts,
-} from '@modules/kritha/src';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAssistantActions } from '@/hooks/use-assistant-interaction';
+import { useAssistantKeyboard } from '@/hooks/use-assistant-keyboard';
 
 export function AssistantOverlay() {
-  const insets = useSafeAreaInsets();
-
   const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const transcriptFromStore = useAssistantStore((s) => s.transcript);
-  const responseText = useAssistantStore((s) => s.response);
+  const response = useAssistantStore((s) => s.response);
   const error = useAssistantStore((s) => s.error);
+  const assistantRunId = useAssistantStore((s) => s.assistantRunId);
+  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
   const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
   const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
+  const isLiveTalk = useAssistantStore((s) => s.isLiveTalk);
+  const setDraftText = useAssistantStore((s) => s.setDraftText);
+  const setTranscript = useAssistantStore((s) => s.setTranscript);
 
   const isRecording = canonicalState === 'LISTENING';
-  const isProcessing = canonicalState === 'THINKING';
-  const isSending = canonicalState === 'GENERATING';
-
-  const assistantRunId = useAssistantStore((s) => s.assistantRunId);
-
-  const keyboard = useReanimatedKeyboardAnimation();
-
-  const animatedBottomStyle = useAnimatedStyle(() => {
-    const rawHeight = keyboard.height.value;
-    const keyboardHeight = Math.abs(rawHeight);
-    const bottomPadding =
-      keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 20);
-    return {
-      paddingBottom: bottomPadding,
-    };
-  }, [insets.bottom]);
-
-  const [localDraft, setLocalDraft] = useState('');
-  const [isLiveTalk, setIsLiveTalk] = useState(false);
-  const isLiveTalkRef = useRef(isLiveTalk);
-  useEffect(() => {
-    isLiveTalkRef.current = isLiveTalk;
-  }, [isLiveTalk]);
-
-  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
-
+  const { handleSpeakerPress } = useAssistantActions();
+  const animatedBottomStyle = useAssistantKeyboard();
   const mountedRef = useRef(true);
+
+  const [responseVisible, setResponseVisible] = useState(false);
+  const responseVisibleRef = useRef(false);
+  const responseOpacity = useRef(new Animated.Value(0)).current;
+  const responseTranslate = useRef(new Animated.Value(25)).current;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -69,37 +42,23 @@ export function AssistantOverlay() {
     };
   }, []);
 
-  const [responseVisible, setResponseVisible] = useState(false);
-  const responseVisibleRef = useRef(false);
-
-  const responseOpacity = useRef(new Animated.Value(0)).current;
-  const responseTranslate = useRef(new Animated.Value(25)).current;
-  const glowOpacity = useRef(new Animated.Value(0.2)).current;
-
-  const safeSetResponseVisible = useCallback((val: boolean) => {
-    if (mountedRef.current) setResponseVisible(val);
+  const safeSetResponseVisible = useCallback((value: boolean) => {
+    if (mountedRef.current) {
+      setResponseVisible(value);
+    }
   }, []);
 
-  // Clear text when recording ends or new run starts
-  const prevIsRecordingRef = useRef(isRecording);
+  // Reset UI when a new run begins
   useEffect(() => {
-    const wasRecording = prevIsRecordingRef.current;
-    prevIsRecordingRef.current = isRecording;
-    if (wasRecording && !isRecording) {
-      setLocalDraft('');
-      useAssistantStore.getState().setTranscript('');
-    }
-  }, [isRecording]);
+    if (!assistantRunId) return;
 
-  useEffect(() => {
-    if (assistantRunId) {
-      setLocalDraft('');
-      useAssistantStore.getState().setTranscript('');
-      responseVisibleRef.current = false;
-      safeSetResponseVisible(false);
-      responseOpacity.setValue(0);
-      responseTranslate.setValue(25);
-    }
+    setDraftText('');
+    setTranscript('');
+
+    responseVisibleRef.current = false;
+    safeSetResponseVisible(false);
+    responseOpacity.setValue(0);
+    responseTranslate.setValue(25);
   }, [
     assistantRunId,
     responseOpacity,
@@ -107,28 +66,11 @@ export function AssistantOverlay() {
     safeSetResponseVisible,
   ]);
 
-  const handleClose = useCallback(() => {
-    try {
-      dismiss();
-    } catch (e) {
-      console.warn('Failed to dismiss assistant session:', e);
-    }
-  }, []);
-
-  const handleExpandPress = useCallback(() => {
-    try {
-      dismiss();
-      openMainApp();
-    } catch (e) {
-      console.warn('Failed to open main app:', e);
-    }
-  }, []);
-
   const showResponse = useCallback(() => {
     if (responseVisibleRef.current) return;
+
     responseVisibleRef.current = true;
     safeSetResponseVisible(true);
-
     responseOpacity.setValue(0);
     responseTranslate.setValue(22);
 
@@ -147,168 +89,67 @@ export function AssistantOverlay() {
     ]).start();
   }, [responseOpacity, responseTranslate, safeSetResponseVisible]);
 
+  // Reveal the card when text or errors start generating
   useEffect(() => {
-    if (responseText || error) {
+    if (response || error) {
       showResponse();
     }
-  }, [responseText, error, showResponse]);
+  }, [response, error, showResponse]);
 
-  const handleSendMessage = useCallback(async () => {
-    const text = (isRecording ? transcriptFromStore : localDraft).trim();
-    if (!text || isSending || isProcessing) return;
-
-    setLocalDraft('');
-    useAssistantStore.getState().setTranscript('');
+  const handleClose = useCallback(() => {
     try {
-      submitText(text, { origin: 'MANUAL_TYPING' });
+      dismiss();
     } catch (e) {
-      console.warn('Failed to submit text:', e);
-    }
-  }, [localDraft, transcriptFromStore, isRecording, isSending, isProcessing]);
-
-  const handleStopDictation = useCallback(() => {
-    try {
-      stopListening();
-    } catch (e) {
-      console.warn('Failed to stop listening:', e);
+      console.warn('Failed to dismiss assistant session:', e);
     }
   }, []);
 
-  const handleDictatePress = useCallback(async () => {
-    if (isRecording) {
-      handleStopDictation();
-      return;
-    }
-
-    setLocalDraft('');
-    useAssistantStore.getState().setTranscript('');
-
+  const handleExpandPress = useCallback(() => {
     try {
-      startListening();
+      dismiss();
+      openMainApp();
     } catch (e) {
-      console.warn('Failed to start listening:', e);
+      console.warn('Failed to open main app:', e);
     }
-  }, [isRecording, handleStopDictation]);
-
-  const handleLiveTalkToggle = useCallback(() => {
-    if (isLiveTalkRef.current) {
-      setIsLiveTalk(false);
-      cancel();
-    } else {
-      setIsLiveTalk(true);
-      startListening();
-    }
-  }, []);
-
-  const handleLiveTalkPauseResume = useCallback(() => {
-    if (isTtsSpeaking || isRecording) {
-      cancel();
-    } else {
-      startListening();
-    }
-  }, [isRecording, isTtsSpeaking]);
-
-  const handleStopResponse = useCallback(() => {
-    cancel();
   }, []);
 
   const activeResponseMessageId = assistantRunId
     ? `${assistantRunId}_msg`
     : 'latest_response';
 
-  const handleSpeakerPress = useCallback(() => {
-    if (isTtsSpeaking) {
-      pauseTts();
-    } else if (isTtsPaused) {
-      resumeTts();
-    } else {
-      if (responseText) {
-        playTts(responseText, { messageId: activeResponseMessageId });
-      }
-    }
-  }, [isTtsSpeaking, isTtsPaused, responseText, activeResponseMessageId]);
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, {
-          toValue: 0.45,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowOpacity, {
-          toValue: 0.2,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    if (isRecording || isProcessing || isSending) {
-      animation.start();
-    } else {
-      animation.stop();
-      glowOpacity.setValue(0.2);
-    }
-
-    return () => animation.stop();
-  }, [isRecording, isProcessing, isSending, glowOpacity]);
-
-  const latestAssistant = responseText
+  const latestAssistant = response
     ? {
-        id: activeResponseMessageId || 'temp',
+        id: activeResponseMessageId,
         role: 'assistant' as const,
-        text: responseText,
+        text: response,
       }
-    : null;
-
-  const currentDraft = isRecording ? transcriptFromStore : localDraft;
+    : undefined;
 
   return (
     <View style={styles.root}>
       <Pressable style={styles.backdrop} onPress={handleClose} />
-
       <DictationCornerGlow active={isRecording} />
-
       <Reanimated.View style={[styles.bottomContainer, animatedBottomStyle]}>
-        <View style={{ width: '100%', paddingHorizontal: 24 }}>
+        <View style={styles.responseContainer}>
           <AssistantResponseCard
             responseVisible={responseVisible}
             responseOpacity={responseOpacity}
             responseTranslate={responseTranslate}
-            latestAssistant={latestAssistant || undefined}
+            latestAssistant={latestAssistant}
             error={error}
             isTtsSpeaking={isTtsSpeaking}
             isTtsPaused={isTtsPaused}
             ttsMsgId={currentTtsMsgId}
-            onSpeakerPress={handleSpeakerPress}
+            onSpeakerPress={() => {
+              if (response) {
+                handleSpeakerPress(activeResponseMessageId, response);
+              }
+            }}
             onExpandPress={handleExpandPress}
           />
         </View>
 
-        {isLiveTalk ? (
-          <LiveTalkBar
-            isRecording={isRecording}
-            isSpeaking={isTtsSpeaking}
-            isPaused={isTtsPaused}
-            onPauseResumePress={handleLiveTalkPauseResume}
-            onEndPress={handleLiveTalkToggle}
-          />
-        ) : (
-          <ChatInput
-            draft={currentDraft}
-            setDraft={setLocalDraft}
-            isSending={isSending}
-            isRecording={isRecording}
-            isProcessing={isProcessing}
-            isLiveTalk={isLiveTalk}
-            onSendMessage={handleSendMessage}
-            onDictatePress={handleDictatePress}
-            onLiveTalkPress={handleLiveTalkToggle}
-            onStopDictation={handleStopDictation}
-            onStopResponse={handleStopResponse}
-          />
-        )}
+        {isLiveTalk ? <LiveTalkBar /> : <ChatInput />}
       </Reanimated.View>
     </View>
   );
@@ -325,8 +166,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   bottomContainer: {
-    paddingHorizontal: 0,
     width: '100%',
     alignItems: 'center',
+  },
+  responseContainer: {
+    width: '100%',
+    paddingHorizontal: 24,
   },
 });

@@ -24,6 +24,7 @@ internal class IntelligencePipeline(private val context: Context) {
     suspend fun process(
         chatSessionId: String?,
         input: String,
+        history: List<Map<String, Any>> = emptyList(),
         onChunk: suspend (String) -> Unit = {}
     ): Result {
 
@@ -76,12 +77,8 @@ internal class IntelligencePipeline(private val context: Context) {
         val targetModelId =
             expo.modules.kritha.ModelManager.getSelectedModel(context)
         val isCloud = expo.modules.kritha.ModelCatalog.isCloudModel(targetModelId)
-        
-        val fullHistory = if (chatSessionId != null) {
-            expo.modules.kritha.db.DBManager.getMessages(chatSessionId)
-        } else {
-            emptyList()
-        }
+
+        val fullHistory = history
 
         val systemPrompt = expo.modules.kritha.AssistantCore.systemPrompt
         val customInstructions = expo.modules.kritha.AssistantCore.customInstructions

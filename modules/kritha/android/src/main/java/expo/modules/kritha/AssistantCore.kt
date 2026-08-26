@@ -2,7 +2,6 @@ package expo.modules.kritha
 
 import android.content.Context
 import android.os.SystemClock
-import expo.modules.kritha.db.DBManager
 import expo.modules.kritha.intelligence.IntelligencePipeline
 import expo.modules.kritha.intelligence.L2LocalLLM
 import expo.modules.kritha.intelligence.L3CloudLLM
@@ -23,18 +22,34 @@ object AssistantCore {
     private val mutex = Mutex()
     private const val RMS_EMIT_INTERVAL_MS = 100L
 
-    @Volatile var activeChatSessionId: String = ""
-    @Volatile var activeAssistantRunId: String = ""
-    @Volatile var activeRequestId: String = ""
-    @Volatile var currentState: String = "IDLE"
-    @Volatile var currentTranscript: String = ""
-    @Volatile var currentResponse: String = ""
-    @Volatile var customInstructions: String = ""
-    @Volatile var userName: String = ""
+    @Volatile
+    var activeChatSessionId: String = ""
+
+    @Volatile
+    var activeAssistantRunId: String = ""
+
+    @Volatile
+    var activeRequestId: String = ""
+
+    @Volatile
+    var currentState: String = "IDLE"
+
+    @Volatile
+    var currentTranscript: String = ""
+
+    @Volatile
+    var currentResponse: String = ""
+
+    @Volatile
+    var customInstructions: String = ""
+
+    @Volatile
+    var userName: String = ""
 
     val systemPrompt: String
         get() {
-            val nameClause = if (userName.isNotBlank() && userName.lowercase() != "your name") " You are speaking with $userName." else ""
+            val nameClause =
+                if (userName.isNotBlank() && userName.lowercase() != "your name") " You are speaking with $userName." else ""
             return """
                 You are Kritha, an intelligent personal AI assistant.$nameClause
 
@@ -47,7 +62,6 @@ object AssistantCore {
     private var activeJob: Job? = null
 
     fun init(context: Context) {
-        DBManager.init(context)
         val prefs = context.getSharedPreferences("kritha_settings", android.content.Context.MODE_PRIVATE)
         customInstructions = prefs.getString("custom_instructions", "") ?: ""
         userName = prefs.getString("user_name", "") ?: ""
@@ -77,7 +91,7 @@ object AssistantCore {
         WakeWordForegroundService.triggerAssistantSession(context)
     }
 
-    fun beginNewChat() {
+    fun clearActiveState() {
         if (activeAssistantRunId.isNotBlank() && currentState != "IDLE") {
             cancel(activeAssistantRunId, activeRequestId)
         }
@@ -87,49 +101,6 @@ object AssistantCore {
         currentTranscript = ""
         currentResponse = ""
         currentState = "IDLE"
-        WakeWordEventHub.emitActiveChatCleared()
-    }
-
-    fun openChat(sessionId: String) {
-        if (activeAssistantRunId.isNotBlank() && currentState != "IDLE") {
-            cancel(activeAssistantRunId, activeRequestId)
-        }
-        activeChatSessionId = sessionId
-        activeAssistantRunId = ""
-        activeRequestId = ""
-        currentTranscript = ""
-        currentResponse = ""
-        currentState = "IDLE"
-
-        val messages = DBManager.getMessages(sessionId)
-        for (msg in messages) {
-            WakeWordEventHub.emitMessagePersisted(
-                sessionId,
-                msg["id"] as String,
-                msg["role"] as String,
-                msg["text"] as String,
-                msg["created_at"] as Long
-            )
-        }
-    }
-
-    fun pinChat(sessionId: String, pinned: Boolean) {
-        DBManager.setSessionPinned(sessionId, pinned)
-        WakeWordEventHub.emitChatPinned(sessionId, pinned)
-    }
-
-    fun archiveChat(sessionId: String, archived: Boolean) {
-        DBManager.setSessionArchived(sessionId, archived)
-        WakeWordEventHub.emitChatArchived(sessionId, archived)
-        if (archived && activeChatSessionId == sessionId) {
-            beginNewChat()
-        }
-    }
-
-    fun deleteChat(sessionId: String) {
-        DBManager.deleteSession(sessionId)
-        WakeWordEventHub.emitChatDeleted(sessionId)
-        beginNewChat()
     }
 
     fun submitText(
@@ -138,7 +109,8 @@ object AssistantCore {
         chatSessionId: String? = null,
         modelId: String? = null,
         assistantRunId: String? = null,
-        origin: String = "MANUAL_TYPING"
+        origin: String = "MANUAL_TYPING",
+        history: List<Map<String, Any>> = emptyList()
     ) {
         if (text.isBlank()) return
         init(context)
@@ -148,26 +120,18 @@ object AssistantCore {
                 // Cancel any ongoing job before starting a new turn
                 activeJob?.cancel()
 
-                val turnInfo = DBManager.prepareTurn(chatSessionId, text)
-                val targetChatSessionId = turnInfo["sessionId"] as String
-                val isNewSession = turnInfo["sessionCreated"] as Boolean
-                val sessionTitle = turnInfo["sessionTitle"] as String
-                val sessionCreatedAt = turnInfo["sessionCreatedAt"] as Long
-                val userMessageId = turnInfo["userMessageId"] as String
-                val userMessageCreatedAt = turnInfo["userMessageCreatedAt"] as Long
+                val targetChatSessionId =
+                    if (!chatSessionId.isNullOrBlank()) chatSessionId else UUID.randomUUID().toString()
+                val userMsgTime = System.currentTimeMillis()
+                val userMessageId = "msg_${UUID.randomUUID()}"
 
-                if (isNewSession) {
-                    WakeWordEventHub.emitChatCreated(targetChatSessionId, sessionTitle, sessionCreatedAt)
-                }
-                if (userMessageId.isNotBlank()) {
-                    WakeWordEventHub.emitMessagePersisted(
-                        targetChatSessionId,
-                        userMessageId,
-                        "user",
-                        text,
-                        userMessageCreatedAt
-                    )
-                }
+                WakeWordEventHub.emitMessagePersisted(
+                    targetChatSessionId,
+                    userMessageId,
+                    "user",
+                    text,
+                    userMsgTime
+                )
 
                 val runId = assistantRunId.ifNullOrBlank { "run_${UUID.randomUUID()}" }
                 val reqId = "req_${UUID.randomUUID()}"
@@ -185,18 +149,38 @@ object AssistantCore {
 
                 currentState = "THINKING"
                 WakeWordEventHub.emitSessionStart(targetChatSessionId, runId, reqId, origin = origin)
-                WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "THINKING", transcript = text, origin = origin)
+                WakeWordEventHub.emitStateChanged(
+                    targetChatSessionId,
+                    runId,
+                    reqId,
+                    "THINKING",
+                    transcript = text,
+                    origin = origin
+                )
 
                 val job = launch {
                     try {
                         val pipeline = IntelligencePipeline(context)
                         val fullResponse = StringBuilder()
-                        val pipelineResult = pipeline.process(targetChatSessionId, text) { token ->
+                        val pipelineResult = pipeline.process(targetChatSessionId, text, history) { token ->
                             fullResponse.append(token)
                             currentResponse = fullResponse.toString()
                             currentState = "GENERATING"
-                            WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "GENERATING", origin = origin)
-                            WakeWordEventHub.emitTextDelta(targetChatSessionId, runId, reqId, token, messageId = assistantMessageId, origin = origin)
+                            WakeWordEventHub.emitStateChanged(
+                                targetChatSessionId,
+                                runId,
+                                reqId,
+                                "GENERATING",
+                                origin = origin
+                            )
+                            WakeWordEventHub.emitTextDelta(
+                                targetChatSessionId,
+                                runId,
+                                reqId,
+                                token,
+                                messageId = assistantMessageId,
+                                origin = origin
+                            )
 
                             if (shouldAutoTts) {
                                 TtsManager.handleStreamingChunk(context, token, targetChatSessionId, runId, reqId)
@@ -215,7 +199,14 @@ object AssistantCore {
                                 }
                                 if (fullResponse.isEmpty()) {
                                     fullResponse.append(msg)
-                                    WakeWordEventHub.emitTextDelta(targetChatSessionId, runId, reqId, msg, messageId = assistantMessageId, origin = origin)
+                                    WakeWordEventHub.emitTextDelta(
+                                        targetChatSessionId,
+                                        runId,
+                                        reqId,
+                                        msg,
+                                        messageId = assistantMessageId,
+                                        origin = origin
+                                    )
                                     if (shouldAutoTts) {
                                         TtsManager.handleStreamingChunk(context, msg, targetChatSessionId, runId, reqId)
                                     }
@@ -225,17 +216,14 @@ object AssistantCore {
                         }
                         currentResponse = finalResponse
 
-                        // Authoritative Native DB Persistence at turn completion
-                        val finalMsgInfo = DBManager.saveAssistantResponse(targetChatSessionId, finalResponse, assistantMessageId)
-                        if (finalMsgInfo.isNotEmpty()) {
-                            WakeWordEventHub.emitMessagePersisted(
-                                targetChatSessionId,
-                                finalMsgInfo["id"] as String,
-                                "assistant",
-                                finalResponse,
-                                finalMsgInfo["created_at"] as Long
-                            )
-                        }
+                        val assistantMsgTime = System.currentTimeMillis()
+                        WakeWordEventHub.emitMessagePersisted(
+                            targetChatSessionId,
+                            assistantMessageId,
+                            "assistant",
+                            finalResponse,
+                            assistantMsgTime
+                        )
 
                         withContext(Dispatchers.Main) {
                             if (shouldAutoTts) {
@@ -252,21 +240,45 @@ object AssistantCore {
                             )
                             if (shouldAutoTts && finalResponse.isNotBlank()) {
                                 currentState = "SPEAKING"
-                                WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "SPEAKING", origin = origin)
+                                WakeWordEventHub.emitStateChanged(
+                                    targetChatSessionId,
+                                    runId,
+                                    reqId,
+                                    "SPEAKING",
+                                    origin = origin
+                                )
                             } else {
                                 currentState = "IDLE"
-                                WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "IDLE", origin = origin)
+                                WakeWordEventHub.emitStateChanged(
+                                    targetChatSessionId,
+                                    runId,
+                                    reqId,
+                                    "IDLE",
+                                    origin = origin
+                                )
                                 WakeWordEventHub.emitSessionEnd(targetChatSessionId, runId, reqId, origin = origin)
                             }
                         }
                     } catch (e: Exception) {
                         if (e is kotlinx.coroutines.CancellationException) {
                             currentState = "CANCELLING"
-                            WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "CANCELLING", origin = origin)
+                            WakeWordEventHub.emitStateChanged(
+                                targetChatSessionId,
+                                runId,
+                                reqId,
+                                "CANCELLING",
+                                origin = origin
+                            )
                         } else {
                             currentState = "ERROR"
                             withContext(Dispatchers.Main) {
-                                WakeWordEventHub.emitError(targetChatSessionId, runId, reqId, e.message ?: "Generation failed", origin = origin)
+                                WakeWordEventHub.emitError(
+                                    targetChatSessionId,
+                                    runId,
+                                    reqId,
+                                    e.message ?: "Generation failed",
+                                    origin = origin
+                                )
                                 WakeWordEventHub.emitSessionEnd(targetChatSessionId, runId, reqId, origin = origin)
                             }
                         }
@@ -287,12 +299,10 @@ object AssistantCore {
         init(context)
 
         var finalResponse = ""
-        val targetChatSessionId = if (activeChatSessionId.isNotBlank()) activeChatSessionId else System.currentTimeMillis().toString()
-
         try {
             val fullResponse = StringBuilder()
             val l2 = L2LocalLLM(context)
-            
+
             val messages = expo.modules.kritha.intelligence.ConversationContextBuilder.buildContext(
                 systemPrompt = systemPrompt,
                 customInstructions = customInstructions,
@@ -305,7 +315,6 @@ object AssistantCore {
                 fullResponse.append(token)
             }
             finalResponse = if (!result.isNullOrBlank()) result else fullResponse.toString()
-            DBManager.saveConversationTurn(targetChatSessionId, text, finalResponse)
         } catch (e: Exception) {
             finalResponse = ""
         }
@@ -366,47 +375,67 @@ object AssistantCore {
                     val now = SystemClock.elapsedRealtime()
                     if (now - lastRmsEmitAt < RMS_EMIT_INTERVAL_MS) return
                     lastRmsEmitAt = now
-                    WakeWordEventHub.emitMicrophoneChanged(targetChatSessionId, runId, owner = "STT", isClaimed = true, volumeRms = rmsdB, origin = origin)
+                    WakeWordEventHub.emitMicrophoneChanged(
+                        targetChatSessionId,
+                        runId,
+                        owner = "STT",
+                        isClaimed = true,
+                        volumeRms = rmsdB,
+                        origin = origin
+                    )
                 }
 
                 override fun onPartial(transcript: String) {
                     currentTranscript = transcript
-                    WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "LISTENING", transcript = transcript, origin = origin)
+                    WakeWordEventHub.emitStateChanged(
+                        targetChatSessionId,
+                        runId,
+                        reqId,
+                        "LISTENING",
+                        transcript = transcript,
+                        origin = origin
+                    )
                 }
 
                 override fun onProcessing(transcript: String) {
                     currentTranscript = transcript
                     currentState = "THINKING"
-                    
-                    val turnInfo = DBManager.prepareTurn(activeChatSessionId, transcript)
-                    val actChatId = turnInfo["sessionId"] as String
-                    val isNewSession = turnInfo["sessionCreated"] as Boolean
-                    val sessionTitle = turnInfo["sessionTitle"] as String
-                    val sessionCreatedAt = turnInfo["sessionCreatedAt"] as Long
-                    val userMessageId = turnInfo["userMessageId"] as String
-                    val userMessageCreatedAt = turnInfo["userMessageCreatedAt"] as Long
 
-                    if (isNewSession) {
-                        WakeWordEventHub.emitChatCreated(actChatId, sessionTitle, sessionCreatedAt)
-                    }
-                    if (userMessageId.isNotBlank()) {
-                        WakeWordEventHub.emitMessagePersisted(
-                            actChatId,
-                            userMessageId,
-                            "user",
-                            transcript,
-                            userMessageCreatedAt
-                        )
-                    }
+                    val actChatId =
+                        if (activeChatSessionId.isNotBlank()) activeChatSessionId else UUID.randomUUID().toString()
+                    val userMessageId = "msg_${UUID.randomUUID()}"
+                    val userMessageCreatedAt = System.currentTimeMillis()
+
+                    WakeWordEventHub.emitMessagePersisted(
+                        actChatId,
+                        userMessageId,
+                        "user",
+                        transcript,
+                        userMessageCreatedAt
+                    )
                     activeChatSessionId = actChatId
 
-                    WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "THINKING", transcript = transcript, origin = origin)
+                    WakeWordEventHub.emitStateChanged(
+                        activeChatSessionId,
+                        runId,
+                        reqId,
+                        "THINKING",
+                        transcript = transcript,
+                        origin = origin
+                    )
                 }
 
                 override fun onStreaming(transcript: String, chunk: String) {
                     currentState = "GENERATING"
                     WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "GENERATING", origin = origin)
-                    WakeWordEventHub.emitTextDelta(activeChatSessionId, runId, reqId, chunk, messageId = assistantMessageId, origin = origin)
+                    WakeWordEventHub.emitTextDelta(
+                        activeChatSessionId,
+                        runId,
+                        reqId,
+                        chunk,
+                        messageId = assistantMessageId,
+                        origin = origin
+                    )
                 }
 
                 override fun onFinished(transcript: String?, response: String) {
@@ -414,18 +443,24 @@ object AssistantCore {
                     currentTranscript = promptText
                     currentResponse = response
 
-                    val finalMsgInfo = DBManager.saveAssistantResponse(activeChatSessionId, response, assistantMessageId)
-                    if (finalMsgInfo.isNotEmpty()) {
-                        WakeWordEventHub.emitMessagePersisted(
-                            activeChatSessionId,
-                            finalMsgInfo["id"] as String,
-                            "assistant",
-                            response,
-                            finalMsgInfo["created_at"] as Long
-                        )
-                    }
+                    val assistantMsgTime = System.currentTimeMillis()
+                    WakeWordEventHub.emitMessagePersisted(
+                        activeChatSessionId,
+                        assistantMessageId,
+                        "assistant",
+                        response,
+                        assistantMsgTime
+                    )
 
-                    WakeWordEventHub.emitTextComplete(activeChatSessionId, runId, reqId, response, messageId = assistantMessageId, transcript = promptText, origin = origin)
+                    WakeWordEventHub.emitTextComplete(
+                        activeChatSessionId,
+                        runId,
+                        reqId,
+                        response,
+                        messageId = assistantMessageId,
+                        transcript = promptText,
+                        origin = origin
+                    )
 
                     currentState = "IDLE"
                     WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "IDLE", origin = origin)
@@ -516,6 +551,37 @@ object AssistantCore {
                 }
             }
         }
+    }
+
+    /**
+     * Called by [BargeInMonitor] when the user starts talking over TTS playback
+     */
+    fun handleBargeIn(context: Context) {
+        if (currentState != "SPEAKING" && currentState != "GENERATING" && currentState != "THINKING") return
+        if (!TtsManager.isSpeaking) return
+
+        val chatId = activeChatSessionId
+        val runId = activeAssistantRunId
+        val reqId = activeRequestId
+
+        currentState = "CANCELLING"
+        if (runId.isNotEmpty()) {
+            WakeWordEventHub.emitStateChanged(chatId, runId, reqId, "CANCELLING")
+        }
+
+        activeJob?.cancel()
+        activeJob = null
+        L2LocalLLM.cancelInference()
+        L3CloudLLM.cancelInference()
+
+        // Cancels pipeline job, recognizer, mic claim and TTS for voice sessions.
+        nativeVoiceSession?.cancelPipeline()
+        TtsManager.stop(chatId, runId)
+        MicrophoneManager.releaseFromStt(runId)
+        BargeInMonitor.stop()
+
+        // Hand the floor back to the user straight away.
+        startVoiceSession(context, chatId.ifBlank { null }, origin = "MANUAL_DICTATION")
     }
 
     fun dismiss(assistantRunId: String = "") {

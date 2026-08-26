@@ -30,7 +30,8 @@ internal class L3CloudLLM(private val context: Context) {
             return@withContext fallbackMsg
         }
 
-        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:streamGenerateContent?alt=sse&key=$apiKey"
+        val endpointUrl =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:streamGenerateContent?alt=sse&key=$apiKey"
         val responseBuilder = StringBuilder()
 
         var connection: HttpURLConnection? = null
@@ -53,12 +54,14 @@ internal class L3CloudLLM(private val context: Context) {
                         Role.SYSTEM -> {
                             systemParts.put(JSONObject().apply { put("text", msg.content) })
                         }
+
                         Role.USER -> {
                             contentsArray.put(JSONObject().apply {
                                 put("role", "user")
                                 put("parts", JSONArray().apply { put(JSONObject().apply { put("text", msg.content) }) })
                             })
                         }
+
                         Role.ASSISTANT -> {
                             contentsArray.put(JSONObject().apply {
                                 put("role", "model")
@@ -71,7 +74,7 @@ internal class L3CloudLLM(private val context: Context) {
                 if (systemParts.length() > 0) {
                     put("system_instruction", JSONObject().apply { put("parts", systemParts) })
                 }
-                
+
                 put("contents", contentsArray)
             }
 

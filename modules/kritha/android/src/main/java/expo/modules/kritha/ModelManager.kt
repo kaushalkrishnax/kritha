@@ -80,7 +80,7 @@ class ModelDownloadManager(private val context: Context) {
     private val downloadsDir = File(context.filesDir, "models").apply { mkdirs() }
     private val activeDownloads = ConcurrentHashMap<String, Job>()
     private val pausedDownloads = ConcurrentHashMap<String, Boolean>()
-    
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun downloadModel(
@@ -154,8 +154,9 @@ class ModelDownloadManager(private val context: Context) {
             if (code == HttpURLConnection.HTTP_MOVED_PERM ||
                 code == HttpURLConnection.HTTP_MOVED_TEMP ||
                 code == HttpURLConnection.HTTP_SEE_OTHER ||
-                code == 307 || code == 308) {
-                
+                code == 307 || code == 308
+            ) {
+
                 val location = connection.getHeaderField("Location")
                 connection.disconnect()
                 if (location.isNull_orEmpty()) break
@@ -299,11 +300,12 @@ class ModelDownloadManager(private val context: Context) {
 
 object ModelManager {
 
-    private const val PREFS         = "kritha_models"
-    private const val KEY_SELECTED  = "selected_model"
+    private const val PREFS = "kritha_models"
+    private const val KEY_SELECTED = "selected_model"
     private const val DEFAULT_MODEL = "gemma-4-E2B-it"
 
-    @Volatile private var downloadManager: ModelDownloadManager? = null
+    @Volatile
+    private var downloadManager: ModelDownloadManager? = null
 
     @Synchronized
     fun getDownloadManager(context: Context): ModelDownloadManager {

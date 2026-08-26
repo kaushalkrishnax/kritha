@@ -5,6 +5,7 @@ import {
 } from '@modules/kritha/src';
 import { useEffect } from 'react';
 import { useAssistantStore } from './assistantStore';
+import { database } from '../database';
 
 const VOLUME_EVENT_INTERVAL_MS = 100;
 
@@ -28,62 +29,6 @@ export function useAssistantEventStream() {
       );
 
       switch (event.type) {
-        case 'CHAT_CREATED': {
-          const { chatSessionId, title, createdAt } = event.payload;
-          if (chatSessionId) {
-            store.upsertSession({
-              id: chatSessionId,
-              title,
-              createdAt,
-              pinned: 0,
-              archived: 0,
-            });
-            store.setChatSessionId(chatSessionId);
-            store.setMessages([]);
-          }
-          break;
-        }
-
-        case 'CHAT_DELETED': {
-          const { chatSessionId } = event.payload;
-          if (chatSessionId) {
-            store.deleteSession(chatSessionId);
-          }
-          break;
-        }
-
-        case 'CHAT_RENAMED': {
-          const { chatSessionId, title } = event.payload;
-          if (chatSessionId && title) {
-            store.renameSession(chatSessionId, title);
-          }
-          break;
-        }
-
-        case 'CHAT_PINNED': {
-          const { chatSessionId, pinned } = event.payload;
-          if (chatSessionId && pinned !== undefined) {
-            store.pinSession(chatSessionId, pinned);
-          }
-          break;
-        }
-
-        case 'CHAT_ARCHIVED': {
-          const { chatSessionId, archived } = event.payload;
-          if (chatSessionId && archived !== undefined) {
-            store.archiveSession(chatSessionId, archived);
-          }
-          break;
-        }
-
-        case 'ACTIVE_CHAT_CLEARED': {
-          store.setChatSessionId(null);
-          store.setMessages([]);
-          store.setTranscript('');
-          store.setResponse('');
-          break;
-        }
-
         case 'MESSAGE_PERSISTED': {
           const { chatSessionId, messageId, role, text, createdAt } =
             event.payload;
@@ -99,6 +44,13 @@ export function useAssistantEventStream() {
               text,
               createdAt,
             });
+            database.messages.saveMessage({
+              sessionId: chatSessionId,
+              role: role as 'user' | 'assistant',
+              content: text,
+              customId: messageId,
+              createdAt,
+            }).catch((err: unknown) => console.error('[Database] Failed to persist message:', err));
           }
           break;
         }
@@ -116,6 +68,8 @@ export function useAssistantEventStream() {
           store.setSessionActive(true);
           store.setResponse('');
           store.setTranscript('');
+          // A new run invalidates any pending composer text.
+          store.setDraftText('');
           store.setError(null);
           break;
         }

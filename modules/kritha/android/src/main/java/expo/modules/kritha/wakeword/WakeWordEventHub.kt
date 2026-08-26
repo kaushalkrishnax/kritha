@@ -26,7 +26,12 @@ object WakeWordEventHub {
         return payload
     }
 
-    fun emitSessionStart(chatSessionId: String, assistantRunId: String, requestId: String? = null, origin: String? = null) {
+    fun emitSessionStart(
+        chatSessionId: String,
+        assistantRunId: String,
+        requestId: String? = null,
+        origin: String? = null
+    ) {
         if (assistantRunId.isNotBlank()) {
             endedSessionIds.remove(assistantRunId)
         }
@@ -34,7 +39,12 @@ object WakeWordEventHub {
         assistantEventListener?.invoke("SESSION_START", payload)
     }
 
-    fun emitSessionEnd(chatSessionId: String, assistantRunId: String, requestId: String? = null, origin: String? = null) {
+    fun emitSessionEnd(
+        chatSessionId: String,
+        assistantRunId: String,
+        requestId: String? = null,
+        origin: String? = null
+    ) {
         if (assistantRunId.isBlank()) return
         if (endedSessionIds.add(assistantRunId)) {
             val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
@@ -121,7 +131,14 @@ object WakeWordEventHub {
         assistantEventListener?.invoke("MESSAGE_PERSISTED", payload)
     }
 
-    fun emitTextDelta(chatSessionId: String, assistantRunId: String, requestId: String, chunk: String, messageId: String? = null, origin: String? = null) {
+    fun emitTextDelta(
+        chatSessionId: String,
+        assistantRunId: String,
+        requestId: String,
+        chunk: String,
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         payload["chunk"] = chunk
         if (messageId != null) payload["messageId"] = messageId
@@ -144,37 +161,74 @@ object WakeWordEventHub {
         assistantEventListener?.invoke("TEXT_COMPLETE", payload)
     }
 
-    fun emitTtsStart(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", messageId: String? = null, origin: String? = null) {
+    fun emitTtsStart(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         if (messageId != null) payload["messageId"] = messageId
         assistantEventListener?.invoke("TTS_START", payload)
     }
 
-    fun emitTtsPause(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", messageId: String? = null, origin: String? = null) {
+    fun emitTtsPause(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         if (messageId != null) payload["messageId"] = messageId
         assistantEventListener?.invoke("TTS_PAUSE", payload)
     }
 
-    fun emitTtsResume(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", messageId: String? = null, origin: String? = null) {
+    fun emitTtsResume(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         if (messageId != null) payload["messageId"] = messageId
         assistantEventListener?.invoke("TTS_RESUME", payload)
     }
 
-    fun emitTtsStop(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", messageId: String? = null, origin: String? = null) {
+    fun emitTtsStop(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         if (messageId != null) payload["messageId"] = messageId
         assistantEventListener?.invoke("TTS_STOP", payload)
     }
 
-    fun emitTtsComplete(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", messageId: String? = null, origin: String? = null) {
+    fun emitTtsComplete(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         if (messageId != null) payload["messageId"] = messageId
         assistantEventListener?.invoke("TTS_COMPLETE", payload)
     }
 
-    fun emitTtsError(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", message: String, messageId: String? = null, origin: String? = null) {
+    fun emitTtsError(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        message: String,
+        messageId: String? = null,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         payload["message"] = message
         if (messageId != null) payload["messageId"] = messageId
@@ -196,10 +250,22 @@ object WakeWordEventHub {
         assistantEventListener?.invoke("MICROPHONE_CHANGED", payload)
     }
 
-    fun emitError(chatSessionId: String = "", assistantRunId: String = "", requestId: String = "", message: String, origin: String? = null) {
+    fun emitError(
+        chatSessionId: String = "",
+        assistantRunId: String = "",
+        requestId: String = "",
+        message: String,
+        origin: String? = null
+    ) {
         val payload = buildPayload(chatSessionId, assistantRunId, requestId, origin)
         payload["message"] = message
         assistantEventListener?.invoke("ERROR", payload)
-        emitStateChanged(chatSessionId = chatSessionId, assistantRunId = assistantRunId, requestId = requestId, state = "ERROR", origin = origin)
+        emitStateChanged(
+            chatSessionId = chatSessionId,
+            assistantRunId = assistantRunId,
+            requestId = requestId,
+            state = "ERROR",
+            origin = origin
+        )
     }
 }

@@ -29,34 +29,39 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class WakeWordForegroundService : Service() {
-    private val listening       = AtomicBoolean(false)
+    private val listening = AtomicBoolean(false)
     private val assistantActive = AtomicBoolean(false)
-    private val recorderRef     = AtomicReference<AudioRecord?>()
+    private val recorderRef = AtomicReference<AudioRecord?>()
 
-    @Volatile private var isListeningPaused = false
-    @Volatile private var isListeningPausedForStt = false
-    @Volatile private var lastDetectionAt   = 0L
+    @Volatile
+    private var isListeningPaused = false
+    @Volatile
+    private var isListeningPausedForStt = false
+    @Volatile
+    private var lastDetectionAt = 0L
 
     private var wakeLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
-        private const val TAG                  = "WakeWordService"
-        private const val CHANNEL_ID           = "wakeword_detection"
-        private const val NOTIFICATION_ID      = 4101
-        private const val SAMPLE_RATE          = 16_000
-        private const val SAMPLE_COUNT         = 16_000
-        private const val SLICE_SIZE           = 4_000 
-        private const val DETECTION_THRESHOLD  = 0.65f
-        private const val DETECTION_COOLDOWN   = 4_000L
-        private const val ACTION_FORCE_EXIT    = "expo.modules.kritha.ACTION_FORCE_EXIT"
-        private const val ACTION_TOGGLE        = "expo.modules.kritha.ACTION_TOGGLE_LISTENING"
-        private const val TRIGGER_RETRY_DELAY  = 100L
+        private const val TAG = "WakeWordService"
+        private const val CHANNEL_ID = "wakeword_detection"
+        private const val NOTIFICATION_ID = 4101
+        private const val SAMPLE_RATE = 16_000
+        private const val SAMPLE_COUNT = 16_000
+        private const val SLICE_SIZE = 4_000
+        private const val DETECTION_THRESHOLD = 0.65f
+        private const val DETECTION_COOLDOWN = 4_000L
+        private const val ACTION_FORCE_EXIT = "expo.modules.kritha.ACTION_FORCE_EXIT"
+        private const val ACTION_TOGGLE = "expo.modules.kritha.ACTION_TOGGLE_LISTENING"
+        private const val TRIGGER_RETRY_DELAY = 100L
 
-        @Volatile var isRunning = false
+        @Volatile
+        var isRunning = false
             private set
 
-        @Volatile private var instance: WakeWordForegroundService? = null
+        @Volatile
+        private var instance: WakeWordForegroundService? = null
 
         fun onAssistantSessionFinished() {
             instance?.apply {
@@ -112,10 +117,12 @@ class WakeWordForegroundService : Service() {
                         }
                         svc.launchAssistantActivity()
                     }
+
                     retryCount < 20 -> handler.postDelayed(
                         { triggerAssistantSession(context, retryCount + 1) },
                         TRIGGER_RETRY_DELAY
                     )
+
                     else -> Log.e(TAG, "Service never became available after ${retryCount * TRIGGER_RETRY_DELAY}ms")
                 }
             }
@@ -175,6 +182,7 @@ class WakeWordForegroundService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+
             ACTION_TOGGLE -> {
                 if (isListeningPaused) {
                     Log.i(TAG, "Resuming listening")
@@ -187,7 +195,7 @@ class WakeWordForegroundService : Service() {
                 return START_STICKY
             }
         }
-        
+
         if (!listening.get() && !assistantActive.get() && !isListeningPaused) {
             startListening()
         }
@@ -216,7 +224,7 @@ class WakeWordForegroundService : Service() {
             stopSelf()
             return
         }
-        if (!listening.compareAndSet(false, true)) return 
+        if (!listening.compareAndSet(false, true)) return
 
         thread(name = "KrithaWakeWord", isDaemon = true) {
             val recorder = createAudioRecord() ?: run {
@@ -241,7 +249,7 @@ class WakeWordForegroundService : Service() {
     }
 
     private fun runDetectionLoop(recorder: AudioRecord) {
-        val ringBuffer  = ShortArray(SAMPLE_COUNT)
+        val ringBuffer = ShortArray(SAMPLE_COUNT)
         val sliceBuffer = ShortArray(SLICE_SIZE)
 
         while (listening.get()) {
@@ -292,23 +300,27 @@ class WakeWordForegroundService : Service() {
     }
 
     private fun launchAssistantActivity() {
-        val needsOverlayPermission = !isAppInForeground() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)
+        val needsOverlayPermission =
+            !isAppInForeground() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)
         if (needsOverlayPermission) {
             Toast.makeText(this, "Enable 'Display over other apps' to use the assistant", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
             assistantActive.set(false)
             startListening()
             return
         }
         startActivity(Intent(this, WakeWordListeningActivity::class.java).apply {
             addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or 
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or 
-                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_NO_ANIMATION
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION
             )
         })
     }
@@ -316,7 +328,8 @@ class WakeWordForegroundService : Service() {
     // AudioRecord helpers
 
     private fun createAudioRecord(): AudioRecord? {
-        val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val minBuf =
+            AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) {
             Log.e(TAG, "Unsupported audio config (minBufSize=$minBuf)")
             stopSelf()
@@ -362,18 +375,22 @@ class WakeWordForegroundService : Service() {
     @Suppress("DEPRECATION")
     private fun buildNotification(): Notification {
         val paused = isListeningPaused
-        val title  = if (paused) "Kritha Assistant (Paused)" else "Kritha is listening"
-        val text   = if (paused) "Tap to resume wake word detection" else "Listening for \"Hey Kritha\""
+        val title = if (paused) "Kritha Assistant (Paused)" else "Kritha is listening"
+        val text = if (paused) "Tap to resume wake word detection" else "Listening for \"Hey Kritha\""
 
         val launchPi = packageManager.getLaunchIntentForPackage(packageName)?.let {
             PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
-        val togglePi = PendingIntent.getService(this, 1,
+        val togglePi = PendingIntent.getService(
+            this, 1,
             Intent(this, WakeWordForegroundService::class.java).apply { action = ACTION_TOGGLE },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val exitPi = PendingIntent.getService(this, 2,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val exitPi = PendingIntent.getService(
+            this, 2,
             Intent(this, WakeWordForegroundService::class.java).apply { action = ACTION_FORCE_EXIT },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)

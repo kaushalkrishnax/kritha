@@ -12,6 +12,7 @@ import { BG_DEEPEST } from '../theme';
 import { useAssistantEventStream } from '../store/useAssistantEventStream';
 import * as SecureStore from 'expo-secure-store';
 import { setCloudApiKey } from '@modules/kritha/src';
+import { database } from '../database';
 
 export default function Layout() {
   useAssistantEventStream();
@@ -25,12 +26,13 @@ export default function Layout() {
 
     const loadSettings = async () => {
       try {
+        await database.init();
         const storedKey = await SecureStore.getItemAsync('GEMINI_API_KEY');
         if (storedKey) {
           setCloudApiKey(storedKey);
         }
       } catch (err) {
-        console.warn('Failed to load startup settings:', err);
+        console.warn('Failed to load startup settings or database:', err);
       }
     };
     loadSettings();

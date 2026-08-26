@@ -94,34 +94,6 @@ export function openMainApp(): boolean {
   return dispatchCommand({ type: 'OPEN_MAIN_APP' });
 }
 
-export function loadSessions(): NativeChatSession[] {
-  return KrithaModule.loadSessions() || [];
-}
-
-export function beginNewChat(): void {
-  KrithaModule.beginNewChat();
-}
-
-export function openChat(sessionId: string): void {
-  KrithaModule.openChat(sessionId);
-}
-
-export function renameChat(id: string, title: string): boolean {
-  return KrithaModule.renameChat(id, title);
-}
-
-export function pinChat(id: string, pinned: boolean): boolean {
-  return KrithaModule.pinChat(id, pinned);
-}
-
-export function archiveChat(id: string, archived: boolean): boolean {
-  return KrithaModule.archiveChat(id, archived);
-}
-
-export function deleteChat(id: string): boolean {
-  return KrithaModule.deleteChat(id);
-}
-
 export function start(): void {
   KrithaModule.start();
 }
@@ -132,6 +104,12 @@ export function stop(): void {
 
 export function isRunning(): boolean {
   return KrithaModule.isRunning();
+}
+
+export function setBargeInEnabled(enabled: boolean): void {
+  if (KrithaModule.setBargeInEnabled) {
+    KrithaModule.setBargeInEnabled(enabled);
+  }
 }
 
 export function setCloudApiKey(apiKey: string): void {

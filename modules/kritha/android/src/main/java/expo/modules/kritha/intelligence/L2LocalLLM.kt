@@ -41,7 +41,7 @@ internal class L2LocalLLM(private val context: Context) {
             )
 
             engine.createConversation(config).use { conversation ->
-                
+
                 val finalPrompt = buildString {
                     messages.forEach { msg ->
                         when (msg.role) {
@@ -51,7 +51,7 @@ internal class L2LocalLLM(private val context: Context) {
                         }
                     }
                 }.trimEnd()
-                
+
                 conversation.sendMessageAsync(finalPrompt).collect { token ->
                     if (isCancelled || !currentCoroutineContext().isActive) {
                         Log.i(TAG, "Inference cancelled mid-stream")

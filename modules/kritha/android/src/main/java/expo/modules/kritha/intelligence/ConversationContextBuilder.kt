@@ -21,16 +21,13 @@ object ConversationContextBuilder {
         isCloud: Boolean
     ): List<ConversationMessage> {
         val messages = mutableListOf<ConversationMessage>()
-
-        // SYSTEM PROMPT
+        
         messages.add(ConversationMessage(Role.SYSTEM, systemPrompt))
-
-        // CUSTOM INSTRUCTIONS
+        
         if (customInstructions.isNotBlank()) {
             messages.add(ConversationMessage(Role.SYSTEM, customInstructions))
         }
 
-        // BOUNDED HISTORY
         val limit = if (isCloud) 40 else 20
         val boundedHistory = history.takeLast(limit)
 
@@ -42,7 +39,6 @@ object ConversationContextBuilder {
             }
         }
 
-        // CURRENT USER MESSAGE
         messages.add(ConversationMessage(Role.USER, currentMessage))
 
         return messages

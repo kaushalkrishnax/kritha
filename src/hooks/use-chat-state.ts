@@ -1,72 +1,23 @@
 import { useCallback, useReducer } from 'react';
-import {
-  ChatMessage,
-  DownloadState,
-  ModelRecord,
-} from '../components/chat/types';
-import { ChatSession } from '../services/chatApi';
-
-//  State shape
-
-export type AssistantBannerState = {
-  status: 'idle' | 'listening' | 'processing' | 'streaming';
-  transcript?: string;
-};
+import { DownloadState, ModelRecord } from '../components/chat/types';
 
 export type ChatState = {
-  // Conversation
-  isSending: boolean;
-  assistantBanner: AssistantBannerState;
-
-  // Models
   models: ModelRecord[];
   selectedModelId: string;
   downloadState: DownloadState;
-
-  // Dictation / voice
-  isRecording: boolean;
-  draft: string;
-  preDictationDraft: string;
-
-  // UI
   isWakeWordOn: boolean;
   sidebarOpen: boolean;
   localDevice: 'cpu' | 'gpu';
-  error?: string | null;
-
-  ttsState: {
-    isSpeaking: boolean;
-    isPaused: boolean;
-    msgId: string | null;
-  };
 };
 
-//  Actions
-
 export type ChatAction =
-  // Conversation
-  | { type: 'SET_SENDING'; value: boolean }
-  | { type: 'SET_ASSISTANT_BANNER'; banner: AssistantBannerState }
-  // Models
   | { type: 'SET_MODELS'; models: ModelRecord[] }
   | { type: 'SET_SELECTED_MODEL'; modelId: string }
   | { type: 'MARK_MODEL_DOWNLOADED'; modelId: string }
   | { type: 'UPDATE_DOWNLOAD'; patch: Partial<DownloadState> }
-  // Dictation
-  | { type: 'SET_RECORDING'; value: boolean }
-  | { type: 'SET_DRAFT'; text: string }
-  | { type: 'SET_PRE_DICTATION_DRAFT'; text: string }
-  // UI
   | { type: 'TOGGLE_WAKE_WORD'; value: boolean }
   | { type: 'TOGGLE_SIDEBAR'; value: boolean }
-  | { type: 'SET_DEVICE'; device: 'cpu' | 'gpu' }
-  | {
-      type: 'SET_TTS_STATE';
-      state: { isSpeaking: boolean; isPaused: boolean; msgId: string | null };
-    }
-  | { type: 'SET_ERROR'; error: string | null };
-
-//  Reducer
+  | { type: 'SET_DEVICE'; device: 'cpu' | 'gpu' };
 
 const BASE_MODELS: ModelRecord[] = [
   {
@@ -103,9 +54,6 @@ const BASE_MODELS: ModelRecord[] = [
 ];
 
 const INITIAL_STATE: ChatState = {
-  isSending: false,
-  assistantBanner: { status: 'idle' },
-
   models: BASE_MODELS,
   selectedModelId: 'gemma-4-E2B-it',
   downloadState: {
@@ -117,38 +65,17 @@ const INITIAL_STATE: ChatState = {
     active: false,
     paused: false,
   },
-
-  isRecording: false,
-  draft: '',
-  preDictationDraft: '',
-
   isWakeWordOn: true,
   sidebarOpen: false,
   localDevice: 'cpu',
-
-  ttsState: {
-    isSpeaking: false,
-    isPaused: false,
-    msgId: null,
-  },
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case 'SET_SENDING':
-      return { ...state, isSending: action.value };
-    case 'SET_ERROR':
-      return { ...state, error: action.error };
-
-    case 'SET_ASSISTANT_BANNER':
-      return { ...state, assistantBanner: action.banner };
-
     case 'SET_MODELS':
       return { ...state, models: action.models };
-
     case 'SET_SELECTED_MODEL':
       return { ...state, selectedModelId: action.modelId };
-
     case 'MARK_MODEL_DOWNLOADED':
       return {
         ...state,
@@ -157,45 +84,24 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ),
         selectedModelId: action.modelId,
       };
-
     case 'UPDATE_DOWNLOAD':
       return {
         ...state,
         downloadState: { ...state.downloadState, ...action.patch },
       };
-
-    case 'SET_RECORDING':
-      return { ...state, isRecording: action.value };
-
-    case 'SET_DRAFT':
-      return { ...state, draft: action.text };
-
-    case 'SET_PRE_DICTATION_DRAFT':
-      return { ...state, preDictationDraft: action.text };
-
     case 'TOGGLE_WAKE_WORD':
       return { ...state, isWakeWordOn: action.value };
-
     case 'TOGGLE_SIDEBAR':
       return { ...state, sidebarOpen: action.value };
-
     case 'SET_DEVICE':
       return { ...state, localDevice: action.device };
-
-    case 'SET_TTS_STATE':
-      return { ...state, ttsState: action.state };
-
     default:
       return state;
   }
 }
 
-// Hook
-
 export function useChatState() {
   const [state, dispatch] = useReducer(chatReducer, INITIAL_STATE);
-
   const stableDispatch = useCallback(dispatch, []);
-
   return { state, dispatch: stableDispatch };
 }

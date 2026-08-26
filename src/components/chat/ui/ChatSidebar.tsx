@@ -31,7 +31,7 @@ import {
 } from 'react-native';
 
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
-import { ChatSession } from '@/services/chatApi';
+import { Session as ChatSession } from '@/database';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArchivedChatsModal,
@@ -65,7 +65,7 @@ export function ChatSidebar({
   onSessionShare,
   onClose,
 }: ChatSidebarProps) {
-  const userName = useAssistantStore((s) => s.userName) || 'Your Name';
+  const userName = useAssistantStore((s) => s.userName);
   const initials = useMemo(() => {
     return (
       userName
@@ -129,8 +129,8 @@ export function ChatSidebar({
 
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (!activeSession) return [];
-    const isPinned = activeSession.pinned === 1;
-    const isArchived = activeSession.archived === 1;
+    const isPinned = Boolean(activeSession.pinned);
+    const isArchived = Boolean(activeSession.archived);
 
     return [
       {
@@ -201,9 +201,9 @@ export function ChatSidebar({
   );
 
   // Separate pinned and unpinned sessions
-  const activeSessions = sessions.filter((s) => s.archived !== 1);
-  const pinnedSessions = activeSessions.filter((s) => s.pinned === 1);
-  const recentSessions = activeSessions.filter((s) => s.pinned !== 1);
+  const activeSessions = sessions.filter((s) => !s.archived);
+  const pinnedSessions = activeSessions.filter((s) => s.pinned);
+  const recentSessions = activeSessions.filter((s) => !s.pinned);
 
   const renderSessionRow = (s: ChatSession, isPinnedSection: boolean) => {
     const isSelected = s.id === currentSessionId;

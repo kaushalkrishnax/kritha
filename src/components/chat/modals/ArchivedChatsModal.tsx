@@ -1,18 +1,17 @@
-import React from 'react';
+import { chatApi } from '@/services/chat.service';
+import { useAssistantStore } from '@/store/assistantStore';
+import Colors from '@/theme';
+import { ArchiveRestore, Trash2, X } from 'lucide-react-native';
 import {
   Modal,
-  View,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  StyleSheet,
-  ScrollView,
+  View,
 } from 'react-native';
-import { X, ArchiveRestore, Trash2 } from 'lucide-react-native';
-import { useAssistantStore } from '@/store/assistantStore';
-import KrithaModule from '@modules/kritha/src/KrithaModule';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors from '@/theme';
 
 type ArchivedChatsModalProps = {
   visible: boolean;
@@ -24,15 +23,15 @@ export function ArchivedChatsModal({
   onClose,
 }: ArchivedChatsModalProps) {
   const sessions = useAssistantStore((s) => s.sessions);
-  const archivedSessions = sessions.filter((s) => s.archived === 1);
+  const archivedSessions = sessions.filter((s) => s.archived);
   const insets = useSafeAreaInsets();
 
   const handleRestore = (id: string) => {
-    KrithaModule.archiveChat(id, false);
+    chatApi.archiveChat(id, false);
   };
 
   const handleDelete = (id: string) => {
-    KrithaModule.deleteChat(id);
+    chatApi.deleteChat(id);
   };
 
   return (

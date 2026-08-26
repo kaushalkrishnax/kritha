@@ -1,47 +1,38 @@
 import Colors from '@/theme';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AppState,
-  AppStateStatus,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppState, AppStateStatus, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import Svg, {
   Defs,
   Rect,
   Stop,
   LinearGradient as SvgGradient,
 } from 'react-native-svg';
+import * as SecureStore from 'expo-secure-store';
 
-import { chatApi } from '@/services/chatApi';
+import { chatApi } from '@/services/chat.service';
 import { useAssistantStore } from '@/store/assistantStore';
-import {
-  cancel,
-  downloadModel,
-  isDefaultAssistant,
-  playTts,
-  resumeTts,
-  setSelectedModel,
-  startListening,
-  getUserName as getNativeUserName,
-  setUserName as setNativeUserName,
-  stopListening,
-  stopTts,
-  submitText,
-} from '@modules/kritha/src';
-
 import { useChatState } from '@/hooks/use-chat-state';
 import { useModelLoader } from '@/hooks/use-model-loader';
 import { useNativeEvents } from '@/hooks/use-native-events';
 import { useWakeWordBootstrap } from '@/hooks/use-wakeword-bootstrap';
 import { wakeWordService } from '@/services/wakeword.service';
+import { useAssistantKeyboard } from '@/hooks/use-assistant-keyboard';
 
+import {
+  downloadModel,
+  getUserName as getNativeUserName,
+  isDefaultAssistant,
+  setSelectedModel,
+  startListening,
+} from '@modules/kritha/src';
+
+import {
+  ModelSelectModal,
+  PERMISSIONS_ONBOARDING_KEY,
+  PermissionsChecklistModal,
+} from '@/components/chat/modals';
 import { ModelRecord } from '@/components/chat/types';
 import {
   ChatHeader,
@@ -51,32 +42,31 @@ import {
   DictationCornerGlow,
   LiveTalkBar,
 } from '@/components/chat/ui';
-import {
-  ModelSelectModal,
-  PermissionsChecklistModal,
-  PERMISSIONS_ONBOARDING_KEY,
-} from '@/components/chat/modals';
-import * as SecureStore from 'expo-secure-store';
-
 export function ChatInterface() {
   useWakeWordBootstrap();
 
+  const sessions = useAssistantStore((s) => s.sessions);
+  const chatSessionId = useAssistantStore((s) => s.chatSessionId);
+  const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const isLiveTalk = useAssistantStore((s) => s.isLiveTalk);
+  const setSessions = useAssistantStore((s) => s.setSessions);
+  const setDraftText = useAssistantStore((s) => s.setDraftText);
+  const setTranscript = useAssistantStore((s) => s.setTranscript);
+  const setUserName = useAssistantStore((s) => s.setUserName);
+  const setError = useAssistantStore((s) => s.setError);
+
   const { state, dispatch } = useChatState();
-  const {
-    models,
-    selectedModelId,
-    downloadState,
-    draft,
-    isWakeWordOn,
-    sidebarOpen,
-  } = state;
+  const { models, selectedModelId, downloadState, isWakeWordOn, sidebarOpen } =
+    state;
 
   const [isModelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [downloadModalModel, setDownloadModalModel] =
     useState<ModelRecord | null>(null);
-  const [isLiveTalk, setIsLiveTalk] = useState(false);
   const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
 
+  const isRecording = canonicalState === 'LISTENING';
+
+  // First-launch permission onboarding
   useEffect(() => {
     const checkFirstEverStart = async () => {
       try {
@@ -94,65 +84,16 @@ export function ChatInterface() {
     checkFirstEverStart();
   }, []);
 
-  const sessionId = useAssistantStore((s) => s.chatSessionId);
-  const sessions = useAssistantStore((s) => s.sessions);
-  const messages = useAssistantStore((s) => s.messages);
-  const error = useAssistantStore((s) => s.error);
-
-  const transcriptFromStore = useAssistantStore((s) => s.transcript);
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const responseFromStore = useAssistantStore((s) => s.response);
-  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
-  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
-
-  const isRecording = canonicalState === 'LISTENING';
-  const isProcessing =
-    canonicalState === 'THINKING' || canonicalState === 'GENERATING';
-  const isSending =
-    canonicalState === 'THINKING' || canonicalState === 'GENERATING';
-
-  const displayMessages = messages;
-
-  useEffect(() => {
-    if (transcriptFromStore && isRecording) {
-      dispatch({ type: 'SET_DRAFT', text: transcriptFromStore });
-    }
-  }, [transcriptFromStore, isRecording, dispatch]);
-
+  // Clear draft when recording ends
   const prevIsRecordingRef = useRef(isRecording);
   useEffect(() => {
     const wasRecording = prevIsRecordingRef.current;
     prevIsRecordingRef.current = isRecording;
+
     if (wasRecording && !isRecording) {
-      dispatch({ type: 'SET_DRAFT', text: '' });
-      useAssistantStore.getState().setTranscript('');
+      setDraftText('');
+      setTranscript('');
     }
-  }, [isRecording, dispatch]);
-
-  const isLiveTalkRef = useRef(isLiveTalk);
-  useEffect(() => {
-    isLiveTalkRef.current = isLiveTalk;
-  }, [isLiveTalk]);
-
-  const messagesRef = useRef(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  const sessionIdRef = useRef(sessionId);
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  const isSendingRef = useRef(isSending);
-  useEffect(() => {
-    isSendingRef.current = isSending;
-  }, [isSending]);
-
-  const isRecordingRef = useRef(isRecording);
-  useEffect(() => {
-    isRecordingRef.current = isRecording;
   }, [isRecording]);
 
   useEffect(() => {
@@ -164,17 +105,12 @@ export function ChatInterface() {
       try {
         const nativeName = getNativeUserName();
         if (nativeName) {
-          useAssistantStore.getState().setUserName(nativeName);
+          setUserName(nativeName);
         }
-      } catch {}
-
-      try {
-        const loadedSessions = chatApi.loadSessions();
-        useAssistantStore.getState().setSessions(loadedSessions);
-      } catch (e: unknown) {
-        useAssistantStore
-          .getState()
-          .setError((e as Error).message || 'Failed to load database sessions');
+        const loadedSessions = await chatApi.loadSessions();
+        setSessions(loadedSessions);
+      } catch (e) {
+        console.warn('Failed to load chat sessions:', e);
       }
     };
 
@@ -197,10 +133,8 @@ export function ChatInterface() {
       try {
         chatApi.openChat(id);
         dispatch({ type: 'TOGGLE_SIDEBAR', value: false });
-      } catch (e: unknown) {
-        useAssistantStore
-          .getState()
-          .setError((e as Error).message || 'Failed to load messages');
+      } catch (e: any) {
+        setError(e.message || 'Failed to load messages');
       }
     },
     [dispatch],
@@ -210,54 +144,41 @@ export function ChatInterface() {
     try {
       chatApi.beginNewChat();
       dispatch({ type: 'TOGGLE_SIDEBAR', value: false });
-    } catch (e: unknown) {
-      useAssistantStore
-        .getState()
-        .setError((e as Error).message || 'Failed to create new chat');
+    } catch (e: any) {
+      setError(e.message || 'Failed to create new chat session');
     }
   }, [dispatch]);
 
   const handleDeleteSession = useCallback((id: string) => {
     try {
       chatApi.deleteChat(id);
-    } catch (e: unknown) {
-      useAssistantStore
-        .getState()
-        .setError((e as Error).message || 'Failed to delete chat session');
+    } catch (e: any) {
+      setError(e.message);
     }
   }, []);
 
   const handleRenameSession = useCallback((id: string, title: string) => {
     try {
       chatApi.renameChat(id, title);
-    } catch (e: unknown) {
-      useAssistantStore
-        .getState()
-        .setError((e as Error).message || 'Failed to rename chat session');
+    } catch (e: any) {
+      setError(e.message);
     }
   }, []);
 
   const handleArchiveSession = useCallback((id: string) => {
     try {
       chatApi.archiveChat(id, true);
-    } catch (e: unknown) {
-      useAssistantStore
-        .getState()
-        .setError((e as Error).message || 'Failed to archive chat session');
+    } catch (e: any) {
+      setError(e.message);
     }
   }, []);
 
   const handlePinSession = useCallback((id: string) => {
     try {
-      const session = useAssistantStore
-        .getState()
-        .sessions.find((s) => s.id === id);
-      const isCurrentlyPinned = session?.pinned === 1;
-      chatApi.pinChat(id, !isCurrentlyPinned);
-    } catch (e: unknown) {
-      useAssistantStore
-        .getState()
-        .setError((e as Error).message || 'Failed to pin chat session');
+      const session = sessions.find((s) => s.id === id);
+      chatApi.pinChat(id, !session?.pinned);
+    } catch (e: any) {
+      setError(e.message);
     }
   }, []);
 
@@ -280,24 +201,24 @@ export function ChatInterface() {
     [models, dispatch],
   );
 
-  const handleTtsDone = useCallback(() => {
-    if (isLiveTalkRef.current) {
-      try {
-        startListening();
-      } catch (e) {
-        console.warn('Failed to restart dictation after TTS completion:', e);
-      }
-    }
-  }, []);
-
-  const handleWakeWordDetected = useCallback(() => {
-    startListening(sessionIdRef.current || undefined);
-  }, []);
-
   useNativeEvents({
     dispatch,
-    sessionId,
-    onWakeWordDetected: handleWakeWordDetected,
+    onWakeWordDetected: () => {
+      try {
+        startListening(chatSessionId || undefined);
+      } catch (e) {
+        console.warn('Failed to handle wake word:', e);
+      }
+    },
+    onTtsDone: () => {
+      if (isLiveTalk) {
+        try {
+          startListening(chatSessionId || undefined);
+        } catch (e) {
+          console.warn('Failed to restart dictation after TTS:', e);
+        }
+      }
+    },
     onDownloadComplete: (modelId) => {
       setDownloadModalModel(null);
       try {
@@ -309,106 +230,6 @@ export function ChatInterface() {
     },
   });
 
-  const selectedModel = useMemo(
-    () => models.find((m) => m.id === selectedModelId) || models[0],
-    [models, selectedModelId],
-  );
-
-  const handleSendMessage = useCallback(
-    async (textToSend?: string) => {
-      const userText = (textToSend !== undefined ? textToSend : draft).trim();
-      if (!userText || isSending) return;
-
-      dispatch({ type: 'SET_DRAFT', text: '' });
-      dispatch({ type: 'SET_ERROR', error: null });
-      useAssistantStore.getState().setTranscript('');
-
-      try {
-        submitText(userText, {
-          chatSessionId: sessionId || undefined,
-          modelId: selectedModelId,
-          origin: 'MANUAL_TYPING',
-        });
-      } catch (e: unknown) {
-        dispatch({
-          type: 'SET_ERROR',
-          error: (e as Error).message || 'Failed to generate response',
-        });
-      }
-    },
-    [draft, isSending, dispatch, sessionId, selectedModelId],
-  );
-
-  const handleDictatePress = useCallback(async () => {
-    if (isRecording) {
-      try {
-        stopListening();
-      } catch (e) {
-        console.warn('Failed to stop listening:', e);
-      }
-      return;
-    }
-
-    dispatch({ type: 'SET_DRAFT', text: '' });
-    try {
-      startListening(sessionId || undefined);
-    } catch (e) {
-      console.warn('Failed to start listening:', e);
-    }
-  }, [isRecording, dispatch, sessionId]);
-
-  const handleStopDictation = useCallback(() => {
-    try {
-      stopListening();
-    } catch (e) {
-      console.warn('Failed to stop dictation:', e);
-    }
-  }, []);
-
-  const handleLiveTalkToggle = useCallback(() => {
-    if (isLiveTalk) {
-      setIsLiveTalk(false);
-      cancel();
-    } else {
-      setIsLiveTalk(true);
-      startListening(sessionId || undefined);
-    }
-  }, [isLiveTalk, sessionId]);
-
-  const handleLiveTalkPauseResume = useCallback(() => {
-    if (isTtsSpeaking || isRecording) {
-      cancel();
-    } else {
-      startListening(sessionId || undefined);
-    }
-  }, [isRecording, isTtsSpeaking, sessionId]);
-
-  const handleStopResponse = useCallback(() => {
-    cancel();
-  }, []);
-
-  const handleSpeakerPress = useCallback(
-    (msgId: string) => {
-      if (isTtsSpeaking && (!currentTtsMsgId || currentTtsMsgId === msgId)) {
-        stopTts();
-      } else if (
-        isTtsPaused &&
-        (!currentTtsMsgId || currentTtsMsgId === msgId)
-      ) {
-        resumeTts();
-      } else {
-        const msg = messagesRef.current.find((m) => m.id === msgId);
-        if (msg && msg.text) {
-          playTts(msg.text, {
-            chatSessionId: sessionId || undefined,
-            messageId: msgId,
-          });
-        }
-      }
-    },
-    [isTtsSpeaking, isTtsPaused, currentTtsMsgId, sessionId],
-  );
-
   const toggleWakeWord = useCallback(() => {
     const nextState = !isWakeWordOn;
     dispatch({ type: 'TOGGLE_WAKE_WORD', value: nextState });
@@ -419,23 +240,16 @@ export function ChatInterface() {
     }
   }, [isWakeWordOn, dispatch]);
 
-  const insets = useSafeAreaInsets();
-  const keyboard = useReanimatedKeyboardAnimation();
+  const selectedModel = useMemo(
+    () => models.find((m) => m.id === selectedModelId) || models[0],
+    [models, selectedModelId],
+  );
 
-  const animatedBottomStyle = useAnimatedStyle(() => {
-    const rawHeight = keyboard.height.value;
-    const keyboardHeight = Math.abs(rawHeight);
-    const bottomPadding =
-      keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 16);
-    return {
-      paddingBottom: bottomPadding,
-    };
-  }, [insets.bottom]);
+  const animatedBottomStyle = useAssistantKeyboard();
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-
       <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <SvgGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -451,51 +265,25 @@ export function ChatInterface() {
 
       <View style={styles.mainLayout}>
         <ChatHeader
-          modelName={selectedModel.name}
+          modelName={selectedModel?.name || ''}
           isWakeWordOn={isWakeWordOn}
           onMenu={() => dispatch({ type: 'TOGGLE_SIDEBAR', value: true })}
           onNewSession={handleNewChat}
-          onModelSelectClick={() => setModelDropdownOpen((p) => !p)}
+          onModelSelectClick={() => setModelDropdownOpen((prev) => !prev)}
           onWakeWordToggle={toggleWakeWord}
         />
 
         <View style={styles.chatArea}>
-          <ChatMessages
-            messages={displayMessages}
-            isSending={isSending}
-            error={error}
-            ttsMsgId={currentTtsMsgId}
-            isTtsSpeaking={isTtsSpeaking}
-            isTtsPaused={isTtsPaused}
-            onSpeakerPress={handleSpeakerPress}
-          />
+          <ChatMessages />
         </View>
 
         <Animated.View
           style={[styles.floatingInputWrapper, animatedBottomStyle]}
         >
           {isLiveTalk ? (
-            <LiveTalkBar
-              isRecording={isRecording}
-              isSpeaking={isTtsSpeaking}
-              isPaused={isTtsPaused}
-              onPauseResumePress={handleLiveTalkPauseResume}
-              onEndPress={handleLiveTalkToggle}
-            />
+            <LiveTalkBar />
           ) : (
-            <ChatInput
-              draft={draft}
-              setDraft={(val) => dispatch({ type: 'SET_DRAFT', text: val })}
-              isSending={isSending}
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              isLiveTalk={isLiveTalk}
-              onSendMessage={() => handleSendMessage()}
-              onDictatePress={handleDictatePress}
-              onLiveTalkPress={handleLiveTalkToggle}
-              onStopDictation={handleStopDictation}
-              onStopResponse={handleStopResponse}
-            />
+            <ChatInput modelId={selectedModelId} />
           )}
         </Animated.View>
       </View>
@@ -503,7 +291,7 @@ export function ChatInterface() {
       {sidebarOpen && (
         <ChatSidebar
           sessions={sessions}
-          currentSessionId={sessionId}
+          currentSessionId={chatSessionId}
           onClose={() => dispatch({ type: 'TOGGLE_SIDEBAR', value: false })}
           onSessionSelect={handleSessionSelect}
           onNewSession={handleNewChat}
@@ -550,41 +338,8 @@ export function ChatInterface() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgDeepest,
-  },
-  mainLayout: {
-    flex: 1,
-  },
-  chatArea: {
-    flex: 1,
-  },
-  floatingInputWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    paddingTop: 8,
-  },
-  stopButton: {
-    position: 'absolute',
-    bottom: 90,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.85)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  stopButtonText: {
-    color: Colors.textOnAccent,
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: Colors.bgDeepest },
+  mainLayout: { flex: 1 },
+  chatArea: { flex: 1 },
+  floatingInputWrapper: { width: '100%', alignItems: 'center', paddingTop: 8 },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,32 +6,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  NativeSyntheticEvent,
-  TextLayoutEventData,
 } from 'react-native';
-import { Mic, Square, ArrowUp, Plus, AudioLines } from 'lucide-react-native';
+import { Mic, Square, ArrowUp, Plus, AudioLines, X } from 'lucide-react-native';
 import Colors from '@/theme';
 import { useAssistantStore } from '@/store/assistantStore';
-
-export interface ChatInputProps {
-  draft?: string;
-  setDraft?: (text: string) => void;
-  isSending?: boolean;
-  isRecording?: boolean;
-  isProcessing?: boolean;
-  isLiveTalk?: boolean;
-  onSendMessage?: () => void;
-  onDictatePress?: () => void;
-  onLiveTalkPress?: () => void;
-  onStopDictation?: () => void;
-  onStopResponse?: () => void;
-}
+import { useAssistantActions } from '@/hooks/use-assistant-interaction';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
   0.9, 0.55, 0.8, 0.35, 0.6, 1.0, 0.45, 0.7,
 ];
-
 const LINE_HEIGHT = 22;
 const MAX_LINES = 6;
 const MAX_INPUT_HEIGHT = LINE_HEIGHT * MAX_LINES;
@@ -39,20 +23,33 @@ const COMPACT_HEIGHT = 58;
 const EXPANDED_MIN_HEIGHT = 96;
 const BOTTOM_ROW_HEIGHT = 38;
 
-export function ChatInput({
-  draft = '',
-  setDraft,
-  isSending = false,
-  isRecording = false,
-  isProcessing = false,
-  isLiveTalk = false,
-  onSendMessage,
-  onDictatePress,
-  onLiveTalkPress,
-  onStopDictation,
-  onStopResponse,
-}: ChatInputProps) {
-  const hasText = draft.trim().length > 0;
+export function ChatInput({ modelId }: { modelId?: string }) {
+  const draftText = useAssistantStore((s) => s.draftText);
+  const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const requestOrigin = useAssistantStore((s) => s.requestOrigin);
+  const volumeRms = useAssistantStore((s) => s.volumeRms);
+  const response = useAssistantStore((s) => s.response);
+  const setDraftText = useAssistantStore((s) => s.setDraftText);
+
+  const {
+    handleSendMessage,
+    handleDictatePress,
+    handleStopDictation,
+    handleStopResponse,
+    handleLiveTalkToggle,
+  } = useAssistantActions(modelId);
+
+  const isRecording = canonicalState === 'LISTENING';
+  const isProcessing = canonicalState === 'GENERATING';
+  const isSending = canonicalState === 'THINKING';
+
+  const hasText = draftText.trim().length > 0;
+  const isVoiceRequest =
+    requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION';
+  const isWaitingForFirstToken = isSending || (isProcessing && !response);
+  const showJustASec = isVoiceRequest && isWaitingForFirstToken;
+  const showStop = !isRecording && (isProcessing || isSending || showJustASec);
+  const showSend = !isRecording && !isProcessing && !isSending && hasText;
 
   const [volume, setVolume] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -61,23 +58,9 @@ export function ChatInput({
   const dotsOpacity = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(new Animated.Value(0.2)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
-
-  const requestOrigin = useAssistantStore((s) => s.requestOrigin);
-  const responseText = useAssistantStore((s) => s.response);
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-
-  const isVoiceRequest =
-    requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION';
-  const isWaitingForFirstToken =
-    canonicalState === 'THINKING' ||
-    (canonicalState === 'GENERATING' && !responseText);
-  const showJustASec = isVoiceRequest && isWaitingForFirstToken;
-
-  const showStop = !isRecording && (isProcessing || isSending || showJustASec);
-  const showSend = !isRecording && !isProcessing && !isSending && hasText;
-
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
+  /** Animation synchronizations */
   useEffect(() => {
     if (isProcessing) {
       const animation = Animated.loop(
@@ -96,38 +79,23 @@ export function ChatInput({
       );
       animation.start();
       return () => animation.stop();
-    } else {
-      fadeAnim.setValue(1);
     }
+    fadeAnim.setValue(1);
   }, [isProcessing, fadeAnim]);
 
   useEffect(() => {
-    if (!hasText) {
-      setIsExpanded(false);
-      setMeasuredLines(1);
-      return;
-    }
-
-    setIsExpanded(measuredLines > 1);
+    setIsExpanded(hasText && measuredLines > 1);
   }, [hasText, measuredLines]);
 
-  const storeVolumeRms = useAssistantStore((state) => state.volumeRms);
-
   useEffect(() => {
-    if (!isRecording) {
-      setVolume(0);
-      return;
-    }
-    const scaled = Math.max(0, Math.min(12, storeVolumeRms * 1.2));
-    setVolume(scaled);
-  }, [isRecording, storeVolumeRms]);
+    setVolume(isRecording ? Math.max(0, Math.min(12, volumeRms * 1.2)) : 0);
+  }, [isRecording, volumeRms]);
 
   useEffect(() => {
     if (!isProcessing && !isSending) {
       dotsOpacity.setValue(1);
       return;
     }
-
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(dotsOpacity, {
@@ -142,7 +110,6 @@ export function ChatInput({
         }),
       ]),
     );
-
     animation.start();
     return () => animation.stop();
   }, [isProcessing, isSending, dotsOpacity]);
@@ -162,117 +129,38 @@ export function ChatInput({
           useNativeDriver: true,
         }),
       ]).start();
-
-      return;
+    } else {
+      Animated.parallel([
+        Animated.timing(glowScale, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: isProcessing || isSending ? 0.3 : 0.2,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-
-    Animated.parallel([
-      Animated.timing(glowScale, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(glowOpacity, {
-        toValue: isProcessing || isSending ? 0.3 : 0.2,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
   }, [isRecording, volume, isProcessing, isSending, glowScale, glowOpacity]);
 
   const handleTextChange = (text: string) => {
-    setDraft?.(text);
-
+    setDraftText(text);
     if (!text.trim()) {
       setIsExpanded(false);
       setMeasuredLines(1);
     }
   };
 
-  const handleMeasureText = (
-    event: NativeSyntheticEvent<TextLayoutEventData>,
-  ) => {
-    const lines = event.nativeEvent.lines.length;
-    setMeasuredLines(lines);
-  };
-
-  const getBarHeight = (multiplier: number) => {
-    const dynamic = (volume / 12) * 20 * multiplier;
-    return Math.max(3, Math.min(22, 4 + dynamic));
-  };
+  const getBarHeight = (multiplier: number) =>
+    Math.max(3, Math.min(22, 4 + (volume / 12) * 20 * multiplier));
 
   const handleActionPress = () => {
-    if (isRecording) {
-      onStopDictation?.();
-      return;
-    }
-
-    if (showStop) {
-      onStopResponse?.();
-      return;
-    }
-
-    if (showSend) {
-      onSendMessage?.();
-      return;
-    }
-
-    if (onLiveTalkPress) {
-      onLiveTalkPress();
-    } else {
-      onDictatePress?.();
-    }
-  };
-
-  const renderAction = () => {
-    if (isRecording) {
-      return (
-        <TouchableOpacity
-          onPress={handleActionPress}
-          activeOpacity={0.82}
-          style={styles.actionButton}
-        >
-          <ArrowUp size={18} color={Colors.textOnAccent} />
-        </TouchableOpacity>
-      );
-    }
-
-    if (showStop) {
-      return (
-        <TouchableOpacity
-          onPress={handleActionPress}
-          activeOpacity={0.82}
-          style={styles.actionButton}
-        >
-          <Square size={16} color={Colors.textOnAccent} />
-        </TouchableOpacity>
-      );
-    }
-
-    if (showSend) {
-      return (
-        <TouchableOpacity
-          onPress={handleActionPress}
-          activeOpacity={0.82}
-          style={styles.actionButton}
-        >
-          <ArrowUp size={18} color={Colors.textOnAccent} />
-        </TouchableOpacity>
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        onPress={handleActionPress}
-        activeOpacity={0.82}
-        style={[styles.actionButton, isLiveTalk && styles.liveTalkActiveButton]}
-      >
-        <AudioLines
-          size={19}
-          color={isLiveTalk ? Colors.accentCyan : Colors.textOnAccent}
-        />
-      </TouchableOpacity>
-    );
+    if (isRecording) return handleStopDictation();
+    if (showStop) return handleStopResponse();
+    if (showSend) return handleSendMessage();
+    handleLiveTalkToggle();
   };
 
   const expandedHeight = Math.min(
@@ -286,34 +174,38 @@ export function ChatInput({
         style={[
           styles.composer,
           isExpanded && styles.expandedComposer,
-          {
-            height: isExpanded ? expandedHeight : COMPACT_HEIGHT,
-          },
+          { height: isExpanded ? expandedHeight : COMPACT_HEIGHT },
         ]}
       >
         {isRecording ? (
           <View style={styles.recordingRow}>
-            <TouchableOpacity activeOpacity={0.7} style={styles.plusButton}>
-              <Plus size={22} color={Colors.textSecondary} />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.plusButton}
+              onPress={handleStopResponse}
+            >
+              <X size={22} color={Colors.textSecondary} />
             </TouchableOpacity>
-
             <View style={styles.waveformContainer}>
               <View style={styles.waveform} pointerEvents="none">
-                {MULTIPLIERS.map((multiplier, index) => (
+                {MULTIPLIERS.map((multiplier, i) => (
                   <View
-                    key={index}
+                    key={i}
                     style={[
                       styles.waveBar,
-                      {
-                        height: getBarHeight(multiplier),
-                      },
+                      { height: getBarHeight(multiplier) },
                     ]}
                   />
                 ))}
               </View>
             </View>
-
-            {renderAction()}
+            <TouchableOpacity
+              onPress={handleActionPress}
+              activeOpacity={0.82}
+              style={styles.actionButton}
+            >
+              <ArrowUp size={18} color={Colors.textOnAccent} />
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -334,9 +226,8 @@ export function ChatInput({
                   />
                 </TouchableOpacity>
               )}
-
               <TextInput
-                value={showJustASec ? '' : draft}
+                value={showJustASec ? '' : draftText}
                 onChangeText={handleTextChange}
                 editable={!showJustASec}
                 style={[styles.input, isExpanded && styles.expandedInput]}
@@ -346,59 +237,78 @@ export function ChatInput({
                 textAlignVertical={isExpanded ? 'top' : 'center'}
                 scrollEnabled={isExpanded && measuredLines >= MAX_LINES}
               />
-
               {!isExpanded && (
                 <View style={styles.compactActions}>
                   {!isRecording && !showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
-                      onPress={onDictatePress}
+                      onPress={handleDictatePress}
                     >
                       <Mic size={20} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
-
-                  {renderAction()}
+                  <TouchableOpacity
+                    onPress={handleActionPress}
+                    activeOpacity={0.82}
+                    style={styles.actionButton}
+                  >
+                    {showStop ? (
+                      <Square size={16} color={Colors.textOnAccent} />
+                    ) : showSend ? (
+                      <ArrowUp size={18} color={Colors.textOnAccent} />
+                    ) : (
+                      <AudioLines size={19} color={Colors.textOnAccent} />
+                    )}
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
-
             {isExpanded && (
               <View style={styles.expandedBottomRow}>
                 <TouchableOpacity activeOpacity={0.7} style={styles.plusButton}>
                   <Plus size={22} color={Colors.textSecondary} />
                 </TouchableOpacity>
-
                 <View style={styles.compactActions}>
                   {!isRecording && !showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
-                      onPress={onDictatePress}
+                      onPress={handleDictatePress}
                     >
                       <Mic size={20} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
-
-                  {renderAction()}
+                  <TouchableOpacity
+                    onPress={handleActionPress}
+                    activeOpacity={0.82}
+                    style={styles.actionButton}
+                  >
+                    {showStop ? (
+                      <Square size={16} color={Colors.textOnAccent} />
+                    ) : showSend ? (
+                      <ArrowUp size={18} color={Colors.textOnAccent} />
+                    ) : (
+                      <AudioLines size={19} color={Colors.textOnAccent} />
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
           </>
         )}
-
         <View pointerEvents="none" style={styles.measurementContainer}>
-          <Text style={styles.measurementText} onTextLayout={handleMeasureText}>
-            {draft || ' '}
+          <Text
+            style={styles.measurementText}
+            onTextLayout={(e) => setMeasuredLines(e.nativeEvent.lines.length)}
+          >
+            {draftText || ' '}
           </Text>
         </View>
       </View>
     </View>
   );
 }
-
-export default ChatInput;
 
 const styles = StyleSheet.create({
   container: {

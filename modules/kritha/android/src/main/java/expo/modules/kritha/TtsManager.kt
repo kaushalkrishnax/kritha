@@ -10,28 +10,40 @@ import java.util.Locale
 object TtsManager {
     @Volatile
     private var ttsInstance: TextToSpeech? = null
+
     @Volatile
     var isReady: Boolean = false
         private set
 
-    @Volatile var activeChatSessionId: String = ""
-    @Volatile var activeAssistantRunId: String = ""
-    @Volatile var activeRequestId: String = ""
-    @Volatile var activeMessageId: String? = null
+    @Volatile
+    var activeChatSessionId: String = ""
+    @Volatile
+    var activeAssistantRunId: String = ""
+    @Volatile
+    var activeRequestId: String = ""
+    @Volatile
+    var activeMessageId: String? = null
 
-    @Volatile var isSpeaking: Boolean = false
+    @Volatile
+    var isSpeaking: Boolean = false
         private set
-    @Volatile var isPaused: Boolean = false
+    @Volatile
+    var isPaused: Boolean = false
         private set
-    @Volatile var isCancelled: Boolean = false
+    @Volatile
+    var isCancelled: Boolean = false
         private set
-    @Volatile private var isResuming: Boolean = false
+    @Volatile
+    private var isResuming: Boolean = false
 
-    @Volatile private var lastContext: Context? = null
+    @Volatile
+    private var lastContext: Context? = null
 
     private val pendingClauses = Collections.synchronizedList(ArrayList<String>())
-    @Volatile private var currentClauseIndex: Int = 0
-    @Volatile private var queuedClauseIndex: Int = -1
+    @Volatile
+    private var currentClauseIndex: Int = 0
+    @Volatile
+    private var queuedClauseIndex: Int = -1
 
     private val streamingBuffer = StringBuilder()
 
@@ -48,7 +60,7 @@ object TtsManager {
                         if (!isCancelled) {
                             isSpeaking = true
                             isPaused = false
-                            
+
                             val parts = utteranceId?.split(":") ?: emptyList()
                             val cbRunId = parts.getOrNull(0)?.takeIf { it != "tts" } ?: activeAssistantRunId
                             val cbMsgId = parts.getOrNull(1)?.takeIf { it != "null" } ?: activeMessageId
@@ -69,11 +81,14 @@ object TtsManager {
                                     cbMsgId
                                 )
                             }
+
+                            maybeStartBargeIn()
                         }
                     }
+
                     override fun onDone(utteranceId: String?) {
                         if (isCancelled || isPaused) return
-                        
+
                         val parts = utteranceId?.split(":") ?: emptyList()
                         val cbRunId = parts.getOrNull(0)?.takeIf { it != "tts" } ?: activeAssistantRunId
                         val cbMsgId = parts.getOrNull(1)?.takeIf { it != "null" } ?: activeMessageId
@@ -95,6 +110,7 @@ object TtsManager {
                                 isSpeaking = false
                                 isPaused = false
                                 isResuming = false
+                                BargeInMonitor.stop()
                                 WakeWordEventHub.emitTtsComplete(
                                     activeChatSessionId,
                                     cbRunId,
@@ -104,6 +120,7 @@ object TtsManager {
                             }
                         }
                     }
+
                     override fun onError(utteranceId: String?) {
                         val parts = utteranceId?.split(":") ?: emptyList()
                         val cbRunId = parts.getOrNull(0)?.takeIf { it != "tts" } ?: activeAssistantRunId
@@ -112,6 +129,7 @@ object TtsManager {
                         isSpeaking = false
                         isPaused = false
                         isResuming = false
+                        BargeInMonitor.stop()
                         WakeWordEventHub.emitTtsError(
                             activeChatSessionId,
                             cbRunId,
@@ -123,6 +141,15 @@ object TtsManager {
                 })
             }
         }
+    }
+
+    /**
+     * Arms barge-in detection while speech is playing
+     */
+    private fun maybeStartBargeIn() {
+        if (!BargeInMonitor.isEnabled || BargeInMonitor.isRunning) return
+        val ctx = lastContext ?: return
+        BargeInMonitor.start { AssistantCore.handleBargeIn(ctx) }
     }
 
     fun getInstance(context: Context): TextToSpeech? {
@@ -204,6 +231,7 @@ object TtsManager {
     }
 
     fun pause() {
+        BargeInMonitor.stop()
         if (isSpeaking) {
             isSpeaking = false
             isPaused = true
@@ -237,6 +265,7 @@ object TtsManager {
     }
 
     fun stop(chatSessionId: String = "", assistantRunId: String = "") {
+        BargeInMonitor.stop()
         val targetRunId = assistantRunId.ifBlank { activeAssistantRunId }
         var emitted = false
         if (activeAssistantRunId == targetRunId) {
@@ -274,6 +303,7 @@ object TtsManager {
         requestId: String,
         messageId: String?
     ) {
+        BargeInMonitor.stop()
         activeChatSessionId = chatSessionId
         activeAssistantRunId = assistantRunId
         activeRequestId = requestId

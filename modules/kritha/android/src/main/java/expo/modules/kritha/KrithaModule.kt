@@ -10,7 +10,6 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kritha.db.DBManager
 import expo.modules.kritha.intelligence.LiteRTEngineManager
 import expo.modules.kritha.tools.DeviceTools
 import expo.modules.kritha.wakeword.WakeWordEventHub
@@ -20,17 +19,8 @@ import expo.modules.kritha.wakeword.WakeWordListeningActivity
 class KrithaModule : Module() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private fun ensureDbInit() {
-        val context = appContext.reactContext
-            ?: appContext.currentActivity?.applicationContext
-        if (context != null) {
-            DBManager.init(context)
-        }
-    }
-
     override fun definition() = ModuleDefinition {
         Name("Kritha")
-
         Events("onWakeWordDetected", "onAssistantEvent", "onDownloadProgress")
 
         WakeWordEventHub.listener = { keyword, confidence ->
@@ -42,7 +32,7 @@ class KrithaModule : Module() {
                 }
             }
         }
-        
+
         WakeWordEventHub.assistantEventListener = { type, payload ->
             mainHandler.post {
                 try {
@@ -62,55 +52,6 @@ class KrithaModule : Module() {
         OnStopObserving {
         }
 
-        Function("loadSessions") {
-            ensureDbInit()
-            DBManager.getSessions().map { session ->
-                mapOf(
-                    "id" to session["id"],
-                    "title" to session["title"],
-                    "createdAt" to session["created_at"],
-                    "archived" to session["archived"],
-                    "pinned" to session["pinned"]
-                )
-            }
-        }
-
-        Function("beginNewChat") {
-            AssistantCore.beginNewChat()
-            true
-        }
-
-        Function("openChat") { sessionId: String ->
-            ensureDbInit()
-            AssistantCore.openChat(sessionId)
-            true
-        }
-
-        Function("renameChat") { id: String, title: String ->
-            ensureDbInit()
-            DBManager.updateSessionTitle(id, title)
-            WakeWordEventHub.emitChatRenamed(id, title)
-            true
-        }
-
-        Function("pinChat") { id: String, pinned: Boolean ->
-            ensureDbInit()
-            AssistantCore.pinChat(id, pinned)
-            true
-        }
-
-        Function("archiveChat") { id: String, archived: Boolean ->
-            ensureDbInit()
-            AssistantCore.archiveChat(id, archived)
-            true
-        }
-
-        Function("deleteChat") { id: String ->
-            ensureDbInit()
-            AssistantCore.deleteChat(id)
-            true
-        }
-
         // ASSISTANT & SYSTEM OPERATIONS
         Function("start") {
             val context = appContext.reactContext
@@ -128,6 +69,13 @@ class KrithaModule : Module() {
 
         Function("isRunning") {
             WakeWordForegroundService.isRunning
+        }
+
+        Function("setBargeInEnabled") { enabled: Boolean ->
+            BargeInMonitor.isEnabled = enabled
+            if (!enabled) {
+                BargeInMonitor.stop()
+            }
         }
 
         Function("getLocalModelDevice") {
@@ -202,11 +150,24 @@ class KrithaModule : Module() {
                     val modelId = commandMap["modelId"] as? String
                     val assistantRunId = commandMap["assistantRunId"] as? String
                     val origin = commandMap["origin"] as? String ?: "MANUAL_TYPING"
+
+                    @Suppress("UNCHECKED_CAST")
+                    val historyList =
+                        (commandMap["history"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                     if (context != null) {
-                        AssistantCore.submitText(context, text, chatSessionId, modelId, assistantRunId, origin)
+                        AssistantCore.submitText(
+                            context,
+                            text,
+                            chatSessionId,
+                            modelId,
+                            assistantRunId,
+                            origin,
+                            historyList
+                        )
                         true
                     } else false
                 }
+
                 "START_LISTENING" -> {
                     val chatSessionId = commandMap["chatSessionId"] as? String
                     if (context != null) {
@@ -214,10 +175,12 @@ class KrithaModule : Module() {
                         true
                     } else false
                 }
+
                 "STOP_LISTENING" -> {
                     AssistantCore.stopListening()
                     true
                 }
+
                 "PLAY_TTS" -> {
                     val text = commandMap["text"] as? String ?: ""
                     val chatSessionId = commandMap["chatSessionId"] as? String
@@ -228,28 +191,34 @@ class KrithaModule : Module() {
                         true
                     } else false
                 }
+
                 "PAUSE_TTS" -> {
                     AssistantCore.pauseTts()
                     true
                 }
+
                 "RESUME_TTS" -> {
                     AssistantCore.resumeTts()
                     true
                 }
+
                 "STOP_TTS" -> {
                     AssistantCore.stopTts()
                     true
                 }
+
                 "CANCEL" -> {
                     val assistantRunId = commandMap["assistantRunId"] as? String ?: ""
                     val requestId = commandMap["requestId"] as? String ?: ""
                     AssistantCore.cancel(assistantRunId, requestId)
                     true
                 }
+
                 "DISMISS" -> {
                     AssistantCore.dismiss()
                     true
                 }
+
                 "OPEN_MAIN_APP" -> {
                     if (context != null) {
                         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -261,6 +230,7 @@ class KrithaModule : Module() {
                         true
                     } else false
                 }
+
                 else -> false
             }
         }
@@ -331,12 +301,14 @@ class KrithaModule : Module() {
             ModelManager.getDownloadManager(context).downloadModel(modelId) { downloadedMb, totalMb, speedMbps ->
                 mainHandler.post {
                     try {
-                        sendEvent("onDownloadProgress", mapOf(
-                            "modelId" to modelId,
-                            "downloadedMb" to downloadedMb,
-                            "totalMb" to totalMb,
-                            "speedMbps" to speedMbps
-                        ))
+                        sendEvent(
+                            "onDownloadProgress", mapOf(
+                                "modelId" to modelId,
+                                "downloadedMb" to downloadedMb,
+                                "totalMb" to totalMb,
+                                "speedMbps" to speedMbps
+                            )
+                        )
                     } catch (e: Exception) {
                         Log.e("KrithaModule", "Failed to send download progress", e)
                     }
@@ -345,19 +317,22 @@ class KrithaModule : Module() {
         }
 
         Function("pauseDownload") { modelId: String ->
-            val context = appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
+            val context =
+                appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
             ModelManager.getDownloadManager(context).pauseDownload(modelId)
             true
         }
 
         Function("resumeDownload") { modelId: String ->
-            val context = appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
+            val context =
+                appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
             ModelManager.getDownloadManager(context).resumeDownload(modelId)
             true
         }
 
         Function("cancelDownload") { modelId: String ->
-            val context = appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
+            val context =
+                appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
             ModelManager.getDownloadManager(context).cancelDownload(modelId)
             true
         }
@@ -376,7 +351,8 @@ class KrithaModule : Module() {
         }
 
         Function("isNotificationListenerEnabled") {
-            val context = appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
+            val context =
+                appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
             DeviceTools.isNotificationListenerEnabled(context)
         }
 

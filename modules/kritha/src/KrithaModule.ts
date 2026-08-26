@@ -145,6 +145,7 @@ export type AssistantCommand =
       modelId?: string;
       assistantRunId?: string;
       origin?: RequestOrigin;
+      history?: Array<Record<string, unknown>>;
     }
   | {
       type: 'START_LISTENING';
@@ -211,18 +212,11 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
     ttsState?: { isSpeaking: boolean; isPaused: boolean; messageId?: string };
   };
 
-  loadSessions(): NativeChatSession[];
-  beginNewChat(): void;
-  openChat(sessionId: string): void;
-  renameChat(id: string, title: string): boolean;
-  pinChat(id: string, pinned: boolean): boolean;
-  archiveChat(id: string, archived: boolean): boolean;
-  deleteChat(id: string): boolean;
-
   // System & Model Utilities
   start(): void;
   stop(): void;
   isRunning(): boolean;
+  setBargeInEnabled(enabled: boolean): void;
   setCloudApiKey(apiKey: string): void;
   getCustomInstructions(): string;
   setCustomInstructions(instructions: string): void;

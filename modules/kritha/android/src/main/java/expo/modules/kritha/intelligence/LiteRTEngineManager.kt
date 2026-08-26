@@ -16,39 +16,42 @@ import kotlinx.coroutines.sync.withLock
 
 internal object LiteRTEngineManager {
 
-    enum class Device { CPU, GPU, NPU;
+    enum class Device {
+        CPU, GPU, NPU;
+
         companion object {
             fun from(value: String?): Device = when (value?.lowercase()) {
                 "gpu" -> GPU
                 "npu" -> NPU
-                else  -> CPU
+                else -> CPU
             }
         }
     }
 
-    private const val PREFS          = "kritha_intelligence"
-    private const val KEY_DEVICE     = "local_model_device"
-    private const val IDLE_TTL_MS    = 120_000L
-    private const val TAG            = "LiteRTEngineManager"
+    private const val PREFS = "kritha_intelligence"
+    private const val KEY_DEVICE = "local_model_device"
+    private const val IDLE_TTL_MS = 120_000L
+    private const val TAG = "LiteRTEngineManager"
 
     private val mutex = Mutex()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private var engine: Engine?      = null
+    private var engine: Engine? = null
     private var loadedModelPath: String? = null
-    private var loadedDevice: Device?    = null
-    private var idleJob: Job?            = null
+    private var loadedDevice: Device? = null
+    private var idleJob: Job? = null
 
     fun getDevice(context: Context): Device =
-        Device.from(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_DEVICE, null))
+        Device.from(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_DEVICE, null)
+        )
 
     fun setDevice(context: Context, device: Device) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_DEVICE, device.name.lowercase()).apply()
         scope.launch { mutex.withLock { releaseEngine() } }
     }
-
 
     suspend fun getEngine(modelPath: String, device: Device): Engine = mutex.withLock {
         cancelIdleTimer()
@@ -62,9 +65,9 @@ internal object LiteRTEngineManager {
 
         Log.i(TAG, "Initialising engine: $modelPath on ${device.name}")
         val created = buildEngine(modelPath, device)
-        engine           = created
-        loadedModelPath  = modelPath
-        loadedDevice     = device
+        engine = created
+        loadedModelPath = modelPath
+        loadedDevice = device
         created
     }
 
@@ -85,14 +88,15 @@ internal object LiteRTEngineManager {
         }
     }
 
-
-    private fun cancelIdleTimer() { idleJob?.cancel(); idleJob = null }
+    private fun cancelIdleTimer() {
+        idleJob?.cancel(); idleJob = null
+    }
 
     private fun releaseEngine() {
         engine?.runCatching { close() }
-        engine           = null
-        loadedModelPath  = null
-        loadedDevice     = null
+        engine = null
+        loadedModelPath = null
+        loadedDevice = null
     }
 
     private fun buildEngine(modelPath: String, preferredDevice: Device): Engine {
