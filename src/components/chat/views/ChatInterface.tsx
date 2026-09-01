@@ -1,46 +1,47 @@
 import Colors from '@/theme';
+import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, {
-  Defs,
-  Rect,
-  Stop,
-  LinearGradient as SvgGradient,
+    Defs,
+    Rect,
+    Stop,
+    LinearGradient as SvgGradient,
 } from 'react-native-svg';
-import * as SecureStore from 'expo-secure-store';
 
-import { chatApi } from '@/services/chat.service';
-import { useAssistantStore } from '@/store/assistantStore';
+import { useAssistantKeyboard } from '@/hooks/use-assistant-keyboard';
 import { useChatState } from '@/hooks/use-chat-state';
 import { useModelLoader } from '@/hooks/use-model-loader';
 import { useNativeEvents } from '@/hooks/use-native-events';
 import { useWakeWordBootstrap } from '@/hooks/use-wakeword-bootstrap';
+import { chatApi } from '@/services/chat.service';
+import { getConversationContext } from '@/services/conversation-context.service';
 import { wakeWordService } from '@/services/wakeword.service';
-import { useAssistantKeyboard } from '@/hooks/use-assistant-keyboard';
+import { useAssistantStore } from '@/store/assistantStore';
 
 import {
-  downloadModel,
-  getUserName as getNativeUserName,
-  isDefaultAssistant,
-  setSelectedModel,
-  startListening,
+    downloadModel,
+    getUserName as getNativeUserName,
+    isDefaultAssistant,
+    setSelectedModel,
+    startListening,
 } from '@modules/kritha/src';
 
 import {
-  ModelSelectModal,
-  PERMISSIONS_ONBOARDING_KEY,
-  PermissionsChecklistModal,
+    ModelSelectModal,
+    PERMISSIONS_ONBOARDING_KEY,
+    PermissionsChecklistModal,
 } from '@/components/chat/modals';
 import { ModelRecord } from '@/components/chat/types';
 import {
-  ChatHeader,
-  ChatInput,
-  ChatMessages,
-  ChatSidebar,
-  DictationCornerGlow,
-  LiveTalkBar,
+    ChatHeader,
+    ChatInput,
+    ChatMessages,
+    ChatSidebar,
+    DictationCornerGlow,
+    LiveTalkBar,
 } from '@/components/chat/ui';
 export function ChatInterface() {
   useWakeWordBootstrap();
@@ -205,7 +206,11 @@ export function ChatInterface() {
     dispatch,
     onWakeWordDetected: () => {
       try {
-        startListening(chatSessionId || undefined);
+        startListening(
+          chatSessionId || undefined,
+          undefined,
+          getConversationContext(),
+        );
       } catch (e) {
         console.warn('Failed to handle wake word:', e);
       }
@@ -213,7 +218,11 @@ export function ChatInterface() {
     onTtsDone: () => {
       if (isLiveTalk) {
         try {
-          startListening(chatSessionId || undefined);
+          startListening(
+            chatSessionId || undefined,
+            undefined,
+            getConversationContext(),
+          );
         } catch (e) {
           console.warn('Failed to restart dictation after TTS:', e);
         }
@@ -244,6 +253,13 @@ export function ChatInterface() {
     () => models.find((m) => m.id === selectedModelId) || models[0],
     [models, selectedModelId],
   );
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    chatApi.syncSessions().catch((e) => {
+      console.warn('Failed to refresh chat sessions:', e);
+    });
+  }, [sidebarOpen]);
 
   const animatedBottomStyle = useAssistantKeyboard();
 
@@ -283,7 +299,7 @@ export function ChatInterface() {
           {isLiveTalk ? (
             <LiveTalkBar />
           ) : (
-            <ChatInput modelId={selectedModelId} />
+            <ChatInput variant="chat" modelId={selectedModelId} />
           )}
         </Animated.View>
       </View>

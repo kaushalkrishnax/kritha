@@ -1,4 +1,3 @@
-import React from 'react';
 import { AppRegistry } from 'react-native';
 import 'expo-router/entry';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

@@ -1,11 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Brain } from 'lucide-react-native';
 import { ChatMessage } from '@/components/chat/types';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import { ThinkingBlock } from './ThinkingBlock';
-import { ResponseActions } from './ResponseActions';
 import Colors from '@/theme';
+import { Brain } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { ResponseActions } from './ResponseActions';
+import { ThinkingBlock } from './ThinkingBlock';
 
 export interface ResponseMessageProps {
   message: ChatMessage;

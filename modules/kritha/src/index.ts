@@ -27,6 +27,7 @@ export function submitText(
     chatSessionId?: string;
     modelId?: string;
     origin?: RequestOrigin;
+    history?: Array<Record<string, unknown>>;
   },
 ): boolean {
   return dispatchCommand({
@@ -35,17 +36,20 @@ export function submitText(
     chatSessionId: options?.chatSessionId,
     modelId: options?.modelId,
     origin: options?.origin,
+    history: options?.history,
   });
 }
 
 export function startListening(
   chatSessionId?: string,
   assistantRunId?: string,
+  history?: Array<Record<string, unknown>>,
 ): boolean {
   return dispatchCommand({
     type: 'START_LISTENING',
     chatSessionId,
     assistantRunId,
+    history,
   });
 }
 

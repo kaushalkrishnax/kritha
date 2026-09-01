@@ -78,18 +78,7 @@ internal class IntelligencePipeline(private val context: Context) {
             expo.modules.kritha.ModelManager.getSelectedModel(context)
         val isCloud = expo.modules.kritha.ModelCatalog.isCloudModel(targetModelId)
 
-        val fullHistory = history
-
-        val systemPrompt = expo.modules.kritha.AssistantCore.systemPrompt
-        val customInstructions = expo.modules.kritha.AssistantCore.customInstructions
-
-        val contextMessages = ConversationContextBuilder.buildContext(
-            systemPrompt,
-            customInstructions,
-            fullHistory,
-            input,
-            isCloud
-        )
+        val contextMessages = buildContextMessages(history, input)
 
         if (isCloud) {
 
@@ -133,6 +122,34 @@ internal class IntelligencePipeline(private val context: Context) {
         )
 
         return Result.Miss
+    }
+
+    private fun buildContextMessages(
+        history: List<Map<String, Any>>,
+        input: String
+    ): List<ConversationMessage> {
+        val messages = mutableListOf<ConversationMessage>()
+
+        history.forEach { msg ->
+            val role = when (msg["role"] as? String) {
+                "system" -> Role.SYSTEM
+                "user" -> Role.USER
+                "assistant" -> Role.ASSISTANT
+                else -> Role.USER
+            }
+            val content =
+                ((msg["content"] as? String) ?: (msg["text"] as? String))?.trim().orEmpty()
+            if (content.isNotBlank()) {
+                messages.add(ConversationMessage(role, content))
+            }
+        }
+        
+        val last = messages.lastOrNull()
+        if (last?.role != Role.USER || last.content != input.trim()) {
+            messages.add(ConversationMessage(Role.USER, input))
+        }
+
+        return messages
     }
 
     private suspend fun streamResponse(

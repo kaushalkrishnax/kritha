@@ -65,6 +65,11 @@ export const chatApi = {
     return sessions;
   },
 
+  async syncSessions(): Promise<void> {
+    const sessions = await database.sessions.getSessions(false);
+    useAssistantStore.getState().mergeSessions(sessions);
+  },
+
   beginNewChat(): void {
     const store = useAssistantStore.getState();
     store.setChatSessionId(null);

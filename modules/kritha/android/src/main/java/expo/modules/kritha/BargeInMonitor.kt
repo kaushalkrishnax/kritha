@@ -8,6 +8,7 @@ import android.media.audiofx.AcousticEchoCanceler
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import expo.modules.kritha.wakeword.WakeWordForegroundService
 
 /**
  * Lightweight voice-activity monitor used for "barge-in" during Live Talk:
@@ -27,14 +28,8 @@ object BargeInMonitor {
 
     /** Raw PCM RMS amplitude considered "speech" (room noise is usually < 300). */
     private const val AMPLITUDE_THRESHOLD = 2200.0
-
-    /** Sustained speech needed before triggering: 5 reads ≈ 640 ms. */
-    private const val REQUIRED_CONSECUTIVE_READS = 5
-
-    /** Ignore audio right after arming so TTS onset/speaker reverb can't self-trigger. */
+    private const val REQUIRED_CONSECUTIVE_READS = 2
     private const val WARMUP_MS = 600L
-
-    /** Hard safety cap so a stuck session can't hold the mic forever. */
     private const val MAX_SESSION_MS = 90_000L
 
     @Volatile
@@ -47,6 +42,9 @@ object BargeInMonitor {
     @Volatile
     private var abortRequested: Boolean = false
 
+    @Volatile
+    private var pausedWakeWord: Boolean = false
+
     private var audioRecord: AudioRecord? = null
     private var echoCanceler: AcousticEchoCanceler? = null
     private var worker: Thread? = null
@@ -56,6 +54,8 @@ object BargeInMonitor {
         if (!isEnabled || isRunning) return
         isRunning = true
         abortRequested = false
+        WakeWordForegroundService.pauseForStt()
+        pausedWakeWord = true
         worker = Thread({ recordLoop(onBargeIn) }, "kritha-barge-in").apply {
             priority = Thread.MIN_PRIORITY + 1
             start()
@@ -81,7 +81,7 @@ object BargeInMonitor {
             if (minBuf <= 0) return
 
             record = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 SAMPLE_RATE,
                 CHANNEL_CONFIG,
                 AUDIO_FORMAT,
@@ -146,6 +146,13 @@ object BargeInMonitor {
             audioRecord = null
             echoCanceler = null
             isRunning = false
+            // Hand the mic back to the wake-word recorder
+            if (pausedWakeWord) {
+                pausedWakeWord = false
+                if (MicrophoneManager.currentOwner != MicrophoneManager.Owner.STT) {
+                    WakeWordForegroundService.resumeFromStt()
+                }
+            }
             if (triggered) {
                 mainHandler.post {
                     try {

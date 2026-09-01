@@ -62,6 +62,7 @@ interface AssistantStore {
   sessions: Session[];
   messages: AssistantMessage[];
   setSessions: (sessions: Session[]) => void;
+  mergeSessions: (sessions: Session[]) => void;
   setMessages: (messages: AssistantMessage[]) => void;
   upsertSession: (session: Session) => void;
   deleteSession: (sessionId: string) => void;
@@ -129,6 +130,35 @@ export const useAssistantStore = create<AssistantStore>((set) => ({
 
   setSessions: (sessions) => set({ sessions }),
   setMessages: (messages) => set({ messages }),
+  mergeSessions: (incoming) =>
+    set((state) => {
+      const existingIds = new Set(state.sessions.map((s) => s.id));
+      const newSessions = incoming.filter((s) => !existingIds.has(s.id));
+
+      const patchExisting = (list: Session[]) =>
+        list.map((s) => {
+          const match = incoming.find((i) => i.id === s.id);
+          return match ? { ...s, ...match } : s;
+        });
+
+      const hasNoPatches = state.sessions.every((s) => {
+        const match = incoming.find((i) => i.id === s.id);
+        return (
+          !match ||
+          (match.title === s.title &&
+            match.pinned === s.pinned &&
+            match.archived === s.archived &&
+            match.updatedAt === s.updatedAt)
+        );
+      });
+
+      if (newSessions.length === 0) {
+        if (hasNoPatches) return state;
+        return { sessions: patchExisting(state.sessions) };
+      }
+
+      return { sessions: [...newSessions, ...patchExisting(state.sessions)] };
+    }),
   upsertSession: (session) =>
     set((state) => {
       const exists = state.sessions.find((s) => s.id === session.id);

@@ -46,20 +46,11 @@ object AssistantCore {
     @Volatile
     var userName: String = ""
 
-    val systemPrompt: String
-        get() {
-            val nameClause =
-                if (userName.isNotBlank() && userName.lowercase() != "your name") " You are speaking with $userName." else ""
-            return """
-                You are Kritha, an intelligent personal AI assistant.$nameClause
-
-                Be helpful, accurate, concise, and natural. Understand the user's intent and context before responding. Follow instructions carefully, remember relevant conversation context, and never fabricate facts, actions, or results.
-
-                Give direct, practical answers. Ask for clarification only when genuinely necessary. Correct mistakes honestly instead of agreeing blindly. Adapt your tone to the situation and avoid unnecessary repetition, filler, or excessive explanations.
-            """.trimIndent()
-        }
-
     private var activeJob: Job? = null
+
+    /** Guards double-persistence of the active assistant turn's message. */
+    @Volatile
+    private var assistantMessagePersisted: Boolean = false
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("kritha_settings", android.content.Context.MODE_PRIVATE)
@@ -119,6 +110,8 @@ object AssistantCore {
             mutex.withLock {
                 // Cancel any ongoing job before starting a new turn
                 activeJob?.cancel()
+                // Keep whatever the interrupted turn had already produced.
+                persistPartialAssistantResponse()
 
                 val targetChatSessionId =
                     if (!chatSessionId.isNullOrBlank()) chatSessionId else UUID.randomUUID().toString()
@@ -136,6 +129,7 @@ object AssistantCore {
                 val runId = assistantRunId.ifNullOrBlank { "run_${UUID.randomUUID()}" }
                 val reqId = "req_${UUID.randomUUID()}"
                 val assistantMessageId = "${runId}_msg"
+                assistantMessagePersisted = false
 
                 activeChatSessionId = targetChatSessionId
                 activeAssistantRunId = runId
@@ -224,6 +218,7 @@ object AssistantCore {
                             finalResponse,
                             assistantMsgTime
                         )
+                        assistantMessagePersisted = true
 
                         withContext(Dispatchers.Main) {
                             if (shouldAutoTts) {
@@ -290,37 +285,6 @@ object AssistantCore {
         }
     }
 
-    suspend fun submitTextAndAwait(
-        context: Context,
-        text: String,
-        modelId: String? = null
-    ): String = withContext(Dispatchers.IO) {
-        if (text.isBlank()) return@withContext ""
-        init(context)
-
-        var finalResponse = ""
-        try {
-            val fullResponse = StringBuilder()
-            val l2 = L2LocalLLM(context)
-
-            val messages = expo.modules.kritha.intelligence.ConversationContextBuilder.buildContext(
-                systemPrompt = systemPrompt,
-                customInstructions = customInstructions,
-                history = emptyList(),
-                currentMessage = text,
-                isCloud = false
-            )
-
-            val result = l2.infer(messages, modelId = modelId) { token ->
-                fullResponse.append(token)
-            }
-            finalResponse = if (!result.isNullOrBlank()) result else fullResponse.toString()
-        } catch (e: Exception) {
-            finalResponse = ""
-        }
-        finalResponse
-    }
-
     private var nativeVoiceSession: NativeAssistantSession? = null
 
     fun cancelTurn() {
@@ -339,7 +303,12 @@ object AssistantCore {
         }
     }
 
-    fun startVoiceSession(context: Context, chatSessionId: String? = null, origin: String = "WAKE_WORD") {
+    fun startVoiceSession(
+        context: Context,
+        chatSessionId: String? = null,
+        origin: String = "WAKE_WORD",
+        history: List<Map<String, Any>> = emptyList()
+    ) {
         init(context)
 
         cancelTurn()
@@ -352,6 +321,7 @@ object AssistantCore {
         val runId = "run_${UUID.randomUUID()}"
         val reqId = "req_${UUID.randomUUID()}"
         val assistantMessageId = "${runId}_msg"
+        assistantMessagePersisted = false
 
         activeChatSessionId = targetChatSessionId
         activeAssistantRunId = runId
@@ -427,6 +397,7 @@ object AssistantCore {
 
                 override fun onStreaming(transcript: String, chunk: String) {
                     currentState = "GENERATING"
+                    currentResponse += chunk
                     WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "GENERATING", origin = origin)
                     WakeWordEventHub.emitTextDelta(
                         activeChatSessionId,
@@ -451,6 +422,7 @@ object AssistantCore {
                         response,
                         assistantMsgTime
                     )
+                    assistantMessagePersisted = true
 
                     WakeWordEventHub.emitTextComplete(
                         activeChatSessionId,
@@ -476,12 +448,18 @@ object AssistantCore {
                 }
             }
         ).also {
+            it.history = history
             it.start()
         }
     }
 
-    fun startListening(context: Context, chatSessionId: String? = null, origin: String = "MANUAL_DICTATION") {
-        startVoiceSession(context, chatSessionId, origin = origin)
+    fun startListening(
+        context: Context,
+        chatSessionId: String? = null,
+        origin: String = "MANUAL_DICTATION",
+        history: List<Map<String, Any>> = emptyList()
+    ) {
+        startVoiceSession(context, chatSessionId, origin = origin, history = history)
     }
 
     fun stopListening() {
@@ -535,6 +513,8 @@ object AssistantCore {
                 activeJob?.cancel()
                 L2LocalLLM.cancelInference()
                 L3CloudLLM.cancelInference()
+                
+                persistPartialAssistantResponse()
                 nativeVoiceSession?.cancelPipeline()
                 TtsManager.stop(targetChatSessionId, targetRunId)
                 MicrophoneManager.releaseFromStt(targetRunId)
@@ -573,6 +553,10 @@ object AssistantCore {
         activeJob = null
         L2LocalLLM.cancelInference()
         L3CloudLLM.cancelInference()
+        
+        persistPartialAssistantResponse()
+
+        val carriedHistory = nativeVoiceSession?.history ?: emptyList()
 
         // Cancels pipeline job, recognizer, mic claim and TTS for voice sessions.
         nativeVoiceSession?.cancelPipeline()
@@ -581,7 +565,27 @@ object AssistantCore {
         BargeInMonitor.stop()
 
         // Hand the floor back to the user straight away.
-        startVoiceSession(context, chatId.ifBlank { null }, origin = "MANUAL_DICTATION")
+        startVoiceSession(
+            context,
+            chatId.ifBlank { null },
+            origin = "MANUAL_DICTATION",
+            history = carriedHistory
+        )
+    }
+
+    private fun persistPartialAssistantResponse() {
+        if (assistantMessagePersisted) return
+        val partial = currentResponse
+        if (partial.isBlank()) return
+        if (activeAssistantRunId.isBlank()) return
+        assistantMessagePersisted = true
+        WakeWordEventHub.emitMessagePersisted(
+            activeChatSessionId,
+            "${activeAssistantRunId}_msg",
+            "assistant",
+            partial,
+            System.currentTimeMillis()
+        )
     }
 
     fun dismiss(assistantRunId: String = "") {

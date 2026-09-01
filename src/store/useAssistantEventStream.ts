@@ -29,6 +29,59 @@ export function useAssistantEventStream() {
       );
 
       switch (event.type) {
+        case 'CHAT_CREATED': {
+          const { chatSessionId, title, createdAt } = event.payload;
+          if (chatSessionId) {
+            store.upsertSession({
+              id: chatSessionId,
+              title: title || 'New Chat',
+              pinned: false,
+              archived: false,
+              createdAt,
+              updatedAt: createdAt,
+            });
+          }
+          break;
+        }
+
+        case 'CHAT_RENAMED': {
+          const { chatSessionId, title } = event.payload;
+          if (chatSessionId && title) {
+            store.renameSession(chatSessionId, title);
+          }
+          break;
+        }
+
+        case 'CHAT_PINNED': {
+          const { chatSessionId, pinned } = event.payload;
+          if (chatSessionId) {
+            store.pinSession(chatSessionId, Boolean(pinned));
+          }
+          break;
+        }
+
+        case 'CHAT_ARCHIVED': {
+          const { chatSessionId, archived } = event.payload;
+          if (chatSessionId) {
+            store.archiveSession(chatSessionId, Boolean(archived));
+          }
+          break;
+        }
+
+        case 'CHAT_DELETED': {
+          const { chatSessionId } = event.payload;
+          if (chatSessionId) {
+            store.deleteSession(chatSessionId);
+          }
+          break;
+        }
+
+        case 'ACTIVE_CHAT_CLEARED': {
+          store.setChatSessionId(null);
+          store.setMessages([]);
+          break;
+        }
+
         case 'MESSAGE_PERSISTED': {
           const { chatSessionId, messageId, role, text, createdAt } =
             event.payload;

@@ -151,6 +151,7 @@ export type AssistantCommand =
       type: 'START_LISTENING';
       chatSessionId?: string;
       assistantRunId?: string;
+      history?: Array<Record<string, unknown>>;
     }
   | { type: 'STOP_LISTENING' }
   | {

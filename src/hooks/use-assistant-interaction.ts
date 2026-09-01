@@ -1,3 +1,4 @@
+import { getConversationContext } from '@/services/conversation-context.service';
 import { useAssistantStore } from '@/store/assistantStore';
 import {
   cancel,
@@ -40,6 +41,7 @@ export function useAssistantActions(modelId?: string) {
         origin: 'MANUAL_TYPING',
         ...(chatSessionId && { chatSessionId: chatSessionId }),
         ...(modelId && { modelId }),
+        history: getConversationContext(),
       });
     } catch (e) {
       console.warn('Failed to submit text:', e);
@@ -48,7 +50,11 @@ export function useAssistantActions(modelId?: string) {
 
   const handleStartDictation = useCallback(() => {
     try {
-      startListening(chatSessionId || undefined);
+      startListening(
+        chatSessionId || undefined,
+        undefined,
+        getConversationContext(),
+      );
     } catch (e) {
       console.warn('Failed to start listening:', e);
     }
@@ -85,37 +91,21 @@ export function useAssistantActions(modelId?: string) {
     handleStartDictation();
   }, [isLiveTalk, setIsLiveTalk, handleStartDictation]);
 
-  const handleLiveTalkPauseResume = useCallback(() => {
-    // Held or TTS-paused -> resume the conversation by reopening the mic.
-    if (isLiveTalkHeld || isTtsPaused) {
-      setIsLiveTalkHeld(false);
-      setTtsState(false, false, null);
-      handleStartDictation();
-      return;
-    }
-    // Speaking -> pause playback (native emits TTS_PAUSE; icon flips to Mic).
-    if (isTtsSpeaking) {
-      pauseTts();
-      return;
-    }
-    // Listening -> hold the session. cancel() fires a storm of events
-    // (TTS_STOP included) that would reset isTtsPaused, so we use the
-    // dedicated held flag which survives them; Mic stays up until resumed.
+  const handleLiveTalkMicToggle = useCallback(() => {
     if (canonicalState === 'LISTENING') {
-      setIsLiveTalkHeld(true);
+      setIsLiveTalkHeld(false);
       cancel();
       return;
     }
-    // Idle otherwise -> open the mic for the next live-talk turn.
+    setTtsState(false, false, null);
+    setIsLiveTalkHeld(false);
     handleStartDictation();
   }, [
-    isLiveTalkHeld,
-    isTtsPaused,
-    isTtsSpeaking,
     canonicalState,
     setIsLiveTalkHeld,
     setTtsState,
     handleStartDictation,
+    cancel,
   ]);
 
   const handleStopResponse = useCallback(() => {
@@ -153,7 +143,7 @@ export function useAssistantActions(modelId?: string) {
     handleStopDictation,
     handleDictatePress,
     handleLiveTalkToggle,
-    handleLiveTalkPauseResume,
+    handleLiveTalkMicToggle,
     handleStopResponse,
     handleSpeakerPress,
   };

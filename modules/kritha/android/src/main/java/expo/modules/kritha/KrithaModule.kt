@@ -170,8 +170,16 @@ class KrithaModule : Module() {
 
                 "START_LISTENING" -> {
                     val chatSessionId = commandMap["chatSessionId"] as? String
+
+                    @Suppress("UNCHECKED_CAST")
+                    val historyList =
+                        (commandMap["history"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                     if (context != null) {
-                        AssistantCore.startListening(context, chatSessionId)
+                        AssistantCore.startListening(
+                            context,
+                            chatSessionId,
+                            history = historyList
+                        )
                         true
                     } else false
                 }

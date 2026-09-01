@@ -23,7 +23,13 @@ const COMPACT_HEIGHT = 58;
 const EXPANDED_MIN_HEIGHT = 96;
 const BOTTOM_ROW_HEIGHT = 38;
 
-export function ChatInput({ modelId }: { modelId?: string }) {
+export function ChatInput({
+  modelId,
+  variant = 'overlay',
+}: {
+  modelId?: string;
+  variant?: 'overlay' | 'chat';
+}) {
   const draftText = useAssistantStore((s) => s.draftText);
   const canonicalState = useAssistantStore((s) => s.canonicalState);
   const requestOrigin = useAssistantStore((s) => s.requestOrigin);
@@ -47,7 +53,8 @@ export function ChatInput({ modelId }: { modelId?: string }) {
   const isVoiceRequest =
     requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION';
   const isWaitingForFirstToken = isSending || (isProcessing && !response);
-  const showJustASec = isVoiceRequest && isWaitingForFirstToken;
+  const showJustASec =
+    variant === 'overlay' && isVoiceRequest && isWaitingForFirstToken;
   const showStop = !isRecording && (isProcessing || isSending || showJustASec);
   const showSend = !isRecording && !isProcessing && !isSending && hasText;
 

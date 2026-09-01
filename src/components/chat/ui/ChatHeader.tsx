@@ -1,7 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Menu, ChevronDown, SquarePen, Radio } from 'lucide-react-native';
 import Colors from '@/theme';
+import { ChevronDown, Menu, Radio, SquarePen } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface ChatHeaderProps {
   sidebarOpen?: boolean;

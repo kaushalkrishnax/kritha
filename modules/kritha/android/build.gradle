@@ -11,6 +11,7 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+    consumerProguardFiles 'proguard-rules.pro'
 
     externalNativeBuild {
       cmake {
@@ -35,6 +36,7 @@ dependencies {
   implementation "com.google.ai.edge.litertlm:litertlm-android:0.15.0"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0"
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0"
+  implementation "ai.moonshine:moonshine-voice:0.1.5"
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {

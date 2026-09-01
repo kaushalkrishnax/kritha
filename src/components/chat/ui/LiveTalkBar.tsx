@@ -1,5 +1,5 @@
 import Colors from '@/theme';
-import { Mic, Pause, Tv, Video, X } from 'lucide-react-native';
+import { Mic, MicOff, Tv, Video, X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import {
   Animated,
@@ -25,7 +25,7 @@ export function LiveTalkBar() {
   const isLiveTalkHeld = useAssistantStore((s) => s.isLiveTalkHeld);
 
   const isRecording = canonicalState === 'LISTENING';
-  const { handleLiveTalkToggle, handleLiveTalkPauseResume } =
+  const { handleLiveTalkToggle, handleLiveTalkMicToggle } =
     useAssistantActions();
   const pulseAnim = useRef(new Animated.Value(0.2)).current;
 
@@ -56,7 +56,7 @@ export function LiveTalkBar() {
   }, [isRecording, isTtsSpeaking, pulseAnim]);
 
   const getStatusText = () => {
-    if (isTtsPaused || isLiveTalkHeld) return 'Paused';
+    if (isLiveTalkHeld) return 'Paused';
     if (isRecording) return 'Listening...';
     if (isTtsSpeaking) return 'Speaking...';
     return 'Live';
@@ -119,17 +119,16 @@ export function LiveTalkBar() {
           <View style={styles.rightActions}>
             <TouchableOpacity
               activeOpacity={0.8}
-              style={[styles.circleBtn, styles.actionBtnActive]}
-              onPress={handleLiveTalkPauseResume}
+              onPress={handleLiveTalkMicToggle}
+              style={[
+                styles.circleBtn,
+                isRecording ? styles.micActiveBtn : styles.micIdleBtn,
+              ]}
             >
-              {(isTtsPaused || isLiveTalkHeld) ? (
-                <Mic size={18} color={Colors.textOnAccent} />
+              {isRecording ? (
+                <MicOff size={18} color={Colors.textOnAccent} />
               ) : (
-                <Pause
-                  size={18}
-                  fill={Colors.textOnAccent}
-                  color="transparent"
-                />
+                <Mic size={18} color={Colors.textOnAccent} />
               )}
             </TouchableOpacity>
 
@@ -205,8 +204,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionBtnActive: {
+  micIdleBtn: {
     backgroundColor: Colors.borderSubtle,
+  },
+  // Brand theme blue when the mic is active (LISTENING).
+  micActiveBtn: {
+    backgroundColor: Colors.accentBlue,
+    shadowColor: Colors.accentBlue,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 5,
   },
   closeBtn: {
     backgroundColor: Colors.borderSubtle,

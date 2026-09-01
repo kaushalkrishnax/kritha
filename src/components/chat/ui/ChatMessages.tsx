@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Brain } from 'lucide-react-native';
 import { ResponseMessage } from './ResponseMessage';
 import Colors from '@/theme';
 import { useAssistantStore } from '@/store/assistantStore';
@@ -18,6 +19,7 @@ export function ChatMessages() {
 
   const isSending =
     canonicalState === 'THINKING' || canonicalState === 'GENERATING';
+  const isThinking = canonicalState === 'THINKING';
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -74,6 +76,15 @@ export function ChatMessages() {
         );
       })}
 
+      {isThinking && (
+        <View style={styles.messageWrapper} key="thinking-indicator">
+          <View style={styles.thinkingRow}>
+            <Brain size={16} color={Colors.accentLightBlue} />
+            <Text style={styles.thinkingText}>Thinking…</Text>
+          </View>
+        </View>
+      )}
+
       {error && (
         <View style={styles.errorWrapper}>
           <Text style={styles.errorText}>{error}</Text>
@@ -113,6 +124,19 @@ const styles = StyleSheet.create({
     color: Colors.textOnAccent,
     fontSize: 14.5,
     lineHeight: 21,
+  },
+  thinkingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  thinkingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.accentLightBlue,
+    fontStyle: 'italic',
   },
   errorWrapper: {
     alignSelf: 'center',

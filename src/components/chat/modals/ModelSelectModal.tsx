@@ -1,16 +1,15 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { CheckCircle2, Download } from 'lucide-react-native';
 import Colors from '@/theme';
+import { CheckCircle2, Download } from 'lucide-react-native';
+import {
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
-import { ModelRecord, DownloadState } from '@/components/chat/types';
+import { DownloadState, ModelRecord } from '@/components/chat/types';
 
 export interface ModelSelectModalProps {
   isDropdownOpen: boolean;
