@@ -1,19 +1,16 @@
 import { getConversationContext } from '@/services/conversation-context.service';
+import { VoiceEngine } from '@/services/voice/VoiceEngine';
 import { useAssistantStore } from '@/store/assistantStore';
 import {
   cancel,
-  pauseTts,
-  playTts,
-  resumeTts,
-  setBargeInEnabled,
-  startListening,
-  stopListening,
-  submitText,
+  submitText
 } from '@modules/kritha/src';
 import { useCallback } from 'react';
 
 export function useAssistantActions(modelId?: string) {
   const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const liveTalkState = useAssistantStore((s) => s.liveTalkState);
+  const setLiveTalkState = useAssistantStore((s) => s.setLiveTalkState);
   const draftText = useAssistantStore((s) => s.draftText);
   const chatSessionId = useAssistantStore((s) => s.chatSessionId);
   const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
@@ -48,21 +45,21 @@ export function useAssistantActions(modelId?: string) {
     }
   }, [modelId, draftText, canonicalState, chatSessionId, setDraftText, setTranscript]);
 
-  const handleStartDictation = useCallback(() => {
+    const handleStartDictation = useCallback(async () => {
     try {
-      startListening(
-        chatSessionId || undefined,
-        undefined,
-        getConversationContext(),
-      );
-    } catch (e) {
-      console.warn('Failed to start listening:', e);
+      await VoiceEngine.startListening();
+    } catch (e: any) {
+      if (e.message?.includes('No STT model selected') || e.message?.includes('STT model not downloaded')) {
+        useAssistantStore.getState().setVoiceModalOpen(true);
+      } else {
+        console.warn('Failed to start listening:', e);
+      }
     }
   }, [chatSessionId]);
 
   const handleStopDictation = useCallback(() => {
     try {
-      stopListening();
+      VoiceEngine.stopListening();
     } catch (e) {
       console.warn('Failed to stop listening:', e);
     }
@@ -78,62 +75,85 @@ export function useAssistantActions(modelId?: string) {
     handleStartDictation();
   }, [canonicalState, setDraftText, setTranscript, handleStartDictation, handleStopDictation]);
 
-  const handleLiveTalkToggle = useCallback(() => {
+    const handleLiveTalkToggle = useCallback(async () => {
     if (isLiveTalk) {
       setIsLiveTalk(false);
       setIsLiveTalkHeld(false);
-      setBargeInEnabled(false);
+      setLiveTalkState(null);
+      VoiceEngine.stopListening();
       cancel();
       return;
     }
     setIsLiveTalk(true);
-    setBargeInEnabled(true);
-    handleStartDictation();
-  }, [isLiveTalk, setIsLiveTalk, handleStartDictation]);
+    try {
+      await VoiceEngine.startListening();
+    } catch (e: any) {
+      if (e.message?.includes('No STT model selected') || e.message?.includes('STT model not downloaded')) {
+        setIsLiveTalk(false);
+        useAssistantStore.getState().setVoiceModalOpen(true);
+      } else {
+        console.warn('Failed to start Live Talk:', e);
+      }
+    }
+  }, [isLiveTalk, setIsLiveTalk, setIsLiveTalkHeld, setLiveTalkState, chatSessionId]);
 
-  const handleLiveTalkMicToggle = useCallback(() => {
-    if (canonicalState === 'LISTENING') {
+    const handleLiveTalkMicToggle = useCallback(async () => {
+    if (liveTalkState === 'LISTENING' || canonicalState === 'LISTENING') {
       setIsLiveTalkHeld(false);
-      cancel();
+      VoiceEngine.stopListening();
       return;
     }
     setTtsState(false, false, null);
     setIsLiveTalkHeld(false);
-    handleStartDictation();
+    try {
+      await VoiceEngine.startListening();
+    } catch (e: any) {
+      if (e.message?.includes('No STT model selected') || e.message?.includes('STT model not downloaded')) {
+        useAssistantStore.getState().setVoiceModalOpen(true);
+      } else {
+        console.warn('Failed to toggle Live Talk mic:', e);
+      }
+    }
   }, [
+    liveTalkState,
     canonicalState,
     setIsLiveTalkHeld,
     setTtsState,
-    handleStartDictation,
-    cancel,
+    chatSessionId,
   ]);
 
   const handleStopResponse = useCallback(() => {
     cancel();
   }, []);
 
-  const handleSpeakerPress = useCallback((messageId: string, text: string) => {
+    const handleSpeakerPress = useCallback(async (messageId: string, text: string) => {
     const isCurrentMessage = !currentTtsMsgId || currentTtsMsgId === messageId;
 
     if (isTtsSpeaking && isCurrentMessage) {
-      pauseTts();
+      VoiceEngine.stopTTS();
       return;
     }
 
     if (isTtsPaused && isCurrentMessage) {
-      resumeTts();
+      VoiceEngine.playTTS(text);
       return;
     }
 
     if (!text) return;
 
+    if (!useAssistantStore.getState().selectedTtsModelId) { 
+      useAssistantStore.getState().setVoiceModalOpen(true); 
+      return; 
+    }
+
     try {
-      playTts(text, {
-        chatSessionId: chatSessionId || undefined,
-        messageId,
-      });
-    } catch (e) {
-      console.warn('Failed to play TTS:', e);
+      await VoiceEngine.playTTS(text);
+    } catch (e: any) {
+      if (e.message?.includes('No TTS model selected') || e.message?.includes('TTS model not downloaded')) {
+        useAssistantStore.getState().setVoiceModalOpen(true);
+      } else {
+        console.warn('Failed to play TTS:', e);
+      }
     }
   }, [currentTtsMsgId, isTtsSpeaking, isTtsPaused, chatSessionId]);
 

@@ -167,7 +167,6 @@ class WakeWordForegroundService : Service() {
         super.onCreate()
         instance = this
         isRunning = true
-        expo.modules.kritha.TtsManager.prewarm(this)
         createNotificationChannel()
         startForegroundCompat(buildNotification())
         acquireWakeLock()

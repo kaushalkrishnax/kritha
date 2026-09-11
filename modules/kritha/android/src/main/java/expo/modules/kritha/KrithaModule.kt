@@ -71,11 +71,8 @@ class KrithaModule : Module() {
             WakeWordForegroundService.isRunning
         }
 
-        Function("setBargeInEnabled") { enabled: Boolean ->
-            BargeInMonitor.isEnabled = enabled
-            if (!enabled) {
-                BargeInMonitor.stop()
-            }
+        Function("setBargeInEnabled") { _: Boolean ->
+            // No-op: BargeInMonitor removed
         }
 
         Function("getLocalModelDevice") {
@@ -227,6 +224,23 @@ class KrithaModule : Module() {
                     true
                 }
 
+                "LIVE_TALK_START" -> {
+                    val chatSessionId = commandMap["chatSessionId"] as? String
+
+                    @Suppress("UNCHECKED_CAST")
+                    val historyList =
+                        (commandMap["history"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
+                    if (context != null) {
+                        AssistantCore.startLiveTalk(context, chatSessionId, historyList)
+                        true
+                    } else false
+                }
+
+                "LIVE_TALK_STOP" -> {
+                    AssistantCore.stopLiveTalk()
+                    true
+                }
+
                 "OPEN_MAIN_APP" -> {
                     if (context != null) {
                         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -344,6 +358,9 @@ class KrithaModule : Module() {
             ModelManager.getDownloadManager(context).cancelDownload(modelId)
             true
         }
+
+        
+
 
         Function("openAssistantSettings") {
             val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function false

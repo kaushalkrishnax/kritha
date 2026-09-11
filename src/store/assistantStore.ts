@@ -1,11 +1,12 @@
+import { Session } from '@/database';
 import {
   CanonicalAssistantState,
   MicOwner,
   RequestOrigin,
 } from '@modules/kritha/src';
-import { Session } from '@/database';
+import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
-
+import { createJSONStorage, persist } from 'zustand/middleware';
 export type AssistantMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -23,35 +24,41 @@ interface AssistantStore {
   canonicalState: CanonicalAssistantState;
 
   transcript: string;
-  draftText: string; 
+  draftText: string;
   response: string;
-  
+
   micOwner: MicOwner;
   isMicAvailable: boolean;
   volumeRms: number;
-  
-  isLiveTalk: boolean; 
+
+  isLiveTalk: boolean;
   isLiveTalkHeld: boolean;
   isTtsSpeaking: boolean;
   isTtsPaused: boolean;
   currentTtsMsgId: string | null;
-  
+
   error: string | null;
   userName: string;
+  isVoiceModalOpen: boolean;
+  selectedSttModelId: string | null;
+  selectedTtsModelId: string | null;
 
   setUserName: (userName: string) => void;
+  setVoiceModalOpen: (open: boolean) => void;
+  setSelectedSttModelId: (id: string | null) => void;
+  setSelectedTtsModelId: (id: string | null) => void;
   setChatSessionId: (id: string | null) => void;
   setAssistantRunId: (id: string | null) => void;
   setRequestId: (id: string | null) => void;
   setRequestOrigin: (origin: RequestOrigin | null) => void;
   setSessionActive: (active: boolean) => void;
   setCanonicalState: (state: CanonicalAssistantState) => void;
-  
+
   setTranscript: (transcript: string) => void;
   setDraftText: (text: string) => void;
   setResponse: (response: string) => void;
   appendResponse: (chunk: string) => void;
-  
+
   setIsLiveTalk: (isLive: boolean) => void;
   setIsLiveTalkHeld: (held: boolean) => void;
 
@@ -76,146 +83,15 @@ interface AssistantStore {
   reset: () => void;
 }
 
-export const useAssistantStore = create<AssistantStore>((set) => ({
-  chatSessionId: null,
-  assistantRunId: null,
-  requestId: null,
-  requestOrigin: null,
-  sessionActive: false,
-  canonicalState: 'IDLE',
-  transcript: '',
-  draftText: '',
-  response: '',
-  micOwner: 'NONE',
-  isMicAvailable: false,
-  volumeRms: 0,
-  isLiveTalk: false,
-  isLiveTalkHeld: false,
-  isTtsSpeaking: false,
-  isTtsPaused: false,
-  currentTtsMsgId: null,
-  error: null,
-  userName: 'Your Name',
-  sessions: [],
-  messages: [],
+const secureStorage = {
+  getItem: (name: string): Promise<string | null> => SecureStore.getItemAsync(name),
+  setItem: (name: string, value: string): Promise<void> => SecureStore.setItemAsync(name, value),
+  removeItem: (name: string): Promise<void> => SecureStore.deleteItemAsync(name),
+};
 
-  setUserName: (userName) => set({ userName }),
-  setChatSessionId: (chatSessionId) => set({ chatSessionId }),
-  setAssistantRunId: (assistantRunId) => set({ assistantRunId }),
-  setRequestId: (requestId) => set({ requestId }),
-  setRequestOrigin: (requestOrigin) => set({ requestOrigin }),
-  setSessionActive: (active) => set({ sessionActive: active }),
-  setCanonicalState: (canonicalState) => set({ canonicalState }),
-  setTranscript: (transcript) => set({ transcript }),
-  setDraftText: (draftText) => set({ draftText }),
-  setIsLiveTalk: (isLiveTalk) => set({ isLiveTalk }),
-  setIsLiveTalkHeld: (isLiveTalkHeld) => set({ isLiveTalkHeld }),
-  
-  setResponse: (response) => set({ response }),
-  appendResponse: (chunk) => set((state) => ({ response: state.response + chunk })),
-  
-  setMicState: (owner, available, volumeRms = 0) =>
-    set((state) =>
-      state.micOwner === owner && state.isMicAvailable === available && state.volumeRms === volumeRms
-        ? state
-        : { micOwner: owner, isMicAvailable: available, volumeRms },
-    ),
-  setTtsState: (speaking, paused, msgId = null) =>
-    set({
-      isTtsSpeaking: speaking,
-      isTtsPaused: paused,
-      currentTtsMsgId: speaking || paused ? msgId : null,
-    }),
-  setError: (error) => set({ error, canonicalState: error ? 'ERROR' : 'IDLE' }),
-
-  setSessions: (sessions) => set({ sessions }),
-  setMessages: (messages) => set({ messages }),
-  mergeSessions: (incoming) =>
-    set((state) => {
-      const existingIds = new Set(state.sessions.map((s) => s.id));
-      const newSessions = incoming.filter((s) => !existingIds.has(s.id));
-
-      const patchExisting = (list: Session[]) =>
-        list.map((s) => {
-          const match = incoming.find((i) => i.id === s.id);
-          return match ? { ...s, ...match } : s;
-        });
-
-      const hasNoPatches = state.sessions.every((s) => {
-        const match = incoming.find((i) => i.id === s.id);
-        return (
-          !match ||
-          (match.title === s.title &&
-            match.pinned === s.pinned &&
-            match.archived === s.archived &&
-            match.updatedAt === s.updatedAt)
-        );
-      });
-
-      if (newSessions.length === 0) {
-        if (hasNoPatches) return state;
-        return { sessions: patchExisting(state.sessions) };
-      }
-
-      return { sessions: [...newSessions, ...patchExisting(state.sessions)] };
-    }),
-  upsertSession: (session) =>
-    set((state) => {
-      const exists = state.sessions.find((s) => s.id === session.id);
-      if (exists) {
-        return { sessions: state.sessions.map((s) => (s.id === session.id ? { ...s, ...session } : s)) };
-      }
-      return { sessions: [session, ...state.sessions] };
-    }),
-  renameSession: (sessionId, title) =>
-    set((state) => ({ sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, title } : s)) })),
-  pinSession: (sessionId, pinned) =>
-    set((state) => ({ sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, pinned } : s)) })),
-  archiveSession: (sessionId, archived) =>
-    set((state) => ({
-      sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, archived } : s)),
-      messages: state.chatSessionId === sessionId && archived ? [] : state.messages,
-      chatSessionId: state.chatSessionId === sessionId && archived ? null : state.chatSessionId,
-    })),
-  deleteSession: (sessionId) =>
-    set((state) => ({
-      sessions: state.sessions.filter((s) => s.id !== sessionId),
-      messages: state.chatSessionId === sessionId ? [] : state.messages,
-      chatSessionId: state.chatSessionId === sessionId ? null : state.chatSessionId,
-    })),
-  upsertMessage: (message) =>
-    set((state) => {
-      const targetSessionId = state.chatSessionId || message.sessionId;
-      if (message.sessionId && targetSessionId && message.sessionId !== targetSessionId) return state;
-      
-      const exists = state.messages.find((m) => m.id === message.id);
-      if (exists) {
-        return {
-          chatSessionId: targetSessionId,
-          messages: state.messages.map((m) => (m.id === message.id ? { ...m, ...message } : m)),
-        };
-      }
-      return { chatSessionId: targetSessionId, messages: [...state.messages, message] };
-    }),
-  appendMessageChunk: (messageId, chunk) =>
-    set((state) => {
-      const exists = state.messages.find((m) => m.id === messageId);
-      if (!exists) {
-        return { messages: [...state.messages, { id: messageId, role: 'assistant', text: chunk, sessionId: state.chatSessionId }] };
-      }
-      return { messages: state.messages.map((m) => (m.id === messageId ? { ...m, text: m.text + chunk } : m)) };
-    }),
-  completeMessageStream: (messageId, fullText) =>
-    set((state) => {
-      const exists = state.messages.find((m) => m.id === messageId);
-      if (!exists) {
-        return { messages: [...state.messages, { id: messageId, role: 'assistant', text: fullText, sessionId: state.chatSessionId }] };
-      }
-      return { messages: state.messages.map((m) => (m.id === messageId ? { ...m, text: fullText || m.text } : m)) };
-    }),
-
-  reset: () =>
-    set({
+export const useAssistantStore = create<AssistantStore>()(
+  persist(
+    (set) => ({
       chatSessionId: null,
       assistantRunId: null,
       requestId: null,
@@ -234,6 +110,161 @@ export const useAssistantStore = create<AssistantStore>((set) => ({
       isTtsPaused: false,
       currentTtsMsgId: null,
       error: null,
+      userName: 'Your Name',
+      isVoiceModalOpen: false,
+      selectedSttModelId: null,
+      selectedTtsModelId: null,
+      sessions: [],
       messages: [],
+
+      setUserName: (userName) => set({ userName }),
+      setVoiceModalOpen: (isVoiceModalOpen) => set({ isVoiceModalOpen }),
+      setSelectedSttModelId: (selectedSttModelId) => set({ selectedSttModelId }),
+      setSelectedTtsModelId: (selectedTtsModelId) => set({ selectedTtsModelId }),
+      setChatSessionId: (chatSessionId) => set({ chatSessionId }),
+      setAssistantRunId: (assistantRunId) => set({ assistantRunId }),
+      setRequestId: (requestId) => set({ requestId }),
+      setRequestOrigin: (requestOrigin) => set({ requestOrigin }),
+      setSessionActive: (active) => set({ sessionActive: active }),
+      setCanonicalState: (canonicalState) => set({ canonicalState }),
+      setTranscript: (transcript) => set({ transcript }),
+      setDraftText: (draftText) => set({ draftText }),
+      setIsLiveTalk: (isLiveTalk) => set({ isLiveTalk }),
+      setIsLiveTalkHeld: (isLiveTalkHeld) => set({ isLiveTalkHeld }),
+
+      setResponse: (response) => set({ response }),
+      appendResponse: (chunk) => set((state) => ({ response: state.response + chunk })),
+
+      setMicState: (owner, available, volumeRms = 0) =>
+        set((state) =>
+          state.micOwner === owner && state.isMicAvailable === available && state.volumeRms === volumeRms
+            ? state
+            : { micOwner: owner, isMicAvailable: available, volumeRms },
+        ),
+      setTtsState: (speaking, paused, msgId = null) =>
+        set({
+          isTtsSpeaking: speaking,
+          isTtsPaused: paused,
+          currentTtsMsgId: speaking || paused ? msgId : null,
+        }),
+      setError: (error) => set({ error, canonicalState: error ? 'ERROR' : 'IDLE' }),
+
+      setSessions: (sessions) => set({ sessions }),
+      setMessages: (messages) => set({ messages }),
+      mergeSessions: (incoming) =>
+        set((state) => {
+          const existingIds = new Set(state.sessions.map((s) => s.id));
+          const newSessions = incoming.filter((s) => !existingIds.has(s.id));
+
+          const patchExisting = (list: Session[]) =>
+            list.map((s) => {
+              const match = incoming.find((i) => i.id === s.id);
+              return match ? { ...s, ...match } : s;
+            });
+
+          const hasNoPatches = state.sessions.every((s) => {
+            const match = incoming.find((i) => i.id === s.id);
+            return (
+              !match ||
+              (match.title === s.title &&
+                match.pinned === s.pinned &&
+                match.archived === s.archived &&
+                match.updatedAt === s.updatedAt)
+            );
+          });
+
+          if (newSessions.length === 0) {
+            if (hasNoPatches) return state;
+            return { sessions: patchExisting(state.sessions) };
+          }
+
+          return { sessions: [...newSessions, ...patchExisting(state.sessions)] };
+        }),
+      upsertSession: (session) =>
+        set((state) => {
+          const exists = state.sessions.find((s) => s.id === session.id);
+          if (exists) {
+            return { sessions: state.sessions.map((s) => (s.id === session.id ? { ...s, ...session } : s)) };
+          }
+          return { sessions: [session, ...state.sessions] };
+        }),
+      renameSession: (sessionId, title) =>
+        set((state) => ({ sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, title } : s)) })),
+      pinSession: (sessionId, pinned) =>
+        set((state) => ({ sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, pinned } : s)) })),
+      archiveSession: (sessionId, archived) =>
+        set((state) => ({
+          sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, archived } : s)),
+          messages: state.chatSessionId === sessionId && archived ? [] : state.messages,
+          chatSessionId: state.chatSessionId === sessionId && archived ? null : state.chatSessionId,
+        })),
+      deleteSession: (sessionId) =>
+        set((state) => ({
+          sessions: state.sessions.filter((s) => s.id !== sessionId),
+          messages: state.chatSessionId === sessionId ? [] : state.messages,
+          chatSessionId: state.chatSessionId === sessionId ? null : state.chatSessionId,
+        })),
+      upsertMessage: (message) =>
+        set((state) => {
+          const targetSessionId = state.chatSessionId || message.sessionId;
+          if (message.sessionId && targetSessionId && message.sessionId !== targetSessionId) return state;
+
+          const exists = state.messages.find((m) => m.id === message.id);
+          if (exists) {
+            return {
+              chatSessionId: targetSessionId,
+              messages: state.messages.map((m) => (m.id === message.id ? { ...m, ...message } : m)),
+            };
+          }
+          return { chatSessionId: targetSessionId, messages: [...state.messages, message] };
+        }),
+      appendMessageChunk: (messageId, chunk) =>
+        set((state) => {
+          const exists = state.messages.find((m) => m.id === messageId);
+          if (!exists) {
+            return { messages: [...state.messages, { id: messageId, role: 'assistant', text: chunk, sessionId: state.chatSessionId }] };
+          }
+          return { messages: state.messages.map((m) => (m.id === messageId ? { ...m, text: m.text + chunk } : m)) };
+        }),
+      completeMessageStream: (messageId, fullText) =>
+        set((state) => {
+          const exists = state.messages.find((m) => m.id === messageId);
+          if (!exists) {
+            return { messages: [...state.messages, { id: messageId, role: 'assistant', text: fullText, sessionId: state.chatSessionId }] };
+          }
+          return { messages: state.messages.map((m) => (m.id === messageId ? { ...m, text: fullText || m.text } : m)) };
+        }),
+
+      reset: () =>
+        set({
+          chatSessionId: null,
+          assistantRunId: null,
+          requestId: null,
+          requestOrigin: null,
+          sessionActive: false,
+          canonicalState: 'IDLE',
+          transcript: '',
+          draftText: '',
+          response: '',
+          micOwner: 'NONE',
+          isMicAvailable: false,
+          volumeRms: 0,
+          isLiveTalk: false,
+          isLiveTalkHeld: false,
+          isTtsSpeaking: false,
+          isTtsPaused: false,
+          currentTtsMsgId: null,
+          error: null,
+          messages: [],
+        }),
     }),
-}));
+    {
+      name: 'kritha-voice-store',
+      storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        selectedSttModelId: state.selectedSttModelId,
+        selectedTtsModelId: state.selectedTtsModelId,
+      }),
+    }
+  )
+);

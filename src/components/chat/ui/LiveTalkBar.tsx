@@ -2,29 +2,37 @@ import Colors from '@/theme';
 import { Mic, MicOff, Tv, Video, X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import {
-  Animated,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Svg, {
-  Defs,
-  LinearGradient as SvgGradient,
-  Rect,
-  Stop,
+    Defs,
+    Rect,
+    Stop,
+    LinearGradient as SvgGradient,
 } from 'react-native-svg';
 
-import { useAssistantStore } from '@/store/assistantStore';
 import { useAssistantActions } from '@/hooks/use-assistant-interaction';
+import { useAssistantStore } from '@/store/assistantStore';
 
 export function LiveTalkBar() {
   const canonicalState = useAssistantStore((s) => s.canonicalState);
+  const liveTalkState = useAssistantStore((s) => s.liveTalkState);
   const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
   const isLiveTalkHeld = useAssistantStore((s) => s.isLiveTalkHeld);
 
-  const isRecording = canonicalState === 'LISTENING';
+  const activeState =
+    liveTalkState ||
+    (canonicalState === 'LISTENING'
+      ? 'LISTENING'
+      : isTtsSpeaking
+        ? 'SPEAKING'
+        : 'IDLE');
+  const isRecording = activeState === 'LISTENING';
+  const isSpeaking = activeState === 'SPEAKING';
   const { handleLiveTalkToggle, handleLiveTalkMicToggle } =
     useAssistantActions();
   const pulseAnim = useRef(new Animated.Value(0.2)).current;
@@ -45,7 +53,7 @@ export function LiveTalkBar() {
       ]),
     );
 
-    if (isRecording || isTtsSpeaking) {
+    if (isRecording || isSpeaking) {
       animation.start();
     } else {
       animation.stop();
@@ -53,12 +61,13 @@ export function LiveTalkBar() {
     }
 
     return () => animation.stop();
-  }, [isRecording, isTtsSpeaking, pulseAnim]);
+  }, [isRecording, isSpeaking, pulseAnim]);
 
   const getStatusText = () => {
     if (isLiveTalkHeld) return 'Paused';
-    if (isRecording) return 'Listening...';
-    if (isTtsSpeaking) return 'Speaking...';
+    if (activeState === 'LISTENING') return 'Listening...';
+    if (activeState === 'IDLE') return 'IDLE...';
+    if (activeState === 'SPEAKING') return 'Speaking...';
     return 'Live';
   };
 

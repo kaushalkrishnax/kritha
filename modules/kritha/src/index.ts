@@ -1,14 +1,14 @@
 import { EventSubscription } from 'expo-modules-core';
 import KrithaModule, {
-  AssistantCommand,
-  AssistantEvent,
-  CanonicalAssistantState,
-  DownloadProgressEvent,
-  MicOwner,
-  ModelMetadata,
-  NativeChatSession,
-  RequestOrigin,
-  WakeWordEvent,
+    AssistantCommand,
+    AssistantEvent,
+    CanonicalAssistantState,
+    DownloadProgressEvent,
+    MicOwner,
+    ModelMetadata,
+    NativeChatSession,
+    RequestOrigin,
+    WakeWordEvent,
 } from './KrithaModule';
 
 const emitter = KrithaModule;
@@ -40,51 +40,17 @@ export function submitText(
   });
 }
 
-export function startListening(
-  chatSessionId?: string,
-  assistantRunId?: string,
-  history?: Array<Record<string, unknown>>,
-): boolean {
-  return dispatchCommand({
-    type: 'START_LISTENING',
-    chatSessionId,
-    assistantRunId,
-    history,
-  });
-}
 
-export function stopListening(): boolean {
-  return dispatchCommand({ type: 'STOP_LISTENING' });
-}
 
-export function playTts(
-  text: string,
-  options?: {
-    chatSessionId?: string;
-    assistantRunId?: string;
-    messageId?: string;
-  },
-): boolean {
-  return dispatchCommand({
-    type: 'PLAY_TTS',
-    text,
-    chatSessionId: options?.chatSessionId,
-    assistantRunId: options?.assistantRunId,
-    messageId: options?.messageId,
-  });
-}
 
-export function pauseTts(): boolean {
-  return dispatchCommand({ type: 'PAUSE_TTS' });
-}
 
-export function resumeTts(): boolean {
-  return dispatchCommand({ type: 'RESUME_TTS' });
-}
 
-export function stopTts(): boolean {
-  return dispatchCommand({ type: 'STOP_TTS' });
-}
+
+
+
+
+
+
 
 export function cancel(assistantRunId?: string, requestId?: string): boolean {
   return dispatchCommand({ type: 'CANCEL', assistantRunId, requestId });
@@ -97,6 +63,10 @@ export function dismiss(): boolean {
 export function openMainApp(): boolean {
   return dispatchCommand({ type: 'OPEN_MAIN_APP' });
 }
+
+
+
+
 
 export function start(): void {
   KrithaModule.start();
@@ -182,6 +152,10 @@ export function cancelDownload(modelId: string): void {
   KrithaModule.cancelDownload(modelId);
 }
 
+
+
+
+
 export function isDefaultAssistant(): boolean {
   return KrithaModule.isDefaultAssistant();
 }
@@ -221,13 +195,14 @@ export function addDownloadProgressListener(
 }
 
 export {
-  AssistantCommand,
-  AssistantEvent,
-  CanonicalAssistantState,
-  DownloadProgressEvent,
-  MicOwner,
-  ModelMetadata,
-  NativeChatSession,
-  RequestOrigin,
-  WakeWordEvent,
+    AssistantCommand,
+    AssistantEvent,
+    CanonicalAssistantState,
+    DownloadProgressEvent,
+    MicOwner,
+    ModelMetadata,
+    NativeChatSession,
+    RequestOrigin,
+    WakeWordEvent
 };
+

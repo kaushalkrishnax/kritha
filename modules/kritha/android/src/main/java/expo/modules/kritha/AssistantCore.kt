@@ -66,11 +66,7 @@ object AssistantCore {
             "requestId" to activeRequestId,
             "transcript" to currentTranscript,
             "response" to currentResponse,
-            "ttsState" to mapOf(
-                "isSpeaking" to TtsManager.isSpeaking,
-                "isPaused" to TtsManager.isPaused,
-                "messageId" to TtsManager.activeMessageId
-            )
+            "ttsState" to mapOf("isSpeaking" to false, "isPaused" to false, "messageId" to "")
         )
     }
 
@@ -110,7 +106,6 @@ object AssistantCore {
             mutex.withLock {
                 // Cancel any ongoing job before starting a new turn
                 activeJob?.cancel()
-                // Keep whatever the interrupted turn had already produced.
                 persistPartialAssistantResponse()
 
                 val targetChatSessionId =
@@ -137,7 +132,7 @@ object AssistantCore {
                 currentTranscript = text
                 currentResponse = ""
 
-                TtsManager.prepareRun(targetChatSessionId, runId, reqId, assistantMessageId)
+                
 
                 val shouldAutoTts = (origin == "WAKE_WORD" || origin == "MANUAL_DICTATION")
 
@@ -176,9 +171,7 @@ object AssistantCore {
                                 origin = origin
                             )
 
-                            if (shouldAutoTts) {
-                                TtsManager.handleStreamingChunk(context, token, targetChatSessionId, runId, reqId)
-                            }
+                            
                         }
 
                         val finalResponse = when (pipelineResult) {
@@ -201,9 +194,7 @@ object AssistantCore {
                                         messageId = assistantMessageId,
                                         origin = origin
                                     )
-                                    if (shouldAutoTts) {
-                                        TtsManager.handleStreamingChunk(context, msg, targetChatSessionId, runId, reqId)
-                                    }
+                                    
                                 }
                                 fullResponse.toString()
                             }
@@ -221,9 +212,7 @@ object AssistantCore {
                         assistantMessagePersisted = true
 
                         withContext(Dispatchers.Main) {
-                            if (shouldAutoTts) {
-                                TtsManager.flushStreaming(context)
-                            }
+                            
                             WakeWordEventHub.emitTextComplete(
                                 targetChatSessionId,
                                 runId,
@@ -285,8 +274,7 @@ object AssistantCore {
         }
     }
 
-    private var nativeVoiceSession: NativeAssistantSession? = null
-
+        
     fun cancelTurn() {
         val targetRunId = activeAssistantRunId
         val targetChatSessionId = activeChatSessionId
@@ -295,14 +283,13 @@ object AssistantCore {
         activeJob = null
         L2LocalLLM.cancelInference()
         L3CloudLLM.cancelInference()
-        nativeVoiceSession?.shutdown()
-        nativeVoiceSession = null
-        if (targetRunId.isNotEmpty()) {
-            TtsManager.stop(targetChatSessionId, targetRunId)
+                        if (targetRunId.isNotEmpty()) {
+            
             MicrophoneManager.releaseFromStt(targetRunId)
         }
     }
 
+    
     fun startVoiceSession(
         context: Context,
         chatSessionId: String? = null,
@@ -310,9 +297,9 @@ object AssistantCore {
         history: List<Map<String, Any>> = emptyList()
     ) {
         init(context)
-
         cancelTurn()
-
+        // The actual STT is handled in JS via react-native-sherpa-onnx
+        // We just prepare the session state here.
         val targetChatSessionId = when {
             !chatSessionId.isNullOrBlank() -> chatSessionId
             activeChatSessionId.isNotBlank() -> activeChatSessionId
@@ -320,140 +307,13 @@ object AssistantCore {
         }
         val runId = "run_${UUID.randomUUID()}"
         val reqId = "req_${UUID.randomUUID()}"
-        val assistantMessageId = "${runId}_msg"
-        assistantMessagePersisted = false
-
         activeChatSessionId = targetChatSessionId
         activeAssistantRunId = runId
         activeRequestId = reqId
-
-        TtsManager.prepareRun(targetChatSessionId, runId, reqId, assistantMessageId)
-
         WakeWordEventHub.emitSessionStart(targetChatSessionId, runId, reqId, origin = origin)
-        WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "IDLE", origin = origin)
-
-        var lastRmsEmitAt = 0L
-        nativeVoiceSession = NativeAssistantSession(
-            context,
-            object : NativeAssistantSession.Callback {
-                override fun onListening() {
-                    currentState = "LISTENING"
-                    WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "LISTENING", origin = origin)
-                }
-
-                override fun onRmsChanged(rmsdB: Float) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - lastRmsEmitAt < RMS_EMIT_INTERVAL_MS) return
-                    lastRmsEmitAt = now
-                    WakeWordEventHub.emitMicrophoneChanged(
-                        targetChatSessionId,
-                        runId,
-                        owner = "STT",
-                        isClaimed = true,
-                        volumeRms = rmsdB,
-                        origin = origin
-                    )
-                }
-
-                override fun onPartial(transcript: String) {
-                    currentTranscript = transcript
-                    WakeWordEventHub.emitStateChanged(
-                        targetChatSessionId,
-                        runId,
-                        reqId,
-                        "LISTENING",
-                        transcript = transcript,
-                        origin = origin
-                    )
-                }
-
-                override fun onProcessing(transcript: String) {
-                    currentTranscript = transcript
-                    currentState = "THINKING"
-
-                    val actChatId =
-                        if (activeChatSessionId.isNotBlank()) activeChatSessionId else UUID.randomUUID().toString()
-                    val userMessageId = "msg_${UUID.randomUUID()}"
-                    val userMessageCreatedAt = System.currentTimeMillis()
-
-                    WakeWordEventHub.emitMessagePersisted(
-                        actChatId,
-                        userMessageId,
-                        "user",
-                        transcript,
-                        userMessageCreatedAt
-                    )
-                    activeChatSessionId = actChatId
-
-                    WakeWordEventHub.emitStateChanged(
-                        activeChatSessionId,
-                        runId,
-                        reqId,
-                        "THINKING",
-                        transcript = transcript,
-                        origin = origin
-                    )
-                }
-
-                override fun onStreaming(transcript: String, chunk: String) {
-                    currentState = "GENERATING"
-                    currentResponse += chunk
-                    WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "GENERATING", origin = origin)
-                    WakeWordEventHub.emitTextDelta(
-                        activeChatSessionId,
-                        runId,
-                        reqId,
-                        chunk,
-                        messageId = assistantMessageId,
-                        origin = origin
-                    )
-                }
-
-                override fun onFinished(transcript: String?, response: String) {
-                    val promptText = transcript ?: ""
-                    currentTranscript = promptText
-                    currentResponse = response
-
-                    val assistantMsgTime = System.currentTimeMillis()
-                    WakeWordEventHub.emitMessagePersisted(
-                        activeChatSessionId,
-                        assistantMessageId,
-                        "assistant",
-                        response,
-                        assistantMsgTime
-                    )
-                    assistantMessagePersisted = true
-
-                    WakeWordEventHub.emitTextComplete(
-                        activeChatSessionId,
-                        runId,
-                        reqId,
-                        response,
-                        messageId = assistantMessageId,
-                        transcript = promptText,
-                        origin = origin
-                    )
-
-                    currentState = "IDLE"
-                    WakeWordEventHub.emitStateChanged(activeChatSessionId, runId, reqId, "IDLE", origin = origin)
-                }
-
-                override fun onError(message: String) {
-                    currentState = "ERROR"
-                    WakeWordEventHub.emitError(targetChatSessionId, runId, reqId, message, origin = origin)
-                }
-
-                override fun onSessionFinished() {
-                    nativeVoiceSession = null
-                }
-            }
-        ).also {
-            it.history = history
-            it.start()
-        }
+        WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "LISTENING", origin = origin)
     }
-
-    fun startListening(
+fun startListening(
         context: Context,
         chatSessionId: String? = null,
         origin: String = "MANUAL_DICTATION",
@@ -462,10 +322,36 @@ object AssistantCore {
         startVoiceSession(context, chatSessionId, origin = origin, history = history)
     }
 
-    fun stopListening() {
-        nativeVoiceSession?.stopListening()
-    }
+    fun stopListening() {}
 
+    // ── Live Talk (AgentFlow) ──
+
+    
+    fun startLiveTalk(
+        context: Context,
+        chatSessionId: String? = null,
+        history: List<Map<String, Any>> = emptyList()
+    ) {
+        init(context)
+        cancelTurn()
+        val targetChatSessionId = when {
+            !chatSessionId.isNullOrBlank() -> chatSessionId
+            activeChatSessionId.isNotBlank() -> activeChatSessionId
+            else -> System.currentTimeMillis().toString()
+        }
+        val runId = "run_${UUID.randomUUID()}"
+        val reqId = "req_${UUID.randomUUID()}"
+        activeChatSessionId = targetChatSessionId
+        activeAssistantRunId = runId
+        activeRequestId = reqId
+        WakeWordEventHub.emitSessionStart(targetChatSessionId, runId, reqId, origin = "LIVE_TALK")
+        WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "LISTENING", origin = "LIVE_TALK")
+    }
+fun stopLiveTalk() {}
+
+    // ── TTS controls ──
+
+    
     fun playTts(
         context: Context,
         text: String,
@@ -473,30 +359,15 @@ object AssistantCore {
         assistantRunId: String? = null,
         messageId: String? = null
     ) {
-        init(context)
-        val targetChatSessionId = chatSessionId ?: activeChatSessionId
-        val targetRunId = assistantRunId ?: activeAssistantRunId
-        TtsManager.speak(
-            context,
-            text,
-            chatSessionId = targetChatSessionId,
-            assistantRunId = targetRunId,
-            requestId = activeRequestId,
-            messageId = messageId
-        )
+        // Handled in JS
     }
 
-    fun pauseTts() {
-        TtsManager.pause()
-    }
 
-    fun resumeTts() {
-        TtsManager.resume()
-    }
+    fun pauseTts() {}
 
-    fun stopTts() {
-        TtsManager.stop(activeChatSessionId, activeAssistantRunId)
-    }
+    fun resumeTts() {}
+
+    fun stopTts() {}
 
     fun cancel(assistantRunId: String = "", requestId: String = "") {
         val targetRunId = assistantRunId.ifBlank { activeAssistantRunId }
@@ -515,8 +386,7 @@ object AssistantCore {
                 L3CloudLLM.cancelInference()
                 
                 persistPartialAssistantResponse()
-                nativeVoiceSession?.cancelPipeline()
-                TtsManager.stop(targetChatSessionId, targetRunId)
+                                                
                 MicrophoneManager.releaseFromStt(targetRunId)
                 WakeWordForegroundService.stopAssistantSession()
             } catch (e: Exception) {
@@ -531,46 +401,6 @@ object AssistantCore {
                 }
             }
         }
-    }
-
-    /**
-     * Called by [BargeInMonitor] when the user starts talking over TTS playback
-     */
-    fun handleBargeIn(context: Context) {
-        if (currentState != "SPEAKING" && currentState != "GENERATING" && currentState != "THINKING") return
-        if (!TtsManager.isSpeaking) return
-
-        val chatId = activeChatSessionId
-        val runId = activeAssistantRunId
-        val reqId = activeRequestId
-
-        currentState = "CANCELLING"
-        if (runId.isNotEmpty()) {
-            WakeWordEventHub.emitStateChanged(chatId, runId, reqId, "CANCELLING")
-        }
-
-        activeJob?.cancel()
-        activeJob = null
-        L2LocalLLM.cancelInference()
-        L3CloudLLM.cancelInference()
-        
-        persistPartialAssistantResponse()
-
-        val carriedHistory = nativeVoiceSession?.history ?: emptyList()
-
-        // Cancels pipeline job, recognizer, mic claim and TTS for voice sessions.
-        nativeVoiceSession?.cancelPipeline()
-        TtsManager.stop(chatId, runId)
-        MicrophoneManager.releaseFromStt(runId)
-        BargeInMonitor.stop()
-
-        // Hand the floor back to the user straight away.
-        startVoiceSession(
-            context,
-            chatId.ifBlank { null },
-            origin = "MANUAL_DICTATION",
-            history = carriedHistory
-        )
     }
 
     private fun persistPartialAssistantResponse() {

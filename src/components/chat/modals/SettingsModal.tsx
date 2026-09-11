@@ -134,8 +134,24 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 />
               </View>
 
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Voice Models</Text>
+                <Text style={styles.sectionDesc}>Download and select TTS & STT models.</Text>
+                <TouchableOpacity 
+                  style={[styles.saveBtn, { marginTop: 10, backgroundColor: Colors.borderStrong }]}
+                  onPress={() => {
+                    onClose();
+                    useAssistantStore.getState().setVoiceModalOpen(true);
+                  }}
+                >
+                  <Text style={[styles.saveBtnText, { color: Colors.textOnAccent }]}>Manage Voice Models</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Custom Instructions</Text>
+
                 <Text style={styles.sectionDesc}>
                   What would you like Kritha to know about you to provide better
                   responses?

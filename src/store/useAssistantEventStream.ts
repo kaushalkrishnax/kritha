@@ -1,11 +1,12 @@
+import { VoiceEngine } from '@/services/voice/VoiceEngine';
 import {
-  addAssistantListener,
-  AssistantEvent,
-  getCurrentState,
+    addAssistantListener,
+    AssistantEvent,
+    getCurrentState,
 } from '@modules/kritha/src';
 import { useEffect } from 'react';
-import { useAssistantStore } from './assistantStore';
 import { database } from '../database';
+import { useAssistantStore } from './assistantStore';
 
 const VOLUME_EVENT_INTERVAL_MS = 100;
 
@@ -143,6 +144,17 @@ export function useAssistantEventStream() {
             store.setRequestOrigin(event.payload.origin);
           if (event.payload.state) {
             store.setCanonicalState(event.payload.state);
+            if (
+              event.payload.origin === 'LIVE_TALK' ||
+              store.requestOrigin === 'LIVE_TALK'
+            ) {
+              const st = event.payload.state;
+              if (st === 'LISTENING' || st === 'IDLE' || st === 'SPEAKING') {
+                store.setLiveTalkState(st);
+              } else {
+                store.setLiveTalkState(null);
+              }
+            }
           }
           if (event.payload.transcript !== undefined) {
             store.setTranscript(event.payload.transcript);
@@ -163,7 +175,7 @@ export function useAssistantEventStream() {
           break;
         }
 
-        case 'TEXT_COMPLETE': {
+                case 'TEXT_COMPLETE': {
           const reqId = event.payload.requestId;
           const msgId = event.payload.messageId;
           if (reqId && store.requestId && store.requestId !== reqId) return;
@@ -172,12 +184,18 @@ export function useAssistantEventStream() {
           }
           if (event.payload.response) {
             store.setResponse(event.payload.response);
+            const origin = event.payload.origin || store.requestOrigin;
+            if (origin === 'WAKE_WORD' || origin === 'MANUAL_DICTATION' || origin === 'LIVE_TALK') {
+              VoiceEngine.playTTS(event.payload.response);
+            }
           }
           if (event.payload.transcript) {
             store.setTranscript(event.payload.transcript);
           }
           break;
         }
+
+
 
         case 'TTS_START':
           store.setTtsState(true, false, event.payload.messageId);
@@ -219,6 +237,21 @@ export function useAssistantEventStream() {
           const reqId = event.payload.requestId;
           if (reqId && store.requestId && store.requestId !== reqId) return;
           store.setError(event.payload.message || 'An unknown error occurred');
+          break;
+        }
+
+        case 'VOICE_MODEL_DOWNLOAD_PROGRESS': {
+          const { modelType, progress } = event.payload;
+          if (progress >= 1.0) {
+            if (modelType === 'tts') {
+              store.setTtsDownloaded(true);
+            } else {
+              store.setSttDownloaded(true);
+            }
+            store.setVoiceModelProgress(null);
+          } else {
+            store.setVoiceModelProgress({ modelType, progress });
+          }
           break;
         }
       }

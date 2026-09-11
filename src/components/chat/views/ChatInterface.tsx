@@ -1,3 +1,4 @@
+import { VoiceEngine } from '@/services/voice/VoiceEngine';
 import Colors from '@/theme';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
@@ -26,13 +27,14 @@ import {
     getUserName as getNativeUserName,
     isDefaultAssistant,
     setSelectedModel,
-    startListening,
+    
 } from '@modules/kritha/src';
 
 import {
     ModelSelectModal,
     PERMISSIONS_ONBOARDING_KEY,
     PermissionsChecklistModal,
+    VoiceModelModal,
 } from '@/components/chat/modals';
 import { ModelRecord } from '@/components/chat/types';
 import {
@@ -206,11 +208,7 @@ export function ChatInterface() {
     dispatch,
     onWakeWordDetected: () => {
       try {
-        startListening(
-          chatSessionId || undefined,
-          undefined,
-          getConversationContext(),
-        );
+        VoiceEngine.startListening();
       } catch (e) {
         console.warn('Failed to handle wake word:', e);
       }
@@ -218,11 +216,7 @@ export function ChatInterface() {
     onTtsDone: () => {
       if (isLiveTalk) {
         try {
-          startListening(
-            chatSessionId || undefined,
-            undefined,
-            getConversationContext(),
-          );
+          VoiceEngine.startListening();
         } catch (e) {
           console.warn('Failed to restart dictation after TTS:', e);
         }
@@ -348,6 +342,11 @@ export function ChatInterface() {
       <PermissionsChecklistModal
         visible={permissionsModalVisible}
         onClose={() => setPermissionsModalVisible(false)}
+      />
+
+      <VoiceModelModal
+        visible={useAssistantStore((s) => s.isVoiceModalOpen)}
+        onClose={() => useAssistantStore.getState().setVoiceModalOpen(false)}
       />
     </View>
   );

@@ -268,4 +268,20 @@ object WakeWordEventHub {
             origin = origin
         )
     }
+
+    /**
+     * Emits progress for Moonshine voice model downloads (STT, TTS, or AgentFlow).
+     */
+    fun emitVoiceModelDownloadProgress(
+        modelType: String,
+        progress: Float,
+        fileName: String? = null
+    ) {
+        val payload = mutableMapOf<String, Any?>(
+            "modelType" to modelType,
+            "progress" to progress
+        )
+        if (!fileName.isNullOrBlank()) payload["fileName"] = fileName
+        assistantEventListener?.invoke("VOICE_MODEL_DOWNLOAD_PROGRESS", payload)
+    }
 }

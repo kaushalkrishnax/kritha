@@ -16,7 +16,7 @@ export type CanonicalAssistantState =
 
 export type MicOwner = 'STT' | 'WAKE_WORD' | 'NONE';
 
-export type RequestOrigin = 'MANUAL_TYPING' | 'MANUAL_DICTATION' | 'WAKE_WORD';
+export type RequestOrigin = 'MANUAL_TYPING' | 'MANUAL_DICTATION' | 'WAKE_WORD' | 'LIVE_TALK';
 
 export type BaseAssistantEventPayload = {
   chatSessionId?: string;
@@ -135,6 +135,14 @@ export type AssistantEvent =
       payload: BaseAssistantEventPayload & {
         message: string;
       };
+    }
+  | {
+      type: 'VOICE_MODEL_DOWNLOAD_PROGRESS';
+      payload: {
+        modelType: 'stt' | 'tts' | 'voice';
+        progress: number;
+        fileName?: string;
+      };
     };
 
 export type AssistantCommand =
@@ -164,12 +172,14 @@ export type AssistantCommand =
   | { type: 'PAUSE_TTS' }
   | { type: 'RESUME_TTS' }
   | { type: 'STOP_TTS' }
-  | {
-      type: 'CANCEL';
-      assistantRunId?: string;
-      requestId?: string;
-    }
+  | { type: 'CANCEL'; assistantRunId?: string; requestId?: string }
   | { type: 'DISMISS' }
+  | {
+      type: 'LIVE_TALK_START';
+      chatSessionId?: string;
+      history?: Array<Record<string, unknown>>;
+    }
+  | { type: 'LIVE_TALK_STOP' }
   | { type: 'OPEN_MAIN_APP' };
 
 export type ModelMetadata = {
