@@ -283,10 +283,6 @@ object AssistantCore {
         activeJob = null
         L2LocalLLM.cancelInference()
         L3CloudLLM.cancelInference()
-                        if (targetRunId.isNotEmpty()) {
-            
-            MicrophoneManager.releaseFromStt(targetRunId)
-        }
     }
 
     
@@ -322,7 +318,6 @@ fun startListening(
         startVoiceSession(context, chatSessionId, origin = origin, history = history)
     }
 
-    fun stopListening() {}
 
     // ── Live Talk (AgentFlow) ──
 
@@ -347,27 +342,14 @@ fun startListening(
         WakeWordEventHub.emitSessionStart(targetChatSessionId, runId, reqId, origin = "LIVE_TALK")
         WakeWordEventHub.emitStateChanged(targetChatSessionId, runId, reqId, "LISTENING", origin = "LIVE_TALK")
     }
-fun stopLiveTalk() {}
 
     // ── TTS controls ──
 
     
-    fun playTts(
-        context: Context,
-        text: String,
-        chatSessionId: String? = null,
-        assistantRunId: String? = null,
-        messageId: String? = null
-    ) {
-        // Handled in JS
-    }
 
 
-    fun pauseTts() {}
 
-    fun resumeTts() {}
 
-    fun stopTts() {}
 
     fun cancel(assistantRunId: String = "", requestId: String = "") {
         val targetRunId = assistantRunId.ifBlank { activeAssistantRunId }

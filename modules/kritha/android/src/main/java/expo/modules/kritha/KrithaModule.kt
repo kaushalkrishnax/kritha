@@ -165,52 +165,10 @@ class KrithaModule : Module() {
                     } else false
                 }
 
-                "START_LISTENING" -> {
-                    val chatSessionId = commandMap["chatSessionId"] as? String
 
-                    @Suppress("UNCHECKED_CAST")
-                    val historyList =
-                        (commandMap["history"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
-                    if (context != null) {
-                        AssistantCore.startListening(
-                            context,
-                            chatSessionId,
-                            history = historyList
-                        )
-                        true
-                    } else false
-                }
 
-                "STOP_LISTENING" -> {
-                    AssistantCore.stopListening()
-                    true
-                }
 
-                "PLAY_TTS" -> {
-                    val text = commandMap["text"] as? String ?: ""
-                    val chatSessionId = commandMap["chatSessionId"] as? String
-                    val assistantRunId = commandMap["assistantRunId"] as? String
-                    val messageId = commandMap["messageId"] as? String
-                    if (context != null) {
-                        AssistantCore.playTts(context, text, chatSessionId, assistantRunId, messageId)
-                        true
-                    } else false
-                }
 
-                "PAUSE_TTS" -> {
-                    AssistantCore.pauseTts()
-                    true
-                }
-
-                "RESUME_TTS" -> {
-                    AssistantCore.resumeTts()
-                    true
-                }
-
-                "STOP_TTS" -> {
-                    AssistantCore.stopTts()
-                    true
-                }
 
                 "CANCEL" -> {
                     val assistantRunId = commandMap["assistantRunId"] as? String ?: ""
@@ -224,22 +182,7 @@ class KrithaModule : Module() {
                     true
                 }
 
-                "LIVE_TALK_START" -> {
-                    val chatSessionId = commandMap["chatSessionId"] as? String
 
-                    @Suppress("UNCHECKED_CAST")
-                    val historyList =
-                        (commandMap["history"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
-                    if (context != null) {
-                        AssistantCore.startLiveTalk(context, chatSessionId, historyList)
-                        true
-                    } else false
-                }
-
-                "LIVE_TALK_STOP" -> {
-                    AssistantCore.stopLiveTalk()
-                    true
-                }
 
                 "OPEN_MAIN_APP" -> {
                     if (context != null) {

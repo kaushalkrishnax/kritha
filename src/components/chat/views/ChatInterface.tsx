@@ -18,7 +18,6 @@ import { useModelLoader } from '@/hooks/use-model-loader';
 import { useNativeEvents } from '@/hooks/use-native-events';
 import { useWakeWordBootstrap } from '@/hooks/use-wakeword-bootstrap';
 import { chatApi } from '@/services/chat.service';
-import { getConversationContext } from '@/services/conversation-context.service';
 import { wakeWordService } from '@/services/wakeword.service';
 import { useAssistantStore } from '@/store/assistantStore';
 
@@ -27,7 +26,6 @@ import {
     getUserName as getNativeUserName,
     isDefaultAssistant,
     setSelectedModel,
-    
 } from '@modules/kritha/src';
 
 import {
@@ -211,15 +209,6 @@ export function ChatInterface() {
         VoiceEngine.startListening();
       } catch (e) {
         console.warn('Failed to handle wake word:', e);
-      }
-    },
-    onTtsDone: () => {
-      if (isLiveTalk) {
-        try {
-          VoiceEngine.startListening();
-        } catch (e) {
-          console.warn('Failed to restart dictation after TTS:', e);
-        }
       }
     },
     onDownloadComplete: (modelId) => {

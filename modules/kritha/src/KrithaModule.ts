@@ -8,6 +8,7 @@ export type WakeWordEvent = {
 export type CanonicalAssistantState =
   | 'IDLE'
   | 'LISTENING'
+  | 'TRANSCRIBING'
   | 'THINKING'
   | 'GENERATING'
   | 'SPEAKING'
@@ -85,43 +86,6 @@ export type AssistantEvent =
       };
     }
   | {
-      type: 'TTS_START';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-      };
-    }
-  | {
-      type: 'TTS_PAUSE';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-      };
-    }
-  | {
-      type: 'TTS_RESUME';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-      };
-    }
-  | {
-      type: 'TTS_STOP';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-      };
-    }
-  | {
-      type: 'TTS_COMPLETE';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-      };
-    }
-  | {
-      type: 'TTS_ERROR';
-      payload: BaseAssistantEventPayload & {
-        messageId?: string;
-        message: string;
-      };
-    }
-  | {
       type: 'MICROPHONE_CHANGED';
       payload: BaseAssistantEventPayload & {
         owner?: MicOwner;
@@ -155,31 +119,8 @@ export type AssistantCommand =
       origin?: RequestOrigin;
       history?: Array<Record<string, unknown>>;
     }
-  | {
-      type: 'START_LISTENING';
-      chatSessionId?: string;
-      assistantRunId?: string;
-      history?: Array<Record<string, unknown>>;
-    }
-  | { type: 'STOP_LISTENING' }
-  | {
-      type: 'PLAY_TTS';
-      text: string;
-      chatSessionId?: string;
-      assistantRunId?: string;
-      messageId?: string;
-    }
-  | { type: 'PAUSE_TTS' }
-  | { type: 'RESUME_TTS' }
-  | { type: 'STOP_TTS' }
   | { type: 'CANCEL'; assistantRunId?: string; requestId?: string }
   | { type: 'DISMISS' }
-  | {
-      type: 'LIVE_TALK_START';
-      chatSessionId?: string;
-      history?: Array<Record<string, unknown>>;
-    }
-  | { type: 'LIVE_TALK_STOP' }
   | { type: 'OPEN_MAIN_APP' };
 
 export type ModelMetadata = {

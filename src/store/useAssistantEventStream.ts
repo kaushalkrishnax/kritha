@@ -1,8 +1,8 @@
 import { VoiceEngine } from '@/services/voice/VoiceEngine';
 import {
-    addAssistantListener,
-    AssistantEvent,
-    getCurrentState,
+  addAssistantListener,
+  AssistantEvent,
+  getCurrentState,
 } from '@modules/kritha/src';
 import { useEffect } from 'react';
 import { database } from '../database';
@@ -186,38 +186,24 @@ export function useAssistantEventStream() {
             store.setResponse(event.payload.response);
             const origin = event.payload.origin || store.requestOrigin;
             if (origin === 'WAKE_WORD' || origin === 'MANUAL_DICTATION' || origin === 'LIVE_TALK') {
-              VoiceEngine.playTTS(event.payload.response);
+              VoiceEngine.playTTS(event.payload.response, event.payload.messageId);
             }
           }
           if (event.payload.transcript) {
-            store.setTranscript(event.payload.transcript);
+            store.setTranscript(event.payload.transcript.toLowerCase());
           }
           break;
         }
 
 
 
-        case 'TTS_START':
-          store.setTtsState(true, false, event.payload.messageId);
-          break;
+        // Native TTS events from TtsManager.kt — these are dead code since we use
+        // JS sherpa-onnx TTS via VoiceEngine. VoiceEngine directly updates the store.
+        // Only handle if VoiceEngine is NOT the active speaker (safety fallback).
 
-        case 'TTS_PAUSE':
-          store.setTtsState(false, true, event.payload.messageId);
-          break;
 
-        case 'TTS_RESUME':
-          store.setTtsState(true, false, event.payload.messageId);
-          break;
 
-        case 'TTS_STOP':
-        case 'TTS_COMPLETE':
-          store.setTtsState(false, false, null);
-          break;
 
-        case 'TTS_ERROR':
-          store.setTtsState(false, false, null);
-          store.setError(event.payload.message || 'TTS Error');
-          break;
 
         case 'MICROPHONE_CHANGED': {
           if (event.payload.volumeRms !== undefined) {
@@ -268,7 +254,7 @@ export function useAssistantEventStream() {
           store.setAssistantRunId(currentState.assistantRunId);
         if (currentState.requestId) store.setRequestId(currentState.requestId);
         if (currentState.transcript)
-          store.setTranscript(currentState.transcript);
+          store.setTranscript(currentState.transcript.toLowerCase());
         if (currentState.response) store.setResponse(currentState.response);
         if (currentState.ttsState) {
           store.setTtsState(

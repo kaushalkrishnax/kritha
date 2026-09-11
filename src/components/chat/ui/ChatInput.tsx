@@ -1,16 +1,25 @@
+import { useAssistantActions } from '@/hooks/use-assistant-interaction';
+import { useAssistantStore } from '@/store/assistantStore';
+import Colors from '@/theme';
+import {
+  ArrowUp,
+  AudioLines,
+  Mic,
+  Plus,
+  Square,
+  StopCircle,
+  X,
+} from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Animated,
+  StyleSheet,
   Text,
   TextInput,
-  StyleSheet,
   TouchableOpacity,
-  Animated,
+  View,
 } from 'react-native';
-import { Mic, Square, ArrowUp, Plus, AudioLines, X } from 'lucide-react-native';
-import Colors from '@/theme';
-import { useAssistantStore } from '@/store/assistantStore';
-import { useAssistantActions } from '@/hooks/use-assistant-interaction';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
@@ -41,11 +50,13 @@ export function ChatInput({
     handleSendMessage,
     handleDictatePress,
     handleStopDictation,
+    handleSendDictation,
     handleStopResponse,
     handleLiveTalkToggle,
   } = useAssistantActions(modelId);
 
-  const isRecording = canonicalState === 'LISTENING';
+  const isRecording =
+    canonicalState === 'LISTENING' || canonicalState === 'TRANSCRIBING';
   const isProcessing = canonicalState === 'GENERATING';
   const isSending = canonicalState === 'THINKING';
 
@@ -57,6 +68,7 @@ export function ChatInput({
     variant === 'overlay' && isVoiceRequest && isWaitingForFirstToken;
   const showStop = !isRecording && (isProcessing || isSending || showJustASec);
   const showSend = !isRecording && !isProcessing && !isSending && hasText;
+  const showRecordSend = isRecording && hasText;
 
   const [volume, setVolume] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -161,10 +173,14 @@ export function ChatInput({
   };
 
   const getBarHeight = (multiplier: number) =>
-    Math.max(3, Math.min(22, 4 + (volume / 12) * 20 * multiplier));
+    Math.max(8, Math.min(42, 6 + (volume / 12) * 36 * multiplier));
 
   const handleActionPress = () => {
-    if (isRecording) return handleStopDictation();
+    if (isRecording) {
+      // During recording, send the dictation
+      handleSendDictation();
+      return;
+    }
     if (showStop) return handleStopResponse();
     if (showSend) return handleSendMessage();
     handleLiveTalkToggle();
@@ -186,33 +202,80 @@ export function ChatInput({
       >
         {isRecording ? (
           <View style={styles.recordingRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.plusButton}
-              onPress={handleStopResponse}
-            >
-              <X size={22} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <View style={styles.waveformContainer}>
-              <View style={styles.waveform} pointerEvents="none">
-                {MULTIPLIERS.map((multiplier, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.waveBar,
-                      { height: getBarHeight(multiplier) },
-                    ]}
-                  />
-                ))}
+            {canonicalState === 'TRANSCRIBING' ? (
+              <View style={styles.plusButton}>
+                <ActivityIndicator size="small" color={Colors.textSecondary} />
               </View>
-            </View>
-            <TouchableOpacity
-              onPress={handleActionPress}
-              activeOpacity={0.82}
-              style={styles.actionButton}
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.plusButton}
+                onPress={handleStopDictation}
+              >
+                <X size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+            {canonicalState === 'TRANSCRIBING' ? (
+              <View style={[styles.waveformContainer, { justifyContent: 'center' }]}>
+                <Text style={{ color: Colors.textMuted, fontSize: 16, fontFamily: 'Inter-Medium' }}>
+                  Transcribing...
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.waveformContainer}>
+                <View style={styles.waveform} pointerEvents="none">
+                  {MULTIPLIERS.map((multiplier, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.waveBar,
+                        { height: getBarHeight(multiplier) },
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
-              <ArrowUp size={18} color={Colors.textOnAccent} />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleStopDictation}
+                activeOpacity={0.82}
+                style={[
+                  styles.stopButton,
+                  canonicalState === 'TRANSCRIBING' && {
+                    opacity: 0.5,
+                  },
+                ]}
+                disabled={canonicalState === 'TRANSCRIBING'}
+              >
+                <Square
+                  size={20}
+                  color={Colors.iconSlate}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  // During recording, send dictation; otherwise send message
+                  if (isRecording) {
+                    handleSendDictation();
+                  } else if (hasText) {
+                    handleSendMessage();
+                  }
+                }}
+                activeOpacity={0.82}
+                style={[
+                  styles.actionButton,
+                  (!hasText && !isRecording) && {
+                    opacity: 0.5,
+                  },
+                ]}
+                disabled={!hasText && !isRecording}
+              >
+                <ArrowUp size={18} color={Colors.textOnAccent} />
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <>
@@ -241,6 +304,8 @@ export function ChatInput({
                 placeholder={showJustASec ? 'Just a sec...' : 'Ask Kritha...'}
                 placeholderTextColor="rgba(232,234,237,0.46)"
                 multiline
+                autoCapitalize="none"
+                autoCorrect={false}
                 textAlignVertical={isExpanded ? 'top' : 'center'}
                 scrollEnabled={isExpanded && measuredLines >= MAX_LINES}
               />
@@ -252,7 +317,7 @@ export function ChatInput({
                       style={styles.voiceModeButton}
                       onPress={handleDictatePress}
                     >
-                      <Mic size={20} color={Colors.iconSlate} />
+                      <Mic size={24} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
@@ -283,7 +348,7 @@ export function ChatInput({
                       style={styles.voiceModeButton}
                       onPress={handleDictatePress}
                     >
-                      <Mic size={20} color={Colors.iconSlate} />
+                      <Mic size={24} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
@@ -293,7 +358,7 @@ export function ChatInput({
                   >
                     {showStop ? (
                       <Square size={16} color={Colors.textOnAccent} />
-                    ) : showSend ? (
+                    ) : showSend || showRecordSend ? (
                       <ArrowUp size={18} color={Colors.textOnAccent} />
                     ) : (
                       <AudioLines size={19} color={Colors.textOnAccent} />
@@ -358,21 +423,21 @@ const styles = StyleSheet.create({
 
   recordingRow: {
     width: '100%',
-    height: 44,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   waveformContainer: {
     flex: 1,
-    height: 44,
+    height: 48,
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
   },
 
   waveform: {
     width: '100%',
-    height: 44,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -381,8 +446,8 @@ const styles = StyleSheet.create({
 
   waveBar: {
     width: 2,
-    minHeight: 3,
-    maxHeight: 22,
+    minHeight: 6,
+    maxHeight: 40,
     borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,
@@ -451,10 +516,19 @@ const styles = StyleSheet.create({
   },
 
   actionButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  stopButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.bgInput,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -486,8 +560,9 @@ const styles = StyleSheet.create({
   },
 
   voiceModeButton: {
-    width: 36,
-    height: 38,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },

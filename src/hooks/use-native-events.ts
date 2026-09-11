@@ -1,7 +1,6 @@
 import {
-  addDownloadProgressListener,
-  addWakeWordListener,
-  addAssistantListener
+    addDownloadProgressListener,
+    addWakeWordListener,
 } from '@modules/kritha/src';
 import { useEffect } from 'react';
 import { ChatAction } from './use-chat-state';
@@ -10,14 +9,12 @@ interface Options {
   dispatch: (action: ChatAction) => void;
   onWakeWordDetected: () => void;
   onDownloadComplete?: (modelId: string) => void;
-  onTtsDone?: () => void;
 }
 
 export function useNativeEvents({
   dispatch,
   onWakeWordDetected,
   onDownloadComplete,
-  onTtsDone,
 }: Options) {
   useEffect(() => {
     const subWakeWord = addWakeWordListener(() => {
@@ -63,15 +60,4 @@ export function useNativeEvents({
     });
     return () => sub.remove();
   }, [dispatch]);
-
-  useEffect(() => {
-    const sub = addAssistantListener((event) => {
-      if (event.type === 'TTS_COMPLETE') {
-        if (onTtsDone) {
-          onTtsDone();
-        }
-      }
-    });
-    return () => sub.remove();
-  }, [onTtsDone]);
 }

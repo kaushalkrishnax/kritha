@@ -33,9 +33,13 @@ interface AssistantStore {
 
   isLiveTalk: boolean;
   isLiveTalkHeld: boolean;
+  liveTalkState: 'LISTENING' | 'IDLE' | 'SPEAKING' | null;
   isTtsSpeaking: boolean;
   isTtsPaused: boolean;
   currentTtsMsgId: string | null;
+  isTtsDownloaded: boolean;
+  isSttDownloaded: boolean;
+  voiceModelProgress: { modelType: string; progress: number } | null;
 
   error: string | null;
   userName: string;
@@ -65,6 +69,10 @@ interface AssistantStore {
   setMicState: (owner: MicOwner, available: boolean, volumeRms?: number) => void;
   setTtsState: (speaking: boolean, paused: boolean, msgId?: string | null) => void;
   setError: (error: string | null) => void;
+  setLiveTalkState: (state: string | null) => void;
+  setTtsDownloaded: (downloaded: boolean) => void;
+  setSttDownloaded: (downloaded: boolean) => void;
+  setVoiceModelProgress: (progress: { modelType: string; progress: number } | null) => void;
 
   sessions: Session[];
   messages: AssistantMessage[];
@@ -86,7 +94,7 @@ interface AssistantStore {
 const secureStorage = {
   getItem: (name: string): Promise<string | null> => SecureStore.getItemAsync(name),
   setItem: (name: string, value: string): Promise<void> => SecureStore.setItemAsync(name, value),
-  removeItem: (name: string): Promise<void> => SecureStore.deleteItemAsync(name),
+  removeItem: (name: string): Promise<void> => SecureStore.deleteItemAsync(name).catch(() => {}),
 };
 
 export const useAssistantStore = create<AssistantStore>()(
@@ -106,9 +114,13 @@ export const useAssistantStore = create<AssistantStore>()(
       volumeRms: 0,
       isLiveTalk: false,
       isLiveTalkHeld: false,
+      liveTalkState: null,
       isTtsSpeaking: false,
       isTtsPaused: false,
       currentTtsMsgId: null,
+      isTtsDownloaded: false,
+      isSttDownloaded: false,
+      voiceModelProgress: null,
       error: null,
       userName: 'Your Name',
       isVoiceModalOpen: false,
@@ -135,7 +147,7 @@ export const useAssistantStore = create<AssistantStore>()(
       setResponse: (response) => set({ response }),
       appendResponse: (chunk) => set((state) => ({ response: state.response + chunk })),
 
-      setMicState: (owner, available, volumeRms = 0) =>
+  setMicState: (owner, available, volumeRms = 0) =>
         set((state) =>
           state.micOwner === owner && state.isMicAvailable === available && state.volumeRms === volumeRms
             ? state
@@ -148,6 +160,11 @@ export const useAssistantStore = create<AssistantStore>()(
           currentTtsMsgId: speaking || paused ? msgId : null,
         }),
       setError: (error) => set({ error, canonicalState: error ? 'ERROR' : 'IDLE' }),
+
+      setLiveTalkState: (state) => set({ isLiveTalk: state !== null, liveTalkState: state as 'LISTENING' | 'IDLE' | 'SPEAKING' | null }),
+      setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),
+      setSttDownloaded: (downloaded) => set({ isSttDownloaded: downloaded }),
+      setVoiceModelProgress: (progress) => set({ voiceModelProgress: progress }),
 
       setSessions: (sessions) => set({ sessions }),
       setMessages: (messages) => set({ messages }),
@@ -251,10 +268,14 @@ export const useAssistantStore = create<AssistantStore>()(
           volumeRms: 0,
           isLiveTalk: false,
           isLiveTalkHeld: false,
+          liveTalkState: null,
           isTtsSpeaking: false,
           isTtsPaused: false,
           currentTtsMsgId: null,
           error: null,
+          isTtsDownloaded: false,
+          isSttDownloaded: false,
+          voiceModelProgress: null,
           messages: [],
         }),
     }),
