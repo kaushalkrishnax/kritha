@@ -1,7 +1,7 @@
 {
   "name": "kritha",
   "main": "index.tsx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An AI assistant with customizable automations and workflows.",
   "op-sqlite": {
     "sqliteVec": true
