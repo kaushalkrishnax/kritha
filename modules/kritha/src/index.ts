@@ -1,9 +1,28 @@
 import { EventSubscription } from 'expo-modules-core';
 import KrithaModule, {
+  LocalLlmDeltaEvent,
+  LocalLlmGenerateRequest,
+  LocalLlmMessage,
   WakeWordEvent,
 } from './KrithaModule';
 
 const emitter = KrithaModule;
+
+export function generateLocal(
+  request: LocalLlmGenerateRequest,
+): Promise<string> {
+  return KrithaModule.generateLocal(request);
+}
+
+export function cancelLocalGeneration(requestId: string): boolean {
+  return KrithaModule.cancelLocalGeneration(requestId);
+}
+
+export function addLocalLlmDeltaListener(
+  listener: (event: LocalLlmDeltaEvent) => void,
+): EventSubscription {
+  return emitter.addListener('onLocalLlmDelta', listener);
+}
 
 export function start(): void {
   KrithaModule.start();
@@ -44,6 +63,9 @@ export function addWakeWordListener(
 }
 
 export {
+  LocalLlmDeltaEvent,
+  LocalLlmGenerateRequest,
+  LocalLlmMessage,
   WakeWordEvent
 };
 
