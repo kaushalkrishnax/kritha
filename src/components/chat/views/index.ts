@@ -1,2 +1,2 @@
-export * from './ChatInterface';
 export * from './AssistantOverlay';
+export { default as ChatScreen } from './ChatScreen';

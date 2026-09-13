@@ -1,41 +1,20 @@
-import { TamaguiProvider, Theme } from 'tamagui';
+import { NavigationBar } from 'expo-navigation-bar';
 import { Slot } from 'expo-router';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import { NavigationBar } from 'expo-navigation-bar';
+import { useEffect } from 'react';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { TamaguiProvider, Theme } from 'tamagui';
+import { bootstrapApp } from '@/services';
 import config from '../../tamagui.config';
 import { BG_DEEPEST } from '../theme';
 
-import { useAssistantEventStream } from '../store/useAssistantEventStream';
-import * as SecureStore from 'expo-secure-store';
-import { setCloudApiKey } from '@modules/kritha/src';
-import { database } from '../database';
-
 export default function Layout() {
-  useAssistantEventStream();
-
   useEffect(() => {
+    bootstrapApp();
     SystemUI.setBackgroundColorAsync(BG_DEEPEST);
-
-    try {
-      NavigationBar.setStyle('light');
-    } catch {}
-
-    const loadSettings = async () => {
-      try {
-        await database.init();
-        const storedKey = await SecureStore.getItemAsync('GEMINI_API_KEY');
-        if (storedKey) {
-          setCloudApiKey(storedKey);
-        }
-      } catch (err) {
-        console.warn('Failed to load startup settings or database:', err);
-      }
-    };
-    loadSettings();
+    NavigationBar.setStyle('light');
   }, []);
 
   return (

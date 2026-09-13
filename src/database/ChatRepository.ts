@@ -35,7 +35,9 @@ export class ChatRepository {
   }
 
   // Creates a new chat session.
-  async createSession(titleOrInput: string | CreateSessionInput): Promise<Session> {
+  async createSession(
+    titleOrInput: string | CreateSessionInput,
+  ): Promise<Session> {
     const input: CreateSessionInput =
       typeof titleOrInput === 'string' ? { title: titleOrInput } : titleOrInput;
 
@@ -63,7 +65,14 @@ export class ChatRepository {
       await db.execute(
         `INSERT INTO sessions (id, title, pinned, archived, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [session.id, session.title, pinned, archived, session.createdAt, session.updatedAt]
+        [
+          session.id,
+          session.title,
+          pinned,
+          archived,
+          session.createdAt,
+          session.updatedAt,
+        ],
       );
       return session;
     } catch (error) {
@@ -76,7 +85,9 @@ export class ChatRepository {
     if (!id) return null;
     const db = await this.provider.getDbAsync();
     try {
-      const result = await db.execute(`SELECT * FROM sessions WHERE id = ?`, [id]);
+      const result = await db.execute(`SELECT * FROM sessions WHERE id = ?`, [
+        id,
+      ]);
       const rows = result.rows ?? [];
       if (rows.length === 0) return null;
       return this.mapSessionRow(rows[0]);
@@ -108,16 +119,31 @@ export class ChatRepository {
       throw new NotFoundError(`Session ${id} not found`);
     }
 
-    const title = input.title !== undefined ? input.title.trim() : session.title;
-    const pinned = input.pinned !== undefined ? (input.pinned ? 1 : 0) : (session.pinned ? 1 : 0);
-    const archived = input.archived !== undefined ? (input.archived ? 1 : 0) : (session.archived ? 1 : 0);
+    const title =
+      input.title !== undefined ? input.title.trim() : session.title;
+    const pinned =
+      input.pinned !== undefined
+        ? input.pinned
+          ? 1
+          : 0
+        : session.pinned
+          ? 1
+          : 0;
+    const archived =
+      input.archived !== undefined
+        ? input.archived
+          ? 1
+          : 0
+        : session.archived
+          ? 1
+          : 0;
     const now = Date.now();
 
     const db = await this.provider.getDbAsync();
     try {
       await db.execute(
         `UPDATE sessions SET title = ?, pinned = ?, archived = ?, updated_at = ? WHERE id = ?`,
-        [title, pinned, archived, now, id]
+        [title, pinned, archived, now, id],
       );
       return {
         id,
@@ -160,13 +186,15 @@ export class ChatRepository {
     role?: 'user' | 'assistant',
     content?: string,
     customId?: string,
-    createdAt?: number
+    createdAt?: number,
   ): Promise<Message> {
     let input: CreateMessageInput;
 
     if (typeof sessionIdOrInput === 'string') {
       if (!role || content === undefined) {
-        throw new ValidationError('Role and content are required when passing individual parameters');
+        throw new ValidationError(
+          'Role and content are required when passing individual parameters',
+        );
       }
       input = {
         sessionId: sessionIdOrInput,
@@ -202,28 +230,46 @@ export class ChatRepository {
     try {
       await db.transaction(async (tx) => {
         // Ensure session exists or touch updated_at
-        const sessRes = await tx.execute(`SELECT id FROM sessions WHERE id = ?`, [input.sessionId]);
+        const sessRes = await tx.execute(
+          `SELECT id FROM sessions WHERE id = ?`,
+          [input.sessionId],
+        );
         if ((sessRes.rows ?? []).length === 0) {
           const autoTitle =
-            input.content.length > 25 ? `${input.content.slice(0, 25)}...` : input.content || 'New Chat';
+            input.content.length > 25
+              ? `${input.content.slice(0, 25)}...`
+              : input.content || 'New Chat';
           await tx.execute(
             `INSERT INTO sessions (id, title, pinned, archived, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`,
-            [input.sessionId, autoTitle, now, now]
+            [input.sessionId, autoTitle, now, now],
           );
         } else {
-          await tx.execute(`UPDATE sessions SET updated_at = ? WHERE id = ?`, [now, input.sessionId]);
+          await tx.execute(`UPDATE sessions SET updated_at = ? WHERE id = ?`, [
+            now,
+            input.sessionId,
+          ]);
         }
 
         await tx.execute(
           `INSERT INTO messages (id, session_id, role, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-          [message.id, message.sessionId, message.role, message.content, message.createdAt, message.updatedAt]
+          [
+            message.id,
+            message.sessionId,
+            message.role,
+            message.content,
+            message.createdAt,
+            message.updatedAt,
+          ],
         );
       });
 
       return message;
     } catch (error) {
       if (error instanceof ValidationError) throw error;
-      throw new DatabaseError(`Failed to save message in session ${input.sessionId}`, error);
+      throw new DatabaseError(
+        `Failed to save message in session ${input.sessionId}`,
+        error,
+      );
     }
   }
 
@@ -234,12 +280,15 @@ export class ChatRepository {
     try {
       const result = await db.execute(
         `SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC`,
-        [sessionId]
+        [sessionId],
       );
       const rows = result.rows ?? [];
       return rows.map((row) => this.mapMessageRow(row));
     } catch (error) {
-      throw new DatabaseError(`Failed to fetch messages for session ${sessionId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch messages for session ${sessionId}`,
+        error,
+      );
     }
   }
 
@@ -252,12 +301,15 @@ export class ChatRepository {
         `SELECT * FROM (
           SELECT * FROM messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?
          ) ORDER BY created_at ASC`,
-        [sessionId, limit]
+        [sessionId, limit],
       );
       const rows = result.rows ?? [];
       return rows.map((row) => this.mapMessageRow(row));
     } catch (error) {
-      throw new DatabaseError(`Failed to fetch history for session ${sessionId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch history for session ${sessionId}`,
+        error,
+      );
     }
   }
 
@@ -266,9 +318,14 @@ export class ChatRepository {
     if (!sessionId) return;
     const db = await this.provider.getDbAsync();
     try {
-      await db.execute(`DELETE FROM messages WHERE session_id = ?`, [sessionId]);
+      await db.execute(`DELETE FROM messages WHERE session_id = ?`, [
+        sessionId,
+      ]);
     } catch (error) {
-      throw new DatabaseError(`Failed to delete messages for session ${sessionId}`, error);
+      throw new DatabaseError(
+        `Failed to delete messages for session ${sessionId}`,
+        error,
+      );
     }
   }
 }

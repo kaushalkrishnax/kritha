@@ -1,7 +1,8 @@
 import type { DB } from '@op-engineering/op-sqlite';
 
 export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+  JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: unknown };
 
 export interface Session {
@@ -101,7 +102,10 @@ export interface VectorSearchResult {
 }
 
 export interface QueryExecutor {
-  execute(query: string, params?: (string | number | null | Uint8Array)[]): Promise<{
+  execute(
+    query: string,
+    params?: (string | number | null | Uint8Array)[],
+  ): Promise<{
     rows?: Record<string, unknown>[];
     rowsAffected?: number;
     insertId?: number;

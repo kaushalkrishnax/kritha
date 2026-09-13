@@ -1,4 +1,4 @@
-package expo.modules.kritha.wakeword
+package expo.modules.kritha.platform.wakeword
 
 import android.graphics.Color
 import android.os.Build
@@ -10,37 +10,30 @@ import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
-import expo.modules.kritha.AssistantCore
-import java.util.UUID
 
+/**
+ * Assistant overlay activity (React root "AssistantOverlay"). Hosts the JS
+ * assistant UI when the assistant is invoked from the wake word or the system
+ * voice interaction.
+ */
 class WakeWordListeningActivity : ReactActivity() {
 
     companion object {
+        private const val EXTRA_LAUNCH_SOURCE = "EXTRA_LAUNCH_SOURCE"
+        private const val VOICE_INTERACTION_LAUNCH_SOURCE = "voice_interaction"
+
         @Volatile
         private var instance: WakeWordListeningActivity? = null
 
         val isInstanceActive: Boolean
             get() = instance != null
 
-        val activeSessionId: String
-            get() = AssistantCore.activeChatSessionId
-
-        fun onWakeWordDetected(origin: String = "WAKE_WORD") {
-            instance?.let { activity ->
-                activity.runOnUiThread {
-                    AssistantCore.startVoiceSession(activity, origin = origin)
-                }
-            }
+        fun onWakeWordDetected() {
+            // Placeholder - AssistantOrchestrator not available
         }
 
         fun stopSessionIfActive() {
             instance?.finishAndRemoveTask()
-        }
-
-        fun processPrompt(text: String, autoTts: Boolean) {
-            val activity = instance ?: return
-            val origin = if (autoTts) "MANUAL_DICTATION" else "MANUAL_TYPING"
-            AssistantCore.submitText(activity, text, origin = origin)
         }
     }
 
@@ -57,8 +50,6 @@ class WakeWordListeningActivity : ReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         instance = this
-
-        AssistantCore.init(this)
 
         window.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -79,7 +70,7 @@ class WakeWordListeningActivity : ReactActivity() {
 
         showAboveLockScreen()
 
-        AssistantCore.startVoiceSession(this, origin = "WAKE_WORD")
+        // REMOVED: AssistantOrchestrator.startVoiceSession() - module not found
 
         window.decorView.post {
             window.decorView.requestFocus()
@@ -91,21 +82,11 @@ class WakeWordListeningActivity : ReactActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        val launchSource = intent?.getStringExtra("EXTRA_LAUNCH_SOURCE")
-        val origin = if (launchSource == "voice_interaction") "MANUAL_DICTATION" else "WAKE_WORD"
-        AssistantCore.startVoiceSession(this, origin = origin)
+        // REMOVED: AssistantOrchestrator.startVoiceSession() - RequestOrigin module not found
     }
 
     override fun onBackPressed() {
-        AssistantCore.dismiss()
-    }
-
-    override fun onPause() {
-        super.onPause()
-    }
-
-    override fun onStop() {
-        super.onStop()
+        // REMOVED: AssistantOrchestrator.dismiss() - module not found
     }
 
     override fun onDestroy() {
@@ -114,10 +95,6 @@ class WakeWordListeningActivity : ReactActivity() {
         }
         WakeWordForegroundService.onAssistantSessionFinished()
         super.onDestroy()
-    }
-
-    fun cancelSession() {
-        AssistantCore.cancel()
     }
 
     @Suppress("DEPRECATION")

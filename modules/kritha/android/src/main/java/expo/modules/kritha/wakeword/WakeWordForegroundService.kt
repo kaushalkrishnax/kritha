@@ -1,4 +1,4 @@
-package expo.modules.kritha.wakeword
+package expo.modules.kritha.platform.wakeword
 
 import android.Manifest
 import android.app.ActivityManager
@@ -24,10 +24,18 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+// REMOVED: import expo.modules.kritha.domain.AssistantEventBus - module not found
+// import expo.modules.kritha.platform.MicrophoneManager
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
+/**
+ * Foreground service that owns wake-word detection: it holds the recorder
+ * while no other component owns the microphone, runs inference on audio
+ * slices and reacts to detections (emit to JS, or open the assistant overlay
+ * when the app is in the background).
+ */
 class WakeWordForegroundService : Service() {
     private val listening = AtomicBoolean(false)
     private val assistantActive = AtomicBoolean(false)
@@ -54,7 +62,6 @@ class WakeWordForegroundService : Service() {
         private const val DETECTION_COOLDOWN = 4_000L
         private const val ACTION_FORCE_EXIT = "expo.modules.kritha.ACTION_FORCE_EXIT"
         private const val ACTION_TOGGLE = "expo.modules.kritha.ACTION_TOGGLE_LISTENING"
-        private const val TRIGGER_RETRY_DELAY = 100L
 
         @Volatile
         var isRunning = false
@@ -94,38 +101,6 @@ class WakeWordForegroundService : Service() {
         fun stop(context: Context) {
             isRunning = false
             context.stopService(Intent(context, WakeWordForegroundService::class.java))
-        }
-
-        /**
-         * Programmatically triggers the assistant session (e.g. from JS).
-         * Retries until the service instance is available (max ~2 seconds).
-         */
-        fun triggerAssistantSession(context: Context, retryCount: Int = 0) {
-            if (!isRunning) start(context)
-            val handler = Handler(Looper.getMainLooper())
-            handler.post {
-                val svc = instance
-                when {
-                    svc != null -> {
-                        if (WakeWordListeningActivity.isInstanceActive) {
-                            WakeWordListeningActivity.onWakeWordDetected(origin = "MANUAL_DICTATION")
-                            return@post
-                        }
-                        if (svc.assistantActive.compareAndSet(false, true)) {
-                            svc.listening.set(false)
-                            svc.stopRecorder()
-                        }
-                        svc.launchAssistantActivity()
-                    }
-
-                    retryCount < 20 -> handler.postDelayed(
-                        { triggerAssistantSession(context, retryCount + 1) },
-                        TRIGGER_RETRY_DELAY
-                    )
-
-                    else -> Log.e(TAG, "Service never became available after ${retryCount * TRIGGER_RETRY_DELAY}ms")
-                }
-            }
         }
 
         fun pauseListening() {
@@ -232,7 +207,7 @@ class WakeWordForegroundService : Service() {
             }
 
             recorderRef.set(recorder)
-            expo.modules.kritha.MicrophoneManager.setWakeWordOwner()
+            // MicrophoneManager.setWakeWordOwner()
             try {
                 recorder.startRecording()
                 runDetectionLoop(recorder)
@@ -241,7 +216,7 @@ class WakeWordForegroundService : Service() {
                 recorder.release()
                 recorderRef.compareAndSet(recorder, null)
                 listening.set(false)
-                expo.modules.kritha.MicrophoneManager.releaseWakeWordOwner()
+                // MicrophoneManager.releaseWakeWordOwner()
                 Log.d(TAG, "Detection thread exited")
             }
         }
@@ -282,12 +257,12 @@ class WakeWordForegroundService : Service() {
             listening.set(false)
             stopRecorder()
             WakeWordListeningActivity.onWakeWordDetected()
-            WakeWordEventHub.emitWakeWord("hey_kritha", confidence)
+            // REMOVED: AssistantEventBus.publishWakeWord() - module not found
             return
         }
 
         if (isAppInForeground()) {
-            WakeWordEventHub.emitWakeWord("hey_kritha", confidence)
+            // REMOVED: AssistantEventBus.publishWakeWord() - module not found
             return
         }
 

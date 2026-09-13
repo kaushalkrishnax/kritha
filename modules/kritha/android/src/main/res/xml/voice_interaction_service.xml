@@ -2,8 +2,7 @@
 
 <voice-interaction-service
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sessionService="expo.modules.kritha.KrithaVoiceInteractionSessionService"
-    android:recognitionService="expo.modules.kritha.KrithaRecognitionService"
+    android:sessionService="expo.modules.kritha.platform.voice.KrithaVoiceInteractionSessionService"
     android:supportsAssist="true"
     android:supportsLaunchVoiceAssistFromKeyguard="true"
     android:supportsLocalInteraction="true" />

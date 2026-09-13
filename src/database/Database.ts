@@ -2,8 +2,8 @@ import { DB, open } from '@op-engineering/op-sqlite';
 import { ChatRepository } from './ChatRepository';
 import { ToolRepository } from './ToolRepository';
 import { VectorStore } from './VectorStore';
-import { migration001 } from './migrations/001_init';
 import { DatabaseError, MigrationError } from './errors';
+import { migration001 } from './migrations/001_init';
 import { DbProvider } from './types';
 
 export class Database {
@@ -53,7 +53,9 @@ export class Database {
         await this.runMigrations();
 
         this.initialized = true;
-        console.log('[Database] Initialized successfully with sqlite-vec and foreign keys enabled');
+        console.log(
+          '[Database] Initialized successfully with sqlite-vec and foreign keys enabled',
+        );
       } catch (error) {
         this.db = null;
         this.initialized = false;
@@ -80,7 +82,9 @@ export class Database {
 
       for (const migration of migrations) {
         if (currentVersion < migration.version) {
-          console.log(`[Database] Applying migration v${migration.version}: ${migration.name}`);
+          console.log(
+            `[Database] Applying migration v${migration.version}: ${migration.name}`,
+          );
           await migration.up(this.db);
           await this.db.execute(`PRAGMA user_version = ${migration.version};`);
         }
@@ -90,24 +94,17 @@ export class Database {
     }
   }
 
-  /**
-   * Resolves once the database is ready to use. Triggers init() lazily when
-   * needed, so callers never have to coordinate initialization order.
-   */
+  // Waits for initialization to complete, then returns the connection.
   whenReady(): Promise<void> {
     if (this.initialized && this.db) {
       return Promise.resolve();
     }
     if (!this.initPromise) {
-      // Kick off initialization lazily. Rejections are surfaced through the
-      // promise handed back below; swallow them on this detached branch to
-      // avoid spurious unhandled-rejection warnings for callers that opt out.
       void this.init().catch(() => {});
     }
     return this.initPromise ?? Promise.resolve();
   }
 
-  /** Waits for initialization to complete, then returns the connection. */
   async getDbAsync(): Promise<DB> {
     await this.whenReady();
     return this.getDb();
@@ -115,7 +112,9 @@ export class Database {
 
   getDb(): DB {
     if (!this.db || !this.initialized) {
-      throw new DatabaseError('Database is not initialized. Call database.init() first.');
+      throw new DatabaseError(
+        'Database is not initialized. Call database.init() first.',
+      );
     }
     return this.db;
   }

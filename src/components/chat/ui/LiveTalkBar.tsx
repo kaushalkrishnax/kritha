@@ -1,40 +1,36 @@
-import Colors from '@/theme';
 import { Mic, MicOff, Tv, Video, X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Svg, {
-    Defs,
-    Rect,
-    Stop,
-    LinearGradient as SvgGradient,
+  Defs,
+  Rect,
+  Stop,
+  LinearGradient as SvgGradient,
 } from 'react-native-svg';
+import { useChatInput } from '@/hooks';
+import Colors from '@/theme';
 
-import { useAssistantActions } from '@/hooks/use-assistant-interaction';
-import { useAssistantStore } from '@/store/assistantStore';
 
 export function LiveTalkBar() {
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const liveTalkState = useAssistantStore((s) => s.liveTalkState);
-  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
-  const isLiveTalkHeld = useAssistantStore((s) => s.isLiveTalkHeld);
+  const { liveTalkPhase, pauseLiveTalk, resumeLiveTalk, stopLiveTalk } =
+    useChatInput();
 
-  const activeState =
-    liveTalkState ||
-    (canonicalState === 'LISTENING'
-      ? 'LISTENING'
-      : isTtsSpeaking
-        ? 'SPEAKING'
-        : 'IDLE');
-  const isRecording = activeState === 'LISTENING';
-  const isSpeaking = activeState === 'SPEAKING';
-  const { handleLiveTalkToggle, handleLiveTalkMicToggle } =
-    useAssistantActions();
+  const getActiveState = () => {
+    if (liveTalkPhase === 'LISTENING') return 'Listening';
+    if (liveTalkPhase === 'SPEAKING') return 'Speaking';
+    return 'Paused';
+  };
+
+  const activeState = getActiveState();
+  const isRecording = activeState === 'Listening';
+  const isSpeaking = activeState === 'Speaking';
+
   const pulseAnim = useRef(new Animated.Value(0.2)).current;
 
   useEffect(() => {
@@ -64,10 +60,9 @@ export function LiveTalkBar() {
   }, [isRecording, isSpeaking, pulseAnim]);
 
   const getStatusText = () => {
-    if (isLiveTalkHeld) return 'Paused';
-    if (activeState === 'LISTENING') return 'Listening...';
-    if (activeState === 'IDLE') return 'IDLE...';
-    if (activeState === 'SPEAKING') return 'Speaking...';
+    if (activeState === 'Paused') return 'Paused';
+    if (activeState === 'Listening') return 'Listening...';
+    if (activeState === 'Speaking') return 'Speaking...';
     return 'Live';
   };
 
@@ -128,7 +123,9 @@ export function LiveTalkBar() {
           <View style={styles.rightActions}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleLiveTalkMicToggle}
+              onPress={
+                activeState === 'Paused' ? resumeLiveTalk : pauseLiveTalk
+              }
               style={[
                 styles.circleBtn,
                 isRecording ? styles.micActiveBtn : styles.micIdleBtn,
@@ -144,7 +141,7 @@ export function LiveTalkBar() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.circleBtn, styles.closeBtn]}
-              onPress={handleLiveTalkToggle}
+              onPress={stopLiveTalk}
             >
               <X size={18} color={Colors.textOnAccent} />
             </TouchableOpacity>

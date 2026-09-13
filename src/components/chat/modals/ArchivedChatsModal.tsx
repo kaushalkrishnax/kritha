@@ -1,6 +1,3 @@
-import { chatApi } from '@/services/chat.service';
-import { useAssistantStore } from '@/store/assistantStore';
-import Colors from '@/theme';
 import { ArchiveRestore, Trash2, X } from 'lucide-react-native';
 import {
   Modal,
@@ -12,6 +9,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatSessionService } from '@/services/chat.service';
+import { useChatStore } from '@/store/chatStore';
+import Colors from '@/theme';
 
 type ArchivedChatsModalProps = {
   visible: boolean;
@@ -22,16 +22,16 @@ export function ArchivedChatsModal({
   visible,
   onClose,
 }: ArchivedChatsModalProps) {
-  const sessions = useAssistantStore((s) => s.sessions);
+  const sessions = useChatStore((s) => s.sessions);
   const archivedSessions = sessions.filter((s) => s.archived);
   const insets = useSafeAreaInsets();
 
   const handleRestore = (id: string) => {
-    chatApi.archiveChat(id, false);
+    ChatSessionService.archiveChat(id, false);
   };
 
   const handleDelete = (id: string) => {
-    chatApi.deleteChat(id);
+    ChatSessionService.deleteChat(id);
   };
 
   return (

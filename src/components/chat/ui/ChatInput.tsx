@@ -1,6 +1,3 @@
-import { useAssistantActions } from '@/hooks/use-assistant-interaction';
-import { useAssistantStore } from '@/store/assistantStore';
-import Colors from '@/theme';
 import {
   ArrowUp,
   AudioLines,
@@ -20,6 +17,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useChatInput } from '@/hooks/use-chat-input';
+import { AssistantBridge } from '@/services';
+import { useAssistantSessionStore } from '@/store/assistantSessionStore';
+import Colors from '@/theme';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
@@ -39,36 +40,30 @@ export function ChatInput({
   modelId?: string;
   variant?: 'overlay' | 'chat';
 }) {
-  const draftText = useAssistantStore((s) => s.draftText);
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const requestOrigin = useAssistantStore((s) => s.requestOrigin);
-  const volumeRms = useAssistantStore((s) => s.volumeRms);
-  const response = useAssistantStore((s) => s.response);
-  const setDraftText = useAssistantStore((s) => s.setDraftText);
+  const canonicalState = useAssistantSessionStore((s) => s.canonicalState);
+  const requestOrigin = useAssistantSessionStore((s) => s.requestOrigin);
+  const volumeRms = useAssistantSessionStore((s) => s.volumeRms);
+  const response = useAssistantSessionStore((s) => s.response);
 
   const {
-    handleSendMessage,
-    handleDictatePress,
-    handleStopDictation,
-    handleSendDictation,
-    handleStopResponse,
-    handleLiveTalkToggle,
-  } = useAssistantActions(modelId);
-
-  const isRecording =
-    canonicalState === 'LISTENING' || canonicalState === 'TRANSCRIBING';
-  const isProcessing = canonicalState === 'GENERATING';
-  const isSending = canonicalState === 'THINKING';
+    mode,
+    liveTalkPhase,
+    draftText,
+    setDraftText,
+    submitText,
+    startDictation,
+    cancelDictation,
+    stopDictation,
+    sendDictation,
+    startLiveTalk,
+  } = useChatInput(modelId);
 
   const hasText = draftText.trim().length > 0;
-  const isVoiceRequest =
-    requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION';
-  const isWaitingForFirstToken = isSending || (isProcessing && !response);
   const showJustASec =
-    variant === 'overlay' && isVoiceRequest && isWaitingForFirstToken;
-  const showStop = !isRecording && (isProcessing || isSending || showJustASec);
-  const showSend = !isRecording && !isProcessing && !isSending && hasText;
-  const showRecordSend = isRecording && hasText;
+    variant === 'overlay' &&
+    (requestOrigin === 'WAKE_WORD' || requestOrigin === 'MANUAL_DICTATION') &&
+    ((canonicalState as any) === 'THINKING' ||
+      ((canonicalState as any) === 'GENERATING' && !response));
 
   const [volume, setVolume] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -81,7 +76,7 @@ export function ChatInput({
 
   /** Animation synchronizations */
   useEffect(() => {
-    if (isProcessing) {
+    if ((canonicalState as any) === 'GENERATING') {
       const animation = Animated.loop(
         Animated.sequence([
           Animated.timing(fadeAnim, {
@@ -100,18 +95,23 @@ export function ChatInput({
       return () => animation.stop();
     }
     fadeAnim.setValue(1);
-  }, [isProcessing, fadeAnim]);
+  }, [(canonicalState as any) === 'GENERATING', fadeAnim]);
 
   useEffect(() => {
     setIsExpanded(hasText && measuredLines > 1);
   }, [hasText, measuredLines]);
 
   useEffect(() => {
-    setVolume(isRecording ? Math.max(0, Math.min(12, volumeRms * 1.2)) : 0);
-  }, [isRecording, volumeRms]);
+    setVolume(
+      mode === 'DICTATION' ? Math.max(0, Math.min(12, volumeRms * 1.2)) : 0,
+    );
+  }, [mode === 'DICTATION', volumeRms]);
 
   useEffect(() => {
-    if (!isProcessing && !isSending) {
+    if (
+      (canonicalState as any) !== 'GENERATING' &&
+      (canonicalState as any) !== 'THINKING'
+    ) {
       dotsOpacity.setValue(1);
       return;
     }
@@ -131,10 +131,14 @@ export function ChatInput({
     );
     animation.start();
     return () => animation.stop();
-  }, [isProcessing, isSending, dotsOpacity]);
+  }, [
+    (canonicalState as any) === 'GENERATING',
+    (canonicalState as any) === 'THINKING',
+    dotsOpacity,
+  ]);
 
   useEffect(() => {
-    if (isRecording) {
+    if (mode === 'DICTATION') {
       Animated.parallel([
         Animated.spring(glowScale, {
           toValue: 1 + (volume / 12) * 0.12,
@@ -156,13 +160,24 @@ export function ChatInput({
           useNativeDriver: true,
         }),
         Animated.timing(glowOpacity, {
-          toValue: isProcessing || isSending ? 0.3 : 0.2,
+          toValue:
+            (canonicalState as any) === 'GENERATING' ||
+            (canonicalState as any) === 'THINKING'
+              ? 0.3
+              : 0.2,
           duration: 250,
           useNativeDriver: true,
         }),
       ]).start();
     }
-  }, [isRecording, volume, isProcessing, isSending, glowScale, glowOpacity]);
+  }, [
+    mode === 'DICTATION',
+    volume,
+    (canonicalState as any) === 'GENERATING',
+    (canonicalState as any) === 'THINKING',
+    glowScale,
+    glowOpacity,
+  ]);
 
   const handleTextChange = (text: string) => {
     setDraftText(text);
@@ -176,14 +191,24 @@ export function ChatInput({
     Math.max(8, Math.min(42, 6 + (volume / 12) * 36 * multiplier));
 
   const handleActionPress = () => {
-    if (isRecording) {
-      // During recording, send the dictation
-      handleSendDictation();
+    if (mode === 'DICTATION') {
+      sendDictation();
       return;
     }
-    if (showStop) return handleStopResponse();
-    if (showSend) return handleSendMessage();
-    handleLiveTalkToggle();
+    if (
+      (canonicalState as any) === 'GENERATING' ||
+      (canonicalState as any) === 'THINKING' ||
+      showJustASec
+    )
+      // ::TODO:: return cancelRun...
+      return;
+    if (
+      (canonicalState as any) !== 'GENERATING' &&
+      (canonicalState as any) !== 'THINKING' &&
+      hasText
+    )
+      return submitText();
+    startLiveTalk();
   };
 
   const expandedHeight = Math.min(
@@ -200,7 +225,7 @@ export function ChatInput({
           { height: isExpanded ? expandedHeight : COMPACT_HEIGHT },
         ]}
       >
-        {isRecording ? (
+        {mode === 'DICTATION' ? (
           <View style={styles.recordingRow}>
             {canonicalState === 'TRANSCRIBING' ? (
               <View style={styles.plusButton}>
@@ -210,14 +235,22 @@ export function ChatInput({
               <TouchableOpacity
                 activeOpacity={0.7}
                 style={styles.plusButton}
-                onPress={handleStopDictation}
+                onPress={cancelDictation}
               >
                 <X size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             )}
             {canonicalState === 'TRANSCRIBING' ? (
-              <View style={[styles.waveformContainer, { justifyContent: 'center' }]}>
-                <Text style={{ color: Colors.textMuted, fontSize: 16, fontFamily: 'Inter-Medium' }}>
+              <View
+                style={[styles.waveformContainer, { justifyContent: 'center' }]}
+              >
+                <Text
+                  style={{
+                    color: Colors.textMuted,
+                    fontSize: 16,
+                    fontFamily: 'Inter-Medium',
+                  }}
+                >
                   Transcribing...
                 </Text>
               </View>
@@ -240,7 +273,7 @@ export function ChatInput({
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
               <TouchableOpacity
-                onPress={handleStopDictation}
+                onPress={cancelDictation}
                 activeOpacity={0.82}
                 style={[
                   styles.stopButton,
@@ -250,28 +283,25 @@ export function ChatInput({
                 ]}
                 disabled={canonicalState === 'TRANSCRIBING'}
               >
-                <Square
-                  size={20}
-                  color={Colors.iconSlate}
-                />
+                <Square size={20} color={Colors.iconSlate} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
                   // During recording, send dictation; otherwise send message
-                  if (isRecording) {
-                    handleSendDictation();
+                  if (mode === 'DICTATION') {
+                    sendDictation();
                   } else if (hasText) {
-                    handleSendMessage();
+                    submitText();
                   }
                 }}
                 activeOpacity={0.82}
                 style={[
                   styles.actionButton,
-                  (!hasText && !isRecording) && {
+                  !hasText && {
                     opacity: 0.5,
                   },
                 ]}
-                disabled={!hasText && !isRecording}
+                disabled={!hasText && mode !== 'DICTATION'}
               >
                 <ArrowUp size={18} color={Colors.textOnAccent} />
               </TouchableOpacity>
@@ -311,11 +341,11 @@ export function ChatInput({
               />
               {!isExpanded && (
                 <View style={styles.compactActions}>
-                  {!isRecording && !showJustASec && (
+                  {!showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
-                      onPress={handleDictatePress}
+                      onPress={startDictation}
                     >
                       <Mic size={24} color={Colors.iconSlate} />
                     </TouchableOpacity>
@@ -325,9 +355,13 @@ export function ChatInput({
                     activeOpacity={0.82}
                     style={styles.actionButton}
                   >
-                    {showStop ? (
+                    {(canonicalState as any) === 'GENERATING' ||
+                    (canonicalState as any) === 'THINKING' ||
+                    showJustASec ? (
                       <Square size={16} color={Colors.textOnAccent} />
-                    ) : showSend ? (
+                    ) : (canonicalState as any) !== 'GENERATING' &&
+                      (canonicalState as any) !== 'THINKING' &&
+                      hasText ? (
                       <ArrowUp size={18} color={Colors.textOnAccent} />
                     ) : (
                       <AudioLines size={19} color={Colors.textOnAccent} />
@@ -342,11 +376,11 @@ export function ChatInput({
                   <Plus size={22} color={Colors.textSecondary} />
                 </TouchableOpacity>
                 <View style={styles.compactActions}>
-                  {!isRecording && !showJustASec && (
+                  {!showJustASec && (
                     <TouchableOpacity
                       activeOpacity={0.7}
                       style={styles.voiceModeButton}
-                      onPress={handleDictatePress}
+                      onPress={startDictation}
                     >
                       <Mic size={24} color={Colors.iconSlate} />
                     </TouchableOpacity>
@@ -356,9 +390,13 @@ export function ChatInput({
                     activeOpacity={0.82}
                     style={styles.actionButton}
                   >
-                    {showStop ? (
+                    {(canonicalState as any) === 'GENERATING' ||
+                    (canonicalState as any) === 'THINKING' ||
+                    showJustASec ? (
                       <Square size={16} color={Colors.textOnAccent} />
-                    ) : showSend || showRecordSend ? (
+                    ) : (canonicalState as any) !== 'GENERATING' &&
+                      (canonicalState as any) !== 'THINKING' &&
+                      hasText ? (
                       <ArrowUp size={18} color={Colors.textOnAccent} />
                     ) : (
                       <AudioLines size={19} color={Colors.textOnAccent} />

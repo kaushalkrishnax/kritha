@@ -174,7 +174,11 @@ function Edge({
               stopColor={Colors.accentCyanBg}
               stopOpacity="0.06"
             />
-            <Stop offset="100%" stopColor={Colors.accentCyanBg} stopOpacity="0" />
+            <Stop
+              offset="100%"
+              stopColor={Colors.accentCyanBg}
+              stopOpacity="0"
+            />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradId})`} />

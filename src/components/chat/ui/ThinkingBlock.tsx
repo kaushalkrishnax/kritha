@@ -1,6 +1,6 @@
+import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Colors from '@/theme';
 
 export interface ThinkingBlockProps {

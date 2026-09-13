@@ -1,5 +1,3 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, Share, StyleSheet } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import {
   ThumbsUp,
@@ -12,7 +10,10 @@ import {
   Pause,
   Play,
 } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, Share, StyleSheet } from 'react-native';
 import Colors from '@/theme';
+import { stubAction } from '@/utils/stub';
 
 export interface ResponseActionsProps {
   msgId?: string;

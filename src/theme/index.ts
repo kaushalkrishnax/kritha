@@ -3,7 +3,7 @@
  *
  * Single source of truth for all colors used across the app.
  * Import from '@/theme' in any component instead of hard-coding hex values.
-*/
+ */
 
 /* Core Palette */
 
@@ -166,3 +166,6 @@ const Colors = {
 } as const;
 
 export default Colors;
+
+
+

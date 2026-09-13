@@ -1,4 +1,3 @@
-import Colors from '@/theme';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import {
@@ -29,16 +28,17 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-
-import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
-import { Session as ChatSession } from '@/database';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArchivedChatsModal,
   SettingsModal,
   PermissionsChecklistModal,
 } from '@/components/chat/modals';
-import { useAssistantStore } from '@/store/assistantStore';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
+import { Session as ChatSession } from '@/database';
+import { useChatStore, useSettingsStore } from '@/store';
+import Colors from '@/theme';
+import { stubAction } from '@/utils';
 
 export interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -65,7 +65,7 @@ export function ChatSidebar({
   onSessionShare,
   onClose,
 }: ChatSidebarProps) {
-  const userName = useAssistantStore((s) => s.userName);
+  const userName = useSettingsStore((s) => s.userName);
   const initials = useMemo(() => {
     return (
       userName
@@ -319,7 +319,10 @@ export function ChatSidebar({
           />
           <Text style={styles.headerVersion}>Kritha v{versionName}</Text>
           <View style={{ flex: 1 }} />
-          <TouchableOpacity style={styles.headerIconBtn}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => stubAction('Search')}
+          >
             <Search size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>

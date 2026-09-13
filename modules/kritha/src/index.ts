@@ -1,72 +1,9 @@
 import { EventSubscription } from 'expo-modules-core';
 import KrithaModule, {
-    AssistantCommand,
-    AssistantEvent,
-    CanonicalAssistantState,
-    DownloadProgressEvent,
-    MicOwner,
-    ModelMetadata,
-    NativeChatSession,
-    RequestOrigin,
-    WakeWordEvent,
+  WakeWordEvent,
 } from './KrithaModule';
 
 const emitter = KrithaModule;
-
-export function dispatchCommand(command: AssistantCommand): boolean {
-  return KrithaModule.dispatchCommand(command);
-}
-
-export function getCurrentState() {
-  return KrithaModule.getCurrentState();
-}
-
-export function submitText(
-  text: string,
-  options?: {
-    chatSessionId?: string;
-    modelId?: string;
-    origin?: RequestOrigin;
-    history?: Array<Record<string, unknown>>;
-  },
-): boolean {
-  return dispatchCommand({
-    type: 'SUBMIT_TEXT',
-    text,
-    chatSessionId: options?.chatSessionId,
-    modelId: options?.modelId,
-    origin: options?.origin,
-    history: options?.history,
-  });
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-export function cancel(assistantRunId?: string, requestId?: string): boolean {
-  return dispatchCommand({ type: 'CANCEL', assistantRunId, requestId });
-}
-
-export function dismiss(): boolean {
-  return dispatchCommand({ type: 'DISMISS' });
-}
-
-export function openMainApp(): boolean {
-  return dispatchCommand({ type: 'OPEN_MAIN_APP' });
-}
-
-
-
-
 
 export function start(): void {
   KrithaModule.start();
@@ -79,82 +16,6 @@ export function stop(): void {
 export function isRunning(): boolean {
   return KrithaModule.isRunning();
 }
-
-export function setBargeInEnabled(enabled: boolean): void {
-  if (KrithaModule.setBargeInEnabled) {
-    KrithaModule.setBargeInEnabled(enabled);
-  }
-}
-
-export function setCloudApiKey(apiKey: string): void {
-  KrithaModule.setCloudApiKey(apiKey);
-}
-
-export function getCustomInstructions(): string {
-  return KrithaModule.getCustomInstructions();
-}
-
-export function setCustomInstructions(instructions: string): void {
-  KrithaModule.setCustomInstructions(instructions);
-}
-
-export function getUserName(): string {
-  return KrithaModule.getUserName ? KrithaModule.getUserName() : 'Your Name';
-}
-
-export function setUserName(name: string): void {
-  if (KrithaModule.setUserName) {
-    KrithaModule.setUserName(name);
-  }
-}
-
-export function getLocalModelDevice(): 'cpu' | 'gpu' {
-  return KrithaModule.getLocalModelDevice();
-}
-
-export function setLocalModelDevice(device: 'cpu' | 'gpu'): 'cpu' | 'gpu' {
-  return KrithaModule.setLocalModelDevice(device);
-}
-
-export function getAvailableModels(): ModelMetadata[] {
-  return KrithaModule.getAvailableModels() || [];
-}
-
-export function getSelectedModel(): string {
-  return KrithaModule.getSelectedModel() || '';
-}
-
-export function setSelectedModel(modelId: string): string {
-  return KrithaModule.setSelectedModel(modelId);
-}
-
-export function isModelDownloaded(modelId: string): boolean {
-  return KrithaModule.isModelDownloaded(modelId);
-}
-
-export function getDownloadedModels(): string[] {
-  return KrithaModule.getDownloadedModels() || [];
-}
-
-export function downloadModel(modelId: string): void {
-  KrithaModule.downloadModel(modelId);
-}
-
-export function pauseDownload(modelId: string): void {
-  KrithaModule.pauseDownload(modelId);
-}
-
-export function resumeDownload(modelId: string): void {
-  KrithaModule.resumeDownload(modelId);
-}
-
-export function cancelDownload(modelId: string): void {
-  KrithaModule.cancelDownload(modelId);
-}
-
-
-
-
 
 export function isDefaultAssistant(): boolean {
   return KrithaModule.isDefaultAssistant();
@@ -182,27 +43,7 @@ export function addWakeWordListener(
   return emitter.addListener('onWakeWordDetected', listener);
 }
 
-export function addAssistantListener(
-  listener: (event: AssistantEvent) => void,
-): EventSubscription {
-  return emitter.addListener('onAssistantEvent', listener);
-}
-
-export function addDownloadProgressListener(
-  listener: (event: DownloadProgressEvent) => void,
-): EventSubscription {
-  return emitter.addListener('onDownloadProgress', listener);
-}
-
 export {
-    AssistantCommand,
-    AssistantEvent,
-    CanonicalAssistantState,
-    DownloadProgressEvent,
-    MicOwner,
-    ModelMetadata,
-    NativeChatSession,
-    RequestOrigin,
-    WakeWordEvent
+  WakeWordEvent
 };
 

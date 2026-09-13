@@ -37,14 +37,14 @@
 
   <application>
     <service
-      android:name=".wakeword.WakeWordForegroundService"
+      android:name=".platform.wakeword.WakeWordForegroundService"
       android:enabled="true"
       android:exported="false"
       android:foregroundServiceType="microphone"
       android:stopWithTask="false" />
 
     <service
-      android:name=".KrithaNotificationListener"
+      android:name=".platform.KrithaNotificationListener"
       android:label="Kritha Notification Listener"
       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
       android:exported="true">
@@ -54,7 +54,7 @@
     </service>
 
     <service
-      android:name=".KrithaVoiceInteractionService"
+      android:name=".platform.voice.KrithaVoiceInteractionService"
       android:label="Kritha Assistant"
       android:permission="android.permission.BIND_VOICE_INTERACTION"
       android:exported="true">
@@ -67,25 +67,12 @@
     </service>
 
     <service
-      android:name=".KrithaVoiceInteractionSessionService"
+      android:name=".platform.voice.KrithaVoiceInteractionSessionService"
       android:permission="android.permission.BIND_VOICE_INTERACTION"
       android:exported="true" />
 
-    <service
-      android:name=".KrithaRecognitionService"
-      android:label="Kritha Recognition Service"
-      android:exported="true">
-      <intent-filter>
-        <action android:name="android.speech.RecognitionService" />
-        <category android:name="android.intent.category.DEFAULT" />
-      </intent-filter>
-      <meta-data
-        android:name="android.speech"
-        android:resource="@xml/recognition_service" />
-    </service>
-
     <activity
-      android:name=".wakeword.WakeWordListeningActivity"
+      android:name=".platform.wakeword.WakeWordListeningActivity"
       android:excludeFromRecents="true"
       android:exported="true"
       android:launchMode="singleInstance"

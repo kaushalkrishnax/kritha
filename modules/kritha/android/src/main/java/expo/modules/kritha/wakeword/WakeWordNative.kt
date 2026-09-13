@@ -1,7 +1,11 @@
-package expo.modules.kritha.wakeword
+package expo.modules.kritha.platform.wakeword
 
 import android.util.Log
 
+/**
+ * JNI bridge to the wake-word inference library. Loads whichever native
+ * library is packaged with the build and exposes the inference entry point.
+ */
 object WakeWordNative {
     init {
         val libraries = listOf("wakeword_bridge", "kritha", "wakeword")

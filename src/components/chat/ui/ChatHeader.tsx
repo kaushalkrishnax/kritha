@@ -1,12 +1,11 @@
-import Colors from '@/theme';
 import { ChevronDown, Menu, Radio, SquarePen } from 'lucide-react-native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useWakeword } from '@/hooks';
+import Colors from '@/theme';
 
 export interface ChatHeaderProps {
   sidebarOpen?: boolean;
   setSidebarOpen?: (open: boolean) => void;
-  isWakeWordOn?: boolean;
-  onWakeWordToggle?: () => void;
   modelName?: string;
   onMenu?: () => void;
   onModelSelectClick?: () => void;
@@ -16,13 +15,12 @@ export interface ChatHeaderProps {
 export function ChatHeader({
   sidebarOpen,
   setSidebarOpen,
-  isWakeWordOn = true,
-  onWakeWordToggle,
   modelName = 'Select Model',
   onMenu,
   onModelSelectClick,
   onNewSession,
 }: ChatHeaderProps) {
+  const { isEnabled, toggle } = useWakeword();
   const handleToggleSidebar = () => {
     if (setSidebarOpen) {
       setSidebarOpen(!sidebarOpen);
@@ -50,10 +48,10 @@ export function ChatHeader({
             <SquarePen size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={onWakeWordToggle} style={styles.iconBtn}>
+        <TouchableOpacity onPress={toggle} style={styles.iconBtn}>
           <Radio
             size={20}
-            color={isWakeWordOn ? Colors.success : Colors.warning}
+            color={isEnabled ? Colors.success : Colors.warning}
           />
         </TouchableOpacity>
       </View>

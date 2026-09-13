@@ -1,6 +1,3 @@
-import { VoiceEngine } from '@/services/voice/VoiceEngine';
-import { useAssistantStore } from '@/store/assistantStore';
-import Colors from '@/theme';
 import { Download, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -10,17 +7,24 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import {
-  deleteModel,
-  ensureModel,
-  listDownloadedModels,
-  ModelCategory,
-  onProgress,
-  refreshModels,
-  type Progress,
-} from 'react-native-sherpa-onnx/download';
+import { useSpeaker } from '@/hooks';
+import { SttEngine, TtsEngine } from '@/services';
+import { useVoiceStore } from '@/store';
+import Colors from '@/theme';
+import { stubAction } from '@/utils';
+
+type Progress = any;
+enum ModelCategory {
+  Tts = 'tts',
+  Stt = 'stt',
+}
+const deleteModel = async (...args: any[]) => stubAction('deleteModel');
+const ensureModel = async (...args: any[]) => stubAction('ensureModel');
+const listDownloadedModels = async (...args: any[]) => { stubAction('listDownloadedModels'); return []; };
+const onProgress = (...args: any[]) => stubAction('onProgress');
+const refreshModels = async (...args: any[]) => stubAction('refreshModels');
 
 export interface VoiceModelModalProps {
   visible: boolean;
@@ -94,21 +98,16 @@ const HARDCODED_MODELS = {
   ],
 };
 
-
 export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   const [tab, setTab] = useState<ModelCategory>(ModelCategory.Stt);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [progresses, setProgresses] = useState<Record<string, number>>({});
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-  const selectedSttModelId = useAssistantStore((s) => s.selectedSttModelId);
-  const selectedTtsModelId = useAssistantStore((s) => s.selectedTtsModelId);
-  const setSelectedSttModelId = useAssistantStore(
-    (s) => s.setSelectedSttModelId,
-  );
-  const setSelectedTtsModelId = useAssistantStore(
-    (s) => s.setSelectedTtsModelId,
-  );
+  const selectedSttModelId = useVoiceStore((s) => s.selectedSttModelId);
+  const selectedTtsModelId = useVoiceStore((s) => s.selectedTtsModelId);
+  const { setSelectedSttModelId, setSelectedTtsModelId } = useSpeaker();
+  
 
   useEffect(() => {
     if (visible) {
@@ -117,7 +116,7 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   }, [visible, tab]);
 
   useEffect(() => {
-    const unsub = onProgress((category, modelId, progress: Progress) => {
+    const unsub = onProgress((_: any, modelId: string, progress: Progress) => {
       setProgresses((prev) => ({ ...prev, [modelId]: progress.percent }));
       if (progress.percent >= 100) {
         setTimeout(loadDownloaded, 500);
@@ -160,10 +159,10 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   const handleSelect = async (modelId: string) => {
     if (tab === ModelCategory.Stt) {
       setSelectedSttModelId(modelId);
-      await VoiceEngine.destroy();
+      await TtsEngine.destroy();
     } else {
       setSelectedTtsModelId(modelId);
-      await VoiceEngine.destroy();
+      await TtsEngine.destroy();
     }
   };
 
@@ -387,7 +386,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: Colors.textOnAccent, fontWeight: 'bold' },
   scrollArea: { maxHeight: 400 },
   optionCard: {
-    backgroundColor: Colors.bgCard || Colors.borderSubtle,
+    backgroundColor: Colors.bgCard,
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
@@ -395,7 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   optionCardSelected: {
-    borderColor: Colors.accentCyan || '#00E5FF',
+    borderColor: Colors.accentCyan,
     backgroundColor: 'rgba(0, 229, 255, 0.05)',
   },
   optionHeader: {
@@ -431,7 +430,7 @@ const styles = StyleSheet.create({
   },
   downloadBarFill: {
     height: '100%',
-    backgroundColor: Colors.accentCyan || '#00E5FF',
+    backgroundColor: Colors.accentCyan,
   },
   modalActions: {
     flexDirection: 'row',

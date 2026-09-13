@@ -1,13 +1,6 @@
-import { useAssistantStore } from '@/store/assistantStore';
+import { useSpeaker } from '@/hooks';
+import { AssistantBridge, settingsService } from '@/services';
 import Colors from '@/theme';
-import {
-  getCustomInstructions,
-  getUserName as getNativeUserName,
-  setCloudApiKey,
-  setCustomInstructions as setNativeCustomInstructions,
-  setUserName as setNativeUserName,
-} from '@modules/kritha/src';
-import * as SecureStore from 'expo-secure-store';
 import { Save, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -29,6 +22,7 @@ type SettingsModalProps = {
 };
 
 export function SettingsModal({ visible, onClose }: SettingsModalProps) {
+  const { openVoiceModal } = useSpeaker();
   const [userName, setUserName] = useState('Your Name');
   const [apiKey, setApiKey] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
@@ -42,18 +36,10 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
 
   const loadSettings = async () => {
     try {
-      const nativeName = getNativeUserName();
-      const storeName = useAssistantStore.getState().userName;
-      const initialName =
-        (nativeName && nativeName !== 'Your Name' ? nativeName : '') ||
-        (storeName && storeName !== 'Your Name' ? storeName : '') ||
-        'Your Name';
-      setUserName(initialName);
-
-      const storedKey = await SecureStore.getItemAsync('GEMINI_API_KEY');
-      if (storedKey) setApiKey(storedKey);
-
-      setCustomInstructions(getCustomInstructions());
+      const data = await settingsService.loadSettings();
+      setUserName(data.userName);
+      setApiKey(data.apiKey);
+      setCustomInstructions(data.customInstructions);
     } catch (e) {
       console.error('Failed to load settings', e);
     }
@@ -62,18 +48,9 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const handleSave = async () => {
     try {
       const nameToSave = userName.trim() || 'Your Name';
-      setNativeUserName(nameToSave);
-      useAssistantStore.getState().setUserName(nameToSave);
-
-      if (apiKey) {
-        await SecureStore.setItemAsync('GEMINI_API_KEY', apiKey);
-        setCloudApiKey(apiKey);
-      } else {
-        await SecureStore.deleteItemAsync('GEMINI_API_KEY');
-        setCloudApiKey('');
-      }
-
-      setNativeCustomInstructions(customInstructions);
+      settingsService.setUserName(nameToSave);
+      await settingsService.saveApiKey(apiKey);
+      settingsService.setCustomInstructions(customInstructions);
 
       onClose();
     } catch (e) {
@@ -134,24 +111,31 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 />
               </View>
 
-
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Voice Models</Text>
-                <Text style={styles.sectionDesc}>Download and select TTS & STT models.</Text>
-                <TouchableOpacity 
-                  style={[styles.saveBtn, { marginTop: 10, backgroundColor: Colors.borderStrong }]}
+                <Text style={styles.sectionDesc}>
+                  Download and select TTS & STT models.
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.saveBtn,
+                    { marginTop: 10, backgroundColor: Colors.borderStrong },
+                  ]}
                   onPress={() => {
                     onClose();
-                    useAssistantStore.getState().setVoiceModalOpen(true);
+                    openVoiceModal();
                   }}
                 >
-                  <Text style={[styles.saveBtnText, { color: Colors.textOnAccent }]}>Manage Voice Models</Text>
+                  <Text
+                    style={[styles.saveText, { color: Colors.textOnAccent }]}
+                  >
+                    Manage Voice Models
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Custom Instructions</Text>
-
                 <Text style={styles.sectionDesc}>
                   What would you like Kritha to know about you to provide better
                   responses?

@@ -1,20 +1,20 @@
+import { Brain } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Brain } from 'lucide-react-native';
-import { ResponseMessage } from './ResponseMessage';
+import { useSpeaker } from '@/hooks';
+import { useAssistantSessionStore, useChatStore, useVoiceStore } from '@/store';
 import Colors from '@/theme';
-import { useAssistantStore } from '@/store/assistantStore';
-import { useAssistantActions } from '@/hooks/use-assistant-interaction';
+import { ResponseMessage } from './ResponseMessage';
 
 export function ChatMessages() {
-  const messages = useAssistantStore((s) => s.messages);
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const error = useAssistantStore((s) => s.error);
-  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
-  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
+  const messages = useChatStore((s) => s.messages);
+  const canonicalState = useAssistantSessionStore((s) => s.canonicalState);
+  const error = useAssistantSessionStore((s) => s.error);
+  const currentTtsMsgId = useVoiceStore((s) => s.currentTtsMsgId);
+  const isTtsSpeaking = useVoiceStore((s) => s.isTtsSpeaking);
+  const isTtsPaused = useVoiceStore((s) => s.isTtsPaused);
 
-  const { handleSpeakerPress } = useAssistantActions();
+  const { handleSpeakerPress } = useSpeaker();
   const scrollViewRef = useRef<ScrollView>(null);
 
   const isSending =
@@ -55,7 +55,10 @@ export function ChatMessages() {
 
         if (isUser) {
           return (
-            <View style={[styles.messageWrapper, styles.userWrapper]} key={msg.id}>
+            <View
+              style={[styles.messageWrapper, styles.userWrapper]}
+              key={msg.id}
+            >
               <View style={styles.userBubble}>
                 <Text style={styles.userText}>{msg.text}</Text>
               </View>
@@ -69,8 +72,12 @@ export function ChatMessages() {
             message={msg}
             isStreaming={isStreamingThisMessage}
             showActions={showActions}
-            isTtsSpeaking={isTtsSpeaking && (!currentTtsMsgId || currentTtsMsgId === msg.id)}
-            isTtsPaused={isTtsPaused && (!currentTtsMsgId || currentTtsMsgId === msg.id)}
+            isTtsSpeaking={
+              isTtsSpeaking && (!currentTtsMsgId || currentTtsMsgId === msg.id)
+            }
+            isTtsPaused={
+              isTtsPaused && (!currentTtsMsgId || currentTtsMsgId === msg.id)
+            }
             onSpeakerPress={() => handleSpeakerPress(msg.id, msg.text)}
           />
         );

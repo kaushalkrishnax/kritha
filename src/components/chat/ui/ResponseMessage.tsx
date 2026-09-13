@@ -1,7 +1,7 @@
-import { ChatMessage } from '@/components/chat/types';
-import Colors from '@/theme';
 import { Brain } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import Colors from '@/theme';
+import { ChatMessage } from '@/types/chat';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ResponseActions } from './ResponseActions';
 import { ThinkingBlock } from './ThinkingBlock';

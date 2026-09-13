@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ChatMessage } from '@/components/chat/types';
-import { ResponseMessage } from './ResponseMessage';
-import { ResponseActions } from './ResponseActions';
 import Colors from '@/theme';
+import { ChatMessage } from '@/types';
+import { ResponseActions } from './ResponseActions';
+import { ResponseMessage } from './ResponseMessage';
 
 export interface AssistantResponseCardProps {
   responseVisible: boolean;

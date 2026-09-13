@@ -1,32 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import Reanimated from 'react-native-reanimated';
-import { dismiss, openMainApp } from '@modules/kritha/src';
-
 import {
   DictationCornerGlow,
   AssistantResponseCard,
   ChatInput,
   LiveTalkBar,
 } from '@/components/chat/ui';
-import { useAssistantStore } from '@/store/assistantStore';
-import { useAssistantActions } from '@/hooks/use-assistant-interaction';
-import { useAssistantKeyboard } from '@/hooks/use-assistant-keyboard';
+import { useAssistantKeyboard, useSpeaker, useAssistantSession } from '@/hooks';
+import {
+  useAssistantSessionStore,
+  useChatInputStore,
+  useVoiceStore,
+} from '@/store';
 
 export function AssistantOverlay() {
-  const canonicalState = useAssistantStore((s) => s.canonicalState);
-  const response = useAssistantStore((s) => s.response);
-  const error = useAssistantStore((s) => s.error);
-  const assistantRunId = useAssistantStore((s) => s.assistantRunId);
-  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMsgId);
-  const isTtsSpeaking = useAssistantStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useAssistantStore((s) => s.isTtsPaused);
-  const isLiveTalk = useAssistantStore((s) => s.isLiveTalk);
-  const setDraftText = useAssistantStore((s) => s.setDraftText);
-  const setTranscript = useAssistantStore((s) => s.setTranscript);
+  const canonicalState = useAssistantSessionStore((s) => s.canonicalState);
+  const response = useAssistantSessionStore((s) => s.response);
+  const error = useAssistantSessionStore((s) => s.error);
+  const assistantRunId = useAssistantSessionStore((s) => s.assistantRunId);
+  const currentTtsMsgId = useVoiceStore((s) => s.currentTtsMsgId);
+  const isTtsSpeaking = useVoiceStore((s) => s.isTtsSpeaking);
+  const isTtsPaused = useVoiceStore((s) => s.isTtsPaused);
+  const isLiveTalk = useChatInputStore((s) => s.mode) === 'LIVE_TALK';
 
   const isRecording = canonicalState === 'LISTENING';
-  const { handleSpeakerPress } = useAssistantActions();
+  const { handleSpeakerPress } = useSpeaker();
+  const { clearInputAndTranscript } = useAssistantSession();
   const animatedBottomStyle = useAssistantKeyboard();
   const mountedRef = useRef(true);
 
@@ -52,8 +52,7 @@ export function AssistantOverlay() {
   useEffect(() => {
     if (!assistantRunId) return;
 
-    setDraftText('');
-    setTranscript('');
+    clearInputAndTranscript();
 
     responseVisibleRef.current = false;
     safeSetResponseVisible(false);
@@ -98,7 +97,8 @@ export function AssistantOverlay() {
 
   const handleClose = useCallback(() => {
     try {
-      dismiss();
+      // ::TODO:: Close the Natively opened Overlay
+      // AssistantBridge.dismissOverlay();
     } catch (e) {
       console.warn('Failed to dismiss assistant session:', e);
     }
@@ -106,8 +106,9 @@ export function AssistantOverlay() {
 
   const handleExpandPress = useCallback(() => {
     try {
-      dismiss();
-      openMainApp();
+      // ::TODO:: Route to the main app with the current session context
+      // AssistantBridge.dismissOverlay();
+      // AssistantBridge.openMainApp();
     } catch (e) {
       console.warn('Failed to open main app:', e);
     }
