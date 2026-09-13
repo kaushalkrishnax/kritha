@@ -1,12 +1,3 @@
-/**
- * PURPOSE:  Local on-device LLM provider backed by the Kotlin native bridge.
- * OWNS:     Translating LlmGenerateRequests into native generateLocal calls
- *           and mapping native delta events to provider callbacks.
- * NOT-OWNS: Local inference execution, model loading, provider selection,
- *           orchestration, or UI.
- * SEE ALSO: RULES.md §5
- */
-
 import {
   addLocalLlmDeltaListener,
   cancelLocalGeneration,

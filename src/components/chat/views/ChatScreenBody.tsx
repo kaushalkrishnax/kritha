@@ -6,7 +6,7 @@ import Svg, {
   Stop,
   LinearGradient as SvgGradient,
 } from 'react-native-svg';
-import ChatMessages from '@/components/chat/ui/ChatMessages';
+import { ChatMessages } from '@/components/chat/ui';
 import Colors from '@/theme';
 
 export function ChatScreenBody() {

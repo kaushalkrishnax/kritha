@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
 import { AssistantBridge } from '@/services';
-import { useWakewordStore } from '@/store';
+import { useWakewordStore } from '@/stores';
 
 export function useWakeword() {
   const isEnabled = useWakewordStore((s) => s.isEnabled);

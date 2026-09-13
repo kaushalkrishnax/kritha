@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AssistantOverlay } from '@/components/chat/views';
+
 function AssistantOverlayRoot() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

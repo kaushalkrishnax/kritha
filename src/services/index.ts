@@ -4,5 +4,5 @@ export * from './conversation.service';
 export * from './model.service';
 export * from './permissions.service';
 export * from './settings.service';
-export * from './stt.service';
-export * from './tts.service';
+export * from './providers';
+export * from './assistantRuntime.service';

@@ -18,7 +18,7 @@ Give direct, practical answers. Ask for clarification only when genuinely necess
 }
 
 export type ConversationContextInput = {
-  messages?: ReadonlyArray<{ role: 'user' | 'assistant'; text: string }>;
+  messages?: readonly { role: 'user' | 'assistant'; text: string }[];
   userName?: string;
   customInstructions?: string;
   maxHistory?: number;

@@ -1,21 +1,19 @@
 import { ChatSessionService } from '@/services';
-import { useAssistantSessionStore, useChatInputStore } from '@/store';
+import { useAssistantStore } from '@/stores';
 
 export function useChatSession() {
   const beginNewChat = () => {
     ChatSessionService.beginNewChat();
-    useAssistantSessionStore.getState().reset();
-    useChatInputStore.getState().reset();
+    useAssistantStore.getState().reset();
   };
 
   const openChat = async (sessionId: string) => {
     await ChatSessionService.openChat(sessionId);
-    useAssistantSessionStore.getState().reset();
-    useChatInputStore.getState().reset();
+    useAssistantStore.getState().reset();
   };
 
   const setSessionError = (error: string | null) => {
-    useAssistantSessionStore.getState().setError(error);
+    useAssistantStore.getState().setError(error);
   };
 
   return {

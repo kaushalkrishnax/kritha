@@ -2,24 +2,30 @@ import { Brain } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSpeaker } from '@/hooks';
-import { useAssistantSessionStore, useChatStore, useVoiceStore } from '@/store';
+import {
+  useAssistantStore,
+  useChatStore,
+  useIsLlmThinking,
+  useIsLlmGenerating,
+  useIsTtsSpeaking,
+  useIsTtsPaused,
+} from '@/stores';
 import Colors from '@/theme';
 import { ResponseMessage } from './ResponseMessage';
 
 export function ChatMessages() {
   const messages = useChatStore((s) => s.messages);
-  const canonicalState = useAssistantSessionStore((s) => s.canonicalState);
-  const error = useAssistantSessionStore((s) => s.error);
-  const currentTtsMsgId = useVoiceStore((s) => s.currentTtsMsgId);
-  const isTtsSpeaking = useVoiceStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useVoiceStore((s) => s.isTtsPaused);
+  const error = useAssistantStore((s) => s.error);
+  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMessageId);
+  const isTtsSpeaking = useIsTtsSpeaking();
+  const isTtsPaused = useIsTtsPaused();
+
+  const isThinking = useIsLlmThinking();
+  const isGenerating = useIsLlmGenerating();
+  const isSending = isThinking || isGenerating;
 
   const { handleSpeakerPress } = useSpeaker();
   const scrollViewRef = useRef<ScrollView>(null);
-
-  const isSending =
-    canonicalState === 'THINKING' || canonicalState === 'GENERATING';
-  const isThinking = canonicalState === 'THINKING';
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {

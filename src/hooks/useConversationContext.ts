@@ -1,5 +1,5 @@
 import { buildConversationContext } from '@/services';
-import { useChatStore, useSettingsStore } from '@/store';
+import { useChatStore, useSettingsStore } from '@/stores';
 
 export function useConversationContext() {
   return function getConversationContext() {

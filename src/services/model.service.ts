@@ -1,6 +1,6 @@
 import { File, Paths, type DownloadTask } from 'expo-file-system';
 import { MODELS, isCloudModel } from '@/constants';
-import { useModelStore } from '@/store';
+import { useModelStore } from '@/stores';
 
 class ModelDownloadService {
   private readonly downloadMap = new Map<string, DownloadTask>();

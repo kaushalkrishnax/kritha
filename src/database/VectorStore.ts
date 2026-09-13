@@ -139,7 +139,7 @@ export class VectorStore {
       const rows = result.rows ?? [];
       if (rows.length === 0 || !rows[0].json_val) return null;
       return JSON.parse(String(rows[0].json_val)) as number[];
-    } catch (error) {
+    } catch {
       return null;
     }
   }

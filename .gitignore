@@ -38,6 +38,8 @@ yarn-error.*
 
 # ai related
 .openbrowser/
+phases/
+dump*
 
 # generated native folders
 /ios

@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   Pencil,
   Pin,
-  Puzzle,
   Search,
   Settings,
   Share,
@@ -36,7 +35,7 @@ import {
 } from '@/components/chat/modals';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
 import { Session as ChatSession } from '@/database';
-import { useChatStore, useSettingsStore } from '@/store';
+import { useSettingsStore } from '@/stores';
 import Colors from '@/theme';
 import { stubAction } from '@/utils';
 
@@ -256,8 +255,8 @@ export function ChatSidebar({
   };
 
   // Slide animation
-  const slideAnim = useRef(new Animated.Value(-320)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const [slideAnim] = useState(() => new Animated.Value(-320));
+  const [backdropOpacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.parallel([

@@ -1,12 +1,12 @@
-import { v4 as uuidv4 } from 'uuid';
+import uuid from 'react-native-uuid';
 import { DatabaseError, NotFoundError, ValidationError } from './errors';
 import {
-  CreateMessageInput,
-  CreateSessionInput,
-  DbProvider,
-  Message,
-  Session,
-  UpdateSessionInput,
+    CreateMessageInput,
+    CreateSessionInput,
+    DbProvider,
+    Message,
+    Session,
+    UpdateSessionInput,
 } from './types';
 
 export class ChatRepository {
@@ -46,7 +46,7 @@ export class ChatRepository {
       throw new ValidationError('Session title cannot be empty');
     }
 
-    const sessionId = input.customId || uuidv4();
+    const sessionId = input.customId || uuid.v4();
     const now = input.createdAt || Date.now();
     const pinned = input.pinned ? 1 : 0;
     const archived = input.archived ? 1 : 0;
@@ -214,7 +214,7 @@ export class ChatRepository {
       throw new ValidationError(`Invalid message role: '${input.role}'`);
     }
 
-    const messageId = input.customId || uuidv4();
+    const messageId = input.customId || uuid.v4();
     const now = input.createdAt || Date.now();
 
     const message: Message = {

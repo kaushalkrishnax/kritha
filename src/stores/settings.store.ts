@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { STORAGE_KEYS } from '@/constants/storage-keys';
-import { mmkvStorage } from '@/services';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { mmkvStorage } from '@/utils';
 
 export type DeviceType = 'cpu' | 'gpu';
 

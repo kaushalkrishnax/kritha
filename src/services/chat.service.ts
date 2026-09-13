@@ -7,7 +7,7 @@ import {
   Session,
   UpdateSessionInput,
 } from '@/database/types';
-import { useChatStore } from '@/store';
+import { useChatStore } from '@/stores';
 import { stubAction } from '@/utils';
 
 export const ChatSessionService = {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatSessionService } from '@/services/chat.service';
-import { useChatStore } from '@/store/chatStore';
+import { useChatStore } from '@/stores';
 import Colors from '@/theme';
 
 type ArchivedChatsModalProps = {

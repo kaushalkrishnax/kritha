@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { MODELS, STORAGE_KEYS } from '@/constants';
-import { mmkvStorage } from '@/services';
+import { mmkvStorage } from '@/utils';
 import { DownloadState, ModelRecord } from '@/types';
 
 export type ModelStoreState = {

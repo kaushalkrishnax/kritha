@@ -1,7 +1,7 @@
-import React, { useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { ChatHeader } from '@/components/chat/ui/ChatHeader';
 import { useChatSession } from '@/hooks';
-import { useModelStore } from '@/store';
+import { useModelStore } from '@/stores';
 
 interface Props {
   sidebarOpen: boolean;

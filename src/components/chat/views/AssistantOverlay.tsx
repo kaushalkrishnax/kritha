@@ -9,22 +9,23 @@ import {
 } from '@/components/chat/ui';
 import { useAssistantKeyboard, useSpeaker, useAssistantSession } from '@/hooks';
 import {
-  useAssistantSessionStore,
-  useChatInputStore,
-  useVoiceStore,
-} from '@/store';
+  useAssistantStore,
+  useIsSttListening,
+  useIsTtsSpeaking,
+  useIsTtsPaused,
+  useIsLiveTalk,
+} from '@/stores';
 
 export function AssistantOverlay() {
-  const canonicalState = useAssistantSessionStore((s) => s.canonicalState);
-  const response = useAssistantSessionStore((s) => s.response);
-  const error = useAssistantSessionStore((s) => s.error);
-  const assistantRunId = useAssistantSessionStore((s) => s.assistantRunId);
-  const currentTtsMsgId = useVoiceStore((s) => s.currentTtsMsgId);
-  const isTtsSpeaking = useVoiceStore((s) => s.isTtsSpeaking);
-  const isTtsPaused = useVoiceStore((s) => s.isTtsPaused);
-  const isLiveTalk = useChatInputStore((s) => s.mode) === 'LIVE_TALK';
+  const response = useAssistantStore((s) => s.response);
+  const error = useAssistantStore((s) => s.error);
+  const assistantRunId = useAssistantStore((s) => s.assistantRunId);
+  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMessageId);
+  const isTtsSpeaking = useIsTtsSpeaking();
+  const isTtsPaused = useIsTtsPaused();
+  const isLiveTalk = useIsLiveTalk();
 
-  const isRecording = canonicalState === 'LISTENING';
+  const isRecording = useIsSttListening();
   const { handleSpeakerPress } = useSpeaker();
   const { clearInputAndTranscript } = useAssistantSession();
   const animatedBottomStyle = useAssistantKeyboard();
@@ -32,8 +33,8 @@ export function AssistantOverlay() {
 
   const [responseVisible, setResponseVisible] = useState(false);
   const responseVisibleRef = useRef(false);
-  const responseOpacity = useRef(new Animated.Value(0)).current;
-  const responseTranslate = useRef(new Animated.Value(25)).current;
+  const [responseOpacity] = useState(() => new Animated.Value(0));
+  const [responseTranslate] = useState(() => new Animated.Value(25));
 
   useEffect(() => {
     mountedRef.current = true;
@@ -60,6 +61,7 @@ export function AssistantOverlay() {
     responseTranslate.setValue(25);
   }, [
     assistantRunId,
+    clearInputAndTranscript,
     responseOpacity,
     responseTranslate,
     safeSetResponseVisible,

@@ -1,12 +1,9 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { STORAGE_KEYS } from '@/constants';
-import { secureStorage } from '@/services';
+import { secureStorage } from '@/utils';
 
 interface VoiceStore {
-  isTtsSpeaking: boolean;
-  isTtsPaused: boolean;
-  currentTtsMsgId: string | null;
   isTtsDownloaded: boolean;
   isSttDownloaded: boolean;
   voiceModelProgress: { modelType: string; progress: number } | null;
@@ -14,11 +11,6 @@ interface VoiceStore {
   selectedSttModelId: string | null;
   selectedTtsModelId: string | null;
 
-  setTtsState: (
-    speaking: boolean,
-    paused: boolean,
-    msgId?: string | null,
-  ) => void;
   setTtsDownloaded: (downloaded: boolean) => void;
   setSttDownloaded: (downloaded: boolean) => void;
   setVoiceModelProgress: (
@@ -33,9 +25,6 @@ interface VoiceStore {
 export const useVoiceStore = create<VoiceStore>()(
   persist(
     (set) => ({
-      isTtsSpeaking: false,
-      isTtsPaused: false,
-      currentTtsMsgId: null,
       isTtsDownloaded: false,
       isSttDownloaded: false,
       voiceModelProgress: null,
@@ -43,12 +32,6 @@ export const useVoiceStore = create<VoiceStore>()(
       selectedSttModelId: null,
       selectedTtsModelId: null,
 
-      setTtsState: (speaking, paused, msgId = null) =>
-        set({
-          isTtsSpeaking: speaking,
-          isTtsPaused: paused,
-          currentTtsMsgId: speaking || paused ? msgId : null,
-        }),
       setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),
       setSttDownloaded: (downloaded) => set({ isSttDownloaded: downloaded }),
       setVoiceModelProgress: (progress) =>
@@ -59,10 +42,15 @@ export const useVoiceStore = create<VoiceStore>()(
       setSelectedTtsModelId: (selectedTtsModelId) =>
         set({ selectedTtsModelId }),
       reset: () =>
-        set({ isTtsSpeaking: false, isTtsPaused: false, currentTtsMsgId: null }),
+        set({
+          isTtsDownloaded: false,
+          isSttDownloaded: false,
+          voiceModelProgress: null,
+          isVoiceModalOpen: false,
+        }),
     }),
     {
-      name: STORAGE_KEYS.assistantSessionStore,
+      name: STORAGE_KEYS.voiceStore,
       storage: createJSONStorage(() => secureStorage),
       partialize: (state) => ({
         selectedSttModelId: state.selectedSttModelId,

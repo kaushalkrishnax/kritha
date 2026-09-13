@@ -1,2 +1,3 @@
+export * from './canonicalStates';
 export * from './models';
-export * from './storage-keys';
+export * from './storageKeys';

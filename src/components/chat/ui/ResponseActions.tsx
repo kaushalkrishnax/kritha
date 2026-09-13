@@ -13,7 +13,6 @@ import {
 import React, { useState } from 'react';
 import { View, TouchableOpacity, Share, StyleSheet } from 'react-native';
 import Colors from '@/theme';
-import { stubAction } from '@/utils/stub';
 
 export interface ResponseActionsProps {
   msgId?: string;

@@ -1,5 +1,5 @@
 import { useSpeaker } from '@/hooks';
-import { AssistantBridge, settingsService } from '@/services';
+import { settingsService } from '@/services';
 import Colors from '@/theme';
 import { Save, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -29,21 +29,24 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    if (visible) {
-      loadSettings();
-    }
+    if (!visible) return;
+    let cancelled = false;
+    settingsService
+      .loadSettings()
+      .then((data) => {
+        if (cancelled) return;
+        setUserName(data.userName);
+        setApiKey(data.apiKey);
+        setCustomInstructions(data.customInstructions);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error('Failed to load settings', e);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [visible]);
-
-  const loadSettings = async () => {
-    try {
-      const data = await settingsService.loadSettings();
-      setUserName(data.userName);
-      setApiKey(data.apiKey);
-      setCustomInstructions(data.customInstructions);
-    } catch (e) {
-      console.error('Failed to load settings', e);
-    }
-  };
 
   const handleSave = async () => {
     try {

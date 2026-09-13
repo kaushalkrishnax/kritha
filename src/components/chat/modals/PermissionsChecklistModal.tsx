@@ -23,9 +23,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { STORAGE_KEYS } from '@/constants';
 import { usePermissionsChecklist } from '@/hooks';
-import { PERMISSION_DESCRIPTORS, settingsService } from '@/services';
+import { settingsService } from '@/services';
 import Colors from '@/theme';
 
 const ICON_MAP: Record<string, any> = {

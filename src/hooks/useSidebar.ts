@@ -1,5 +1,5 @@
 import { ChatSessionService } from '@/services';
-import { useChatStore } from '@/store';
+import { useChatStore } from '@/stores';
 
 export function useSidebar() {
   const sessions = useChatStore((s) => s.sessions);

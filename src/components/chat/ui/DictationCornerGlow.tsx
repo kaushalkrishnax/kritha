@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Colors from '@/theme';
@@ -11,9 +11,9 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const EDGE_SIZE = 220;
 
 export function DictationCornerGlow({ active }: DictationCornerGlowProps) {
-  const visibility = useRef(new Animated.Value(0)).current;
-  const breathe = useRef(new Animated.Value(0)).current;
-  const breatheSlow = useRef(new Animated.Value(0)).current;
+  const [visibility] = useState(() => new Animated.Value(0));
+  const [breathe] = useState(() => new Animated.Value(0));
+  const [breatheSlow] = useState(() => new Animated.Value(0));
 
   const breatheLoop = useRef<Animated.CompositeAnimation | null>(null);
   const breatheSlowLoop = useRef<Animated.CompositeAnimation | null>(null);

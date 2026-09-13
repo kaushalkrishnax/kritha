@@ -1,6 +1,6 @@
 import { PermissionsAndroid } from 'react-native';
-import { AssistantBridge } from '@/services';
 import { PermissionDescriptor } from '@/types/permissions';
+import { AssistantBridge } from './app.service';
 
 export const PERMISSION_DESCRIPTORS: PermissionDescriptor[] = [
   {

@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from '@/constants';
-import { mmkvStorage, secureStorage } from '@/services';
-import { DeviceType, useSettingsStore } from '@/store';
+import { mmkvStorage, secureStorage } from '@/utils';
+import { DeviceType, useSettingsStore } from '@/stores';
 
 class SettingsService {
   async loadSettings(): Promise<{ userName: string; apiKey: string; customInstructions: string }> {

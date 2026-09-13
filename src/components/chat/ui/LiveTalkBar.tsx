@@ -1,5 +1,5 @@
 import { Mic, MicOff, Tv, Video, X } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Animated,
   StyleSheet,
@@ -13,17 +13,18 @@ import Svg, {
   Stop,
   LinearGradient as SvgGradient,
 } from 'react-native-svg';
-import { useChatInput } from '@/hooks';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
 import Colors from '@/theme';
+import { LiveTalkPhase } from '@/constants';
+import { useAssistantStore } from '@/stores';
 
 
 export function LiveTalkBar() {
-  const { liveTalkPhase, pauseLiveTalk, resumeLiveTalk, stopLiveTalk } =
-    useChatInput();
+  const liveTalkPhase = useAssistantStore((s) => s.liveTalkPhase);
 
   const getActiveState = () => {
-    if (liveTalkPhase === 'LISTENING') return 'Listening';
-    if (liveTalkPhase === 'SPEAKING') return 'Speaking';
+    if (liveTalkPhase === LiveTalkPhase.LISTENING) return 'Listening';
+    if (liveTalkPhase === LiveTalkPhase.SPEAKING) return 'Speaking';
     return 'Paused';
   };
 
@@ -31,7 +32,7 @@ export function LiveTalkBar() {
   const isRecording = activeState === 'Listening';
   const isSpeaking = activeState === 'Speaking';
 
-  const pulseAnim = useRef(new Animated.Value(0.2)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(0.2));
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -124,7 +125,7 @@ export function LiveTalkBar() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={
-                activeState === 'Paused' ? resumeLiveTalk : pauseLiveTalk
+                activeState === 'Paused' ? assistantRuntime.resumeLiveTalk : assistantRuntime.pauseLiveTalk
               }
               style={[
                 styles.circleBtn,
@@ -141,7 +142,7 @@ export function LiveTalkBar() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.circleBtn, styles.closeBtn]}
-              onPress={stopLiveTalk}
+              onPress={assistantRuntime.stopLiveTalk}
             >
               <X size={18} color={Colors.textOnAccent} />
             </TouchableOpacity>
@@ -213,7 +214,6 @@ const styles = StyleSheet.create({
   micIdleBtn: {
     backgroundColor: Colors.borderSubtle,
   },
-  // Brand theme blue when the mic is active (LISTENING).
   micActiveBtn: {
     backgroundColor: Colors.accentBlue,
     shadowColor: Colors.accentBlue,

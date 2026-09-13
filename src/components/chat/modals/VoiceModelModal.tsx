@@ -1,5 +1,5 @@
 import { Download, Trash2, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { useSpeaker } from '@/hooks';
-import { SttEngine, TtsEngine } from '@/services';
-import { useVoiceStore } from '@/store';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
+import { useVoiceStore } from '@/stores';
 import Colors from '@/theme';
 import { stubAction } from '@/utils';
 
@@ -107,12 +107,21 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   const selectedSttModelId = useVoiceStore((s) => s.selectedSttModelId);
   const selectedTtsModelId = useVoiceStore((s) => s.selectedTtsModelId);
   const { setSelectedSttModelId, setSelectedTtsModelId } = useSpeaker();
-  
+
+  const loadDownloaded = useCallback(async () => {
+    try {
+      const dl = await listDownloadedModels(tab);
+      setDownloadedIds(new Set(dl.map((d: any) => d.id || d)));
+    } catch (e) {
+      console.warn('Failed to load downloaded models', e);
+    }
+  }, [tab]);
 
   useEffect(() => {
-    if (visible) {
-      loadDownloaded();
-    }
+    if (!visible) return;
+    listDownloadedModels(tab)
+      .then((dl) => setDownloadedIds(new Set(dl.map((d: any) => d.id || d))))
+      .catch((e) => console.warn('Failed to load downloaded models', e));
   }, [visible, tab]);
 
   useEffect(() => {
@@ -123,21 +132,11 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
       }
     });
     return unsub;
-  }, []);
-
-  const loadDownloaded = async () => {
-    try {
-      const dl = await listDownloadedModels(tab);
-      setDownloadedIds(new Set(dl.map((d: any) => d.id || d)));
-    } catch (e) {
-      console.warn('Failed to load downloaded models', e);
-    }
-  };
+  }, [loadDownloaded]);
 
   const handleDownload = async (modelId: string) => {
     setLoadingAction(modelId);
     try {
-      // Warm up the cache so the SDK can find the model metadata internally
       await refreshModels(tab);
       await ensureModel(tab, modelId);
     } catch (e) {
@@ -157,12 +156,12 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   };
 
   const handleSelect = async (modelId: string) => {
+    assistantRuntime.stopSpeaking();
+
     if (tab === ModelCategory.Stt) {
       setSelectedSttModelId(modelId);
-      await TtsEngine.destroy();
     } else {
       setSelectedTtsModelId(modelId);
-      await TtsEngine.destroy();
     }
   };
 

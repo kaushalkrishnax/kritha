@@ -4,29 +4,39 @@
 
   # Kritha
 
-  **A native-powered, privacy-first AI assistant for Android.**
+  **A voice-first, privacy-first AI assistant for Android.**
 
-  Voice-first. Local-capable. Cloud-ready. Built for real-time interaction.
+  Native runtime · On-device intelligence · Cloud-ready
 
   <p>
-    <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
-    <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" />
-    <img src="https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" />
-    <img src="https://img.shields.io/badge/LiteRT-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" />
-    <img src="https://img.shields.io/badge/Edge_Impulse-1B1F23?style=for-the-badge&logo=edgeimpulse&logoColor=white" />
+    <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" />
+    <img src="https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" />
+    <img src="https://img.shields.io/badge/Kotlin-0095D5?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
+    <img src="https://img.shields.io/badge/LiteRT-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" alt="LiteRT" />
+    <img src="https://img.shields.io/badge/Edge_Impulse-1B1F23?style=for-the-badge&logo=edgeimpulse&logoColor=white" alt="Edge Impulse" />
+    <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+    <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT" />
   </p>
 
 </div>
 
 ---
 
-## ✨ What is Kritha?
+## ✨ Overview
 
-Kritha is an Android AI assistant built around a **native assistant runtime** rather than treating the app as just a React Native chat client.
+Kritha is an Android AI assistant built around a **native assistant runtime** — not a React Native chat client with native bolted on.
 
-The UI is built with React Native + Expo, while the core assistant lifecycle is handled natively through Kotlin. This gives Kritha direct control over things that need to remain reliable outside the React lifecycle: **audio, wake-word detection, speech recognition, inference, TTS, persistence, Android integration, and long-running assistant sessions.**
+The product UI is React Native + Expo. Everything that must stay reliable outside the React lifecycle — audio, wake-word detection, speech recognition, inference, TTS, persistence, and long-running sessions — is owned by a Kotlin runtime. The two communicate over a typed command/event bridge.
 
-The result is a hybrid system where React Native handles the product experience and Kotlin handles the assistant itself.
+### Highlights
+
+- 🎙️ **Always-on wake word** — “Hey Kritha,” detected by an Edge Impulse model inside an Android foreground service
+- ⚡ **Streaming everything** — responses stream token-by-token into the chat *and* the TTS queue
+- 📴 **Local-first intelligence** — on-device inference via LiteRT, with cloud as fallback
+- 🗣️ **Swappable voice models** — downloadable STT/TTS models (Zipformer, SenseVoice, Moonshine, Kokoro, Piper, Matcha, VITS)
+- 💬 **Native chat persistence** — sessions live in native SQLite, independent of any React screen
+- 🎛️ **Explicit microphone ownership** — wake word, dictation, and assistant audio never fight over the mic
+- 🤖 **Deep Android integration** — assistant role, notification access, guided permissions onboarding
 
 ---
 
@@ -34,74 +44,45 @@ The result is a hybrid system where React Native handles the product experience 
 
 ```mermaid
 flowchart TB
-    UI["React Native / Expo<br/>UI + Navigation"]
-    STORE["Zustand<br/>UI State"]
-    API["Typed Native API<br/>Commands + Events"]
+    subgraph RN["React Native / Expo — product experience"]
+        UI["Screens · Chat UI · Settings · Navigation"]
+        STORE["Zustand UI state"]
+    end
 
-    CORE["AssistantCore<br/>Native Assistant Runtime"]
+    BRIDGE["KrithaModule — typed commands & events"]
 
-    DB["DBManager<br/>Chat Persistence"]
-    MIC["MicrophoneManager<br/>Audio Ownership"]
-    STT["Speech Recognition"]
-    WAKE["Wake Word Service<br/>Edge Impulse"]
-    TTS["TtsManager<br/>Streaming TTS"]
-    INTEL["Intelligence Pipeline"]
+    subgraph KR["Kotlin — native assistant runtime"]
+        CORE["AssistantCore<br/>(sessions · lifecycle · orchestration)"]
+        WAKE["Wake Word Service<br/>(Edge Impulse)"]
+        MIC["MicrophoneManager<br/>(audio ownership)"]
+        STT["Speech Recognition"]
+        TTS["TtsManager<br/>(streaming synthesis)"]
+        INTEL["Intelligence Pipeline"]
+        DB["DBManager<br/>(SQLite)"]
+    end
 
-    LOCAL["Local Inference<br/>LiteRT"]
-    CLOUD["Cloud LLM"]
+    subgraph AND["Android Platform"]
+        SYS["Foreground services · Notifications<br/>Assistant role · System APIs"]
+    end
 
-    ANDROID["Android System APIs"]
+    LOCAL["Local models — LiteRT"]
+    CLOUD["Cloud LLM — Gemini"]
 
     UI <--> STORE
-    UI <--> API
-    API <--> CORE
-
-    CORE --> DB
+    UI <--> BRIDGE
+    BRIDGE <--> CORE
+    WAKE --> CORE
     CORE --> MIC
-    CORE --> STT
+    MIC --> STT
     CORE --> TTS
     CORE --> INTEL
-    WAKE --> CORE
-
+    CORE --> DB
     INTEL --> LOCAL
     INTEL --> CLOUD
-
-    CORE --> ANDROID
-
-    CORE --> API
-    API --> STORE
+    CORE --> SYS
 ```
 
-### The important boundary
-
-```text
-┌─────────────────────────────────────────────┐
-│              React Native / Expo            │
-│                                             │
-│  Screens • Chat UI • Settings • Navigation  │
-│              • Zustand Store                │
-└──────────────────────┬──────────────────────┘
-                       │
-              Typed Commands / Events
-                       │
-┌──────────────────────▼──────────────────────┐
-│              Kotlin Runtime                 │
-│                                             │
-│  AssistantCore • Sessions • Audio • TTS     │
-│  Wake Word • STT • Models • Persistence     │
-└──────────────────────┬──────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────┐
-│              Android Platform               │
-│                                             │
-│  Microphone • TTS • Foreground Service      │
-│  Notifications • Assistant • System APIs    │
-└─────────────────────────────────────────────┘
-```
-
-React Native does **not** need to know how an assistant request is executed internally.
-
-It sends a command:
+The boundary is the point: React Native never touches assistant internals. It sends a command —
 
 ```ts
 dispatchCommand({
@@ -111,49 +92,53 @@ dispatchCommand({
 });
 ```
 
-The native runtime owns the execution and sends structured events back.
+— and the native runtime owns execution, emitting structured events back.
+
+| Native component   | Responsibility                        |
+| ------------------ | ------------------------------------- |
+| `AssistantCore`    | Assistant lifecycle & orchestration   |
+| `MicrophoneManager`| Explicit audio ownership              |
+| `TtsManager`       | Streaming speech synthesis            |
+| Wake-word service  | Always-on “Hey Kritha” (Edge Impulse) |
+| Intelligence pipeline | Local (LiteRT) + cloud routing     |
+| `DBManager`        | SQLite chat persistence               |
 
 ---
 
 ## ⚡ Assistant Runtime
 
-Kritha uses a single canonical assistant lifecycle:
+One canonical state machine replaces scattered `isRecording` / `isSending` / `isSpeaking` flags:
 
 ```mermaid
 stateDiagram-v2
     [*] --> IDLE
 
-    IDLE --> LISTENING
-    LISTENING --> THINKING
-    THINKING --> GENERATING
-    GENERATING --> SPEAKING
-    SPEAKING --> IDLE
+    IDLE --> LISTENING: wake word / START_LISTENING
+    LISTENING --> THINKING: transcript captured
+    THINKING --> GENERATING: first token
+    GENERATING --> SPEAKING: response streams to TTS
+    SPEAKING --> IDLE: run completes
 
-    LISTENING --> CANCELLING
-    THINKING --> CANCELLING
-    GENERATING --> CANCELLING
-    SPEAKING --> CANCELLING
+    LISTENING --> CANCELLING: CANCEL
+    THINKING --> CANCELLING: CANCEL
+    GENERATING --> CANCELLING: CANCEL
+    SPEAKING --> CANCELLING: CANCEL
+    CANCELLING --> IDLE: cleaned up
 
-    CANCELLING --> IDLE
-
-    IDLE --> ERROR
     LISTENING --> ERROR
     THINKING --> ERROR
     GENERATING --> ERROR
     SPEAKING --> ERROR
-
-    ERROR --> IDLE
+    ERROR --> IDLE: recovered
 ```
-
-This replaces the old approach of having independent flags for recording, sending, generating and speaking.
 
 ### Commands
 
 | Command           | Purpose                         |
 | ----------------- | ------------------------------- |
 | `SUBMIT_TEXT`     | Send a text request             |
-| `START_LISTENING` | Begin voice input               |
-| `STOP_LISTENING`  | Stop voice input                |
+| `START_LISTENING` | Begin voice input              |
+| `STOP_LISTENING`  | Stop voice input               |
 | `PLAY_TTS`        | Speak text                      |
 | `PAUSE_TTS`       | Pause speech                    |
 | `RESUME_TTS`      | Resume speech                   |
@@ -164,113 +149,63 @@ This replaces the old approach of having independent flags for recording, sendin
 
 ### Events
 
-The runtime emits typed events such as:
-
 ```text
-SESSION_START
-STATE_CHANGED
-TEXT_DELTA
-TEXT_COMPLETE
-MESSAGE_PERSISTED
-
-TTS_START
-TTS_PAUSE
-TTS_RESUME
-TTS_STOP
-TTS_COMPLETE
-TTS_ERROR
-
-SESSION_END
-ERROR
+SESSION_START · STATE_CHANGED · TEXT_DELTA · TEXT_COMPLETE · MESSAGE_PERSISTED
+TTS_START · TTS_PAUSE · TTS_RESUME · TTS_STOP · TTS_COMPLETE · TTS_ERROR
+SESSION_END · ERROR
 ```
 
-Every assistant operation can be correlated using:
-
-```text
-chatSessionId
-assistantRunId
-requestId
-messageId
-```
-
-That becomes especially important when **streaming, cancellation and TTS happen concurrently**.
+Every operation carries `chatSessionId`, `assistantRunId`, `requestId`, and `messageId` — so streaming, cancellation, and TTS can safely overlap within a single run.
 
 ---
 
-## 🎙️ Voice Pipeline
+## 🎙️ A Voice Turn, End to End
+
+The whole system in one diagram — from wake word to spoken response:
 
 ```mermaid
-flowchart LR
-    MIC["Microphone"] --> WAKE["Wake Word"]
-    WAKE -->|Detected| SESSION["Assistant Session"]
-    SESSION --> STT["Speech Recognition"]
-    STT --> CORE["AssistantCore"]
-    CORE --> AI["Local / Cloud Inference"]
-    AI --> STREAM["Streaming Response"]
-    STREAM --> UI["Chat UI"]
-    STREAM --> TTS["TTS"]
-    TTS --> SPEAKER["Speaker"]
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Wake-word service
+    participant C as AssistantCore
+    participant S as Speech recognition
+    participant I as Intelligence pipeline
+    participant T as TtsManager
+    participant R as React Native UI
+
+    W->>W: Edge Impulse detects "Hey Kritha"
+    W->>C: hand off microphone, start session
+    C->>R: SESSION_START · STATE_CHANGED
+    C->>S: acquire mic, begin transcription
+    U->>S: speaks request
+    S->>C: final transcript
+    C->>I: submit request (chatSessionId, runId)
+    I-->>R: TEXT_DELTA (streaming)
+    I->>T: queue speech as text arrives
+    T-->>R: TTS_START
+    T->>U: speaks the response
+    I-->>C: TEXT_COMPLETE
+    C->>C: persist message
+    C-->>R: MESSAGE_PERSISTED · SESSION_END
+    C->>W: release mic, resume listening
 ```
-
-### Wake Word
-
-The wake-word system runs independently through an Android foreground service using the Edge Impulse audio pipeline.
-
-```text
-Always-on listener
-       ↓
-Audio capture
-       ↓
-Edge Impulse inference
-       ↓
-"Hey Kritha"
-       ↓
-AssistantCore
-```
-
-The wake-word service is therefore not dependent on whether the React screen is currently mounted.
 
 ### Microphone ownership
 
-Kritha explicitly tracks who owns the microphone:
+The mic always has exactly one owner, arbitrated natively — so wake-word listening and dictation never collide:
 
-```text
-          ┌─────────────┐
-          │ Microphone  │
-          └──────┬──────┘
-                 │
-       ┌─────────┼─────────┐
-       ▼         ▼         ▼
-     STT     WAKE_WORD    NONE
+```mermaid
+flowchart LR
+    O["MicrophoneManager<br/>single-owner arbitration"]
+    O --> W["Wake word<br/>(background listening)"]
+    O --> S["Speech recognition<br/>(active session)"]
+    O --> R["Released"]
 ```
 
-This prevents wake-word detection and speech recognition from fighting over the same audio input.
+### Streaming TTS
 
----
-
-## 🔊 Streaming TTS
-
-TTS is handled by the native `TtsManager`.
-
-Instead of waiting for an entire response:
-
-```text
-LLM response
-     │
-     ├── "Hey, Kaushal."
-     ├── "Here's what I found..."
-     ├── "The important part is..."
-     │
-     ▼
-TTS queue
-     │
-     ▼
-Speaker
-```
-
-TTS maintains its own lifecycle and correlates speech with the active assistant run and message.
-
-Supported lifecycle:
+`TtsManager` speaks as text arrives — it never waits for the full response — with its own lifecycle, correlated to the active run and message:
 
 ```text
 START → SPEAKING → PAUSE → RESUME → STOP / COMPLETE
@@ -280,100 +215,75 @@ START → SPEAKING → PAUSE → RESUME → STOP / COMPLETE
 
 ## 🤖 Intelligence
 
-Kritha supports both local and cloud inference.
+One pipeline, two interchangeable backends:
 
 ```mermaid
-flowchart TD
-    REQUEST["Assistant Request"]
-    ROUTER["Intelligence Pipeline"]
-
-    REQUEST --> ROUTER
-
-    ROUTER --> LOCAL["Local Model"]
-    ROUTER --> CLOUD["Cloud Model"]
-
-    LOCAL --> RESULT["Unified Response Stream"]
-    CLOUD --> RESULT
-
-    RESULT --> UI["Chat UI"]
-    RESULT --> TTS["TTS"]
+flowchart LR
+    REQ["Assistant request"] --> ROUTER{"Intelligence pipeline"}
+    ROUTER -->|on-device| LOCAL["Local model<br/>LiteRT"]
+    ROUTER -->|fallback / capability| CLOUD["Cloud LLM<br/>Gemini"]
+    LOCAL --> STREAM["Unified response stream"]
+    CLOUD --> STREAM
+    STREAM --> UI["Chat UI — TEXT_DELTA"]
+    STREAM --> TTS["TtsManager — speech segments"]
 ```
 
-### Local
+- **Local** — models are downloaded and managed by the native runtime, executed on-device via LiteRT
+- **Cloud** — Gemini, for when local inference is unavailable or insufficient
 
-Local models are managed directly by the native runtime and can be downloaded and controlled from the application.
-
-```text
-Available Models
-      ↓
-Download
-      ↓
-Pause / Resume
-      ↓
-Local Storage
-      ↓
-LiteRT
-      ↓
-On-device inference
-```
-
-### Cloud
-
-Cloud models provide an escape hatch when local inference is unavailable or insufficient.
-
-The important part is that **the UI does not need a different architecture for local and cloud responses**. Both feed into the same assistant runtime and event stream.
+Both emit into the same response stream. The UI has no local/cloud special-casing.
 
 ---
 
 ## 💬 Conversations
 
-Chat sessions are now part of the native assistant runtime.
-
-Supported operations include:
+Chat sessions are part of the native runtime — create, open, rename, pin, archive, delete, and persist messages all happen in Kotlin, independent of any React screen.
 
 | Operation        | Native |
 | ---------------- | :----: |
-| Create chat      |    ✓   |
-| Open chat        |    ✓   |
-| Rename           |    ✓   |
-| Pin              |    ✓   |
-| Archive          |    ✓   |
-| Delete           |    ✓   |
-| Persist messages |    ✓   |
-
-This means chat lifecycle is not tied to a React component or screen.
-
-```mermaid
-flowchart LR
-    UI["Chat UI"]
-    CORE["AssistantCore"]
-    DB["Native DB"]
-
-    UI --> CORE
-    CORE --> DB
-
-    DB --> CORE
-    CORE --> UI
-```
+| Create chat      |   ✓    |
+| Open chat        |   ✓    |
+| Rename           |   ✓    |
+| Pin              |   ✓    |
+| Archive          |   ✓    |
+| Delete           |   ✓    |
+| Persist messages |   ✓    |
 
 ---
 
 ## 📱 Android Integration
 
-Kritha is designed to operate as an Android assistant, not simply as a foreground chat application.
+Kritha operates as an Android assistant, not just a foreground chat app:
 
-Current native integration includes:
+- Wake-word foreground service
+- Native speech recognition & TTS
+- Microphone ownership arbitration
+- Assistant / default-assistant integration
+- Notification listener integration
+- Native model management (download, pause/resume, delete)
+- Guided permissions onboarding
 
-* Wake-word foreground service
-* Native speech recognition
-* Native TTS
-* Microphone ownership
-* Assistant/default-assistant integration
-* Notification listener integration
-* Android system APIs
-* Native model management
+All of it is exposed through the controlled TypeScript API — never raw internals.
 
-The native module exposes these capabilities through a controlled TypeScript API rather than exposing the internal implementation directly.
+---
+
+## 🛠️ Tech Stack
+
+| Area                | Technology                                     |
+| ------------------- | ---------------------------------------------- |
+| UI                  | React Native + Tamagui                         |
+| Framework           | Expo (native dev builds)                       |
+| Navigation          | Expo Router                                    |
+| State               | Zustand                                        |
+| Native runtime      | Kotlin                                         |
+| Native bridge       | Expo Modules API                               |
+| Local inference     | LiteRT                                         |
+| Wake word           | Edge Impulse                                   |
+| Speech recognition  | Android Speech Recognition + on-device models |
+| Text-to-speech      | Android TTS + on-device models                |
+| Cloud LLM           | Gemini                                         |
+| Persistence         | Native SQLite                                  |
+| Package manager     | Bun                                            |
 
 ---
 
@@ -381,62 +291,32 @@ The native module exposes these capabilities through a controlled TypeScript API
 
 ```text
 kritha/
-│
-├── android/
-│
-├── assets/
-│
-├── edge-impulse-exports/
-│
-├── modules/
-│   └── kritha/
-│       ├── android/
-│       │   └── src/main/java/
-│       │       └── expo/modules/kritha/
-│       │           ├── AssistantCore
-│       │           ├── DBManager
-│       │           ├── TtsManager
-│       │           ├── MicrophoneManager
-│       │           ├── intelligence/
-│       │           ├── wakeword/
-│       │           └── tools/
-│       │
-│       └── src/
-│           ├── KrithaModule.ts
-│           └── index.ts
-│
+├── android/                      # Native Android shell
+├── modules/kritha/
+│   ├── android/                  # Kotlin runtime
+│   │   └── .../expo/modules/kritha/
+│   │       ├── AssistantCore/
+│   │       ├── DBManager/
+│   │       ├── TtsManager/
+│   │       ├── MicrophoneManager/
+│   │       ├── intelligence/
+│   │       ├── wakeword/
+│   │       └── tools/
+│   └── src/
+│       └── KrithaModule.ts       # Typed public API
 ├── src/
-│   ├── app/
-│   ├── components/
-│   ├── hooks/
-│   ├── services/
-│   ├── store/
-│   └── theme/
-│
-├── app.json
-├── package.json
-└── tamagui.config.ts
+│   ├── app/                      # Expo Router entry
+│   ├── components/               # Chat UI, views, modals
+│   ├── constants/                # Canonical states, model registry
+│   ├── database/                 # Repositories, migrations, vector store
+│   ├── hooks/                    # useSpeaker, useWakeword, useChatSession…
+│   ├── services/                 # Runtime, chat, model, settings services
+│   ├── stores/                   # Zustand stores
+│   ├── theme/
+│   └── types/
+├── edge-impulse-exports/         # Wake-word model artifacts
+└── assets/
 ```
-
----
-
-## 🛠️ Tech Stack
-
-| Area            | Technology                 |
-| --------------- | -------------------------- |
-| UI              | React Native               |
-| Framework       | Expo                       |
-| Navigation      | Expo Router                |
-| State           | Zustand                    |
-| Native Runtime  | Kotlin                     |
-| Native Bridge   | Expo Modules API           |
-| Local ML        | LiteRT                     |
-| Wake Word       | Edge Impulse               |
-| STT             | Android Speech Recognition |
-| TTS             | Android TextToSpeech       |
-| Persistence     | Native SQLite              |
-| Package Manager | Bun                        |
-| Platform        | Android                    |
 
 ---
 
@@ -444,18 +324,16 @@ kritha/
 
 ### Requirements
 
-* Node.js 18+
-* Bun
-* Android Studio
-* Android SDK
-* Android emulator or physical Android device
+- Node.js 18+
+- Bun
+- Android Studio + Android SDK
+- Android emulator or physical device
 
 ### Install
 
 ```bash
 git clone https://github.com/your-org/kritha.git
 cd kritha
-
 bun install
 ```
 
@@ -465,47 +343,36 @@ bun install
 EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
 ```
 
-### Development
-
-Start Metro / Expo:
+### Run
 
 ```bash
-bun run start
+bun run start     # Metro / Expo dev server
+bun run android   # native build + install
 ```
 
-Build the native Android application:
-
-```bash
-bun run android
-```
-
-> **Note:** Kritha uses custom native Android code under `modules/kritha`, so **Expo Go is not supported**. Use a native development build.
+> **Note:** Kritha ships custom native Android code under `modules/kritha`, so **Expo Go is not supported** — use a development build.
 
 ---
 
-## 🧩 Development Philosophy
+## 🧩 Ownership Model
 
-Kritha follows a simple ownership model:
+The goal is not “everything in Kotlin” or “everything in React Native.” It’s putting each responsibility **where it runs reliably**:
 
 | Responsibility      | Owner                    |
 | ------------------- | ------------------------ |
 | Rendering           | React Native             |
 | UI state            | Zustand                  |
 | Assistant execution | `AssistantCore`          |
-| Audio ownership     | `MicrophoneManager`      |
-| Wake word           | Native wake-word service |
+| Audio ownership     | `MicrophoneManager`     |
+| Wake word           | Native service           |
 | Speech recognition  | Native Android           |
 | TTS                 | `TtsManager`             |
 | Chat persistence    | Native DB                |
 | Model execution     | Intelligence pipeline    |
 | Android integration | Kotlin                   |
 
-The goal is not to put everything into Kotlin or everything into React Native.
-
-The goal is to put each responsibility **where it can be executed reliably**.
-
 ---
 
 ## 📄 License
 
-MIT License. See [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).

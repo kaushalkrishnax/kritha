@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import uuid from 'react-native-uuid';
 import { VectorStore } from './VectorStore';
 import { DatabaseError, NotFoundError, ValidationError } from './errors';
 import {
@@ -71,7 +71,7 @@ export class ToolRepository {
       );
     }
 
-    const toolId = uuidv4();
+    const toolId = uuid.v4();
     const now = Date.now();
 
     const tool: ToolDefinition = {
@@ -284,7 +284,7 @@ export class ToolRepository {
     queryEmbedding: number[],
     limit: number = 5,
     expectedDimension?: number,
-  ): Promise<Array<VectorSearchResult & { tool: ToolDefinition }>> {
+  ): Promise<(VectorSearchResult & { tool: ToolDefinition })[]> {
     const vectorResults = await this.vectorStore.search(
       queryEmbedding,
       limit,
@@ -292,7 +292,7 @@ export class ToolRepository {
     );
     if (vectorResults.length === 0) return [];
 
-    const results: Array<VectorSearchResult & { tool: ToolDefinition }> = [];
+    const results: (VectorSearchResult & { tool: ToolDefinition })[] = [];
     for (const item of vectorResults) {
       const tool = await this.getTool(item.toolId);
       if (tool) {

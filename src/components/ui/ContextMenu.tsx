@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -39,41 +39,53 @@ export function ContextMenu({
   onSelect,
   onDismiss,
 }: ContextMenuProps) {
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.95)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [scale] = useState(() => new Animated.Value(0.95));
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
+  const menuPosition = useMemo(() => {
+    if (!visible || !anchor) return { top: 0, left: 0 };
+    let left = anchor.x;
+    let top = anchor.y;
+
+    // Adjust if menu goes off right edge
+    if (left + MENU_WIDTH > screenWidth - insets.right - 12) {
+      left = screenWidth - insets.right - MENU_WIDTH - 12;
+    }
+
+    // Ensure it doesn't go too far left
+    if (left < insets.left + 12) {
+      left = insets.left + 12;
+    }
+
+    // Rough estimate of menu height
+    const estimatedHeight = items.length * ITEM_HEIGHT + MENU_PADDING * 2;
+
+    // Adjust if menu goes off bottom edge
+    if (top + estimatedHeight > screenHeight - insets.bottom - 24) {
+      top = anchor.y + anchor.height - estimatedHeight;
+      if (top < insets.top + 16) {
+        top = insets.top + 16;
+      }
+    }
+
+    return { top, left };
+  }, [
+    visible,
+    anchor,
+    screenWidth,
+    screenHeight,
+    insets.left,
+    insets.right,
+    insets.top,
+    insets.bottom,
+    items.length,
+  ]);
+
   useEffect(() => {
     if (visible && anchor) {
-      let left = anchor.x;
-      let top = anchor.y;
-
-      // Adjust if menu goes off right edge
-      if (left + MENU_WIDTH > screenWidth - insets.right - 12) {
-        left = screenWidth - insets.right - MENU_WIDTH - 12;
-      }
-
-      // Ensure it doesn't go too far left
-      if (left < insets.left + 12) {
-        left = insets.left + 12;
-      }
-
-      // Rough estimate of menu height
-      const estimatedHeight = items.length * ITEM_HEIGHT + MENU_PADDING * 2;
-
-      // Adjust if menu goes off bottom edge
-      if (top + estimatedHeight > screenHeight - insets.bottom - 24) {
-        top = anchor.y + anchor.height - estimatedHeight;
-        if (top < insets.top + 16) {
-          top = insets.top + 16;
-        }
-      }
-
-      setMenuPosition({ top, left });
-
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
@@ -91,7 +103,7 @@ export function ContextMenu({
       opacity.setValue(0);
       scale.setValue(0.95);
     }
-  }, [visible, anchor, items.length, opacity, scale]);
+  }, [visible, anchor, opacity, scale]);
 
   if (!visible || !anchor) return null;
 

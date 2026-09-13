@@ -1,11 +1,13 @@
 import React, { useCallback } from 'react';
-import { ModelSelectModal } from '@/components/chat/modals/ModelSelectModal';
-import { PermissionsChecklistModal } from '@/components/chat/modals/PermissionsChecklistModal';
-import { VoiceModelModal } from '@/components/chat/modals/VoiceModelModal';
-import ChatSidebar from '@/components/chat/ui/ChatSidebar';
+import {
+  ModelSelectModal,
+  PermissionsChecklistModal,
+  VoiceModelModal,
+} from '@/components/chat/modals';
+import { ChatSidebar } from '@/components/chat/ui';
 import { useChatSession, useSidebar, useSpeaker } from '@/hooks';
 import { ChatSessionService, modelDownloadService } from '@/services';
-import { useAssistantSessionStore, useModelStore, useVoiceStore } from '@/store';
+import { useModelStore, useVoiceStore } from '@/stores';
 import { ModelRecord } from '@/types';
 
 interface Props {
@@ -36,7 +38,7 @@ export function ChatScreenModals({
   const isVoiceModalOpen = useVoiceStore((s) => s.isVoiceModalOpen);
 
   const { sessions, activeSessionId } = useSidebar();
-  
+
   const { openChat, beginNewChat, setSessionError } = useChatSession();
 
   const handleSessionSelect = useCallback(

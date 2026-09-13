@@ -1,6 +1,3 @@
-import * as SecureStore from 'expo-secure-store';
-import { createMMKV } from 'react-native-mmkv';
-import { StateStorage } from 'zustand/middleware';
 import {
   isDefaultAssistant,
   isNotificationListenerEnabled,
@@ -11,33 +8,7 @@ import {
   stop,
 } from '@modules/kritha/src';
 import { database } from '@/database';
-import { useWakewordStore } from '@/store/wakewordStore';
-
-// MMKV
-const appMMKV = createMMKV({ id: 'kritha-storage' });
-
-export const mmkvStorage: StateStorage = {
-  setItem: (name: string, value: string) => {
-    appMMKV.set(name, value);
-  },
-  getItem: (name: string) => {
-    const value = appMMKV.getString(name);
-    return value ?? null;
-  },
-  removeItem: (name: string) => {
-    appMMKV.remove(name);
-  },
-};
-
-// Secure Storage
-export const secureStorage: StateStorage = {
-  getItem: (name: string): Promise<string | null> =>
-    SecureStore.getItemAsync(name),
-  setItem: (name: string, value: string): Promise<void> =>
-    SecureStore.setItemAsync(name, value),
-  removeItem: (name: string): Promise<void> =>
-    SecureStore.deleteItemAsync(name).catch(() => {}),
-};
+import { useWakewordStore } from '@/stores';
 
 export const AssistantBridge = {
   startWakewordListening: start,
