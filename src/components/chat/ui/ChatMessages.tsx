@@ -1,36 +1,36 @@
 import { ArrowDown, Brain, Copy, Pencil, Share2 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Dimensions,
-    Keyboard,
-    Animated as RNAnimated,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Keyboard,
+  Animated as RNAnimated,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, {
-    Defs,
-    Rect,
-    Stop,
-    LinearGradient as SvgGradient,
+  Defs,
+  Rect,
+  Stop,
+  LinearGradient as SvgGradient,
 } from 'react-native-svg';
 import { ContextMenu } from '@/components/ui/ContextMenu';
 import { useChatInputHeight, useSpeaker } from '@/hooks';
 import { ChatSessionService } from '@/services';
 import {
-    useAssistantStore,
-    useChatStore,
-    useIsLlmGenerating,
-    useIsLlmThinking,
-    useIsTtsPaused,
-    useIsTtsSpeaking,
+  useAssistantStore,
+  useChatStore,
+  useIsLlmGenerating,
+  useIsLlmThinking,
+  useIsTtsPaused,
+  useIsTtsSpeaking,
 } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { ChatMessage } from '@/types/chat';

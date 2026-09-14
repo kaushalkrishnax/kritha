@@ -1,11 +1,11 @@
 import {
-    Check,
-    Copy,
-    EllipsisVertical,
-    Pause,
-    Play,
-    Share2,
-    Volume2,
+  Check,
+  Copy,
+  EllipsisVertical,
+  Pause,
+  Play,
+  Share2,
+  Volume2,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Share, StyleSheet, TouchableOpacity, View } from 'react-native';

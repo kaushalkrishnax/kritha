@@ -60,9 +60,7 @@ export function ResponseMessage({
           />
         ) : null}
 
-        {answer ? (
-          <MarkdownRenderer content={answer} />
-        ) : null}
+        {answer ? <MarkdownRenderer content={answer} /> : null}
 
         {!answer && !thinking && isStreaming ? (
           <View style={styles.thinkingDotsRow}>

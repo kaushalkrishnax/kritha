@@ -181,7 +181,10 @@ export function PermissionsChecklistModal({
     return (
       <View
         key={descriptor.id}
-        style={[styles.permissionCard, isGranted && styles.permissionCardGranted]}
+        style={[
+          styles.permissionCard,
+          isGranted && styles.permissionCardGranted,
+        ]}
       >
         <View
           style={[

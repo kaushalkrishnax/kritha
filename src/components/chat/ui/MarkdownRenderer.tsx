@@ -265,7 +265,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
         highlight: true,
         latexMath: true,
       }}
-      
+
       writingDirection="first-strong"
       streamingAnimation={true}
       streamingConfig={{
