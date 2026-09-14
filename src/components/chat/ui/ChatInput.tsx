@@ -1,36 +1,48 @@
+import {
+  ArrowUp,
+  AudioLines,
+  Info,
+  Mic,
+  Plus,
+  Square,
+  X,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import uuid from 'react-native-uuid';
 import { ChatMode, RequestOrigin } from '@/constants';
+import { useChatInputHeight } from '@/hooks';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import {
-    useAssistantStore,
-    useIsLlmBusy,
-    useIsLlmGenerating,
-    useIsLlmThinking,
-    useIsSttTranscribing,
-    useModelStore,
+  useAssistantStore,
+  useChatStore,
+  useIsLlmBusy,
+  useIsLlmGenerating,
+  useIsLlmThinking,
+  useIsSttTranscribing,
+  useModelStore,
 } from '@/stores';
-import Colors from '@/theme';
-import { ArrowUp, AudioLines, Mic, Plus, Square, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    Animated,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
   0.9, 0.55, 0.8, 0.35, 0.6, 1.0, 0.45, 0.7,
 ];
-const LINE_HEIGHT = 22;
-const MAX_LINES = 6;
+const LINE_HEIGHT = 24;
+const MAX_LINES = 8;
 const MAX_INPUT_HEIGHT = LINE_HEIGHT * MAX_LINES;
 const COMPACT_HEIGHT = 58;
-const EXPANDED_MIN_HEIGHT = 96;
-const BOTTOM_ROW_HEIGHT = 38;
+const EXPANDED_MIN_HEIGHT = 116;
+const BOTTOM_ROW_HEIGHT = 44;
 
 export function ChatInput({
   modelId,
@@ -45,7 +57,11 @@ export function ChatInput({
   const chatMode = useAssistantStore((s) => s.chatMode);
   const draftText = useAssistantStore((s) => s.draftText);
   const setDraftText = useAssistantStore((s) => s.setDraftText);
+  const editingMessageId = useAssistantStore((s) => s.editingMessageId);
+  const setEditingMessageId = useAssistantStore((s) => s.setEditingMessageId);
   const selectedModelId = useModelStore((s) => s.selectedModelId);
+  const chatSessionId = useChatStore((s) => s.chatSessionId);
+  const { setChatInputHeight } = useChatInputHeight();
 
   const isBusy = useIsLlmBusy();
   const isThinking = useIsLlmThinking();
@@ -96,6 +112,14 @@ export function ChatInput({
     }
     fadeAnim.setValue(1);
   }, [isGenerating, fadeAnim]);
+
+  const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (editingMessageId && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingMessageId]);
 
   useEffect(() => {
     if (!isGenerating && !isThinking) {
@@ -170,16 +194,47 @@ export function ChatInput({
 
   const handleSubmit = () => {
     if (!effectiveModelId) return;
-    assistantRuntime.submitPrompt({
-      text: draftText,
-      origin: RequestOrigin.MANUAL_TYPING,
+    const msgId = String(uuid.v4());
+    if (editingMessageId) {
+      assistantRuntime.editAndResubmitPrompt(
+        editingMessageId,
+        draftText,
+        effectiveModelId,
+        chatSessionId,
+        msgId,
+      );
+    } else {
+      assistantRuntime.submitPrompt({
+        text: draftText,
+        origin: RequestOrigin.MANUAL_TYPING,
+        modelId: effectiveModelId,
+        sessionId: chatSessionId,
+        msgId,
+      });
+    }
+  };
+
+  const handleSubmitDictation = async () => {
+    if (!effectiveModelId) return;
+
+    const text = await assistantRuntime.stopDictation();
+    const promptText = text.trim() || draftText.trim();
+
+    if (!promptText) return;
+    const msgId = String(uuid.v4());
+
+    await assistantRuntime.submitPrompt({
+      text: promptText,
+      origin: RequestOrigin.MANUAL_DICTATION,
       modelId: effectiveModelId,
+      sessionId: chatSessionId,
+      msgId,
     });
   };
 
   const handleActionPress = () => {
     if (chatMode === ChatMode.DICTATION) {
-      assistantRuntime.sendDictation();
+      handleSubmitDictation();
       return;
     }
     if (isBusy || showJustASec) {
@@ -187,38 +242,72 @@ export function ChatInput({
       return;
     }
     if (!isBusy && hasText) return handleSubmit();
-    assistantRuntime.startLiveTalk();
+    assistantRuntime.startLiveTalk({ sessionId: chatSessionId });
   };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setDraftText('');
+  };
+
+  const handleContainerLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = Math.ceil(event.nativeEvent.layout.height);
+
+      setChatInputHeight(height);
+    },
+    [setChatInputHeight],
+  );
 
   const expandedHeight = Math.min(
     EXPANDED_MIN_HEIGHT + Math.max(0, measuredLines - 2) * LINE_HEIGHT,
-    MAX_INPUT_HEIGHT + BOTTOM_ROW_HEIGHT + 16,
+    MAX_INPUT_HEIGHT + BOTTOM_ROW_HEIGHT + 24,
   );
 
   return (
     <View style={styles.container}>
+      {!!editingMessageId && (
+        <View style={styles.editingWarningWrapper}>
+          <Info
+            size={IconSizes.sm}
+            color={Colors.textPrimary}
+            style={{ marginRight: Spacing.sm }}
+          />
+          <Text style={styles.editingWarningText}>
+            Editing this message will restart the conversation from here.
+          </Text>
+          <TouchableOpacity
+            onPress={handleCancelEdit}
+            style={styles.editingWarningCloseBtn}
+          >
+            <X size={IconSizes.sm} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
       <View
         style={[
           styles.composer,
           isExpanded && styles.expandedComposer,
           { height: isExpanded ? expandedHeight : COMPACT_HEIGHT },
         ]}
+        onLayout={handleContainerLayout}
       >
         {chatMode === ChatMode.DICTATION ? (
           <View style={styles.recordingRow}>
-            {isTranscribing ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.plusButton}
+              onPress={() => assistantRuntime.cancelDictation()}
+            >
+              <X size={IconSizes.lg} color={Colors.textSecondary} />
+            </TouchableOpacity>
+
+            {isTranscribing && (
               <View style={styles.plusButton}>
                 <ActivityIndicator size="small" color={Colors.textSecondary} />
               </View>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.plusButton}
-                onPress={() => assistantRuntime.cancelDictation()}
-              >
-                <X size={22} color={Colors.textSecondary} />
-              </TouchableOpacity>
             )}
+
             {isTranscribing ? (
               <View
                 style={[styles.waveformContainer, { justifyContent: 'center' }]}
@@ -226,7 +315,7 @@ export function ChatInput({
                 <Text
                   style={{
                     color: Colors.textMuted,
-                    fontSize: 16,
+                    fontSize: Typography.sizeMd,
                     fontFamily: 'Inter-Medium',
                   }}
                 >
@@ -249,10 +338,14 @@ export function ChatInput({
               </View>
             )}
             <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: Spacing.sm,
+              }}
             >
               <TouchableOpacity
-                onPress={() => assistantRuntime.cancelDictation()}
+                onPress={() => assistantRuntime.stopDictation()}
                 activeOpacity={0.82}
                 style={[
                   styles.stopButton,
@@ -262,16 +355,10 @@ export function ChatInput({
                 ]}
                 disabled={isTranscribing}
               >
-                <Square size={20} color={Colors.iconSlate} />
+                <Square size={IconSizes.base} color={Colors.iconSlate} />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  if (chatMode === ChatMode.DICTATION) {
-                    assistantRuntime.sendDictation();
-                  } else if (hasText) {
-                    handleSubmit();
-                  }
-                }}
+                onPress={handleActionPress}
                 activeOpacity={0.82}
                 style={[
                   styles.actionButton,
@@ -282,7 +369,7 @@ export function ChatInput({
                 ]}
                 disabled={!hasText && chatMode !== ChatMode.DICTATION}
               >
-                <ArrowUp size={18} color={Colors.textOnAccent} />
+                <ArrowUp size={IconSizes.md} color={Colors.textOnAccent} />
               </TouchableOpacity>
             </View>
           </View>
@@ -298,7 +385,7 @@ export function ChatInput({
                   disabled={showJustASec}
                 >
                   <Plus
-                    size={22}
+                    size={IconSizes.lg}
                     color={
                       showJustASec ? Colors.textMuted : Colors.textSecondary
                     }
@@ -306,6 +393,7 @@ export function ChatInput({
                 </TouchableOpacity>
               )}
               <TextInput
+                ref={inputRef}
                 value={showJustASec ? '' : draftText}
                 onChangeText={handleTextChange}
                 editable={!showJustASec}
@@ -326,7 +414,7 @@ export function ChatInput({
                       style={styles.voiceModeButton}
                       onPress={() => assistantRuntime.startDictation()}
                     >
-                      <Mic size={24} color={Colors.iconSlate} />
+                      <Mic size={IconSizes.lg} color={Colors.textPrimary} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
@@ -337,9 +425,15 @@ export function ChatInput({
                     {isBusy || showJustASec ? (
                       <Square size={16} color={Colors.textOnAccent} />
                     ) : !isBusy && hasText ? (
-                      <ArrowUp size={18} color={Colors.textOnAccent} />
+                      <ArrowUp
+                        size={IconSizes.md}
+                        color={Colors.textOnAccent}
+                      />
                     ) : (
-                      <AudioLines size={19} color={Colors.textOnAccent} />
+                      <AudioLines
+                        size={IconSizes.md}
+                        color={Colors.textOnAccent}
+                      />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -348,7 +442,7 @@ export function ChatInput({
             {isExpanded && (
               <View style={styles.expandedBottomRow}>
                 <TouchableOpacity activeOpacity={0.7} style={styles.plusButton}>
-                  <Plus size={22} color={Colors.textSecondary} />
+                  <Plus size={IconSizes.md} color={Colors.textSecondary} />
                 </TouchableOpacity>
                 <View style={styles.compactActions}>
                   {!showJustASec && (
@@ -357,7 +451,7 @@ export function ChatInput({
                       style={styles.voiceModeButton}
                       onPress={() => assistantRuntime.startDictation()}
                     >
-                      <Mic size={24} color={Colors.iconSlate} />
+                      <Mic size={IconSizes.lg} color={Colors.iconSlate} />
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
@@ -368,9 +462,15 @@ export function ChatInput({
                     {isBusy || showJustASec ? (
                       <Square size={16} color={Colors.textOnAccent} />
                     ) : !isBusy && hasText ? (
-                      <ArrowUp size={18} color={Colors.textOnAccent} />
+                      <ArrowUp
+                        size={IconSizes.sm}
+                        color={Colors.textOnAccent}
+                      />
                     ) : (
-                      <AudioLines size={19} color={Colors.textOnAccent} />
+                      <AudioLines
+                        size={IconSizes.sm}
+                        color={Colors.textOnAccent}
+                      />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -394,9 +494,9 @@ export function ChatInput({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 12,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
     alignItems: 'center',
     position: 'relative',
     backgroundColor: 'transparent',
@@ -405,10 +505,10 @@ const styles = StyleSheet.create({
   composer: {
     width: '100%',
     minHeight: COMPACT_HEIGHT,
-    borderRadius: 28,
-    backgroundColor: Colors.bgCard,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    borderRadius: Radius['2xl'],
+    backgroundColor: Colors.bgSecondary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
@@ -416,48 +516,48 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 6,
+      height: 4,
     },
     shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   expandedComposer: {
-    borderRadius: 24,
-    paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 8,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
 
   recordingRow: {
     width: '100%',
-    height: 48,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   waveformContainer: {
     flex: 1,
-    height: 48,
+    height: 44,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
   },
 
   waveform: {
     width: '100%',
-    height: 48,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: Spacing.xs,
   },
 
   waveBar: {
     width: 2,
     minHeight: 6,
     maxHeight: 40,
-    borderRadius: 2,
+    borderRadius: Radius.xs,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,
   },
@@ -467,24 +567,22 @@ const styles = StyleSheet.create({
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 2,
-    paddingRight: 2,
   },
 
   inputAreaExpanded: {
     flex: 1,
     height: undefined,
     alignItems: 'flex-start',
-    paddingHorizontal: 4,
-    paddingTop: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingTop: 0,
+    paddingBottom: Spacing['2xs'],
   },
 
   input: {
     flex: 1,
     minHeight: LINE_HEIGHT,
     color: Colors.textSecondary,
-    fontSize: 15.5,
-    fontWeight: '400',
+    fontSize: Typography.sizeBase,
     lineHeight: LINE_HEIGHT,
     padding: 0,
     margin: 0,
@@ -494,16 +592,17 @@ const styles = StyleSheet.create({
   expandedInput: {
     width: '100%',
     height: '100%',
-    fontSize: 15.5,
+    fontSize: Typography.sizeBase,
     lineHeight: LINE_HEIGHT,
     textAlignVertical: 'top',
     paddingTop: 0,
+    paddingBottom: 0,
   },
 
   compactActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
   },
 
   expandedBottomRow: {
@@ -512,14 +611,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 2,
+    paddingHorizontal: Spacing['2xs'],
+    marginTop: Spacing.xs,
   },
 
   plusButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -527,7 +625,7 @@ const styles = StyleSheet.create({
   actionButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
@@ -536,8 +634,8 @@ const styles = StyleSheet.create({
   stopButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.bgInput,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -571,22 +669,22 @@ const styles = StyleSheet.create({
   voiceModeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   measurementContainer: {
     position: 'absolute',
-    left: 48,
-    right: 48,
+    left: Spacing.xl,
+    right: Spacing.xl,
     top: 0,
     opacity: 0,
     pointerEvents: 'none',
   },
 
   measurementText: {
-    fontSize: 15.5,
+    fontSize: Typography.sizeBase,
     fontWeight: '400',
     lineHeight: LINE_HEIGHT,
     padding: 0,
@@ -596,13 +694,45 @@ const styles = StyleSheet.create({
   processingTextContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: 4,
+    paddingLeft: Spacing.xs,
   },
 
   justASecText: {
     color: Colors.textSecondary,
-    fontSize: 15.5,
+    fontSize: Typography.sizeBase,
     fontWeight: '400',
     fontStyle: 'italic',
+  },
+
+  editingWarningWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.bgSecondary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.md,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  editingWarningText: {
+    color: Colors.textPrimary,
+    fontSize: Typography.sizeSm,
+    fontWeight: '500',
+    flex: 1,
+  },
+  editingWarningCloseBtn: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
   },
 });

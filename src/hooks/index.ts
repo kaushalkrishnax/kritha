@@ -1,5 +1,6 @@
 export * from './useAssistantKeyboard';
 export * from './useAssistantSession';
+export * from './useChatInputHeight';
 export * from './useChatSession';
 export * from './useConversationContext';
 export * from './usePermissionsChecklist';

@@ -1,13 +1,18 @@
 import { STORAGE_KEYS } from '@/constants';
-import { mmkvStorage, secureStorage } from '@/utils';
 import { DeviceType, useSettingsStore } from '@/stores';
+import { mmkvStorage, secureStorage } from '@/utils';
 
 class SettingsService {
-  async loadSettings(): Promise<{ userName: string; apiKey: string; customInstructions: string }> {
+  async loadSettings(): Promise<{
+    userName: string;
+    apiKey: string;
+    customInstructions: string;
+  }> {
     const store = useSettingsStore.getState();
     const storeName = store.userName;
-    const initialName = (storeName && storeName !== 'Your Name' ? storeName : '') || 'Your Name';
-    
+    const initialName =
+      (storeName && storeName !== 'Your Name' ? storeName : '') || 'Your Name';
+
     const storedKey = await this.readApiKey();
     const apiKey = storedKey || '';
 
@@ -47,7 +52,9 @@ class SettingsService {
   }
 
   hasSeenPermissionsOnboarding(): boolean {
-    return mmkvStorage.getItem(STORAGE_KEYS.permissionsOnboardingSeen) === 'true';
+    return (
+      mmkvStorage.getItem(STORAGE_KEYS.permissionsOnboardingSeen) === 'true'
+    );
   }
 }
 

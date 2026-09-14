@@ -1,6 +1,6 @@
 import { Brain } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import Colors from '@/theme';
+import { Colors, IconSizes, Spacing, Typography } from '@/theme';
 import { ChatMessage } from '@/types/chat';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ResponseActions } from './ResponseActions';
@@ -13,8 +13,6 @@ export interface ResponseMessageProps {
   isTtsSpeaking?: boolean;
   isTtsPaused?: boolean;
   onSpeakerPress?: (msgId: string) => void;
-  onExpandPress?: () => void;
-  showExpandButton?: boolean;
   style?: object;
 }
 
@@ -46,8 +44,6 @@ export function ResponseMessage({
   isTtsSpeaking = false,
   isTtsPaused = false,
   onSpeakerPress,
-  onExpandPress,
-  showExpandButton = false,
   style,
 }: ResponseMessageProps) {
   const { thinking, answer, isThinkingActive } = parseThinkingMessage(
@@ -64,11 +60,13 @@ export function ResponseMessage({
           />
         ) : null}
 
-        {answer ? <MarkdownRenderer content={answer} /> : null}
+        {answer ? (
+          <MarkdownRenderer content={answer} isStreaming={isStreaming} />
+        ) : null}
 
         {!answer && !thinking && isStreaming ? (
           <View style={styles.thinkingDotsRow}>
-            <Brain size={16} color={Colors.accentLightBlue} />
+            <Brain size={IconSizes.sm} color={Colors.accentLightBlue} />
             <Text style={styles.thinkingDotsText}>Thinking…</Text>
           </View>
         ) : null}
@@ -82,8 +80,6 @@ export function ResponseMessage({
             onSpeakerPress={
               onSpeakerPress ? () => onSpeakerPress(message.id) : undefined
             }
-            onExpandPress={onExpandPress}
-            showExpandButton={showExpandButton}
           />
         )}
       </View>
@@ -101,17 +97,17 @@ const styles = StyleSheet.create({
   },
   assistantContainer: {
     width: '100%',
-    paddingVertical: 2,
-    paddingHorizontal: 2,
+    paddingVertical: Spacing['2xs'],
+    paddingHorizontal: Spacing['2xs'],
   },
   thinkingDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   thinkingDotsText: {
-    fontSize: 13,
+    fontSize: Typography.sizeSm,
     color: Colors.textDimmed,
     fontStyle: 'italic',
   },

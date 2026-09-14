@@ -1,6 +1,3 @@
-import { useSpeaker } from '@/hooks';
-import { settingsService } from '@/services';
-import Colors from '@/theme';
 import { Save, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -11,10 +8,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSpeaker } from '@/hooks';
+import { settingsService } from '@/services';
+import { useModelStore } from '@/stores';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 type SettingsModalProps = {
   visible: boolean;
@@ -23,6 +24,7 @@ type SettingsModalProps = {
 
 export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const { openVoiceModal } = useSpeaker();
+  const setLlmModalOpen = useModelStore((s) => s.setLlmModalOpen);
   const [userName, setUserName] = useState('Your Name');
   const [apiKey, setApiKey] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
@@ -79,7 +81,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
             <View style={styles.header}>
               <Text style={styles.title}>Settings</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={20} color={Colors.textMuted} />
+                <X size={IconSizes.base} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -115,6 +117,32 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
               </View>
 
               <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Language Models</Text>
+                <Text style={styles.sectionDesc}>
+                  Download and select local or cloud LLMs.
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.saveBtn,
+                    {
+                      marginTop: Spacing.md,
+                      backgroundColor: Colors.borderStrong,
+                    },
+                  ]}
+                  onPress={() => {
+                    onClose();
+                    setLlmModalOpen(true);
+                  }}
+                >
+                  <Text
+                    style={[styles.saveText, { color: Colors.textOnAccent }]}
+                  >
+                    Manage LLMs
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Voice Models</Text>
                 <Text style={styles.sectionDesc}>
                   Download and select TTS & STT models.
@@ -122,7 +150,10 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 <TouchableOpacity
                   style={[
                     styles.saveBtn,
-                    { marginTop: 10, backgroundColor: Colors.borderStrong },
+                    {
+                      marginTop: Spacing.md,
+                      backgroundColor: Colors.borderStrong,
+                    },
                   ]}
                   onPress={() => {
                     onClose();
@@ -167,9 +198,9 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 onPress={handleSave}
               >
                 <Save
-                  size={18}
-                  color={Colors.accentPrimary}
-                  style={{ marginRight: 8 }}
+                  size={IconSizes.sm}
+                  color={Colors.textOnAccent}
+                  style={{ marginRight: Spacing.sm }}
                 />
                 <Text style={styles.saveText}>Save Settings</Text>
               </TouchableOpacity>
@@ -194,8 +225,8 @@ const styles = StyleSheet.create({
   },
   content: {
     backgroundColor: Colors.bgSurface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     maxHeight: '100%',
     display: 'flex',
     flexDirection: 'column',
@@ -204,46 +235,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
   title: {
-    fontSize: 18,
+    fontSize: Typography.sizeLg,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
   closeBtn: {
-    padding: 6,
+    padding: Spacing.sm,
   },
   scrollArea: {
     flexShrink: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: Spacing.xl,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: Spacing['2xl'],
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: Typography.sizeBase,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   sectionDesc: {
-    fontSize: 13,
+    fontSize: Typography.sizeSm,
     color: Colors.textMuted,
-    marginBottom: 10,
+    marginBottom: Spacing.md,
     lineHeight: 18,
   },
   input: {
     backgroundColor: Colors.bgSurface,
     color: Colors.textPrimary,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
+    borderRadius: Radius.base,
+    padding: Spacing.md,
+    fontSize: Typography.sizeBase,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
   },
@@ -252,23 +283,23 @@ const styles = StyleSheet.create({
     maxHeight: 180,
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
     backgroundColor: Colors.bgSurface,
   },
   saveBtn: {
-    backgroundColor: Colors.accentPrimary,
+    backgroundColor: Colors.accentBlue,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
-    borderRadius: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.base,
   },
   saveText: {
     color: Colors.textOnAccent,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: Typography.sizeBase,
   },
 });

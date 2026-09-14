@@ -1,7 +1,7 @@
 import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Colors from '@/theme';
+import { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 export interface ThinkingBlockProps {
   thinking: string;
@@ -22,15 +22,15 @@ export function ThinkingBlock({
         onPress={() => setCollapsed((prev) => !prev)}
       >
         <View style={styles.thinkingHeaderLeft}>
-          <Brain size={14} color={Colors.accentLightBlue} />
+          <Brain size={IconSizes.xs} color={Colors.accentLightBlue} />
           <Text style={styles.thinkingHeaderText}>
             {isThinkingActive ? 'Thinking…' : 'Thought process'}
           </Text>
         </View>
         {collapsed ? (
-          <ChevronDown size={14} color={Colors.textMuted} />
+          <ChevronDown size={IconSizes.xs} color={Colors.textMuted} />
         ) : (
-          <ChevronUp size={14} color={Colors.textMuted} />
+          <ChevronUp size={IconSizes.xs} color={Colors.textMuted} />
         )}
       </TouchableOpacity>
 
@@ -45,9 +45,9 @@ export function ThinkingBlock({
 
 const styles = StyleSheet.create({
   thinkingContainer: {
-    marginBottom: 10,
+    marginBottom: Spacing.md,
     backgroundColor: Colors.thinkingBg,
-    borderRadius: 10,
+    borderRadius: Radius.base,
     borderWidth: 1,
     borderColor: Colors.assistantBubbleBorder,
     overflow: 'hidden',
@@ -56,27 +56,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     backgroundColor: 'rgba(26,115,232,0.08)',
   },
-  thinkingHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  thinkingHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   thinkingHeaderText: {
-    fontSize: 12,
+    fontSize: Typography.sizeSm,
     fontWeight: '600',
     color: Colors.accentLightBlue,
   },
   thinkingBody: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(26,115,232,0.15)',
     borderLeftWidth: 3,
     borderLeftColor: Colors.thinkingBorder,
   },
   thinkingText: {
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: Typography.sizeSm,
+    lineHeight: 20,
     color: Colors.textDimmed,
     fontStyle: 'italic',
   },

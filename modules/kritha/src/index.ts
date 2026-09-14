@@ -66,6 +66,5 @@ export {
   LocalLlmDeltaEvent,
   LocalLlmGenerateRequest,
   LocalLlmMessage,
-  WakeWordEvent
+  WakeWordEvent,
 };
-

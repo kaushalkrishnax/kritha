@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import {
+  LlmModelModal,
   ModelSelectModal,
   PermissionsChecklistModal,
   VoiceModelModal,
@@ -35,6 +36,8 @@ export function ChatScreenModals({
   const models = useModelStore((s) => s.models);
   const selectedModelId = useModelStore((s) => s.selectedModelId);
   const downloadState = useModelStore((s) => s.downloadState);
+  const isLlmModalOpen = useModelStore((s) => s.isLlmModalOpen);
+  const setLlmModalOpen = useModelStore((s) => s.setLlmModalOpen);
   const isVoiceModalOpen = useVoiceStore((s) => s.isVoiceModalOpen);
 
   const { sessions, activeSessionId } = useSidebar();
@@ -42,9 +45,9 @@ export function ChatScreenModals({
   const { openChat, beginNewChat, setSessionError } = useChatSession();
 
   const handleSessionSelect = useCallback(
-    (id: string) => {
+    async (id: string) => {
       try {
-        openChat(id);
+        await openChat(id);
         setSidebarOpen(false);
       } catch (e: any) {
         setSessionError(e.message || 'Failed to load messages');
@@ -53,9 +56,9 @@ export function ChatScreenModals({
     [setSidebarOpen, setSessionError, openChat],
   );
 
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback(async () => {
     try {
-      beginNewChat();
+      await beginNewChat();
       setSidebarOpen(false);
     } catch (e: any) {
       setSessionError(e.message || 'Failed to create new chat session');
@@ -129,6 +132,11 @@ export function ChatScreenModals({
       <VoiceModelModal
         visible={isVoiceModalOpen}
         onClose={() => closeVoiceModal()}
+      />
+
+      <LlmModelModal
+        visible={isLlmModalOpen}
+        onClose={() => setLlmModalOpen(false)}
       />
     </>
   );

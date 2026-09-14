@@ -1,2 +1,3 @@
-export * from './stub';
+export * from './formatters';
 export * from './storage';
+export * from './stub';

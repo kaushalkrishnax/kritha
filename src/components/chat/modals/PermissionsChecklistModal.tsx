@@ -12,7 +12,7 @@ import {
   Users,
   X,
 } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   AppState,
   Modal,
@@ -25,7 +25,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePermissionsChecklist } from '@/hooks';
 import { settingsService } from '@/services';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 const ICON_MAP: Record<string, any> = {
   Sparkles,
@@ -79,16 +79,16 @@ export function PermissionsChecklistModal({
       >
         <View style={styles.cardHeader}>
           <View style={styles.iconCircle}>
-            <Icon size={20} color={desc.iconColor} />
+            <Icon size={IconSizes.base} color={desc.iconColor} />
           </View>
           <View style={styles.cardTitleArea}>
             <Text style={styles.cardTitle}>{desc.title}</Text>
             <Text style={styles.cardDesc}>{desc.description}</Text>
           </View>
           {isGranted ? (
-            <CheckCircle2 size={22} color={Colors.success} />
+            <CheckCircle2 size={IconSizes.md} color={Colors.success} />
           ) : (
-            <AlertCircle size={22} color={Colors.textMuted} />
+            <AlertCircle size={IconSizes.md} color={Colors.textMuted} />
           )}
         </View>
         {!isGranted && (
@@ -100,7 +100,7 @@ export function PermissionsChecklistModal({
             <Text style={styles.actionBtnSecondaryText}>
               Allow {desc.title}
             </Text>
-            <ChevronRight size={16} color={Colors.textPrimary} />
+            <ChevronRight size={IconSizes.sm} color={Colors.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -114,14 +114,14 @@ export function PermissionsChecklistModal({
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Settings
-                size={20}
+                size={IconSizes.base}
                 color={Colors.textPrimary}
-                style={{ marginRight: 8 }}
+                style={{ marginRight: Spacing.sm }}
               />
               <Text style={styles.title}>System Access</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={20} color={Colors.textSecondary} />
+              <X size={IconSizes.base} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -137,7 +137,7 @@ export function PermissionsChecklistModal({
             <Text style={styles.sectionHeader}>CORE REQUIREMENTS</Text>
             {requiredDescriptors.map(renderCard)}
 
-            <Text style={[styles.sectionHeader, { marginTop: 16 }]}>
+            <Text style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
               OPTIONAL ENHANCEMENTS
             </Text>
             {optionalDescriptors.map(renderCard)}
@@ -171,8 +171,8 @@ const styles = StyleSheet.create({
   },
   content: {
     backgroundColor: Colors.bgSurface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     maxHeight: '82%',
     flexDirection: 'column',
   },
@@ -180,87 +180,103 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  closeBtn: { padding: 6 },
+  title: {
+    fontSize: Typography.sizeLg,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  closeBtn: { padding: Spacing.sm },
   scrollArea: { flexShrink: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+  scrollContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
   subtitle: {
-    fontSize: 13,
+    fontSize: Typography.sizeSm,
     color: Colors.textMuted,
-    marginBottom: 14,
+    marginBottom: Spacing.md,
     lineHeight: 18,
   },
   sectionHeader: {
-    fontSize: 11,
+    fontSize: Typography.size2xs,
     fontWeight: '700',
     color: Colors.textDimmed,
     letterSpacing: 1,
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   card: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
+    backgroundColor: Colors.bgPrimary,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
   },
   cardGranted: { borderColor: 'rgba(16, 185, 129, 0.3)' },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.borderFaint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: Spacing.md,
   },
-  cardTitleArea: { flex: 1, marginRight: 8 },
+  cardTitleArea: { flex: 1, marginRight: Spacing.sm },
   cardTitle: {
-    fontSize: 14,
+    fontSize: Typography.sizeBase,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: Spacing['2xs'],
   },
-  cardDesc: { fontSize: 12, color: Colors.textMuted, lineHeight: 16 },
+  cardDesc: {
+    fontSize: Typography.sizeSm,
+    color: Colors.textMuted,
+    lineHeight: 18,
+  },
   actionBtnSecondary: {
-    marginTop: 10,
+    marginTop: Spacing.md,
     backgroundColor: Colors.borderFaint,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.borderStrong,
-    gap: 4,
+    gap: Spacing.xs,
   },
   actionBtnSecondaryText: {
     color: Colors.textPrimary,
-    fontSize: 13,
+    fontSize: Typography.sizeSm,
     fontWeight: '600',
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
   },
   doneBtn: {
-    backgroundColor: Colors.accentPrimary,
+    backgroundColor: Colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.base,
   },
-  doneBtnText: { color: Colors.textOnAccent, fontSize: 15, fontWeight: '700' },
+  doneBtnText: {
+    color: Colors.textOnAccent,
+    fontSize: Typography.sizeBase,
+    fontWeight: '700',
+  },
 });

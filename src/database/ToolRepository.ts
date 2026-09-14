@@ -1,5 +1,4 @@
 import uuid from 'react-native-uuid';
-import { VectorStore } from './VectorStore';
 import { DatabaseError, NotFoundError, ValidationError } from './errors';
 import {
   CreateToolInput,
@@ -9,6 +8,7 @@ import {
   UpdateToolInput,
   VectorSearchResult,
 } from './types';
+import { VectorStore } from './VectorStore';
 
 export class ToolRepository {
   private vectorStore: VectorStore;

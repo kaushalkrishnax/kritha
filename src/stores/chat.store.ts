@@ -6,10 +6,17 @@ interface ChatStore {
   chatSessionId: string | null;
   sessions: Session[];
   messages: ChatMessage[];
+  chatInputHeight: number;
+  isLoadingMessages: boolean;
+  hasMoreMessages: boolean;
 
   setChatSessionId: (chatSessionId: string | null) => void;
   setSessions: (sessions: Session[]) => void;
   setMessages: (messages: ChatMessage[]) => void;
+  setChatInputHeight: (chatInputHeight: number) => void;
+  setIsLoadingMessages: (loading: boolean) => void;
+  setHasMoreMessages: (hasMore: boolean) => void;
+  prependMessages: (messages: ChatMessage[]) => void;
   mergeSessions: (incoming: Session[]) => void;
   upsertSession: (session: Session) => void;
   renameSession: (sessionId: string, title: string) => void;
@@ -25,10 +32,18 @@ export const useChatStore = create<ChatStore>()((set) => ({
   chatSessionId: null,
   sessions: [],
   messages: [],
+  chatInputHeight: 0,
+  isLoadingMessages: false,
+  hasMoreMessages: true,
 
   setChatSessionId: (chatSessionId) => set({ chatSessionId }),
   setSessions: (sessions) => set({ sessions }),
   setMessages: (messages) => set({ messages }),
+  setChatInputHeight: (chatInputHeight) => set({ chatInputHeight }),
+  setIsLoadingMessages: (isLoadingMessages) => set({ isLoadingMessages }),
+  setHasMoreMessages: (hasMoreMessages) => set({ hasMoreMessages }),
+  prependMessages: (newMessages) =>
+    set((state) => ({ messages: [...newMessages, ...state.messages] })),
 
   mergeSessions: (incoming) =>
     set((state) => {
@@ -62,15 +77,21 @@ export const useChatStore = create<ChatStore>()((set) => ({
 
   upsertSession: (session) =>
     set((state) => {
-      const exists = state.sessions.find((s) => s.id === session.id);
-      if (exists) {
-        return {
-          sessions: state.sessions.map((s) =>
+      const exists = state.sessions.some((s) => s.id === session.id);
+      const updated = exists
+        ? state.sessions.map((s) =>
             s.id === session.id ? { ...s, ...session } : s,
-          ),
-        };
-      }
-      return { sessions: [session, ...state.sessions] };
+          )
+        : [session, ...state.sessions];
+
+      updated.sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+          return a.pinned ? -1 : 1;
+        }
+        return (b.updatedAt || 0) - (a.updatedAt || 0);
+      });
+
+      return { sessions: updated };
     }),
 
   renameSession: (sessionId, title) =>
@@ -81,11 +102,18 @@ export const useChatStore = create<ChatStore>()((set) => ({
     })),
 
   pinSession: (sessionId, pinned) =>
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
+    set((state) => {
+      const updated = state.sessions.map((s) =>
         s.id === sessionId ? { ...s, pinned } : s,
-      ),
-    })),
+      );
+      updated.sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+          return a.pinned ? -1 : 1;
+        }
+        return (b.updatedAt || 0) - (a.updatedAt || 0);
+      });
+      return { sessions: updated };
+    }),
 
   archiveSession: (sessionId, archived) =>
     set((state) => ({

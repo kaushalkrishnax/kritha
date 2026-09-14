@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import {
   Archive,
@@ -10,7 +9,6 @@ import {
   Pin,
   Search,
   Settings,
-  Share,
   ShieldCheck,
   SquarePen,
   Trash2,
@@ -28,15 +26,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import {
   ArchivedChatsModal,
-  SettingsModal,
   PermissionsChecklistModal,
+  SettingsModal,
 } from '@/components/chat/modals';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
 import { Session as ChatSession } from '@/database';
 import { useSettingsStore } from '@/stores';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 import { stubAction } from '@/utils';
 
 export interface ChatSidebarProps {
@@ -129,36 +128,23 @@ export function ChatSidebar({
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (!activeSession) return [];
     const isPinned = Boolean(activeSession.pinned);
-    const isArchived = Boolean(activeSession.archived);
 
     return [
       {
-        id: 'share',
-        label: 'Share',
-        icon: <Share size={20} color={Colors.textPrimary} />,
+        id: 'pin',
+        label: isPinned ? 'Unpin' : 'Pin',
+        icon: <Pin size={IconSizes.md} color={Colors.textPrimary} />,
       },
       {
         id: 'rename',
         label: 'Rename',
-        icon: <Pencil size={20} color={Colors.textPrimary} />,
+        icon: <Pencil size={IconSizes.md} color={Colors.textPrimary} />,
       },
-      { id: 'sep1', label: '', isSeparator: true },
-      {
-        id: 'pin',
-        label: isPinned ? 'Unpin chat' : 'Pin chat',
-        icon: <Pin size={20} color={Colors.textPrimary} />,
-      },
-      {
-        id: 'archive',
-        label: isArchived ? 'Unarchive' : 'Archive',
-        icon: <Archive size={20} color={Colors.textPrimary} />,
-      },
-      { id: 'sep2', label: '', isSeparator: true },
       {
         id: 'delete',
         label: 'Delete',
         destructive: true,
-        icon: <Trash2 size={20} color={Colors.warning} />,
+        icon: <Trash2 size={IconSizes.md} color={Colors.warning} />,
       },
     ];
   }, [activeSession]);
@@ -212,6 +198,7 @@ export function ChatSidebar({
         ref={(el) => {
           rowRefs.current[s.id] = el;
         }}
+        activeOpacity={0.7}
         style={[styles.historyRow, isSelected && styles.historyRowSelected]}
         onPress={() => onSessionSelect(s.id)}
         onLongPress={(e) => handleLongPress(s.id, e.nativeEvent.pageX)}
@@ -220,18 +207,14 @@ export function ChatSidebar({
       >
         {isPinnedSection && (
           <MessageCircle
-            size={18}
-            color={Colors.textPrimary}
+            size={IconSizes.base}
+            color={isSelected ? Colors.textPrimary : Colors.textMuted}
             style={styles.pinnedIcon}
           />
         )}
         {editingId === s.id ? (
           <TextInput
-            style={[
-              styles.historyText,
-              styles.historyTextSelected,
-              { padding: 0, margin: 0 },
-            ]}
+            style={[styles.historyText, { padding: 0, margin: 0 }]}
             value={editTitle}
             onChangeText={setEditTitle}
             onSubmitEditing={() => handleEditSubmit(s.id)}
@@ -240,13 +223,7 @@ export function ChatSidebar({
             returnKeyType="done"
           />
         ) : (
-          <Text
-            style={[
-              styles.historyText,
-              isSelected && styles.historyTextSelected,
-            ]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.historyText]} numberOfLines={1}>
             {s.title}
           </Text>
         )}
@@ -255,20 +232,20 @@ export function ChatSidebar({
   };
 
   // Slide animation
-  const [slideAnim] = useState(() => new Animated.Value(-320));
+  const [slideAnim] = useState(() => new Animated.Value(-330));
   const [backdropOpacity] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 280,
         easing: Easing.out(Easing.poly(4)),
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: 280,
         useNativeDriver: true,
       }),
     ]).start();
@@ -277,14 +254,14 @@ export function ChatSidebar({
   const handleClose = useCallback(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {
-        toValue: -320,
-        duration: 250,
+        toValue: -330,
+        duration: 240,
         easing: Easing.in(Easing.poly(4)),
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
         toValue: 0,
-        duration: 250,
+        duration: 240,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -306,7 +283,6 @@ export function ChatSidebar({
         style={[
           styles.sidebar,
           {
-            paddingTop: 12,
             transform: [{ translateX: slideAnim }],
           },
         ]}
@@ -316,49 +292,54 @@ export function ChatSidebar({
             source={require('@/../assets/images/icon.png')}
             style={styles.headerLogo}
           />
-          <Text style={styles.headerVersion}>Kritha v{versionName}</Text>
+          <Text style={styles.headerTitle}>Kritha</Text>
+          <Text style={styles.headerVersion}>v{versionName}</Text>
           <View style={{ flex: 1 }} />
           <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={() => stubAction('Search')}
+            style={styles.headerSearchBtn}
+            activeOpacity={0.7}
+            onPress={() => stubAction('ChatSidebar.Search')}
           >
-            <Search size={20} color={Colors.textPrimary} />
+            <Search size={IconSizes.md} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          style={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.topActions}>
-            <TouchableOpacity style={styles.actionRow} onPress={onNewSession}>
-              <SquarePen size={20} color={Colors.textPrimary} />
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={onNewSession}
+            >
+              <SquarePen size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>New chat</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionRow}>
-              <Library size={20} color={Colors.textPrimary} />
+            <TouchableOpacity style={styles.actionRow} activeOpacity={0.7}>
+              <Library size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>Library</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionRow}
+              activeOpacity={0.7}
               onPress={() => setArchivedModalVisible(true)}
             >
-              <Archive size={20} color={Colors.textPrimary} />
+              <Archive size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>Archived Chats</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionRow}>
-              <Clock size={20} color={Colors.textPrimary} />
+            <TouchableOpacity style={styles.actionRow} activeOpacity={0.7}>
+              <Clock size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>Scheduled</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionRow}
+              activeOpacity={0.7}
               onPress={() => setPermissionsModalVisible(true)}
             >
-              <ShieldCheck size={20} color={Colors.textPrimary} />
+              <ShieldCheck size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>Permissions</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionRow}>
-              <MoreHorizontal size={20} color={Colors.textPrimary} />
+            <TouchableOpacity style={styles.actionRow} activeOpacity={0.7}>
+              <MoreHorizontal size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>More</Text>
             </TouchableOpacity>
           </View>
@@ -388,13 +369,16 @@ export function ChatSidebar({
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <View style={styles.accountInfo}>
-              <Text style={styles.accountName}>{userName}</Text>
+              <Text style={styles.accountName} numberOfLines={1}>
+                {userName}
+              </Text>
             </View>
             <TouchableOpacity
-              style={styles.storeBtn}
+              style={styles.settingsBtn}
+              activeOpacity={0.7}
               onPress={() => setSettingsModalVisible(true)}
             >
-              <Settings size={20} color={Colors.textMuted} />
+              <Settings size={IconSizes.md} color={Colors.iconMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -431,7 +415,7 @@ export default ChatSidebar;
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: Colors.bgScrim,
     zIndex: 999,
   },
   sidebar: {
@@ -439,88 +423,94 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    width: 320,
+    width: '78%',
     backgroundColor: Colors.bgDeepest,
+    borderRightWidth: 1,
+    borderRightColor: Colors.borderSubtle,
     zIndex: 1000,
     elevation: 12,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: Spacing['2xl'],
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.xs,
   },
   headerLogo: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    marginRight: 10,
+    width: 30,
+    height: 30,
+    borderRadius: Radius.sm,
+    marginRight: Spacing.md,
+  },
+  headerTitle: {
+    color: Colors.textPrimary,
+    fontSize: Typography.size2xl,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   headerVersion: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '600',
+    color: Colors.textMuted,
+    fontSize: Typography.sizeXs,
+    fontWeight: '500',
+    marginLeft: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  headerIconBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  scrollContent: {
-    flex: 1,
-    paddingHorizontal: 12,
+  headerSearchBtn: {
+    width: 44,
+    height: 44,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bgSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topActions: {
-    marginTop: 8,
-    marginBottom: 16,
-    gap: 4,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: Spacing['3xl'],
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 12,
-    borderRadius: 8,
+    paddingHorizontal: Spacing['2xl'],
+    gap: Spacing.md,
   },
   actionText: {
     color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: Typography.sizeMd,
+    fontWeight: '600',
   },
   sectionContainer: {
-    marginBottom: 20,
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
-    color: Colors.textMuted,
-    fontSize: 14,
-    fontWeight: '500',
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    color: Colors.textPrimary,
+    fontSize: Typography.sizeLg,
+    fontWeight: '600',
+    paddingHorizontal: Spacing['2xl'],
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   historyRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 2,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing['2xl'],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.md,
   },
   historyRowSelected: {
-    backgroundColor: Colors.borderFaint,
+    backgroundColor: Colors.bgPrimary,
   },
   pinnedIcon: {
     marginRight: -2,
   },
   historyText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    flex: 1,
-  },
-  historyTextSelected: {
     color: Colors.textPrimary,
-    fontWeight: '500',
+    fontSize: Typography.sizeMd,
+    flex: 1,
   },
   bottomAccount: {
     marginTop: 'auto',
@@ -528,26 +518,25 @@ const styles = StyleSheet.create({
   accountDivider: {
     height: 1,
     backgroundColor: Colors.borderFaint,
-    marginBottom: 12,
-    marginHorizontal: 4,
+    marginBottom: Spacing.md,
   },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 12,
+    paddingHorizontal: Spacing['2xl'],
+    gap: Spacing.md,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     color: Colors.textOnAccent,
-    fontSize: 14,
+    fontSize: Typography.sizeBase,
     fontWeight: '700',
   },
   accountInfo: {
@@ -555,14 +544,14 @@ const styles = StyleSheet.create({
   },
   accountName: {
     color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: Typography.sizeMd,
+    fontWeight: '600',
   },
-  accountPlan: {
-    color: Colors.textMuted,
-    fontSize: 13,
-  },
-  storeBtn: {
-    padding: 8,
+  settingsBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

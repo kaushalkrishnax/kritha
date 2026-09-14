@@ -1,3 +1,4 @@
+import uuid from 'react-native-uuid';
 import {
   ChatMode,
   LiveTalkPhase,
@@ -11,9 +12,11 @@ import { useAssistantStore } from '@/stores/assistant.store';
 import { useChatStore } from '@/stores/chat.store';
 import { useModelStore } from '@/stores/model.store';
 import { useSettingsStore } from '@/stores/settings.store';
-import uuid from 'react-native-uuid';
 import { ChatSessionService } from './chat.service';
-import { buildConversationContext, ContextMessage } from './conversation.service';
+import {
+  buildConversationContext,
+  ContextMessage,
+} from './conversation.service';
 import { modelDownloadService } from './model.service';
 import {
   LlmMessage,
@@ -28,8 +31,16 @@ export async function submitPrompt(options: {
   text: string;
   origin: RequestOrigin;
   modelId: string;
+  sessionId?: string | null;
+  msgId?: string | null;
 }): Promise<void> {
-  const { text, origin, modelId } = options;
+  const {
+    text,
+    origin,
+    modelId,
+    sessionId: incomingSessionId,
+    msgId: incomingMsgId,
+  } = options;
   const trimmed = text.trim();
 
   if (!trimmed) {
@@ -49,18 +60,26 @@ export async function submitPrompt(options: {
     store.setDraftText('');
     store.setTranscript('');
 
-    let sessionId = useChatStore.getState().chatSessionId;
+    let sessionId = incomingSessionId ?? useChatStore.getState().chatSessionId;
 
     if (!sessionId) {
-      sessionId = uuid.v4();
-      useChatStore.getState().setChatSessionId(sessionId);
-      await ChatSessionService.createSession({
-        title: trimmed.slice(0, 60),
-        customId: sessionId,
-      });
+      const session = await ChatSessionService.createNewChat(
+        trimmed.slice(0, 60),
+      );
+      sessionId = session.id;
+    } else {
+      const currentSession = useChatStore
+        .getState()
+        .sessions.find((s) => s.id === sessionId);
+      if (
+        currentSession &&
+        (currentSession.title === 'New Chat' || !currentSession.title.trim())
+      ) {
+        await ChatSessionService.renameChat(sessionId, trimmed.slice(0, 60));
+      }
     }
 
-    const userMessageId = uuid.v4();
+    const userMessageId = incomingMsgId || String(uuid.v4());
     const now = Date.now();
 
     await ChatSessionService.saveMessage({
@@ -98,7 +117,8 @@ export async function submitPrompt(options: {
       content: m.content,
     }));
 
-    const modelPath = await modelDownloadService.getDownloadedModelPath(modelId);
+    const modelPath =
+      await modelDownloadService.getDownloadedModelPath(modelId);
 
     store.setLlmPhase(LlmPhase.THINKING);
 
@@ -121,14 +141,16 @@ export async function submitPrompt(options: {
           }
 
           current.appendResponse(chunk);
-          useChatStore.getState().appendMessageChunk(current.assistantRunId!, chunk);
+          useChatStore
+            .getState()
+            .appendMessageChunk(current.assistantRunId!, chunk);
         },
 
         onComplete: (fullText: string) => {
           const current = useAssistantStore.getState();
           if (current.assistantRunId !== runId) return;
 
-          const assistantMessageId = uuid.v4();
+          const assistantMessageId = current.assistantRunId!;
           const ts = Date.now();
 
           ChatSessionService.saveMessage({
@@ -137,17 +159,16 @@ export async function submitPrompt(options: {
             content: fullText,
             customId: assistantMessageId,
             createdAt: ts,
-          }).catch((err) => console.error('[Runtime] Failed to persist assistant message:', err));
+          }).catch((err) =>
+            console.error(
+              '[Runtime] Failed to persist assistant message:',
+              err,
+            ),
+          );
 
-          useChatStore.getState().completeMessageStream(current.assistantRunId!, fullText);
-          useChatStore.getState().upsertMessage({
-            id: assistantMessageId,
-            sessionId: sessionId!,
-            role: 'assistant',
-            text: fullText,
-            createdAt: ts,
-            status: 'sent',
-          });
+          useChatStore
+            .getState()
+            .completeMessageStream(assistantMessageId, fullText);
 
           current.setLlmPhase(LlmPhase.IDLE);
           activeLlmHandle = null;
@@ -228,7 +249,7 @@ export function cancelDictation(): void {
   store.setTranscript('');
 }
 
-export async function stopDictation(): Promise<void> {
+export async function stopDictation(): Promise<string> {
   try {
     const store = useAssistantStore.getState();
 
@@ -245,6 +266,7 @@ export async function stopDictation(): Promise<void> {
     store.setSttPhase(SttPhase.IDLE);
     store.setChatMode(ChatMode.TEXTING);
     store.setMic(MicOwner.NONE);
+    return trimmed;
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to stop dictation.';
@@ -254,17 +276,22 @@ export async function stopDictation(): Promise<void> {
     store.setSttPhase(SttPhase.IDLE);
     store.setChatMode(ChatMode.TEXTING);
     store.setMic(MicOwner.NONE);
+    return '';
   }
 }
 
-export async function sendDictation(): Promise<void> {
+export async function sendDictation(options?: {
+  sessionId?: string | null;
+  msgId?: string | null;
+}): Promise<void> {
   try {
     const store = useAssistantStore.getState();
 
     store.setSttPhase(SttPhase.TRANSCRIBING);
     const result = await sttProvider.stopListening();
-    
-    const transcript = result.trim() || store.transcript.trim() || store.draftText.trim();
+
+    const transcript =
+      result.trim() || store.transcript.trim() || store.draftText.trim();
 
     if (!transcript) {
       cancelDictation();
@@ -276,11 +303,16 @@ export async function sendDictation(): Promise<void> {
     store.setMic(MicOwner.NONE);
 
     const modelId = useModelStore.getState().selectedModelId;
+    const sessionId =
+      options?.sessionId ?? useChatStore.getState().chatSessionId;
+    const msgId = options?.msgId || String(uuid.v4());
 
     await submitPrompt({
       text: transcript,
       origin: RequestOrigin.MANUAL_DICTATION,
       modelId,
+      sessionId,
+      msgId,
     });
   } catch (error: any) {
     const message =
@@ -294,9 +326,16 @@ export async function sendDictation(): Promise<void> {
   }
 }
 
-export async function startLiveTalk(): Promise<void> {
+export async function startLiveTalk(options?: {
+  sessionId?: string | null;
+}): Promise<void> {
   try {
     const store = useAssistantStore.getState();
+
+    let sessionId = options?.sessionId ?? useChatStore.getState().chatSessionId;
+    if (sessionId) {
+      useChatStore.getState().setChatSessionId(sessionId);
+    }
 
     store.setChatMode(ChatMode.LIVE_TALK);
     store.setLiveTalkPhase(LiveTalkPhase.LISTENING);
@@ -324,8 +363,6 @@ export async function pauseLiveTalk(): Promise<void> {
     store.setLiveTalkPhase(LiveTalkPhase.PAUSED);
     store.setSttPhase(SttPhase.IDLE);
     store.setMic(MicOwner.NONE);
-
-    ttsProvider.pause();
     store.setTtsPhase(TtsPhase.PAUSED);
   } catch (error: any) {
     const message =
@@ -339,11 +376,8 @@ export async function resumeLiveTalk(): Promise<void> {
     const store = useAssistantStore.getState();
 
     store.setLiveTalkPhase(LiveTalkPhase.LISTENING);
-
-    ttsProvider.stop();
     store.setTtsPhase(TtsPhase.IDLE);
     store.setCurrentTtsMessageId(null);
-
     store.setSttPhase(SttPhase.LISTENING);
     store.setMic(MicOwner.STT);
 
@@ -401,4 +435,50 @@ export function stopSpeaking(): void {
   const store = useAssistantStore.getState();
   store.setTtsPhase(TtsPhase.IDLE);
   store.setCurrentTtsMessageId(null);
+}
+
+export async function editAndResubmitPrompt(
+  messageId: string,
+  newText: string,
+  modelId: string,
+  incomingSessionId?: string | null,
+  incomingMsgId?: string | null,
+): Promise<void> {
+  const chatStore = useChatStore.getState();
+  const sessionId = incomingSessionId ?? chatStore.chatSessionId;
+  if (!sessionId) return;
+
+  const targetMessage = chatStore.messages.find((m) => m.id === messageId);
+  if (
+    !targetMessage ||
+    targetMessage.role !== 'user' ||
+    !targetMessage.createdAt
+  )
+    return;
+
+  try {
+    await ChatSessionService.truncateMessages(
+      sessionId,
+      targetMessage.createdAt,
+    );
+
+    const assistantStore = useAssistantStore.getState();
+    assistantStore.setEditingMessageId(null);
+    assistantStore.setDraftText('');
+
+    const msgId = incomingMsgId || String(uuid.v4());
+
+    await submitPrompt({
+      text: newText,
+      origin: RequestOrigin.MANUAL_TYPING,
+      modelId,
+      sessionId,
+      msgId,
+    });
+  } catch (error: any) {
+    console.error('[Runtime] Failed to edit and resubmit:', error);
+    useAssistantStore
+      .getState()
+      .setError(error.message || 'Failed to edit message');
+  }
 }

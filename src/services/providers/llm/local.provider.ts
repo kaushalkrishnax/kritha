@@ -11,7 +11,9 @@ export const localLlmProvider: LlmProvider = {
 
     if (!modelPath) {
       callbacks.onError(
-        new Error('Local model is not downloaded. Download it in Model settings.'),
+        new Error(
+          'Local model is not downloaded. Download it in Model settings.',
+        ),
       );
       return { cancel: () => {} };
     }

@@ -1,10 +1,10 @@
 import { DB, open } from '@op-engineering/op-sqlite';
 import { ChatRepository } from './ChatRepository';
-import { ToolRepository } from './ToolRepository';
-import { VectorStore } from './VectorStore';
 import { DatabaseError, MigrationError } from './errors';
 import { migration001 } from './migrations/001_init';
+import { ToolRepository } from './ToolRepository';
 import { DbProvider } from './types';
+import { VectorStore } from './VectorStore';
 
 export class Database {
   private static instance: Database | null = null;

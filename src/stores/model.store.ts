@@ -1,18 +1,20 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { MODELS, STORAGE_KEYS } from '@/constants';
-import { mmkvStorage } from '@/utils';
 import { DownloadState, ModelRecord } from '@/types';
+import { mmkvStorage } from '@/utils';
 
 export type ModelStoreState = {
   models: ModelRecord[];
   selectedModelId: string;
   downloadState: DownloadState;
+  isLlmModalOpen: boolean;
 
   setModels: (models: ModelRecord[]) => void;
   setSelectedModelId: (id: string) => void;
   setDownloadState: (patch: Partial<DownloadState>) => void;
   markModelDownloaded: (id: string) => void;
+  setLlmModalOpen: (open: boolean) => void;
 };
 
 export const useModelStore = create<ModelStoreState>()(
@@ -29,6 +31,7 @@ export const useModelStore = create<ModelStoreState>()(
         active: false,
         paused: false,
       },
+      isLlmModalOpen: false,
 
       setModels: (models) => set({ models }),
       setSelectedModelId: (selectedModelId) => set({ selectedModelId }),
@@ -43,6 +46,7 @@ export const useModelStore = create<ModelStoreState>()(
           ),
           selectedModelId: modelId,
         })),
+      setLlmModalOpen: (isLlmModalOpen) => set({ isLlmModalOpen }),
     }),
     {
       name: STORAGE_KEYS.modelStore,

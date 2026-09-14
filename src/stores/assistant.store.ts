@@ -1,14 +1,14 @@
-import {
-    ChatMode,
-    LiveTalkPhase,
-    LlmPhase,
-    MicOwner,
-    RequestOrigin,
-    SttPhase,
-    TtsPhase,
-} from '@/constants';
-import uuid from 'react-native-uuid';
 import { create } from 'zustand';
+import uuid from 'react-native-uuid';
+import {
+  ChatMode,
+  LiveTalkPhase,
+  LlmPhase,
+  MicOwner,
+  RequestOrigin,
+  SttPhase,
+  TtsPhase,
+} from '@/constants';
 
 interface AssistantData {
   llmPhase: LlmPhase;
@@ -27,6 +27,7 @@ interface AssistantData {
   micOwner: MicOwner;
   volumeRms: number;
   currentTtsMessageId: string | null;
+  editingMessageId: string | null;
 }
 
 interface AssistantActions {
@@ -43,6 +44,7 @@ interface AssistantActions {
   setError: (error: string | null) => void;
   setMic: (owner: MicOwner, volumeRms?: number) => void;
   setCurrentTtsMessageId: (id: string | null) => void;
+  setEditingMessageId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -65,6 +67,7 @@ const initialData: AssistantData = {
   micOwner: MicOwner.NONE,
   volumeRms: 0,
   currentTtsMessageId: null,
+  editingMessageId: null,
 };
 
 export const useAssistantStore = create<AssistantState>()((set, get) => ({
@@ -89,6 +92,7 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   setError: (error) => set({ error }),
   setMic: (micOwner, volumeRms = 0) => set({ micOwner, volumeRms }),
   setCurrentTtsMessageId: (currentTtsMessageId) => set({ currentTtsMessageId }),
+  setEditingMessageId: (editingMessageId) => set({ editingMessageId }),
 
   reset: () => set({ ...initialData }),
 }));
@@ -97,24 +101,34 @@ export const selectIsLlmBusy = (s: AssistantState) =>
   s.llmPhase !== LlmPhase.IDLE && s.llmPhase !== LlmPhase.ERROR;
 export const selectIsLlmThinking = (s: AssistantState) =>
   s.llmPhase === LlmPhase.SUBMITTING || s.llmPhase === LlmPhase.THINKING;
-export const selectIsLlmGenerating = (s: AssistantState) => s.llmPhase === LlmPhase.GENERATING;
-export const selectIsLlmError = (s: AssistantState) => s.llmPhase === LlmPhase.ERROR;
+export const selectIsLlmGenerating = (s: AssistantState) =>
+  s.llmPhase === LlmPhase.GENERATING;
+export const selectIsLlmError = (s: AssistantState) =>
+  s.llmPhase === LlmPhase.ERROR;
 
-export const selectIsSttListening = (s: AssistantState) => s.sttPhase === SttPhase.LISTENING;
-export const selectIsSttTranscribing = (s: AssistantState) => s.sttPhase === SttPhase.TRANSCRIBING;
+export const selectIsSttListening = (s: AssistantState) =>
+  s.sttPhase === SttPhase.LISTENING;
+export const selectIsSttTranscribing = (s: AssistantState) =>
+  s.sttPhase === SttPhase.TRANSCRIBING;
 
-export const selectIsTtsSpeaking = (s: AssistantState) => s.ttsPhase === TtsPhase.SPEAKING;
-export const selectIsTtsPaused = (s: AssistantState) => s.ttsPhase === TtsPhase.PAUSED;
+export const selectIsTtsSpeaking = (s: AssistantState) =>
+  s.ttsPhase === TtsPhase.SPEAKING;
+export const selectIsTtsPaused = (s: AssistantState) =>
+  s.ttsPhase === TtsPhase.PAUSED;
 
-export const selectIsDictating = (s: AssistantState) => s.chatMode === ChatMode.DICTATION;
-export const selectIsLiveTalk = (s: AssistantState) => s.chatMode === ChatMode.LIVE_TALK;
+export const selectIsDictating = (s: AssistantState) =>
+  s.chatMode === ChatMode.DICTATION;
+export const selectIsLiveTalk = (s: AssistantState) =>
+  s.chatMode === ChatMode.LIVE_TALK;
 
 export const useIsLlmBusy = () => useAssistantStore(selectIsLlmBusy);
 export const useIsLlmThinking = () => useAssistantStore(selectIsLlmThinking);
-export const useIsLlmGenerating = () => useAssistantStore(selectIsLlmGenerating);
+export const useIsLlmGenerating = () =>
+  useAssistantStore(selectIsLlmGenerating);
 export const useIsLlmError = () => useAssistantStore(selectIsLlmError);
 export const useIsSttListening = () => useAssistantStore(selectIsSttListening);
-export const useIsSttTranscribing = () => useAssistantStore(selectIsSttTranscribing);
+export const useIsSttTranscribing = () =>
+  useAssistantStore(selectIsSttTranscribing);
 export const useIsTtsSpeaking = () => useAssistantStore(selectIsTtsSpeaking);
 export const useIsTtsPaused = () => useAssistantStore(selectIsTtsPaused);
 export const useIsDictating = () => useAssistantStore(selectIsDictating);

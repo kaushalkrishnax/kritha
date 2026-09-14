@@ -8,7 +8,8 @@ import {
   stop,
 } from '@modules/kritha/src';
 import { database } from '@/database';
-import { useWakewordStore } from '@/stores';
+import { useChatStore, useWakewordStore } from '@/stores';
+import { ChatSessionService } from './chat.service';
 
 export const AssistantBridge = {
   startWakewordListening: start,
@@ -24,7 +25,13 @@ export const AssistantBridge = {
 export const bootstrapApp = async (): Promise<void> => {
   try {
     await database.init();
-    
+
+    await ChatSessionService.loadSessions(true);
+
+    // Always open an empty chat window by default, do not default to latest/topmost chat
+    useChatStore.getState().setChatSessionId(null);
+    useChatStore.getState().setMessages([]);
+
     useWakewordStore
       .getState()
       .setIsEnabled(AssistantBridge.isWakewordRunning());

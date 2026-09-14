@@ -1,5 +1,5 @@
 import { Download, Trash2, X } from 'lucide-react-native';
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -12,7 +12,7 @@ import {
 import { useSpeaker } from '@/hooks';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import { useVoiceStore } from '@/stores';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 import { stubAction } from '@/utils';
 
 type Progress = any;
@@ -20,11 +20,17 @@ enum ModelCategory {
   Tts = 'tts',
   Stt = 'stt',
 }
-const deleteModel = async (...args: any[]) => stubAction('deleteModel');
-const ensureModel = async (...args: any[]) => stubAction('ensureModel');
-const listDownloadedModels = async (...args: any[]) => { stubAction('listDownloadedModels'); return []; };
-const onProgress = (...args: any[]) => stubAction('onProgress');
-const refreshModels = async (...args: any[]) => stubAction('refreshModels');
+const deleteModel = async (...args: any[]) =>
+  stubAction('VoiceModelModal.deleteModel');
+const ensureModel = async (...args: any[]) =>
+  stubAction('VoiceModelModal.ensureModel');
+const listDownloadedModels = async (...args: any[]) => {
+  stubAction('VoiceModelModal.listDownloadedModels');
+  return [];
+};
+const onProgress = (...args: any[]) => stubAction('VoiceModelModal.onProgress');
+const refreshModels = async (...args: any[]) =>
+  stubAction('VoiceModelModal.refreshModels');
 
 export interface VoiceModelModalProps {
   visible: boolean;
@@ -188,9 +194,14 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
             <TouchableOpacity
               onPress={onClose}
               style={styles.closeIconBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{
+                top: Spacing.sm,
+                bottom: Spacing.sm,
+                left: Spacing.sm,
+                right: Spacing.sm,
+              }}
             >
-              <X size={20} color={Colors.textMuted} />
+              <X size={IconSizes.base} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -284,7 +295,10 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
                                 style={styles.iconBtn}
                                 onPress={() => handleDelete(m.id)}
                               >
-                                <Trash2 size={16} color={'#FF5252'} />
+                                <Trash2
+                                  size={IconSizes.sm}
+                                  color={Colors.error}
+                                />
                               </TouchableOpacity>
                             )}
                           </>
@@ -297,7 +311,10 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
                             style={styles.iconBtn}
                             onPress={() => handleDownload(m.id)}
                           >
-                            <Download size={18} color={Colors.textOnAccent} />
+                            <Download
+                              size={IconSizes.sm}
+                              color={Colors.textOnAccent}
+                            />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -340,14 +357,14 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
 const styles = StyleSheet.create({
   modalOverlayCenter: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: Colors.bgScrim,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalDialog: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 14,
-    padding: 20,
+    backgroundColor: Colors.bgPrimary,
+    borderRadius: Radius.base,
+    padding: Spacing.xl,
     width: '90%',
     maxHeight: '80%',
     borderWidth: 1,
@@ -355,42 +372,46 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: Colors.textOnAccent,
-    fontSize: 19,
+    fontSize: Typography.sizeLg,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
-  modalSubtitle: { color: Colors.textSecondary, fontSize: 13 },
+  modalSubtitle: { color: Colors.textSecondary, fontSize: Typography.sizeSm },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
-  closeIconBtn: { padding: 4, marginLeft: 8 },
+  closeIconBtn: { padding: Spacing.xs, marginLeft: Spacing.sm },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
     backgroundColor: Colors.borderSubtle,
-    borderRadius: 8,
-    padding: 4,
+    borderRadius: Radius.sm,
+    padding: Spacing.xs,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: Radius.xs,
   },
   tabBtnActive: { backgroundColor: Colors.bgCard },
-  tabText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500' },
+  tabText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.sizeBase,
+    fontWeight: '500',
+  },
   tabTextActive: { color: Colors.textOnAccent, fontWeight: 'bold' },
   scrollArea: { maxHeight: 400 },
   optionCard: {
     backgroundColor: Colors.bgCard,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   optionCardSelected: {
     borderColor: Colors.accentCyan,
@@ -401,30 +422,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  optionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
-  optionSub: { color: Colors.textDimmed, fontSize: 12, marginTop: 2 },
-  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  optionTitle: {
+    color: Colors.textPrimary,
+    fontSize: Typography.sizeBase,
+    fontWeight: '600',
+  },
+  optionSub: {
+    color: Colors.textDimmed,
+    fontSize: Typography.sizeXs,
+    marginTop: Spacing['2xs'],
+  },
+  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.borderAccent,
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconBtnText: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: Radius.lg,
     backgroundColor: Colors.borderAccent,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  progressContainer: { marginTop: 8 },
+  progressContainer: { marginTop: Spacing.sm },
   downloadBarBg: {
     height: 4,
     backgroundColor: Colors.borderStrong,
-    borderRadius: 2,
+    borderRadius: Radius.xs,
     overflow: 'hidden',
   },
   downloadBarFill: {
@@ -434,8 +463,16 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 18,
+    marginTop: Spacing.lg,
   },
-  modalBtn: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 8 },
-  modalBtnText: { color: Colors.textOnAccent, fontWeight: '600', fontSize: 14 },
+  modalBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
+  },
+  modalBtnText: {
+    color: Colors.textOnAccent,
+    fontWeight: '600',
+    fontSize: Typography.sizeBase,
+  },
 });

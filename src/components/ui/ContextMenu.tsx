@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
   Animated,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
   useWindowDimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors from '@/theme';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 
 export interface ContextMenuItem {
   id: string;
@@ -20,22 +20,30 @@ export interface ContextMenuItem {
   isSeparator?: boolean;
 }
 
+export type ContextMenuAlign = 'left' | 'right' | 'auto';
+
 export interface ContextMenuProps {
   visible: boolean;
-  anchor: { x: number; y: number; width: number; height: number } | null;
+  anchor: { x: number; y: number; width?: number; height?: number } | null;
   items: ContextMenuItem[];
+  header?: React.ReactNode;
+  align?: ContextMenuAlign;
+  targetHeight?: number;
   onSelect: (id: string) => void;
   onDismiss: () => void;
 }
 
-const MENU_WIDTH = 170;
-const MENU_PADDING = 4;
-const ITEM_HEIGHT = 40;
+const MENU_WIDTH = 200;
+const ITEM_HEIGHT = 52;
+const VERTICAL_GAP = 8;
 
 export function ContextMenu({
   visible,
   anchor,
   items,
+  header,
+  align = 'auto',
+  targetHeight,
   onSelect,
   onDismiss,
 }: ContextMenuProps) {
@@ -47,25 +55,34 @@ export function ContextMenu({
 
   const menuPosition = useMemo(() => {
     if (!visible || !anchor) return { top: 0, left: 0 };
-    let left = anchor.x;
-    let top = anchor.y;
 
-    // Adjust if menu goes off right edge
-    if (left + MENU_WIDTH > screenWidth - insets.right - 12) {
-      left = screenWidth - insets.right - MENU_WIDTH - 12;
-    }
+    const elementHeight = targetHeight ?? anchor.height ?? 0;
 
-    // Ensure it doesn't go too far left
-    if (left < insets.left + 12) {
+    // Horizontal placement based on align prop
+    let left: number;
+    if (align === 'left') {
       left = insets.left + 12;
+    } else if (align === 'right') {
+      left = screenWidth - insets.right - MENU_WIDTH - 12;
+    } else {
+      // 'auto': align based on anchor touch X position, clamped within safe margins
+      left = anchor.x;
+      if (left + MENU_WIDTH > screenWidth - insets.right - 12) {
+        left = screenWidth - insets.right - MENU_WIDTH - 12;
+      }
+      if (left < insets.left + 12) {
+        left = insets.left + 12;
+      }
     }
 
-    // Rough estimate of menu height
-    const estimatedHeight = items.length * ITEM_HEIGHT + MENU_PADDING * 2;
+    // Accurate estimate of menu height
+    const headerHeight = header ? 42 : 0;
+    const estimatedHeight = items.length * ITEM_HEIGHT + 8 + headerHeight + 2;
 
-    // Adjust if menu goes off bottom edge
+    // Vertical placement based on trigger element height (default below, flip above if overflowing bottom)
+    let top = anchor.y + elementHeight + VERTICAL_GAP;
     if (top + estimatedHeight > screenHeight - insets.bottom - 24) {
-      top = anchor.y + anchor.height - estimatedHeight;
+      top = anchor.y - estimatedHeight - VERTICAL_GAP;
       if (top < insets.top + 16) {
         top = insets.top + 16;
       }
@@ -75,6 +92,8 @@ export function ContextMenu({
   }, [
     visible,
     anchor,
+    align,
+    targetHeight,
     screenWidth,
     screenHeight,
     insets.left,
@@ -82,6 +101,7 @@ export function ContextMenu({
     insets.top,
     insets.bottom,
     items.length,
+    header,
   ]);
 
   useEffect(() => {
@@ -127,10 +147,14 @@ export function ContextMenu({
             },
           ]}
         >
+          {header && <View style={styles.headerContainer}>{header}</View>}
           {items.map((item, index) => {
             if (item.isSeparator) {
               return <View key={`sep-${index}`} style={styles.separator} />;
             }
+
+            const isFirst = index === 0;
+            const isLast = index === items.length - 1;
 
             return (
               <Pressable
@@ -140,6 +164,8 @@ export function ContextMenu({
                 accessibilityState={{ disabled: item.disabled }}
                 style={({ pressed }) => [
                   styles.menuItem,
+                  isFirst && styles.firstMenuItem,
+                  isLast && styles.lastMenuItem,
                   pressed && !item.disabled && styles.menuItemPressed,
                   item.disabled && styles.menuItemDisabled,
                 ]}
@@ -174,46 +200,59 @@ export function ContextMenu({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: Colors.bgScrim,
+    backgroundColor: 'transparent',
   },
   menuContainer: {
     position: 'absolute',
     width: MENU_WIDTH,
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 18,
-    padding: MENU_PADDING,
+    backgroundColor: Colors.bgPrimary,
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  headerContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.xl,
     height: ITEM_HEIGHT,
-    borderRadius: 12,
+    width: '100%',
+  },
+  firstMenuItem: {
+    paddingTop: Spacing.xs,
+    height: ITEM_HEIGHT + 4,
+  },
+  lastMenuItem: {
+    paddingBottom: Spacing.xs,
+    height: ITEM_HEIGHT + 4,
   },
   menuItemPressed: {
-    backgroundColor: Colors.borderFaint,
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
   },
   menuItemDisabled: {
     opacity: 0.5,
   },
   iconContainer: {
-    width: 20,
+    width: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: Spacing.lg,
   },
   menuItemText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
+    color: Colors.textInverse,
+    fontSize: Typography.sizeMd,
+    fontWeight: '600',
+    textAlign: 'left',
   },
   menuItemTextDestructive: {
     color: Colors.warning,
@@ -223,8 +262,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.borderFaint,
-    marginVertical: 3,
-    marginHorizontal: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: Spacing.xs,
   },
 });

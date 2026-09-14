@@ -1,12 +1,12 @@
 import uuid from 'react-native-uuid';
 import { DatabaseError, NotFoundError, ValidationError } from './errors';
 import {
-    CreateMessageInput,
-    CreateSessionInput,
-    DbProvider,
-    Message,
-    Session,
-    UpdateSessionInput,
+  CreateMessageInput,
+  CreateSessionInput,
+  DbProvider,
+  Message,
+  Session,
+  UpdateSessionInput,
 } from './types';
 
 export class ChatRepository {
@@ -274,16 +274,30 @@ export class ChatRepository {
   }
 
   // Retrieves messages for a session in chronological order (created_at ASC).
-  async getMessages(sessionId: string): Promise<Message[]> {
+  async getMessages(
+    sessionId: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<Message[]> {
     if (!sessionId) return [];
     const db = await this.provider.getDbAsync();
     try {
-      const result = await db.execute(
-        `SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC`,
-        [sessionId],
-      );
+      let query = `SELECT * FROM messages WHERE session_id = ? ORDER BY created_at DESC`;
+      const args: any[] = [sessionId];
+
+      if (limit !== undefined) {
+        query += ` LIMIT ?`;
+        args.push(limit);
+      }
+      if (offset !== undefined) {
+        query += ` OFFSET ?`;
+        args.push(offset);
+      }
+
+      const result = await db.execute(query, args);
       const rows = result.rows ?? [];
-      return rows.map((row) => this.mapMessageRow(row));
+      const messages = rows.map((row) => this.mapMessageRow(row));
+      return messages.reverse();
     } catch (error) {
       throw new DatabaseError(
         `Failed to fetch messages for session ${sessionId}`,
@@ -324,6 +338,25 @@ export class ChatRepository {
     } catch (error) {
       throw new DatabaseError(
         `Failed to delete messages for session ${sessionId}`,
+        error,
+      );
+    }
+  }
+
+  async truncateMessages(
+    sessionId: string,
+    fromCreatedAt: number,
+  ): Promise<void> {
+    if (!sessionId) return;
+    const db = await this.provider.getDbAsync();
+    try {
+      await db.execute(
+        'DELETE FROM messages WHERE session_id = ? AND created_at >= ?',
+        [sessionId, fromCreatedAt],
+      );
+    } catch (error) {
+      throw new DatabaseError(
+        `Failed to truncate messages for session ${sessionId}`,
         error,
       );
     }

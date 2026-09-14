@@ -1,11 +1,11 @@
 import { NavigationBar } from 'expo-navigation-bar';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TamaguiProvider, Theme } from 'tamagui';
+import * as SystemUI from 'expo-system-ui';
 import { bootstrapApp } from '@/services';
 import config from '../../tamagui.config';
 import { BG_DEEPEST } from '../theme';

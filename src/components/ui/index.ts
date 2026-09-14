@@ -1,2 +1,2 @@
-export * from './ContextMenu';
 export * from './AnimatedIcon';
+export * from './ContextMenu';

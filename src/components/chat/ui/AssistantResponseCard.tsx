@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Colors from '@/theme';
+import { Colors, Radius, Spacing, Typography } from '@/theme';
 import { ChatMessage } from '@/types';
 import { ResponseActions } from './ResponseActions';
 import { ResponseMessage } from './ResponseMessage';
@@ -69,8 +69,6 @@ export function AssistantResponseCard({
               isTtsPaused && (!ttsMsgId || ttsMsgId === latestAssistant.id)
             }
             onSpeakerPress={onSpeakerPress}
-            onExpandPress={onExpandPress}
-            showExpandButton={Boolean(onExpandPress)}
           />
         ) : error ? (
           <View style={styles.errorWrapper}>
@@ -82,11 +80,7 @@ export function AssistantResponseCard({
               Just here and ready to help out. What are you working on today?
             </Text>
             {!hideActions && (
-              <ResponseActions
-                textToCopy="Just here and ready to help out. What are you working on today?"
-                onExpandPress={onExpandPress}
-                showExpandButton={Boolean(onExpandPress)}
-              />
+              <ResponseActions textToCopy="Just here and ready to help out. What are you working on today?" />
             )}
           </View>
         )}
@@ -98,11 +92,11 @@ export function AssistantResponseCard({
 const styles = StyleSheet.create({
   responseCard: {
     backgroundColor: Colors.bgCard,
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 14,
-    marginBottom: 10,
+    borderRadius: Radius['2xl'],
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+    marginBottom: Spacing.md,
     maxHeight: 280,
     width: '100%',
     borderWidth: 1,
@@ -116,28 +110,28 @@ const styles = StyleSheet.create({
   responseHandle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
+    borderRadius: Radius.xs,
     backgroundColor: Colors.borderSubtle,
     alignSelf: 'center',
-    marginBottom: 10,
+    marginBottom: Spacing.md,
   },
   responseScroll: {
     minHeight: 44,
     maxHeight: 210,
   },
   responseContent: {
-    paddingBottom: 4,
+    paddingBottom: Spacing.xs,
   },
   responseText: {
     color: Colors.textSecondary,
-    fontSize: 15,
+    fontSize: Typography.sizeBase,
     lineHeight: 22,
   },
   errorWrapper: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   errorText: {
     color: Colors.error,
-    fontSize: 14,
+    fontSize: Typography.sizeSm,
   },
 });

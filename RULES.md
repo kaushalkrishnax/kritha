@@ -1,370 +1,482 @@
 # Kritha — Architectural Rules
 
-Status: **Binding**. Every phase prompt in `phases/` assumes these rules.
-If a phase prompt ever conflicts with this file, this file wins — stop and
-ask before proceeding.
+**Status: Binding**
 
-This file answers "who is allowed to do what." `CONVENTIONS.md` answers
-"where does the file go and what is it called." Read both before touching
-code.
+These are the permanent architectural rules for Kritha.
+
+If another document or implementation conflicts with these rules, these rules take precedence.
+
+`RULES.md` defines **ownership and behavior**.
+`CONVENTIONS.md` defines **naming, location, imports, and structure**.
 
 ---
 
-## 0. The One-Sentence Version
+## 0. Core Principle
 
 **JS/TS is Kritha. Kotlin is a box of tools Kritha uses.**
 
-JS/TS decides what happens, when it happens, and what it means. Kotlin
-executes a request and reports back. Kotlin never decides anything on its
-own behalf.
+JS/TS decides what happens, when it happens, and what it means.
+
+Kotlin executes explicit requests and reports results.
 
 ---
 
 ## 1. Ownership Boundary
 
-### 1.1 JS/TS owns (exclusively)
+### 1.1 JS/TS owns exclusively
 
-- Assistant orchestration (what happens after the user taps something)
-- All canonical runtime state (`stores/assistant.store.ts`)
-- Conversation construction (system prompt, history, custom instructions)
-- Provider selection (which LLM/STT/TTS implementation handles a request)
-- Request construction (turning app state into a provider request)
-- Persistence policy (when a message is saved, when a session is created)
-- All UI-facing behavior and derived state
+- Assistant orchestration
+- Canonical runtime state
+- Conversation construction and context
+- Provider selection
+- Request construction
+- Persistence policy
+- UI-facing behavior and derived state
 
-### 1.2 Kotlin owns (exclusively)
+The canonical assistant runtime state lives in:
 
-- Executing local LLM inference when asked, given a fully-formed
-  prompt/message list
-- Executing native device tool commands (torch, mute, settings, dialer)
-- Owning Android platform capabilities JS cannot reach directly:
-  microphone ownership during wake-word listening, notification listener
-  registration, voice interaction session hosting, foreground service
-  lifecycle
-- Reporting results and progress back to JS via well-defined events
+```text
+stores/assistant.store.ts
+```
 
-### 1.3 Forbidden in Kotlin — for all time, not just this refactor
+### 1.2 Kotlin owns exclusively
 
-Do not add, and do not resurrect from git history:
+- Local LLM execution when given a fully formed request
+- Native device/tool commands
+- Android platform capabilities
+- Wake-word microphone ownership
+- Notification listener registration
+- Voice interaction hosting
+- Foreground-service lifecycle
+- Reporting native results, progress, and events
 
-- Any class named `*Orchestrator`, `*AssistantRuntime`,
-  `*ConversationManager`, `*AssistantSessionManager` (this refers to
-  assistant-conversation session state, not Android's own
-  `VoiceInteractionSession`, which is a legitimate platform concept and is
-  not affected by this rule)
-- Any code that decides *whether* to use the local model vs. the cloud
-  model
-- Any code that constructs a system prompt, builds chat history, or
-  decides what "context" to send to a model
-- Any code that decides when the assistant should speak, listen, or
-  respond
-- Any code that stores conversation messages beyond the transient buffers
-  a single request needs to run
+### 1.3 Forbidden in Kotlin
 
-If a Kotlin file starts to need any of the above, the fix is **always** in
-JS. Move the decision to JS and have JS tell Kotlin exactly what to do.
+Kritha must never introduce Kotlin classes or logic for:
 
-### 1.4 Forbidden in JS — native concerns stay native
+```text
+*Orchestrator
+*AssistantRuntime
+*ConversationManager
+*AssistantSessionManager
+```
 
-- Do not implement raw audio capture, wake-word inference, or on-device
-  model execution in JS. These stay behind the Kotlin provider boundary.
-- Do not reach into Android system settings/intents from JS except
-  through the existing Expo module (`AssistantBridge` and friends).
+Also forbidden in Kotlin:
+
+- Local-vs-cloud model decisions
+- System-prompt construction
+- Conversation-history/context decisions
+- Decisions about when the assistant speaks, listens, or responds
+- Persistent conversation storage
+
+Kotlin receives explicit instructions from JS rather than making these decisions itself.
+
+### 1.4 Forbidden in JS/TS
+
+Do not implement native concerns in JS/TS:
+
+- Raw audio capture
+- Wake-word inference
+- On-device model execution
+- Direct Android system settings/intents
+
+Use the native module boundary for these capabilities.
 
 ---
 
-## 2. Single Source of Truth for Runtime State
+## 2. Assistant Runtime State
 
-### 2.1 `stores/assistant.store.ts` is the only place ephemeral,
-cross-cutting assistant runtime state lives
+### 2.1 Single runtime store
 
-"Ephemeral, cross-cutting" means: it describes *what the assistant is
-doing right now* and is meaningless after an app restart. Examples: is the
-LLM generating, is STT listening, what chat mode is active, what the
-in-flight run's transcript/response/error is.
+`stores/assistant.store.ts` is the only store for ephemeral, cross-cutting assistant runtime state.
 
-### 2.2 What does NOT belong in `assistant.store.ts`
+Examples:
 
-- Persisted user preferences (settings, selected model, selected voice
-  models) → their own `*.store.ts` files, each with an explicit
-  `partialize`.
-- Conversation data that survives a restart (sessions, messages) →
-  `stores/chat.store.ts`, backed by the SQLite layer in `database/`.
-- A single component's private, one-off UI concern (e.g. is a modal's
-  internal dropdown open) → local `useState` in that component.
+- LLM phase
+- STT phase
+- TTS phase
+- Chat mode
+- Live Talk phase
+- Current response
+- Current transcript
+- Current error
+- Current run information
 
-### 2.3 `assistant.store.ts` is never persisted
+### 2.2 What does not belong there
 
-No `persist()` middleware, ever, on this store. Resuming a stale
-`LLM_GENERATING` or `STT_LISTENING` state after a process restart is a
-bug, not a feature. On boot this store always starts at its defined
-initial state.
+Persisted preferences belong in their domain stores.
 
-### 2.4 Imperative handles never live in a store
+Conversation data belongs in `chat.store.ts` and the SQLite database.
 
-Cancel functions, timers, subscriptions, `AbortController`s — anything
-that isn't plain serializable data — must not be put inside a Zustand
-store. They live as module-level variables inside the service that owns
-them (e.g. the in-flight LLM cancel handle lives inside
-`services/assistantRuntime.service.ts`, not inside `assistant.store.ts`).
+Private component state belongs in component-local state.
+
+### 2.3 Runtime state is never persisted
+
+`assistant.store.ts` must never use persistence middleware.
+
+Runtime state must always start from its defined initial state after process restart.
+
+### 2.4 Imperative handles stay outside stores
+
+Never put non-serializable runtime handles in Zustand, including:
+
+- Cancel functions
+- `AbortController`
+- Timers
+- Subscriptions
+- Native jobs
+- Provider handles
+
+These belong to the service or module that owns them.
 
 ---
 
 ## 3. Canonical States
 
-### 3.1 Canonical state constants live only in
-`constants/canonicalStates.ts`
+### 3.1 Single source of truth
 
-No component, hook, or service may define its own string literals for
-these states (`"GENERATING"`, `"listening"`, etc). Always import the
-constant.
+Canonical state definitions live only in:
 
-### 3.2 Domains are independent — never collapse into one flat enum
-
-The assistant can be `LLM_GENERATING` **and** `STT_LISTENING` **and**
-`CHAT_MODE_LIVE_TALK` at the same time (barge-in during Live Talk). A
-single flat `canonicalState: string` cannot represent that — this is
-exactly why the old `assistantSessionStore.canonicalState` design is being
-replaced. Each domain gets its own field:
-
-| Domain | Field | Values live in |
-|---|---|---|
-| LLM lifecycle | `llmPhase` | `LlmPhase` |
-| STT lifecycle | `sttPhase` | `SttPhase` |
-| TTS lifecycle | `ttsPhase` | `TtsPhase` |
-| Chat mode | `chatMode` | `ChatMode` |
-| Live Talk sub-phase | `liveTalkPhase` | `LiveTalkPhase` (nullable — only meaningful while `chatMode === ChatMode.LIVE_TALK`) |
-
-### 3.3 Components never import `canonicalStates.ts` to compare phases directly
-
-Forbidden, inside any `.tsx` file:
-
-```tsx
-if (canonicalState === 'GENERATING') { ... }
+```text
+constants/canonicalStates.ts
 ```
 
-Required instead — call a selector hook exported by
-`stores/assistant.store.ts`:
+Do not recreate these states as string literals elsewhere.
+
+### 3.2 Independent state domains
+
+Never represent the assistant with one flat state.
+
+| Domain        | Field           |
+| ------------- | --------------- |
+| LLM lifecycle | `llmPhase`      |
+| STT lifecycle | `sttPhase`      |
+| TTS lifecycle | `ttsPhase`      |
+| Chat mode     | `chatMode`      |
+| Live Talk     | `liveTalkPhase` |
+
+These domains are independent and may be active simultaneously.
+
+### 3.3 UI access
+
+Components must not compare raw canonical phase values directly.
+
+Use selectors exposed by `stores/assistant.store.ts`:
 
 ```tsx
 const isGenerating = useIsLlmGenerating();
 ```
 
-**Clarification:** this restriction is about the five *phase* fields
-listed in §3.2. Plain data fields on the same store — `response`,
-`transcript`, `error`, `draftText`, `requestOrigin`, `volumeRms`,
-`currentTtsMessageId` — are not state machines, and a component may read
-them directly (`useAssistantStore((s) => s.response)`). A component may
-also combine several already-derived selector results with plain boolean
-logic (e.g. `isThinking && requestOrigin === RequestOrigin.WAKE_WORD`) —
-that is not "comparing a raw phase," it's composing already-typed
-selector output, which is fine.
+Plain data such as `response`, `transcript`, `error`, `draftText`, `requestOrigin`, and `volumeRms` may be read directly.
 
-### 3.4 Only selectors may read raw phases
+### 3.4 Raw phase access
 
-Raw phase fields (`llmPhase`, `sttPhase`, `ttsPhase`, `chatMode`,
-`liveTalkPhase`) may be read directly by:
-- Selector functions defined in `stores/assistant.store.ts` itself
-- `services/assistantRuntime.service.ts` (it's the thing setting them)
+Raw phase fields may be read directly only by:
 
-Everyone else consumes selectors.
+- Selector functions inside `assistant.store.ts`
+- `services/assistantRuntime.service.ts`
+
+All other code uses selectors.
 
 ---
 
-## 4. High-Level Functions ("Verbs")
+## 4. Assistant Runtime Verbs
 
-### 4.1 The fixed verb list
+The assistant runtime exposes the following fixed user-facing operations:
 
-`submitPrompt`, `cancelRun`, `startDictation`, `cancelDictation`,
-`stopDictation`, `sendDictation`, `startLiveTalk`, `pauseLiveTalk`,
-`resumeLiveTalk`, `stopLiveTalk`, `speakMessage`, `stopSpeaking`.
+```text
+submitPrompt
+cancelRun
 
-Do not invent additional verbs without adding them to this list first.
-Each verb name is written the way a user would describe the button they
-tapped ("I hit send," "I started dictating"). If you can't finish the
-sentence *"the user just ___"* with the function name, the name is wrong.
+startDictation
+cancelDictation
+stopDictation
+sendDictation
 
-### 4.2 Only these functions may write `llmPhase` / `sttPhase` / `ttsPhase`
-/ `chatMode` / `liveTalkPhase`
+startLiveTalk
+pauseLiveTalk
+resumeLiveTalk
+stopLiveTalk
 
-They live in `services/assistantRuntime.service.ts`. No hook, no
-component, no other service may call
-`useAssistantStore.getState().setLlmPhase(...)` (or any equivalent
-setter) directly. Route everything through a verb.
+speakMessage
+stopSpeaking
 
-### 4.3 Hooks and components call verbs; they never construct transitions
+editAndResubmitPrompt
+```
 
-A hook like `useChatInput` is allowed to call
-`assistantRuntime.submitPrompt(...)`. It is not allowed to call
-`setLlmPhase(LlmPhase.SUBMITTING)` itself, even if it "just wants to show
-a spinner a little early." That's what the verb already does.
+These verbs are the single entry points for assistant behavior.
+
+Do not create parallel implementations of these operations elsewhere.
+
+### 4.1 Runtime owns state transitions
+
+Only:
+
+```text
+services/assistantRuntime.service.ts
+```
+
+may write:
+
+```text
+llmPhase
+sttPhase
+ttsPhase
+chatMode
+liveTalkPhase
+```
+
+Hooks and components call runtime verbs. They do not construct assistant state transitions.
+
+### 4.2 Editing and resubmission
+
+`editAndResubmitPrompt` is the high-level operation for editing a historical user message.
+
+It is responsible for the complete operation:
+
+1. Identify the message being edited.
+2. Remove that message and every later message from the current conversation.
+3. Update persistent conversation storage.
+4. Update the in-memory chat state.
+5. Submit the edited text as a new prompt.
+6. Rebuild the resulting assistant response from the truncated history.
+
+The UI must not manually perform these steps.
 
 ---
 
 ## 5. Providers
 
-### 5.1 Provider contract is fixed; runtime code is provider-agnostic
+### 5.1 Provider-agnostic runtime
 
-`assistantRuntime.service.ts` calls `LlmProvider.generate(...)`,
-`SttProvider.startListening(...)`, `TtsProvider.speak(...)` — it never
-branches on "is this the local model or the cloud model." That branch
-happens exactly once, in the provider registry.
+The runtime calls provider contracts such as:
 
-### 5.2 Provider selection logic lives in ONE place
+```text
+LlmProvider.generate()
+SttProvider.startListening()
+TtsProvider.speak()
+```
 
-`services/providers/llm/index.ts` exports `pickLlmProvider(modelId)`.
-This is the only function in the entire codebase allowed to contain
-`if (model.isCloud) { ... } else { ... }` for LLM routing. The same
-pattern applies to `services/providers/stt/index.ts` and
-`services/providers/tts/index.ts` once either grows a second
-implementation.
+The runtime must not contain provider-specific routing logic.
 
-### 5.3 Adding a provider must never touch the runtime service
+### 5.2 Provider selection
 
-If implementing a new provider requires editing
-`assistantRuntime.service.ts`, the provider interface is wrong — fix the
-interface, not the runtime.
+Provider selection belongs to the provider registry.
 
----
+For LLMs:
 
-## 6. Error Handling & Cancellation
+```text
+services/providers/llm/index.ts
+```
 
-### 6.1 Every async verb wraps its body in try/catch
+through:
 
-On failure: set the relevant phase to its `*_ERROR` value, route a
-human-readable message into `assistant.store.ts`'s `error` field, and
-always return the phase to a safe resting state (`IDLE` for that domain)
-so the UI is never stuck showing a spinner forever.
+```text
+pickLlmProvider(modelId)
+```
 
-### 6.2 `assistantRunId` guard pattern
+The same pattern applies to STT and TTS when multiple implementations exist.
 
-Every call to `submitPrompt` (and every Live Talk turn) generates a new
-`assistantRunId` (a `uuid`, via the `uuid` package already used in
-`database/`) and stores it in `assistant.store.ts`. Any asynchronous
-callback (provider `onDelta`/`onComplete`/`onError`, native event) must
-compare the run id it was given against
-`useAssistantStore.getState().assistantRunId` before applying its result.
-If they don't match, the callback is stale — drop it silently. This is
-how a cancelled/superseded run is prevented from finishing late and
-corrupting the new run's UI state. The same pattern applies on the Kotlin
-side using `requestId` (see §9.3).
+### 5.3 Provider isolation
 
-### 6.3 Errors are routed to the store, never thrown into a UI event handler
+Adding or replacing a provider must not require changes to assistant orchestration.
 
-`onPress={() => runtime.submitPrompt(...)}` must never be able to throw.
-`submitPrompt` and every other verb catch everything internally.
+Provider implementations satisfy the existing provider contract.
 
 ---
 
-## 7. Persistence Rules
+## 6. Errors and Cancellation
 
-| Store | Persisted? | Storage |
-|---|---|---|
-| `stores/assistant.store.ts` | **Never** | n/a |
-| `stores/chat.store.ts` | Messages/sessions come from SQLite (`database/`); the Zustand store is an in-memory mirror, not a persist target. | n/a |
-| `stores/model.store.ts` | Yes — `selectedModelId` only | MMKV |
-| `stores/settings.store.ts` | Yes — all fields | MMKV |
-| `stores/voice.store.ts` | Yes — `selectedSttModelId`, `selectedTtsModelId` only | SecureStore |
-| `stores/wakeword.store.ts` | No (re-derived from the native module on boot) | n/a |
+### 6.1 Async operations handle their own failures
 
-Every `persist()` call must include an explicit `partialize`. Never
-persist an entire store "for convenience."
+Every async runtime verb must handle failures internally.
 
----
+On failure:
 
-## 8. Data Flow Direction
-User taps something
-|
-v
-Component (.tsx) — no logic, just calls a hook function
-|
-v
-Hook (hooks/useX.ts) — thin, forwards to a runtime verb, no business logic
-|
-v
-services/assistantRuntime.service.ts — the verb. Talks to providers,
-conversation service, chat service, and assistant.store.ts setters.
-|
-v
-stores/assistant.store.ts — raw phases + data updated
-|
-v
-Selector (in the same store file) — computes a UI-shaped value
-|
-v
-Component re-renders via the selector hook
+- Set the relevant error state.
+- Store a human-readable error.
+- Return the affected domain to a safe resting state.
 
+UI event handlers must not depend on catching runtime failures.
 
-**Exception:** setting `draftText` while the user is typing is a plain,
-non-orchestration write and may be called directly from `ChatInput` via
-the store's `setDraftText` action. Typing a character is not a phase
-transition. Starting or stopping a flow always is.
+### 6.2 Run correlation
+
+Every prompt submission and Live Talk turn receives a unique:
+
+```text
+assistantRunId
+```
+
+Asynchronous callbacks must verify that their run ID still matches the active run before changing runtime state.
+
+Stale callbacks are ignored.
+
+### 6.3 Native correlation
+
+Native requests use:
+
+```text
+requestId
+```
+
+Native asynchronous events must carry the request ID needed to correlate them with the originating request.
+
+### 6.4 Cancellation must be real
+
+Cancellation must stop the underlying operation where the provider/native implementation supports cancellation.
+
+Suppressing a callback without stopping the work is not sufficient.
 
 ---
 
-## 9. Kotlin Contract Rules
+## 7. Persistence
 
-### 9.1 Every native `Function`/`Event` is documented at the top of `KrithaModule.kt`
+| Store                | Persistence                              |
+| -------------------- | ---------------------------------------- |
+| `assistant.store.ts` | Never                                    |
+| `chat.store.ts`      | SQLite-backed conversation state         |
+| `model.store.ts`     | Persistent model selection               |
+| `settings.store.ts`  | Persistent settings                      |
+| `voice.store.ts`     | Persistent selected voice models         |
+| `wakeword.store.ts`  | Not persisted; derived from native state |
 
-A short comment block above `ModuleDefinition` lists every exposed
-function/event, its JS-facing signature, and one sentence of what it
-does. Keep this list current — it's the map JS developers use instead of
-reading Kotlin.
+Every Zustand `persist()` usage must specify an explicit `partialize`.
 
-### 9.2 Kotlin must not import conversation, prompt-construction, or
-provider-selection logic
+Never persist an entire store merely for convenience.
 
-A Kotlin generation request receives an already-built message list.
-Kotlin may translate it into whatever format the underlying SDK (LiteRT)
-wants (concatenation, a chat template, whatever the SDK provides), but it
-does not decide what messages belong in the list and does not
-truncate/summarize history — that is a JS policy decision.
+---
 
-### 9.3 Streaming events always carry a `requestId`
+## 8. Data Flow
 
-So JS can apply the same stale-response guard described in §6.2 on the
-native side too. An event that can't be tied back to a request id is a
-bug.
+The normal application flow is:
 
-### 9.4 Every long-running native `Function` is cancellable
+```text
+Component
+   ↓
+Hook
+   ↓
+Assistant Runtime
+   ↓
+Provider / Domain Service
+   ↓
+Native Module (when required)
+   ↓
+Result / Event
+   ↓
+Runtime / Store
+   ↓
+Selector
+   ↓
+Component
+```
 
-If it can take more than roughly a second, it needs a companion cancel
-path — either a matching `cancelXxx(requestId)` Function, or the
-underlying coroutine `Job` keyed by `requestId` in a module-level map.
+### Exception
+
+`draftText` may be updated directly while the user is typing.
+
+Typing is plain UI data, not assistant orchestration.
+
+---
+
+## 9. Kotlin Contract
+
+### 9.1 Native API contract
+
+`KrithaModule.kt` must document every JS-facing native function and event, including:
+
+- JS-facing signature
+- Purpose
+- Relevant request/event data
+
+Keep this contract synchronized with the exposed module API.
+
+### 9.2 Kotlin receives formed requests
+
+For local LLM execution, Kotlin receives an already-formed message/request.
+
+Kotlin may translate the request into the underlying SDK representation.
+
+Kotlin must not decide:
+
+- Which messages belong in context
+- Which history to retain
+- Which system prompt to use
+- Which provider/model should be selected
+
+### 9.3 Native events require request IDs
+
+Every asynchronous or streaming native event must include the originating `requestId`.
+
+### 9.4 Long-running native operations are cancellable
+
+Any long-running native operation must have a cancellation path associated with its request.
 
 ---
 
 ## 10. Stub Rules
 
-### 10.1 Every stub is labeled
+### 10.1 Stubs are explicit
 
-Any temporary/fake implementation carries a `// STUB:` comment directly
-above it, one sentence explaining what real behavior it stands in for and
-which phase file replaces it.
+Temporary implementations must contain:
 
-### 10.2 Stubs still drive canonical state correctly
+```text
+// STUB:
+```
 
-A stub for STT/TTS is not allowed to skip phase transitions "because it's
-fake." The rest of the app must not be able to tell the difference
-between a stub and the real thing from the outside. If `startDictation()`
-is stubbed, `sttPhase` must still go `IDLE -> LISTENING`, and
-`stopDictation()` must still go `LISTENING -> TRANSCRIBING -> IDLE`, on
-realistic timers.
+and clearly state what real behavior they represent.
 
-### 10.3 Stubs never fabricate believable fake content
+### 10.2 Stubs preserve external behavior
 
-A stub STT provider that has no real audio input returns an empty
-transcript, not an invented sentence. Inventing plausible-looking fake
-data hides bugs later; an honestly-empty result is easy to reason about.
+A stub must still maintain the expected runtime state transitions.
+
+The rest of the application should observe the same contract regardless of whether the implementation is currently stubbed or real.
+
+### 10.3 Stubs never fabricate believable content
+
+A stub must not invent plausible assistant, transcription, or other runtime data.
+
+For example, an STT stub without real audio input returns an empty transcript.
 
 ---
 
-## 11. Change Management
+## 11. Code Editing Rules
 
-- Adding a new canonical state, a new store, or a new verb requires
-  updating this file (§3.2 table, §7 table, or §4.1 list respectively) in
-  the same change. A code change that adds a new phase/store/verb without
-  a matching `RULES.md` update is incomplete.
-- If a future need genuinely requires breaking one of these rules, write
-  the new rule down here with the reasoning — don't leave it as a silent
-  exception in one file.
+Every change to the codebase must:
+
+- Follow this document and `CONVENTIONS.md`.
+- Inspect the existing implementation before editing.
+- Preserve unrelated existing behavior.
+- Change ownership only where the architecture requires it.
+- Reuse existing stores, services, providers, selectors, and components where appropriate.
+- Keep each responsibility in its owning layer.
+- Update all affected call sites when an existing API changes.
+- Remove dead code when it is genuinely superseded.
+- Avoid duplicate implementations or parallel runtime paths.
+- Avoid speculative abstractions and unrelated cleanup.
+- Never bypass an architectural boundary simply to make an implementation easier.
+- Never silently weaken an existing rule.
+- Review the final diff for scope creep, stale references, and architectural violations.
+- Report only verification that was actually performed.
+
+---
+
+## 12. Design System & Theming
+
+### 12.1 Always prefer design tokens from `theme/index.ts`
+
+UI components and styles must use tokens and constants defined in:
+
+```text
+src/theme/index.ts (imported via `@/theme`)
+```
+
+Do not use arbitrary magic numbers, hardcoded hex/rgba color codes, or inline random dimension values across UI files.
+
+### 12.2 Token categories to use
+
+- **Colors**: `Colors.<token>` (e.g. `Colors.bgSurface`, `Colors.textPrimary`, `Colors.accentBlue`, `Colors.borderSubtle`, etc.)
+- **Typography & Font Sizes**: `Typography.<size>` (e.g. `Typography.sizeBase`, `Typography.sizeSm`, `Typography.sizeLg`, etc.)
+- **Icon Sizes**: `IconSizes.<size>` (e.g. `IconSizes.sm`, `IconSizes.md`, `IconSizes.lg`, etc.)
+- **Border Radii**: `Radius.<size>` (e.g. `Radius.sm`, `Radius.base`, `Radius.xl`, `Radius.full`, etc.)
+
+If a new token or variant is required, add it to `src/theme/index.ts` first rather than defining one-off hardcoded values in component style definitions.

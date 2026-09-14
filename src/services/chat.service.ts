@@ -8,7 +8,6 @@ import {
   UpdateSessionInput,
 } from '@/database/types';
 import { useChatStore } from '@/stores';
-import { stubAction } from '@/utils';
 
 export const ChatSessionService = {
   async getSessions(includeArchived: boolean = false): Promise<Session[]> {
@@ -22,7 +21,9 @@ export const ChatSessionService = {
   async createSession(
     titleOrInput: string | CreateSessionInput,
   ): Promise<Session> {
-    return database.sessions.createSession(titleOrInput);
+    const session = await database.sessions.createSession(titleOrInput);
+    useChatStore.getState().upsertSession(session);
+    return session;
   },
 
   async updateSession(id: string, input: UpdateSessionInput): Promise<Session> {
@@ -49,71 +50,146 @@ export const ChatSessionService = {
     return database.messages.getMessages(sessionId);
   },
 
-  async saveMessage(input: CreateMessageInput): Promise<Message> {
-    return database.messages.saveMessage(input);
-  },
-
-  async getHistory(sessionId: string, limit: number = 20): Promise<Message[]> {
-    return database.messages.getHistory(sessionId, limit);
-  },
-
-  async loadSessions(includeArchived: boolean = false): Promise<Session[]> {
+  async loadSessions(includeArchived: boolean = true): Promise<Session[]> {
     const sessions = await database.sessions.getSessions(includeArchived);
     useChatStore.getState().setSessions(sessions);
     return sessions;
   },
 
   async syncSessions(): Promise<void> {
-    const sessions = await database.sessions.getSessions(false);
+    const sessions = await database.sessions.getSessions(true);
     useChatStore.getState().mergeSessions(sessions);
   },
 
-  beginNewChat(): void {
+  async createNewChat(title: string = 'New Chat'): Promise<Session> {
+    const session = await database.sessions.createSession({ title });
     const store = useChatStore.getState();
-    store.setChatSessionId(null);
+    store.upsertSession(session);
+    store.setChatSessionId(session.id);
     store.setMessages([]);
+    return session;
+  },
+
+  async beginNewChat(title: string = 'New Chat'): Promise<Session> {
+    return this.createNewChat(title);
   },
 
   async openChat(sessionId: string): Promise<void> {
     const store = useChatStore.getState();
     store.setChatSessionId(sessionId);
     store.setMessages([]);
+    store.setHasMoreMessages(true);
+    store.setIsLoadingMessages(true);
 
-    const msgs = await database.messages.getMessages(sessionId);
-    store.setMessages(
-      msgs.map((m) => ({
-        id: m.id,
-        sessionId: m.sessionId,
-        role: m.role as 'user' | 'assistant',
-        text: m.content,
-        createdAt: m.createdAt,
-        status: 'sent',
-      })),
-    );
+    try {
+      const msgs = await database.messages.getMessages(sessionId, 20, 0);
+      store.setMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          sessionId: m.sessionId,
+          role: m.role as 'user' | 'assistant',
+          text: m.content,
+          createdAt: m.createdAt,
+          status: 'sent',
+        })),
+      );
+      if (msgs.length < 20) {
+        store.setHasMoreMessages(false);
+      }
+    } finally {
+      store.setIsLoadingMessages(false);
+    }
   },
 
-  async renameChat(id: string, title: string): Promise<void> {
+  async loadMoreMessages(): Promise<void> {
+    const store = useChatStore.getState();
+    const sessionId = store.chatSessionId;
+    if (!sessionId || store.isLoadingMessages || !store.hasMoreMessages) return;
+
+    store.setIsLoadingMessages(true);
+    try {
+      const currentCount = store.messages.length;
+      const msgs = await database.messages.getMessages(
+        sessionId,
+        20,
+        currentCount,
+      );
+
+      if (msgs.length > 0) {
+        store.prependMessages(
+          msgs.map((m) => ({
+            id: m.id,
+            sessionId: m.sessionId,
+            role: m.role as 'user' | 'assistant',
+            text: m.content,
+            createdAt: m.createdAt,
+            status: 'sent',
+          })),
+        );
+      }
+
+      if (msgs.length < 20) {
+        store.setHasMoreMessages(false);
+      }
+    } finally {
+      store.setIsLoadingMessages(false);
+    }
+  },
+
+  async renameChat(id: string, title: string): Promise<Session> {
     useChatStore.getState().renameSession(id, title);
-    await database.sessions.updateSessionTitle(id, title);
+    return database.sessions.updateSessionTitle(id, title);
   },
 
-  async pinChat(id: string, pinned: boolean): Promise<void> {
+  async pinChat(id: string, pinned: boolean): Promise<Session> {
     useChatStore.getState().pinSession(id, pinned);
-    await database.sessions.pinSession(id, pinned);
+    return database.sessions.pinSession(id, pinned);
   },
 
-  async archiveChat(id: string, archived: boolean): Promise<void> {
-    useChatStore.getState().archiveSession(id, archived);
-    await database.sessions.archiveSession(id, archived);
+  async archiveChat(id: string, archived: boolean): Promise<Session> {
+    const store = useChatStore.getState();
+    const wasCurrent = store.chatSessionId === id;
+    store.archiveSession(id, archived);
+    const updated = await database.sessions.archiveSession(id, archived);
+
+    if (wasCurrent && archived) {
+      const remaining = store.sessions.filter(
+        (s) => !s.archived && s.id !== id,
+      );
+      if (remaining.length > 0) {
+        await this.openChat(remaining[0].id);
+      } else {
+        await this.createNewChat();
+      }
+    }
+    return updated;
   },
 
   async deleteChat(id: string): Promise<void> {
     const store = useChatStore.getState();
+    const wasCurrent = store.chatSessionId === id;
     store.deleteSession(id);
-    if (store.chatSessionId === id) {
-      this.beginNewChat();
-    }
     await database.sessions.deleteSession(id);
+
+    if (wasCurrent) {
+      const remaining = store.sessions.filter(
+        (s) => !s.archived && s.id !== id,
+      );
+      if (remaining.length > 0) {
+        await this.openChat(remaining[0].id);
+      } else {
+        await this.createNewChat();
+      }
+    }
+  },
+
+  async saveMessage(input: CreateMessageInput): Promise<Message> {
+    const message = await database.messages.saveMessage(input);
+    const session = await database.sessions.getSession(input.sessionId);
+    if (session) {
+      useChatStore.getState().upsertSession(session);
+    }
+    return message;
   },
 
   async shareChat(id: string): Promise<void> {
@@ -137,12 +213,10 @@ export const ChatSessionService = {
       let finalStatus = 'sent';
       if (payload.status === 'failed') finalStatus = 'failed';
 
-      // if user role, we might be reconciling an optimistic send
       if (role === 'user') {
         const msgs = currentStore.messages;
         const sendingIdx = msgs.map((m) => m.status).lastIndexOf('sending');
         if (sendingIdx >= 0 && msgs[sendingIdx].role === 'user') {
-          // Replace it
           const updated = [...msgs];
           updated[sendingIdx] = {
             id: messageId,
@@ -190,14 +264,6 @@ export const ChatSessionService = {
     }
   },
 
-  editMessage(messageId: string): void {
-    stubAction('editMessage');
-  },
-
-  regenerateResponse(messageId: string): void {
-    stubAction('regenerateResponse');
-  },
-
   addOptimisticUserMessage(text: string): string {
     const tempId = Math.random().toString(36).substring(2, 15);
     const currentStore = useChatStore.getState();
@@ -211,5 +277,20 @@ export const ChatSessionService = {
       status: 'sending',
     });
     return tempId;
+  },
+
+  async truncateMessages(
+    sessionId: string,
+    fromCreatedAt: number,
+  ): Promise<void> {
+    await database.messages.truncateMessages(sessionId, fromCreatedAt);
+
+    const store = useChatStore.getState();
+    if (store.chatSessionId === sessionId) {
+      const filtered = store.messages.filter(
+        (m) => (m.createdAt ?? 0) < fromCreatedAt,
+      );
+      store.setMessages(filtered);
+    }
   },
 };

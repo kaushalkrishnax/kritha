@@ -7,17 +7,26 @@
 
 /* Core Palette */
 
-// Deepest background — used for shell, app frame, status bar bg
-export const BG_DEEPEST = '#0f0f10ff';
+// Deepest background — shell, app frame, status bar
+export const BG_DEEPEST = '#000000';
+
+// Base background — primary app background
+export const BG_BASE = '#0B0C0E';
 
 // Primary surface — chat panel, sidebar
-export const BG_SURFACE = '#141518';
+export const BG_SURFACE = '#121316';
 
-// Slightly lighter surface — used for inline cards, banners
-export const BG_ELEVATED = '#17181b';
+// Slightly lighter surface — inline cards, banners
+export const BG_PRIMARY = '#17181B';
 
-// Input / search box backgrounds
-export const BG_INPUT = '#1c1e21';
+// More elevated surface — modals, popovers, dropdowns
+export const BG_SECONDARY = '#1a1b1e';
+
+// Elevated interactive surface — active buttons, selected items
+export const BG_TERTIARY = '#26282c';
+
+// Highest surface — hover, pressed, active states
+export const BG_QUATERNARY = '#2c2f34';
 
 // Card / message bubble background (Google Material dark)
 export const BG_CARD = '#1c1d1f';
@@ -46,9 +55,6 @@ export const TEXT_ON_ACCENT = '#FFFFFF';
 
 // Primary brand blue
 export const ACCENT_BLUE = '#1A5FE8';
-
-// Primary brand blue (alias for clarity)
-export const ACCENT_PRIMARY = ACCENT_BLUE;
 
 // Google blue — used for links, thinking headers
 export const ACCENT_LIGHT_BLUE = '#60A5FA';
@@ -90,10 +96,8 @@ export const BORDER_FAINT = 'rgba(255,255,255,0.06)';
 // Accent border (blue tinted)
 export const BORDER_ACCENT = '#3B82F6';
 
-/* Transparent Helpers */
-
-// User message bubble background
-export const USER_BUBBLE_BG = ACCENT_BLUE;
+// User message bubble background (ChatGPT-style refined dark blue)
+export const USER_BUBBLE_BG = '#21437D';
 
 // Assistant message bubble background
 export const ASSISTANT_BUBBLE_BG = `rgba(26,115,232,0.08)`;
@@ -115,12 +119,76 @@ export const ICON_MUTED = '#9AA0A6';
 // Icon muted (Slate)
 export const ICON_SLATE = '#C4C7C5';
 
-const Colors = {
+/* Typography */
+export const FONT_SIZE_2XS = 11;
+export const FONT_SIZE_XS = 12;
+export const FONT_SIZE_SM = 14;
+export const FONT_SIZE_BASE = 15.5;
+export const FONT_SIZE_MD = 16.5;
+export const FONT_SIZE_LG = 18;
+export const FONT_SIZE_XL = 20;
+export const FONT_SIZE_2XL = 24;
+export const FONT_SIZE_3XL = 28;
+
+export const Typography = {
+  size2xs: FONT_SIZE_2XS,
+  sizeXs: FONT_SIZE_XS,
+  sizeSm: FONT_SIZE_SM,
+  sizeBase: FONT_SIZE_BASE,
+  sizeMd: FONT_SIZE_MD,
+  sizeLg: FONT_SIZE_LG,
+  sizeXl: FONT_SIZE_XL,
+  size2xl: FONT_SIZE_2XL,
+  size3xl: FONT_SIZE_3XL,
+} as const;
+
+/* Icon Sizes */
+export const ICON_SIZE_XS = 14;
+export const ICON_SIZE_SM = 18;
+export const ICON_SIZE_BASE = 20;
+export const ICON_SIZE_MD = 22;
+export const ICON_SIZE_LG = 24;
+export const ICON_SIZE_XL = 28;
+
+export const IconSizes = {
+  xs: ICON_SIZE_XS,
+  sm: ICON_SIZE_SM,
+  base: ICON_SIZE_BASE,
+  md: ICON_SIZE_MD,
+  lg: ICON_SIZE_LG,
+  xl: ICON_SIZE_XL,
+} as const;
+
+/* Border Radii */
+export const RADIUS_XS = 4;
+export const RADIUS_SM = 8;
+export const RADIUS_BASE = 12;
+export const RADIUS_MD = 16;
+export const RADIUS_LG = 20;
+export const RADIUS_XL = 24;
+export const RADIUS_2XL = 28;
+export const RADIUS_FULL = 100;
+
+export const Radius = {
+  xs: RADIUS_XS,
+  sm: RADIUS_SM,
+  base: RADIUS_BASE,
+  md: RADIUS_MD,
+  lg: RADIUS_LG,
+  xl: RADIUS_XL,
+  '2xl': RADIUS_2XL,
+  full: RADIUS_FULL,
+} as const;
+
+export const Colors = {
   // Backgrounds
   bgDeepest: BG_DEEPEST,
+  bgBase: BG_BASE,
   bgSurface: BG_SURFACE,
-  bgElevated: BG_ELEVATED,
-  bgInput: BG_INPUT,
+  bgPrimary: BG_PRIMARY,
+  bgSecondary: BG_SECONDARY,
+  bgTertiary: BG_TERTIARY,
+  bgQuaternary: BG_QUATERNARY,
   bgCard: BG_CARD,
   bgScrim: BG_SCRIM,
 
@@ -133,7 +201,6 @@ const Colors = {
 
   // Accent
   accentBlue: ACCENT_BLUE,
-  accentPrimary: ACCENT_PRIMARY,
   accentLightBlue: ACCENT_LIGHT_BLUE,
   accentSky: ACCENT_SKY,
   accentCyan: ACCENT_CYAN,
@@ -165,7 +232,9 @@ const Colors = {
   iconSlate: ICON_SLATE,
 } as const;
 
-export default Colors;
-
-
-
+export const Theme = {
+  colors: Colors,
+  typography: Typography,
+  iconSizes: IconSizes,
+  radius: Radius,
+} as const;

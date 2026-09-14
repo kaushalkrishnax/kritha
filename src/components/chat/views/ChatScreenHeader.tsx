@@ -1,4 +1,5 @@
-import { useMemo, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { ChatHeader } from '@/components/chat/ui/ChatHeader';
 import { useChatSession } from '@/hooks';
 import { useModelStore } from '@/stores';
@@ -24,9 +25,9 @@ export function ChatScreenHeader({
 
   const { beginNewChat } = useChatSession();
 
-  const handleNewChat = useCallback(() => {
+  const handleNewChat = useCallback(async () => {
     try {
-      beginNewChat();
+      await beginNewChat();
       setSidebarOpen(false);
     } catch (e) {
       console.warn('Failed to create new chat session', e);
@@ -34,13 +35,25 @@ export function ChatScreenHeader({
   }, [setSidebarOpen, beginNewChat]);
 
   return (
-    <ChatHeader
-      modelName={selectedModel?.name || ''}
-      onMenu={() => setSidebarOpen(true)}
-      onNewSession={handleNewChat}
-      onModelSelectClick={onModelSelectClick}
-      sidebarOpen={sidebarOpen}
-      setSidebarOpen={setSidebarOpen}
-    />
+    <View style={styles.container}>
+      <ChatHeader
+        modelName={selectedModel?.name || ''}
+        onMenu={() => setSidebarOpen(true)}
+        onNewSession={handleNewChat}
+        onModelSelectClick={onModelSelectClick}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+});

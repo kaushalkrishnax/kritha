@@ -7,9 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 import { DownloadState, ModelRecord } from '@/types';
-
 
 export interface ModelSelectModalProps {
   isDropdownOpen: boolean;
@@ -59,8 +58,8 @@ export function ModelSelectModal({
                 </View>
                 {m.id === selectedModelId && (
                   <CheckCircle2
-                    size={24}
-                    color={Colors.bgElevated}
+                    size={IconSizes.lg}
+                    color={Colors.bgPrimary}
                     fill={Colors.borderAccent}
                   />
                 )}
@@ -120,9 +119,9 @@ export function ModelSelectModal({
                   style={styles.modalBtn}
                 >
                   <Download
-                    size={16}
+                    size={IconSizes.sm}
                     color={Colors.textOnAccent}
-                    style={{ marginRight: 6 }}
+                    style={{ marginRight: Spacing.sm }}
                   />
                   <Text style={styles.modalBtnText}>Download</Text>
                 </TouchableOpacity>
@@ -144,27 +143,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 100,
     left: 60,
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 8,
+    backgroundColor: Colors.bgPrimary,
+    borderRadius: Radius.base,
     borderWidth: 1,
     borderColor: Colors.borderStrong,
-    width: 250,
-    padding: 8,
+    width: 260,
+    padding: Spacing.sm,
     elevation: 5,
   },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 6,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
   },
   dropdownItemText: {
     color: Colors.textPrimary,
-    fontSize: 14,
+    fontSize: Typography.sizeBase,
+    fontWeight: '500',
   },
   dropdownItemSub: {
     color: Colors.textDimmed,
-    fontSize: 11,
+    fontSize: Typography.sizeXs,
+    marginTop: Spacing['2xs'],
   },
   modalOverlayCenter: {
     flex: 1,
@@ -173,52 +174,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalDialog: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: 12,
-    padding: 20,
-    width: 300,
+    backgroundColor: Colors.bgPrimary,
+    borderRadius: Radius.base,
+    padding: Spacing.xl,
+    width: 310,
     borderWidth: 1,
     borderColor: Colors.borderStrong,
   },
   modalTitle: {
     color: Colors.textOnAccent,
-    fontSize: 18,
+    fontSize: Typography.sizeLg,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   modalText: {
     color: Colors.textSecondary,
-    fontSize: 14,
-    marginBottom: 8,
+    fontSize: Typography.sizeBase,
+    marginBottom: Spacing.sm,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 20,
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
   },
   modalBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.borderAccent,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
   },
   modalBtnText: {
     color: Colors.textOnAccent,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: Typography.sizeBase,
   },
   downloadProgressWrap: {
-    marginTop: 16,
+    marginTop: Spacing.lg,
   },
   downloadBarBg: {
     height: 6,
     backgroundColor: Colors.borderStrong,
-    borderRadius: 3,
+    borderRadius: Radius.xs,
     overflow: 'hidden',
-    marginVertical: 8,
+    marginVertical: Spacing.sm,
   },
   downloadBarFill: {
     height: '100%',

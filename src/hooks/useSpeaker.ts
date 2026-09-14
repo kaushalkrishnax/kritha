@@ -13,17 +13,11 @@ export function useSpeaker() {
   const isTtsSpeaking = useIsTtsSpeaking();
   const isTtsPaused = useIsTtsPaused();
 
-  const currentTtsMsgId = useAssistantStore(
-    (s) => s.currentTtsMessageId,
-  );
+  const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMessageId);
 
-  const setVoiceModalOpen = useVoiceStore(
-    (s) => s.setVoiceModalOpen,
-  );
+  const setVoiceModalOpen = useVoiceStore((s) => s.setVoiceModalOpen);
 
-  const selectedTtsModelId = useVoiceStore(
-    (s) => s.selectedTtsModelId,
-  );
+  const selectedTtsModelId = useVoiceStore((s) => s.selectedTtsModelId);
 
   const handleSpeakerPress = useCallback(
     (messageId: string, text: string) => {
@@ -44,12 +38,7 @@ export function useSpeaker() {
 
       assistantRuntime.speakMessage(text, messageId);
     },
-    [
-      currentTtsMsgId,
-      isTtsSpeaking,
-      selectedTtsModelId,
-      setVoiceModalOpen,
-    ],
+    [currentTtsMsgId, isTtsSpeaking, selectedTtsModelId, setVoiceModalOpen],
   );
 
   const openVoiceModal = useCallback(
@@ -63,14 +52,12 @@ export function useSpeaker() {
   );
 
   const setSelectedSttModelId = useCallback(
-    (id: string | null) =>
-      useVoiceStore.getState().setSelectedSttModelId(id),
+    (id: string | null) => useVoiceStore.getState().setSelectedSttModelId(id),
     [],
   );
 
   const setSelectedTtsModelId = useCallback(
-    (id: string | null) =>
-      useVoiceStore.getState().setSelectedTtsModelId(id),
+    (id: string | null) => useVoiceStore.getState().setSelectedTtsModelId(id),
     [],
   );
 

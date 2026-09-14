@@ -1,7 +1,7 @@
-import { ChevronDown, Menu, Radio, SquarePen } from 'lucide-react-native';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Menu, Radio, SquarePen } from 'lucide-react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useWakeword } from '@/hooks';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing } from '@/theme';
 
 export interface ChatHeaderProps {
   sidebarOpen?: boolean;
@@ -15,9 +15,7 @@ export interface ChatHeaderProps {
 export function ChatHeader({
   sidebarOpen,
   setSidebarOpen,
-  modelName = 'Select Model',
   onMenu,
-  onModelSelectClick,
   onNewSession,
 }: ChatHeaderProps) {
   const { isEnabled, toggle } = useWakeword();
@@ -31,26 +29,21 @@ export function ChatHeader({
 
   return (
     <View style={styles.header}>
-      <View style={styles.leftSection}>
+      <View style={styles.roundedSection}>
         <TouchableOpacity onPress={handleToggleSidebar} style={styles.iconBtn}>
-          <Menu size={24} color={Colors.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onModelSelectClick} style={styles.modelBtn}>
-          <Text style={styles.modelBtnText}>{modelName}</Text>
-          <ChevronDown size={18} color={Colors.textMuted} />
+          <Menu size={IconSizes.lg} color={Colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.rightSection}>
+      <View style={styles.roundedSection}>
         {onNewSession && (
           <TouchableOpacity onPress={onNewSession} style={styles.iconBtn}>
-            <SquarePen size={20} color={Colors.textSecondary} />
+            <SquarePen size={IconSizes.lg} color={Colors.textSecondary} />
           </TouchableOpacity>
         )}
         <TouchableOpacity onPress={toggle} style={styles.iconBtn}>
           <Radio
-            size={20}
+            size={IconSizes.lg}
             color={isEnabled ? Colors.success : Colors.warning}
           />
         </TouchableOpacity>
@@ -63,46 +56,31 @@ export default ChatHeader;
 
 const styles = StyleSheet.create({
   header: {
-    height: 58,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.bgElevated,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: 'transparent',
   },
-  leftSection: {
+  roundedSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  modelBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.bgElevated,
+    gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.borderStrong,
-  },
-  modelBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.textSecondary,
+    borderColor: Colors.borderSubtle,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.bgSecondary,
   },
   iconBtn: {
-    padding: 8,
-  },
-  rightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    padding: Spacing.sm,
+    borderRadius: Radius.lg,
   },
   statusDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: Radius.sm,
   },
 });

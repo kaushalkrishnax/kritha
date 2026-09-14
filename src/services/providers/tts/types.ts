@@ -1,9 +1,5 @@
 export interface TtsProvider {
-  speak: (
-    text: string,
-    messageId: string,
-    onDone: () => void,
-  ) => void;
+  speak: (text: string, messageId: string, onDone: () => void) => void;
 
   pause: () => void;
   resume: () => void;

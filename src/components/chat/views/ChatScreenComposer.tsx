@@ -1,10 +1,14 @@
-import React from 'react';
 import { StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { ChatInput, DictationCornerGlow, LiveTalkBar } from '@/components/chat/ui';
+import {
+  ChatInput,
+  DictationCornerGlow,
+  LiveTalkBar,
+} from '@/components/chat/ui';
 import { ChatMode } from '@/constants';
 import { useAssistantKeyboard } from '@/hooks';
 import { useAssistantStore, useModelStore } from '@/stores';
+import { Spacing } from '@/theme';
 
 export function ChatScreenComposer() {
   const animatedBottomStyle = useAssistantKeyboard();
@@ -26,5 +30,13 @@ export function ChatScreenComposer() {
 }
 
 const styles = StyleSheet.create({
-  floatingInputWrapper: { width: '100%', alignItems: 'center', paddingTop: 8 },
+  floatingInputWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingTop: Spacing.xs,
+    zIndex: 10,
+  },
 });

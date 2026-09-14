@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatSessionService } from '@/services/chat.service';
 import { useChatStore } from '@/stores';
-import Colors from '@/theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 type ArchivedChatsModalProps = {
   visible: boolean;
@@ -53,7 +53,7 @@ export function ArchivedChatsModal({
               <View style={styles.header}>
                 <Text style={styles.title}>Archived Chats</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                  <X size={20} color={Colors.textMuted} />
+                  <X size={IconSizes.base} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -71,13 +71,16 @@ export function ArchivedChatsModal({
                           onPress={() => handleRestore(session.id)}
                           style={styles.actionBtn}
                         >
-                          <ArchiveRestore size={18} color={Colors.textMuted} />
+                          <ArchiveRestore
+                            size={IconSizes.base}
+                            color={Colors.textMuted}
+                          />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => handleDelete(session.id)}
                           style={styles.actionBtn}
                         >
-                          <Trash2 size={18} color={Colors.error} />
+                          <Trash2 size={IconSizes.base} color={Colors.error} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -96,12 +99,12 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: Colors.bgScrim,
   },
   content: {
     backgroundColor: Colors.bgSurface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     maxHeight: '90%',
     minHeight: '50%',
   },
@@ -109,47 +112,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: Typography.sizeLg,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
   closeBtn: {
-    padding: 4,
+    padding: Spacing.sm,
   },
   scrollArea: {
-    padding: 16,
+    padding: Spacing.lg,
   },
   emptyText: {
     color: Colors.textMuted,
-    fontSize: 16,
+    fontSize: Typography.sizeMd,
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: Spacing['4xl'],
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.borderSubtle,
   },
   sessionTitle: {
     color: Colors.textPrimary,
-    fontSize: 16,
+    fontSize: Typography.sizeMd,
+    fontWeight: '500',
     flex: 1,
-    marginRight: 16,
+    marginRight: Spacing.lg,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   actionBtn: {
-    padding: 8,
+    padding: Spacing.sm,
   },
 });

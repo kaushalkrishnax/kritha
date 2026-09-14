@@ -2,11 +2,11 @@
 
   <img src="assets/images/splash-icon.png" alt="Kritha Logo" width="120" />
 
-  # Kritha
+# Kritha
 
-  **A voice-first, privacy-first AI assistant for Android.**
+**A voice-first, privacy-first AI assistant for Android.**
 
-  Native runtime · On-device intelligence · Cloud-ready
+Native runtime · On-device intelligence · Cloud-ready
 
   <p>
     <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" />
@@ -31,7 +31,7 @@ The product UI is React Native + Expo. Everything that must stay reliable outsid
 ### Highlights
 
 - 🎙️ **Always-on wake word** — “Hey Kritha,” detected by an Edge Impulse model inside an Android foreground service
-- ⚡ **Streaming everything** — responses stream token-by-token into the chat *and* the TTS queue
+- ⚡ **Streaming everything** — responses stream token-by-token into the chat _and_ the TTS queue
 - 📴 **Local-first intelligence** — on-device inference via LiteRT, with cloud as fallback
 - 🗣️ **Swappable voice models** — downloadable STT/TTS models (Zipformer, SenseVoice, Moonshine, Kokoro, Piper, Matcha, VITS)
 - 💬 **Native chat persistence** — sessions live in native SQLite, independent of any React screen
@@ -94,14 +94,14 @@ dispatchCommand({
 
 — and the native runtime owns execution, emitting structured events back.
 
-| Native component   | Responsibility                        |
-| ------------------ | ------------------------------------- |
-| `AssistantCore`    | Assistant lifecycle & orchestration   |
-| `MicrophoneManager`| Explicit audio ownership              |
-| `TtsManager`       | Streaming speech synthesis            |
-| Wake-word service  | Always-on “Hey Kritha” (Edge Impulse) |
-| Intelligence pipeline | Local (LiteRT) + cloud routing     |
-| `DBManager`        | SQLite chat persistence               |
+| Native component      | Responsibility                        |
+| --------------------- | ------------------------------------- |
+| `AssistantCore`       | Assistant lifecycle & orchestration   |
+| `MicrophoneManager`   | Explicit audio ownership              |
+| `TtsManager`          | Streaming speech synthesis            |
+| Wake-word service     | Always-on “Hey Kritha” (Edge Impulse) |
+| Intelligence pipeline | Local (LiteRT) + cloud routing        |
+| `DBManager`           | SQLite chat persistence               |
 
 ---
 
@@ -137,8 +137,8 @@ stateDiagram-v2
 | Command           | Purpose                         |
 | ----------------- | ------------------------------- |
 | `SUBMIT_TEXT`     | Send a text request             |
-| `START_LISTENING` | Begin voice input              |
-| `STOP_LISTENING`  | Stop voice input               |
+| `START_LISTENING` | Begin voice input               |
+| `STOP_LISTENING`  | Stop voice input                |
 | `PLAY_TTS`        | Speak text                      |
 | `PAUSE_TTS`       | Pause speech                    |
 | `RESUME_TTS`      | Resume speech                   |
@@ -269,21 +269,21 @@ All of it is exposed through the controlled TypeScript API — never raw interna
 
 ## 🛠️ Tech Stack
 
-| Area                | Technology                                     |
-| ------------------- | ---------------------------------------------- |
-| UI                  | React Native + Tamagui                         |
-| Framework           | Expo (native dev builds)                       |
-| Navigation          | Expo Router                                    |
-| State               | Zustand                                        |
-| Native runtime      | Kotlin                                         |
-| Native bridge       | Expo Modules API                               |
-| Local inference     | LiteRT                                         |
-| Wake word           | Edge Impulse                                   |
-| Speech recognition  | Android Speech Recognition + on-device models |
-| Text-to-speech      | Android TTS + on-device models                |
-| Cloud LLM           | Gemini                                         |
-| Persistence         | Native SQLite                                  |
-| Package manager     | Bun                                            |
+| Area               | Technology                                    |
+| ------------------ | --------------------------------------------- |
+| UI                 | React Native + Tamagui                        |
+| Framework          | Expo (native dev builds)                      |
+| Navigation         | Expo Router                                   |
+| State              | Zustand                                       |
+| Native runtime     | Kotlin                                        |
+| Native bridge      | Expo Modules API                              |
+| Local inference    | LiteRT                                        |
+| Wake word          | Edge Impulse                                  |
+| Speech recognition | Android Speech Recognition + on-device models |
+| Text-to-speech     | Android TTS + on-device models                |
+| Cloud LLM          | Gemini                                        |
+| Persistence        | Native SQLite                                 |
+| Package manager    | Bun                                           |
 
 ---
 
@@ -358,18 +358,18 @@ bun run android   # native build + install
 
 The goal is not “everything in Kotlin” or “everything in React Native.” It’s putting each responsibility **where it runs reliably**:
 
-| Responsibility      | Owner                    |
-| ------------------- | ------------------------ |
-| Rendering           | React Native             |
-| UI state            | Zustand                  |
-| Assistant execution | `AssistantCore`          |
-| Audio ownership     | `MicrophoneManager`     |
-| Wake word           | Native service           |
-| Speech recognition  | Native Android           |
-| TTS                 | `TtsManager`             |
-| Chat persistence    | Native DB                |
-| Model execution     | Intelligence pipeline    |
-| Android integration | Kotlin                   |
+| Responsibility      | Owner                 |
+| ------------------- | --------------------- |
+| Rendering           | React Native          |
+| UI state            | Zustand               |
+| Assistant execution | `AssistantCore`       |
+| Audio ownership     | `MicrophoneManager`   |
+| Wake word           | Native service        |
+| Speech recognition  | Native Android        |
+| TTS                 | `TtsManager`          |
+| Chat persistence    | Native DB             |
+| Model execution     | Intelligence pipeline |
+| Android integration | Kotlin                |
 
 ---
 
