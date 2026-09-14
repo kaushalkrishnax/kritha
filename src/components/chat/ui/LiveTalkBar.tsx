@@ -10,7 +10,7 @@ import Svg, {
 import { LiveTalkPhase } from '@/constants';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import { useAssistantStore } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing } from '@/theme';
+import { Colors, IconSizes, Radius } from '@/theme';
 
 export function LiveTalkBar() {
   const liveTalkPhase = useAssistantStore((s) => s.liveTalkPhase);
@@ -148,9 +148,9 @@ export function LiveTalkBar() {
 const styles = StyleSheet.create({
   outerContainer: {
     width: '100%',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 12,
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.sm,
+    gap: 8,
   },
   circleBtn: {
     width: 48,

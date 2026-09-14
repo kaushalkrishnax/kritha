@@ -9,8 +9,6 @@ import {
 } from '@/components/chat/ui';
 import { useAssistantKeyboard, useSpeaker, useAssistantSession } from '@/hooks';
 import {
-import { Spacing } from '@/theme';
-
   useAssistantStore,
   useIsSttListening,
   useIsTtsSpeaking,
@@ -176,6 +174,6 @@ const styles = StyleSheet.create({
   },
   responseContainer: {
     width: '100%',
-    paddingHorizontal: Spacing['2xl'],
+    paddingHorizontal: 24,
   },
 });

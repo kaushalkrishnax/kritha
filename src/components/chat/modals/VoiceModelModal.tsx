@@ -12,7 +12,7 @@ import {
 import { useSpeaker } from '@/hooks';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import { useVoiceStore } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { stubAction } from '@/utils';
 
 type Progress = any;
@@ -194,12 +194,7 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
             <TouchableOpacity
               onPress={onClose}
               style={styles.closeIconBtn}
-              hitSlop={{
-                top: Spacing.sm,
-                bottom: Spacing.sm,
-                left: Spacing.sm,
-                right: Spacing.sm,
-              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <X size={IconSizes.base} color={Colors.textMuted} />
             </TouchableOpacity>
@@ -364,7 +359,7 @@ const styles = StyleSheet.create({
   modalDialog: {
     backgroundColor: Colors.bgPrimary,
     borderRadius: Radius.base,
-    padding: Spacing.xl,
+    padding: 20,
     width: '90%',
     maxHeight: '80%',
     borderWidth: 1,
@@ -374,22 +369,22 @@ const styles = StyleSheet.create({
     color: Colors.textOnAccent,
     fontSize: Typography.sizeLg,
     fontWeight: 'bold',
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   modalSubtitle: { color: Colors.textSecondary, fontSize: Typography.sizeSm },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
   },
-  closeIconBtn: { padding: Spacing.xs, marginLeft: Spacing.sm },
+  closeIconBtn: { padding: 4, marginLeft: 8 },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
     backgroundColor: Colors.borderSubtle,
     borderRadius: Radius.sm,
-    padding: Spacing.xs,
+    padding: 4,
   },
   tabBtn: {
     flex: 1,
@@ -408,10 +403,10 @@ const styles = StyleSheet.create({
   optionCard: {
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.sm,
-    padding: Spacing.md,
+    padding: 14,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   optionCardSelected: {
     borderColor: Colors.accentCyan,
@@ -430,9 +425,9 @@ const styles = StyleSheet.create({
   optionSub: {
     color: Colors.textDimmed,
     fontSize: Typography.sizeXs,
-    marginTop: Spacing['2xs'],
+    marginTop: 2,
   },
-  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: {
     width: 36,
     height: 36,
@@ -442,14 +437,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconBtnText: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: Radius.lg,
     backgroundColor: Colors.borderAccent,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  progressContainer: { marginTop: Spacing.sm },
+  progressContainer: { marginTop: 8 },
   downloadBarBg: {
     height: 4,
     backgroundColor: Colors.borderStrong,
@@ -463,11 +458,11 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: Spacing.lg,
+    marginTop: 18,
   },
   modalBtn: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: Radius.sm,
   },
   modalBtnText: {

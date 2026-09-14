@@ -1,7 +1,7 @@
 import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 export interface ThinkingBlockProps {
   thinking: string;
@@ -45,7 +45,7 @@ export function ThinkingBlock({
 
 const styles = StyleSheet.create({
   thinkingContainer: {
-    marginBottom: Spacing.md,
+    marginBottom: 10,
     backgroundColor: Colors.thinkingBg,
     borderRadius: Radius.base,
     borderWidth: 1,
@@ -56,23 +56,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: 'rgba(26,115,232,0.08)',
   },
-  thinkingHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
+  thinkingHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   thinkingHeaderText: {
     fontSize: Typography.sizeSm,
     fontWeight: '600',
     color: Colors.accentLightBlue,
   },
   thinkingBody: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(26,115,232,0.15)',
     borderLeftWidth: 3,

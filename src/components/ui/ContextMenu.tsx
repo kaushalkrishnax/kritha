@@ -1,15 +1,15 @@
 import {
-  Animated,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
+    Animated,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { Colors, Radius, Typography } from '@/theme';
 
 export interface ContextMenuItem {
   id: string;
@@ -217,23 +217,23 @@ const styles = StyleSheet.create({
     elevation: 16,
   },
   headerContainer: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 20,
     height: ITEM_HEIGHT,
     width: '100%',
   },
   firstMenuItem: {
-    paddingTop: Spacing.xs,
+    paddingTop: 4,
     height: ITEM_HEIGHT + 4,
   },
   lastMenuItem: {
-    paddingBottom: Spacing.xs,
+    paddingBottom: 4,
     height: ITEM_HEIGHT + 4,
   },
   menuItemPressed: {
@@ -246,10 +246,10 @@ const styles = StyleSheet.create({
     width: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.lg,
+    marginRight: 16,
   },
   menuItemText: {
-    color: Colors.textInverse,
+    color: Colors.textPrimary,
     fontSize: Typography.sizeMd,
     fontWeight: '600',
     textAlign: 'left',
@@ -263,6 +263,6 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: Spacing.xs,
+    marginVertical: 4,
   },
 });

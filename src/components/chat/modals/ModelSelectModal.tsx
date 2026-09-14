@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { DownloadState, ModelRecord } from '@/types';
 
 export interface ModelSelectModalProps {
@@ -121,7 +121,7 @@ export function ModelSelectModal({
                   <Download
                     size={IconSizes.sm}
                     color={Colors.textOnAccent}
-                    style={{ marginRight: Spacing.sm }}
+                    style={{ marginRight: 6 }}
                   />
                   <Text style={styles.modalBtnText}>Download</Text>
                 </TouchableOpacity>
@@ -148,13 +148,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderStrong,
     width: 260,
-    padding: Spacing.sm,
+    padding: 8,
     elevation: 5,
   },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: 12,
     borderRadius: Radius.sm,
   },
   dropdownItemText: {
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   dropdownItemSub: {
     color: Colors.textDimmed,
     fontSize: Typography.sizeXs,
-    marginTop: Spacing['2xs'],
+    marginTop: 2,
   },
   modalOverlayCenter: {
     flex: 1,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   modalDialog: {
     backgroundColor: Colors.bgPrimary,
     borderRadius: Radius.base,
-    padding: Spacing.xl,
+    padding: 20,
     width: 310,
     borderWidth: 1,
     borderColor: Colors.borderStrong,
@@ -185,25 +185,25 @@ const styles = StyleSheet.create({
     color: Colors.textOnAccent,
     fontSize: Typography.sizeLg,
     fontWeight: 'bold',
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
   },
   modalText: {
     color: Colors.textSecondary,
     fontSize: Typography.sizeBase,
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: Spacing.md,
-    marginTop: Spacing.xl,
+    gap: 12,
+    marginTop: 20,
   },
   modalBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.borderAccent,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: Radius.sm,
   },
   modalBtnText: {
@@ -212,14 +212,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizeBase,
   },
   downloadProgressWrap: {
-    marginTop: Spacing.lg,
+    marginTop: 16,
   },
   downloadBarBg: {
     height: 6,
     backgroundColor: Colors.borderStrong,
-    borderRadius: Radius.xs,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginVertical: Spacing.sm,
+    marginVertical: 8,
   },
   downloadBarFill: {
     height: '100%',

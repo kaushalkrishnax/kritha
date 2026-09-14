@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatSessionService } from '@/services/chat.service';
 import { useChatStore } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 type ArchivedChatsModalProps = {
   visible: boolean;
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.lg,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
@@ -122,22 +122,22 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   closeBtn: {
-    padding: Spacing.sm,
+    padding: 6,
   },
   scrollArea: {
-    padding: Spacing.lg,
+    padding: 16,
   },
   emptyText: {
     color: Colors.textMuted,
     fontSize: Typography.sizeMd,
     textAlign: 'center',
-    marginTop: Spacing['4xl'],
+    marginTop: 40,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.md,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.borderSubtle,
   },
@@ -146,14 +146,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizeMd,
     fontWeight: '500',
     flex: 1,
-    marginRight: Spacing.lg,
+    marginRight: 16,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 8,
   },
   actionBtn: {
-    padding: Spacing.sm,
+    padding: 8,
   },
 });

@@ -8,7 +8,6 @@ import {
 import { ChatMode } from '@/constants';
 import { useAssistantKeyboard } from '@/hooks';
 import { useAssistantStore, useModelStore } from '@/stores';
-import { Spacing } from '@/theme';
 
 export function ChatScreenComposer() {
   const animatedBottomStyle = useAssistantKeyboard();
@@ -36,7 +35,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingTop: Spacing.xs,
+    paddingTop: 8,
     zIndex: 10,
   },
 });

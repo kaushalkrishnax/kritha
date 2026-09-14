@@ -1,7 +1,7 @@
 import { Menu, Radio, SquarePen } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useWakeword } from '@/hooks';
-import { Colors, IconSizes, Radius, Spacing } from '@/theme';
+import { Colors, IconSizes, Radius } from '@/theme';
 
 export interface ChatHeaderProps {
   sidebarOpen?: boolean;
@@ -60,22 +60,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     backgroundColor: 'transparent',
   },
   roundedSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 8,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
     borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     backgroundColor: Colors.bgSecondary,
   },
   iconBtn: {
-    padding: Spacing.sm,
+    padding: 8,
     borderRadius: Radius.lg,
   },
   statusDot: {

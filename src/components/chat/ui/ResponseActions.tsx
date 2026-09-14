@@ -1,16 +1,16 @@
 import {
-  Check,
-  Copy,
-  EllipsisVertical,
-  Pause,
-  Play,
-  Share2,
-  Volume2,
+    Check,
+    Copy,
+    EllipsisVertical,
+    Pause,
+    Play,
+    Share2,
+    Volume2,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Colors, IconSizes, Radius, Spacing } from '@/theme';
+import { Colors, IconSizes, Radius } from '@/theme';
 import { stubAction } from '@/utils';
 
 export interface ResponseActionsProps {
@@ -113,10 +113,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: Spacing['2xs'],
+    marginTop: 12,
+    gap: 2,
   },
   actionIconBtn: {
-    padding: Spacing.sm,
+    padding: 8,
     borderRadius: Radius.lg,
   },
   speakerActive: {

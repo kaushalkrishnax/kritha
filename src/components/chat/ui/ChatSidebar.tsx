@@ -35,7 +35,7 @@ import {
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
 import { Session as ChatSession } from '@/database';
 import { useSettingsStore } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { stubAction } from '@/utils';
 
 export interface ChatSidebarProps {
@@ -433,15 +433,15 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing['2xl'],
-    paddingBottom: Spacing.md,
-    paddingTop: Spacing.xs,
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    paddingTop: 4,
   },
   headerLogo: {
     width: 30,
     height: 30,
     borderRadius: Radius.sm,
-    marginRight: Spacing.md,
+    marginRight: 10,
   },
   headerTitle: {
     color: Colors.textPrimary,
@@ -453,8 +453,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: Typography.sizeXs,
     fontWeight: '500',
-    marginLeft: Spacing.sm,
-    marginTop: Spacing.xs,
+    marginLeft: 6,
+    marginTop: 4,
   },
   headerSearchBtn: {
     width: 44,
@@ -468,15 +468,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topActions: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.lg,
-    gap: Spacing['3xl'],
+    marginTop: 10,
+    marginBottom: 16,
+    gap: 30,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing['2xl'],
-    gap: Spacing.md,
+    paddingHorizontal: 24,
+    gap: 14,
   },
   actionText: {
     color: Colors.textPrimary,
@@ -484,22 +484,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionContainer: {
-    marginBottom: Spacing.md,
+    marginBottom: 10,
   },
   sectionTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.sizeLg,
     fontWeight: '600',
-    paddingHorizontal: Spacing['2xl'],
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    paddingHorizontal: 24,
+    marginTop: 14,
+    marginBottom: 8,
   },
   historyRow: {
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing['2xl'],
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: 12,
   },
   historyRowSelected: {
     backgroundColor: Colors.bgPrimary,
@@ -518,13 +518,13 @@ const styles = StyleSheet.create({
   accountDivider: {
     height: 1,
     backgroundColor: Colors.borderFaint,
-    marginBottom: Spacing.md,
+    marginBottom: 12,
   },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing['2xl'],
-    gap: Spacing.md,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   avatar: {
     width: 40,

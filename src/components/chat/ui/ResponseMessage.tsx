@@ -1,6 +1,6 @@
 import { Brain } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, IconSizes, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Typography } from '@/theme';
 import { ChatMessage } from '@/types/chat';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ResponseActions } from './ResponseActions';
@@ -61,7 +61,7 @@ export function ResponseMessage({
         ) : null}
 
         {answer ? (
-          <MarkdownRenderer content={answer} isStreaming={isStreaming} />
+          <MarkdownRenderer content={answer} />
         ) : null}
 
         {!answer && !thinking && isStreaming ? (
@@ -97,14 +97,14 @@ const styles = StyleSheet.create({
   },
   assistantContainer: {
     width: '100%',
-    paddingVertical: Spacing['2xs'],
-    paddingHorizontal: Spacing['2xs'],
+    paddingVertical: 12,
+    paddingHorizontal: 2,
   },
   thinkingDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    gap: 6,
+    paddingVertical: 4,
   },
   thinkingDotsText: {
     fontSize: Typography.sizeSm,

@@ -1,9 +1,12 @@
+import { usePermissionsChecklist } from '@/hooks';
+import { settingsService } from '@/services';
+import { PermissionDescriptor } from '@/types/permissions';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import {
-  AlertCircle,
   Bell,
   BellRing,
   Calendar,
-  CheckCircle2,
+  Check,
   ChevronRight,
   Mic,
   Phone,
@@ -12,9 +15,12 @@ import {
   Users,
   X,
 } from 'lucide-react-native';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Animated,
   AppState,
+  Easing,
   Modal,
   ScrollView,
   StyleSheet,
@@ -23,9 +29,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePermissionsChecklist } from '@/hooks';
-import { settingsService } from '@/services';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
 
 const ICON_MAP: Record<string, any> = {
   Sparkles,
@@ -33,9 +36,30 @@ const ICON_MAP: Record<string, any> = {
   Bell,
   BellRing,
   Users,
-  CalendarDays: Calendar, // Fallback to Calendar if CalendarDays is missing
+  CalendarDays: Calendar,
   Phone,
 };
+
+const SETTINGS_PERMISSION_IDS = new Set([
+  'default_assistant',
+  'notification_listener',
+]);
+
+const AUTO_REQUEST_PERMISSION_IDS = new Set([
+  'microphone',
+  'post_notifications',
+  'contacts',
+  'calendar',
+  'phone',
+]);
+
+function withAlpha(hex: string, alpha: number) {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 interface PermissionsChecklistModalProps {
   visible: boolean;
@@ -47,100 +71,231 @@ export function PermissionsChecklistModal({
   onClose,
 }: PermissionsChecklistModalProps) {
   const insets = useSafeAreaInsets();
+
   const { status, refresh, request, descriptors } = usePermissionsChecklist();
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const [activePermissionId, setActivePermissionId] = useState<string | null>(
+    null,
+  );
+
+  const [hasStartedRequests, setHasStartedRequests] = useState(false);
+
+  const [progressAnim] = useState(() => new Animated.Value(0));
+
   useEffect(() => {
-    if (visible) refresh();
+    if (visible) {
+      refresh();
+    }
   }, [visible, refresh]);
 
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && visible) refresh();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && visible) {
+        refresh();
+      }
     });
-    return () => sub.remove();
+
+    return () => subscription.remove();
   }, [visible, refresh]);
 
-  const handleDone = () => {
-    settingsService.markPermissionsOnboardingSeen();
-    onClose();
-  };
+  const grantedCount = descriptors.filter((descriptor) =>
+    Boolean(status[descriptor.id]),
+  ).length;
 
-  const requiredDescriptors = descriptors.filter((d) => d.required);
-  const optionalDescriptors = descriptors.filter((d) => !d.required);
+  const totalCount = descriptors.length;
 
-  const renderCard = (desc: (typeof descriptors)[0]) => {
-    const isGranted = status[desc.id] || false;
-    const Icon = ICON_MAP[desc.icon] || Settings;
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: totalCount ? grantedCount / totalCount : 0,
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [grantedCount, totalCount, progressAnim]);
+
+  const handleContinue = useCallback(async () => {
+    if (isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setHasStartedRequests(true);
+
+    try {
+      for (const descriptor of descriptors) {
+        if (
+          AUTO_REQUEST_PERMISSION_IDS.has(descriptor.id) &&
+          !status[descriptor.id]
+        ) {
+          setActivePermissionId(descriptor.id);
+
+          try {
+            await request(descriptor.id);
+          } catch (error) {
+            console.warn(
+              `Failed to request permission '${descriptor.id}':`,
+              error,
+            );
+          }
+        }
+      }
+    } finally {
+      setActivePermissionId(null);
+      setIsProcessing(false);
+
+      settingsService.markPermissionsOnboardingSeen();
+      onClose();
+    }
+  }, [descriptors, status, request, isProcessing, onClose]);
+
+  const handleSettingsPermission = useCallback(
+    async (id: string) => {
+      if (isProcessing) {
+        return;
+      }
+
+      setActivePermissionId(id);
+
+      try {
+        await request(id);
+      } catch (error) {
+        console.warn(`Failed to request permission '${id}':`, error);
+      } finally {
+        setActivePermissionId(null);
+      }
+    },
+    [isProcessing, request],
+  );
+
+  const renderItem = (descriptor: PermissionDescriptor) => {
+    const isGranted = Boolean(status[descriptor.id]);
+
+    const isSpecial = SETTINGS_PERMISSION_IDS.has(descriptor.id);
+
+    const isActive = activePermissionId === descriptor.id;
+
+    const Icon = ICON_MAP[descriptor.icon] ?? Settings;
 
     return (
       <View
-        key={desc.id}
-        style={[styles.card, isGranted && styles.cardGranted]}
+        key={descriptor.id}
+        style={[styles.permissionCard, isGranted && styles.permissionCardGranted]}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.iconCircle}>
-            <Icon size={IconSizes.base} color={desc.iconColor} />
-          </View>
-          <View style={styles.cardTitleArea}>
-            <Text style={styles.cardTitle}>{desc.title}</Text>
-            <Text style={styles.cardDesc}>{desc.description}</Text>
-          </View>
-          {isGranted ? (
-            <CheckCircle2 size={IconSizes.md} color={Colors.success} />
-          ) : (
-            <AlertCircle size={IconSizes.md} color={Colors.textMuted} />
-          )}
+        <View
+          style={[
+            styles.permissionIconTile,
+            { backgroundColor: withAlpha(descriptor.iconColor, 0.14) },
+          ]}
+        >
+          <Icon
+            size={IconSizes.base}
+            color={isGranted ? Colors.accentCyan : descriptor.iconColor}
+            strokeWidth={1.8}
+          />
         </View>
-        {!isGranted && (
-          <TouchableOpacity
-            style={styles.actionBtnSecondary}
-            activeOpacity={0.8}
-            onPress={() => request(desc.id)}
-          >
-            <Text style={styles.actionBtnSecondaryText}>
-              Allow {desc.title}
-            </Text>
-            <ChevronRight size={IconSizes.sm} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        )}
+
+        <View style={styles.permissionBody}>
+          <Text style={styles.permissionTitle}>{descriptor.title}</Text>
+
+          <Text style={styles.permissionDescription}>
+            {descriptor.description}
+          </Text>
+        </View>
+
+        <View style={styles.permissionAction}>
+          {isGranted ? (
+            <View style={styles.grantedIndicator}>
+              <Check
+                size={IconSizes.xs}
+                color={Colors.accentCyan}
+                strokeWidth={3}
+              />
+            </View>
+          ) : isActive ? (
+            <ActivityIndicator size="small" color={Colors.accentCyan} />
+          ) : isSpecial ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => void handleSettingsPermission(descriptor.id)}
+              style={styles.allowButton}
+            >
+              <Text style={styles.allowButtonText}>Allow</Text>
+
+              <ChevronRight
+                size={IconSizes.xs}
+                color={Colors.accentLightBlue}
+                strokeWidth={2.5}
+              />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
     );
   };
 
+  const requiredDescriptors = descriptors.filter((d) => d.required);
+
+  const optionalDescriptors = descriptors.filter((d) => !d.required);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.modalContainer}>
-        <View style={styles.content}>
+        <View style={styles.sheet}>
           <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <Settings
-                size={IconSizes.base}
-                color={Colors.textPrimary}
-                style={{ marginRight: Spacing.sm }}
-              />
-              <Text style={styles.title}>System Access</Text>
+            <View style={styles.headerContent}>
+              <Text style={styles.title}>Permissions</Text>
+
+              <Text style={styles.subtitle}>
+                {grantedCount} of {totalCount} enabled
+              </Text>
+
+              <View style={styles.progressTrack}>
+                <Animated.View
+                  style={[styles.progressFill, { width: progressWidth }]}
+                />
+              </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={IconSizes.base} color={Colors.textSecondary} />
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onClose}
+              style={styles.closeButton}
+            >
+              <X size={IconSizes.md} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView
-            style={styles.scrollArea}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            <Text style={styles.subtitle}>
-              Kritha runs deeply integrated into your Android device. Review and
-              grant the necessary permissions below.
+            <Text style={styles.sectionLabel}>Core</Text>
+
+            {requiredDescriptors.map(renderItem)}
+
+            <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>
+              Optional
             </Text>
 
-            <Text style={styles.sectionHeader}>CORE REQUIREMENTS</Text>
-            {requiredDescriptors.map(renderCard)}
+            {optionalDescriptors.map(renderItem)}
 
-            <Text style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
-              OPTIONAL ENHANCEMENTS
-            </Text>
-            {optionalDescriptors.map(renderCard)}
+            {hasStartedRequests && !isProcessing && (
+              <Text style={styles.note}>
+                Permissions can also be changed later from Android settings.
+              </Text>
+            )}
           </ScrollView>
 
           <View
@@ -150,11 +305,19 @@ export function PermissionsChecklistModal({
             ]}
           >
             <TouchableOpacity
-              style={styles.doneBtn}
               activeOpacity={0.85}
-              onPress={handleDone}
+              onPress={handleContinue}
+              disabled={isProcessing}
+              style={[
+                styles.continueButton,
+                isProcessing && styles.continueButtonDisabled,
+              ]}
             >
-              <Text style={styles.doneBtnText}>Continue</Text>
+              {isProcessing ? (
+                <ActivityIndicator color={Colors.textOnAccent} />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -163,120 +326,204 @@ export function PermissionsChecklistModal({
   );
 }
 
+export default PermissionsChecklistModal;
+
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: Colors.bgScrim,
   },
-  content: {
-    backgroundColor: Colors.bgSurface,
+
+  sheet: {
+    width: '100%',
+    maxHeight: '68%',
+    backgroundColor: Colors.bgSecondary,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
-    maxHeight: '82%',
-    flexDirection: 'column',
+    overflow: 'hidden',
   },
+
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
+
+  headerContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
   title: {
+    color: Colors.textPrimary,
     fontSize: Typography.sizeLg,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    lineHeight: 22,
   },
-  closeBtn: { padding: Spacing.sm },
-  scrollArea: { flexShrink: 1 },
-  scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-  },
+
   subtitle: {
-    fontSize: Typography.sizeSm,
     color: Colors.textMuted,
-    marginBottom: Spacing.md,
+    fontSize: Typography.sizeSm,
     lineHeight: 18,
+    marginTop: 3,
   },
-  sectionHeader: {
-    fontSize: Typography.size2xs,
-    fontWeight: '700',
-    color: Colors.textDimmed,
-    letterSpacing: 1,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
+
+  progressTrack: {
+    height: 4,
+    marginTop: 12,
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.borderStrong,
+    overflow: 'hidden',
   },
-  card: {
-    backgroundColor: Colors.bgPrimary,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
+
+  progressFill: {
+    height: '100%',
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.accentCyan,
   },
-  cardGranted: { borderColor: 'rgba(16, 185, 129, 0.3)' },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.borderFaint,
+
+  closeButton: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.md,
-  },
-  cardTitleArea: { flex: 1, marginRight: Spacing.sm },
-  cardTitle: {
-    fontSize: Typography.sizeBase,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: Spacing['2xs'],
-  },
-  cardDesc: {
-    fontSize: Typography.sizeSm,
-    color: Colors.textMuted,
-    lineHeight: 18,
-  },
-  actionBtnSecondary: {
-    marginTop: Spacing.md,
+    borderRadius: Radius.full,
     backgroundColor: Colors.borderFaint,
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+
+  sectionLabel: {
+    color: Colors.textDimmed,
+    fontSize: Typography.sizeXs,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+
+  sectionLabelSpaced: {
+    marginTop: 20,
+  },
+
+  permissionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: Colors.borderStrong,
-    gap: Spacing.xs,
+    borderColor: Colors.borderSubtle,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    marginBottom: 10,
   },
-  actionBtnSecondaryText: {
+
+  permissionCardGranted: {
+    borderColor: Colors.accentCyan,
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+  },
+
+  permissionIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 13,
+  },
+
+  permissionBody: {
+    flex: 1,
+    paddingRight: 8,
+  },
+
+  permissionTitle: {
     color: Colors.textPrimary,
+    fontSize: Typography.sizeBase,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+
+  permissionDescription: {
+    color: Colors.textMuted,
     fontSize: Typography.sizeSm,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+
+  permissionAction: {
+    minWidth: 28,
+    minHeight: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+
+  grantedIndicator: {
+    width: 26,
+    height: 26,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+  },
+
+  allowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(96, 165, 250, 0.12)',
+  },
+
+  allowButtonText: {
+    color: Colors.accentLightBlue,
+    fontSize: Typography.sizeXs,
     fontWeight: '600',
   },
+
+  note: {
+    color: Colors.textDimmed,
+    fontSize: Typography.sizeXs,
+    lineHeight: 17,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+
   footer: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
+    paddingHorizontal: 20,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
   },
-  doneBtn: {
+
+  continueButton: {
+    minHeight: 48,
+    borderRadius: Radius.base,
     backgroundColor: Colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.base,
   },
-  doneBtnText: {
+
+  continueButtonDisabled: {
+    opacity: 0.65,
+  },
+
+  continueButtonText: {
     color: Colors.textOnAccent,
-    fontSize: Typography.sizeBase,
+    fontSize: Typography.sizeMd,
     fontWeight: '700',
   },
 });

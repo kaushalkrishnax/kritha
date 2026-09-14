@@ -1,38 +1,38 @@
 import { ArrowDown, Brain, Copy, Pencil, Share2 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
-  Keyboard,
-  Animated as RNAnimated,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Keyboard,
+    Animated as RNAnimated,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import Svg, {
-  Defs,
-  Rect,
-  Stop,
-  LinearGradient as SvgGradient,
+    Defs,
+    Rect,
+    Stop,
+    LinearGradient as SvgGradient,
 } from 'react-native-svg';
 import { ContextMenu } from '@/components/ui/ContextMenu';
 import { useChatInputHeight, useSpeaker } from '@/hooks';
 import { ChatSessionService } from '@/services';
 import {
-  useAssistantStore,
-  useChatStore,
-  useIsLlmGenerating,
-  useIsLlmThinking,
-  useIsTtsPaused,
-  useIsTtsSpeaking,
+    useAssistantStore,
+    useChatStore,
+    useIsLlmGenerating,
+    useIsLlmThinking,
+    useIsTtsPaused,
+    useIsTtsSpeaking,
 } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { ChatMessage } from '@/types/chat';
 import { formatMessageTime } from '@/utils';
 import { ResponseMessage } from './ResponseMessage';
@@ -495,10 +495,10 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: Colors.bgDeepest,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 16,
     paddingTop: 70,
     paddingBottom: GRADIENT_BOTTOM_HEIGHT + 12,
-    gap: Spacing.sm,
+    gap: 8,
   },
   scrollView: { flex: 1 },
   messageWrapper: {
@@ -511,8 +511,8 @@ const styles = StyleSheet.create({
   },
 
   skeletonContainer: {
-    paddingTop: Spacing.xl,
-    gap: Spacing.lg,
+    paddingTop: 20,
+    gap: 16,
   },
   skeletonBubble: {
     height: 48,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   loadingMoreWrapper: {
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: 10,
   },
   loadingMoreText: {
     color: Colors.textMuted,
@@ -544,8 +544,8 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     backgroundColor: Colors.userBubbleBg,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: Radius.xl,
     alignSelf: 'flex-end',
   },
@@ -557,9 +557,9 @@ const styles = StyleSheet.create({
   thinkingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   thinkingText: {
     fontSize: Typography.sizeBase,
@@ -574,10 +574,10 @@ const styles = StyleSheet.create({
   errorWrapper: {
     alignSelf: 'center',
     backgroundColor: Colors.errorBubbleBg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: Radius.sm,
-    marginTop: Spacing.sm,
+    marginTop: 8,
   },
   errorText: { color: Colors.error, fontSize: Typography.sizeBase },
   topGradient: {
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   },
   scrollDownButtonWrapper: {
     position: 'absolute',
-    bottom: Spacing.md,
+    bottom: 12,
     alignSelf: 'center',
     zIndex: 25,
   },
@@ -612,6 +612,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 6,
-    marginBottom: Spacing['2xl'],
+    marginBottom: 24,
   },
 });

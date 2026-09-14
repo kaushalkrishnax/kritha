@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '@/theme';
+import { Colors, Radius, Typography } from '@/theme';
 import { ChatMessage } from '@/types';
 import { ResponseActions } from './ResponseActions';
 import { ResponseMessage } from './ResponseMessage';
@@ -93,10 +93,10 @@ const styles = StyleSheet.create({
   responseCard: {
     backgroundColor: Colors.bgCard,
     borderRadius: Radius['2xl'],
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
-    marginBottom: Spacing.md,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 14,
+    marginBottom: 10,
     maxHeight: 280,
     width: '100%',
     borderWidth: 1,
@@ -113,14 +113,14 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xs,
     backgroundColor: Colors.borderSubtle,
     alignSelf: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: 10,
   },
   responseScroll: {
     minHeight: 44,
     maxHeight: 210,
   },
   responseContent: {
-    paddingBottom: Spacing.xs,
+    paddingBottom: 4,
   },
   responseText: {
     color: Colors.textSecondary,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   errorWrapper: {
-    paddingVertical: Spacing.sm,
+    paddingVertical: 8,
   },
   errorText: {
     color: Colors.error,

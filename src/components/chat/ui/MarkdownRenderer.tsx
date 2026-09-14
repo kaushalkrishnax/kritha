@@ -11,7 +11,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     color: Colors.textPrimary,
     lineHeight: Typography.sizeBase * 1.55,
     marginTop: 0,
-    marginBottom: Typography.sizeSm,
+    marginBottom: Typography.sizeBase,
     textAlign: 'left',
   },
 
@@ -21,7 +21,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     color: Colors.textPrimary,
     lineHeight: Typography.size3xl * 1.2,
     marginTop: Typography.sizeLg,
-    marginBottom: Typography.sizeSm,
+    marginBottom: Typography.sizeBase,
     textAlign: 'left',
   },
 
@@ -31,7 +31,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     color: Colors.textPrimary,
     lineHeight: Typography.size2xl * 1.25,
     marginTop: Typography.sizeLg,
-    marginBottom: Typography.sizeSm,
+    marginBottom: Typography.sizeBase,
     textAlign: 'left',
   },
 
@@ -60,17 +60,17 @@ export const markdownRendererStyle: MarkdownStyle = {
     fontWeight: '600',
     color: Colors.textPrimary,
     lineHeight: Typography.sizeMd * 1.4,
-    marginTop: Typography.sizeSm,
+    marginTop: Typography.sizeBase,
     marginBottom: Typography.sizeXs,
     textAlign: 'left',
   },
 
   h6: {
-    fontSize: Typography.sizeSm,
+    fontSize: Typography.sizeBase,
     fontWeight: '600',
     color: Colors.textSecondary,
-    lineHeight: Typography.sizeSm * 1.45,
-    marginTop: Typography.sizeSm,
+    lineHeight: Typography.sizeBase * 1.45,
+    marginTop: Typography.sizeBase,
     marginBottom: Typography.sizeXs,
     textAlign: 'left',
   },
@@ -80,13 +80,13 @@ export const markdownRendererStyle: MarkdownStyle = {
     color: Colors.textSecondary,
     lineHeight: Typography.sizeBase * 1.55,
     marginTop: Typography.sizeXs,
-    marginBottom: Typography.sizeSm,
+    marginBottom: Typography.sizeBase,
     borderColor: Colors.borderAccent,
     borderWidth: 1,
-    gapWidth: Typography.sizeSm,
+    gapWidth: Typography.sizeBase,
     backgroundColor: Colors.bgPrimary,
     borderRadius: Radius.sm,
-    padding: Typography.sizeSm,
+    padding: Typography.sizeBase,
   },
 
   list: {
@@ -98,29 +98,29 @@ export const markdownRendererStyle: MarkdownStyle = {
     markerMinWidth: IconSizes.lg,
     markerColor: Colors.accentLightBlue,
     markerFontWeight: '600',
-    gapWidth: Typography.sizeSm,
+    gapWidth: Typography.sizeBase,
     marginLeft: Typography.sizeLg,
     itemSpacing: Typography.sizeXs,
   },
 
   code: {
     fontFamily: 'monospace',
-    fontSize: Typography.sizeSm,
+    fontSize: Typography.sizeBase,
     color: Colors.accentSky,
     backgroundColor: Colors.bgTertiary,
     borderColor: Colors.borderSubtle,
   },
 
   codeBlock: {
-    fontSize: Typography.sizeSm,
+    fontSize: Typography.sizeBase,
     fontFamily: 'monospace',
     color: Colors.textSecondary,
     backgroundColor: Colors.bgDeepest,
     borderColor: Colors.borderSubtle,
     borderWidth: 1,
     borderRadius: Radius.base,
-    padding: Typography.sizeSm,
-    marginTop: Typography.sizeSm,
+    padding: Typography.sizeBase,
+    marginTop: Typography.sizeBase,
     marginBottom: Typography.sizeMd,
 
     syntaxColors: {
@@ -173,7 +173,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     aspectRatio: 16 / 9,
     resizeMode: 'contain',
     borderRadius: Radius.base,
-    marginTop: Typography.sizeSm,
+    marginTop: Typography.sizeBase,
     marginBottom: Typography.sizeMd,
   },
 
@@ -189,9 +189,9 @@ export const markdownRendererStyle: MarkdownStyle = {
   },
 
   table: {
-    fontSize: Typography.sizeSm,
+    fontSize: Typography.sizeBase,
     color: Colors.textPrimary,
-    lineHeight: Typography.sizeSm * 1.45,
+    lineHeight: Typography.sizeBase * 1.45,
     headerBackgroundColor: Colors.bgTertiary,
     headerTextColor: Colors.textPrimary,
     rowEvenBackgroundColor: Colors.bgSurface,
@@ -199,7 +199,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     borderColor: Colors.borderSubtle,
     borderWidth: 1,
     borderRadius: Radius.sm,
-    cellPaddingHorizontal: Typography.sizeSm,
+    cellPaddingHorizontal: Typography.sizeBase,
     cellPaddingVertical: Typography.sizeXs,
     horizontalOverflow: 0,
     align: 'left',
@@ -220,7 +220,7 @@ export const markdownRendererStyle: MarkdownStyle = {
     color: Colors.textPrimary,
     backgroundColor: Colors.bgPrimary,
     padding: Typography.sizeMd,
-    marginTop: Typography.sizeSm,
+    marginTop: Typography.sizeBase,
     marginBottom: Typography.sizeMd,
     textAlign: 'center',
   },
@@ -232,7 +232,7 @@ export const markdownRendererStyle: MarkdownStyle = {
   spoiler: {
     color: Colors.textMuted,
     particles: {
-      density: Typography.sizeSm,
+      density: Typography.sizeBase,
       speed: Typography.size2xl,
     },
     solid: {

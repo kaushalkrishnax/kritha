@@ -31,7 +31,7 @@ import {
   useIsSttTranscribing,
   useModelStore,
 } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
@@ -271,7 +271,7 @@ export function ChatInput({
           <Info
             size={IconSizes.sm}
             color={Colors.textPrimary}
-            style={{ marginRight: Spacing.sm }}
+            style={{ marginRight: 8 }}
           />
           <Text style={styles.editingWarningText}>
             Editing this message will restart the conversation from here.
@@ -338,11 +338,7 @@ export function ChatInput({
               </View>
             )}
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: Spacing.sm,
-              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
             >
               <TouchableOpacity
                 onPress={() => assistantRuntime.stopDictation()}
@@ -494,9 +490,9 @@ export function ChatInput({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 12,
     alignItems: 'center',
     position: 'relative',
     backgroundColor: 'transparent',
@@ -507,8 +503,8 @@ const styles = StyleSheet.create({
     minHeight: COMPACT_HEIGHT,
     borderRadius: Radius['2xl'],
     backgroundColor: Colors.bgSecondary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
@@ -525,9 +521,9 @@ const styles = StyleSheet.create({
 
   expandedComposer: {
     borderRadius: Radius.xl,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
 
   recordingRow: {
@@ -541,7 +537,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 12,
   },
 
   waveform: {
@@ -550,14 +546,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
+    gap: 4,
   },
 
   waveBar: {
     width: 2,
     minHeight: 6,
     maxHeight: 40,
-    borderRadius: Radius.xs,
+    borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,
   },
@@ -573,9 +569,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: undefined,
     alignItems: 'flex-start',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 6,
     paddingTop: 0,
-    paddingBottom: Spacing['2xs'],
+    paddingBottom: 2,
   },
 
   input: {
@@ -602,7 +598,7 @@ const styles = StyleSheet.create({
   compactActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: 4,
   },
 
   expandedBottomRow: {
@@ -611,8 +607,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing['2xs'],
-    marginTop: Spacing.xs,
+    paddingHorizontal: 2,
+    marginTop: 4,
   },
 
   plusButton: {
@@ -676,8 +672,8 @@ const styles = StyleSheet.create({
 
   measurementContainer: {
     position: 'absolute',
-    left: Spacing.xl,
-    right: Spacing.xl,
+    left: 20,
+    right: 20,
     top: 0,
     opacity: 0,
     pointerEvents: 'none',
@@ -694,7 +690,7 @@ const styles = StyleSheet.create({
   processingTextContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: Spacing.xs,
+    paddingLeft: 4,
   },
 
   justASecText: {
@@ -709,10 +705,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: Colors.bgSecondary,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: Radius.md,
-    marginBottom: Spacing.md,
+    marginBottom: 12,
     width: '100%',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
@@ -732,7 +728,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   editingWarningCloseBtn: {
-    padding: Spacing.xs,
-    marginLeft: Spacing.sm,
+    padding: 4,
+    marginLeft: 8,
   },
 });

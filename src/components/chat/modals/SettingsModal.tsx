@@ -1,21 +1,21 @@
 import { Save, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSpeaker } from '@/hooks';
 import { settingsService } from '@/services';
 import { useModelStore } from '@/stores';
-import { Colors, IconSizes, Radius, Spacing, Typography } from '@/theme';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 type SettingsModalProps = {
   visible: boolean;
@@ -124,10 +124,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 <TouchableOpacity
                   style={[
                     styles.saveBtn,
-                    {
-                      marginTop: Spacing.md,
-                      backgroundColor: Colors.borderStrong,
-                    },
+                    { marginTop: 10, backgroundColor: Colors.borderStrong },
                   ]}
                   onPress={() => {
                     onClose();
@@ -150,10 +147,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 <TouchableOpacity
                   style={[
                     styles.saveBtn,
-                    {
-                      marginTop: Spacing.md,
-                      backgroundColor: Colors.borderStrong,
-                    },
+                    { marginTop: 10, backgroundColor: Colors.borderStrong },
                   ]}
                   onPress={() => {
                     onClose();
@@ -200,7 +194,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 <Save
                   size={IconSizes.sm}
                   color={Colors.textOnAccent}
-                  style={{ marginRight: Spacing.sm }}
+                  style={{ marginRight: 8 }}
                 />
                 <Text style={styles.saveText}>Save Settings</Text>
               </TouchableOpacity>
@@ -235,8 +229,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSubtle,
   },
@@ -246,34 +240,34 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   closeBtn: {
-    padding: Spacing.sm,
+    padding: 6,
   },
   scrollArea: {
     flexShrink: 1,
   },
   scrollContent: {
-    padding: Spacing.xl,
+    padding: 20,
   },
   section: {
-    marginBottom: Spacing['2xl'],
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: Typography.sizeBase,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   sectionDesc: {
     fontSize: Typography.sizeSm,
     color: Colors.textMuted,
-    marginBottom: Spacing.md,
+    marginBottom: 10,
     lineHeight: 18,
   },
   input: {
     backgroundColor: Colors.bgSurface,
     color: Colors.textPrimary,
     borderRadius: Radius.base,
-    padding: Spacing.md,
+    padding: 14,
     fontSize: Typography.sizeBase,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
@@ -283,8 +277,8 @@ const styles = StyleSheet.create({
     maxHeight: 180,
   },
   footer: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
     backgroundColor: Colors.bgSurface,
@@ -294,7 +288,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.md,
+    padding: 14,
     borderRadius: Radius.base,
   },
   saveText: {
