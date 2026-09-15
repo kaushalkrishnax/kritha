@@ -1,4 +1,3 @@
-import { Share } from 'react-native';
 import database from '@/database/Database';
 import {
   CreateMessageInput,
@@ -8,6 +7,7 @@ import {
   UpdateSessionInput,
 } from '@/database/types';
 import { useChatStore } from '@/stores';
+import { Share } from 'react-native';
 
 export const ChatSessionService = {
   async getSessions(includeArchived: boolean = false): Promise<Session[]> {
@@ -70,8 +70,10 @@ export const ChatSessionService = {
     return session;
   },
 
-  async beginNewChat(title: string = 'New Chat'): Promise<Session> {
-    return this.createNewChat(title);
+  async beginNewChat(): Promise<void> {
+    const store = useChatStore.getState();
+    store.setChatSessionId(null);
+    store.setMessages([]);
   },
 
   async openChat(sessionId: string): Promise<void> {
@@ -159,7 +161,7 @@ export const ChatSessionService = {
       if (remaining.length > 0) {
         await this.openChat(remaining[0].id);
       } else {
-        await this.createNewChat();
+        await this.beginNewChat();
       }
     }
     return updated;
@@ -178,7 +180,7 @@ export const ChatSessionService = {
       if (remaining.length > 0) {
         await this.openChat(remaining[0].id);
       } else {
-        await this.createNewChat();
+        await this.beginNewChat();
       }
     }
   },
@@ -282,13 +284,14 @@ export const ChatSessionService = {
   async truncateMessages(
     sessionId: string,
     fromCreatedAt: number,
+    runId?: string,
   ): Promise<void> {
-    await database.messages.truncateMessages(sessionId, fromCreatedAt);
+    await database.messages.truncateMessages(sessionId, fromCreatedAt, runId);
 
     const store = useChatStore.getState();
     if (store.chatSessionId === sessionId) {
       const filtered = store.messages.filter(
-        (m) => (m.createdAt ?? 0) < fromCreatedAt,
+        (m) => (m.createdAt ?? 0) < fromCreatedAt && m.runId !== runId,
       );
       store.setMessages(filtered);
     }

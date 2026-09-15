@@ -1,7 +1,7 @@
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 export interface ThinkingBlockProps {
   thinking: string;
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(26,115,232,0.08)',
+    backgroundColor: Colors.thinkingBg,
   },
   thinkingHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   thinkingHeaderText: {

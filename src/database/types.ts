@@ -35,6 +35,7 @@ export interface Message {
   content: string;
   createdAt: number;
   updatedAt: number;
+  runId?: string;
 }
 
 export interface CreateMessageInput {
@@ -43,6 +44,7 @@ export interface CreateMessageInput {
   content: string;
   customId?: string;
   createdAt?: number;
+  runId?: string;
 }
 
 export type ToolSource = 'native' | 'custom' | 'extension' | (string & {});

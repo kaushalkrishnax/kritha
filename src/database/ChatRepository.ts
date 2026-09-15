@@ -31,6 +31,7 @@ export class ChatRepository {
       content: String(row.content),
       createdAt: Number(row.created_at),
       updatedAt: Number(row.updated_at),
+      runId: row.run_id != null ? String(row.run_id) : undefined,
     };
   }
 
@@ -224,6 +225,7 @@ export class ChatRepository {
       content: input.content,
       createdAt: now,
       updatedAt: now,
+      runId: input.runId,
     };
 
     const db = await this.provider.getDbAsync();
@@ -251,7 +253,7 @@ export class ChatRepository {
         }
 
         await tx.execute(
-          `INSERT INTO messages (id, session_id, role, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO messages (id, session_id, role, content, created_at, updated_at, run_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             message.id,
             message.sessionId,
@@ -259,6 +261,7 @@ export class ChatRepository {
             message.content,
             message.createdAt,
             message.updatedAt,
+            message.runId || null,
           ],
         );
       });
@@ -346,6 +349,7 @@ export class ChatRepository {
   async truncateMessages(
     sessionId: string,
     fromCreatedAt: number,
+    runId?: string,
   ): Promise<void> {
     if (!sessionId) return;
     const db = await this.provider.getDbAsync();
@@ -354,6 +358,17 @@ export class ChatRepository {
         'DELETE FROM messages WHERE session_id = ? AND created_at >= ?',
         [sessionId, fromCreatedAt],
       );
+      if (runId) {
+        await db.execute(
+          'DELETE FROM messages WHERE session_id = ? AND (created_at >= ? OR run_id = ?)',
+          [sessionId, fromCreatedAt, runId],
+        );
+      } else {
+        await db.execute(
+          'DELETE FROM messages WHERE session_id = ? AND created_at >= ?',
+          [sessionId, fromCreatedAt],
+        );
+      }
     } catch (error) {
       throw new DatabaseError(
         `Failed to truncate messages for session ${sessionId}`,

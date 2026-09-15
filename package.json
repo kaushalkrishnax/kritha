@@ -51,5 +51,33 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
-  "private": true
+  "enriched-markdown": {
+    "enableCodeHighlight": true,
+    "enableMath": true,
+    "codeHighlightLanguages": [
+      "bash",
+      "c",
+      "cpp",
+      "c-sharp",
+      "css",
+      "go",
+      "html",
+      "java",
+      "javascript",
+      "json",
+      "markdown",
+      "php",
+      "python",
+      "ruby",
+      "rust",
+      "swift",
+      "tsx",
+      "typescript",
+      "yaml"
+    ]
+  },
+  "private": true,
+  "trustedDependencies": [
+    "react-native-enriched-markdown"
+  ]
 }

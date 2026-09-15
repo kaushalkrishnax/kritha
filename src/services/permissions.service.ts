@@ -1,5 +1,6 @@
-import { PermissionsAndroid } from 'react-native';
+import { Colors } from '@/theme';
 import { PermissionDescriptor } from '@/types/permissions';
+import { PermissionsAndroid } from 'react-native';
 import { AssistantBridge } from './app.service';
 
 export const PERMISSION_DESCRIPTORS: PermissionDescriptor[] = [
@@ -9,7 +10,7 @@ export const PERMISSION_DESCRIPTORS: PermissionDescriptor[] = [
     description:
       'Required to launch Kritha with the long-press home button shortcut.',
     icon: 'Sparkles',
-    iconColor: '#3B82F6',
+    iconColor: Colors.borderAccent,
     required: true,
     check: async () => AssistantBridge.isDefaultAssistant(),
     request: async () => {
@@ -22,7 +23,7 @@ export const PERMISSION_DESCRIPTORS: PermissionDescriptor[] = [
     title: 'Microphone',
     description: 'Required to use STT (Speech-to-Text) capabilities.',
     icon: 'Mic',
-    iconColor: '#10B981',
+    iconColor: Colors.success,
     required: true,
     check: async () =>
       await PermissionsAndroid.check(

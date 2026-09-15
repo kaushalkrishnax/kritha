@@ -1,123 +1,89 @@
-/**
- * Kritha Design System — Theme Constants
- *
- * Single source of truth for all colors used across the app.
- * Import from '@/theme' in any component instead of hard-coding hex values.
- */
-
 /* Core Palette */
-
-// Deepest background — shell, app frame, status bar
 export const BG_DEEPEST = '#000000';
-
-// Base background — primary app background
-export const BG_BASE = '#0B0C0E';
-
-// Primary surface — chat panel, sidebar
-export const BG_SURFACE = '#121316';
-
-// Slightly lighter surface — inline cards, banners
-export const BG_PRIMARY = '#17181B';
-
-// More elevated surface — modals, popovers, dropdowns
-export const BG_SECONDARY = '#1a1b1e';
-
-// Elevated interactive surface — active buttons, selected items
-export const BG_TERTIARY = '#26282c';
-
-// Highest surface — hover, pressed, active states
-export const BG_QUATERNARY = '#2c2f34';
-
-// Card / message bubble background (Google Material dark)
-export const BG_CARD = '#1c1d1f';
-
-// Overlay / modal scrim
-export const BG_SCRIM = 'rgba(0,0,0,0.55)';
+export const BG_BASE = '#0B0D10';
+export const BG_SURFACE = '#111419';
+export const BG_PRIMARY = '#171A1F';
+export const BG_SECONDARY = '#1E2228';
+export const BG_TERTIARY = '#262B32';
+export const BG_QUATERNARY = '#2E343C';
+export const BG_CARD = '#1B1F24';
+export const BG_SCRIM = 'rgba(0, 0, 0, 0.60)';
 
 /* Text */
-
-// Primary text
-export const TEXT_PRIMARY = '#F1F5F9';
-
-// Secondary / body text
-export const TEXT_SECONDARY = '#E2E8F0';
-
-// Muted / placeholder text
-export const TEXT_MUTED = '#8f959d';
-
-// Dimmed text
-export const TEXT_DIMMED = '#79828f';
-
-// White — used on colored buttons
+export const TEXT_PRIMARY = '#F4F7FA';
+export const TEXT_SECONDARY = '#D7DDE5';
+export const TEXT_MUTED = '#9299A3';
+export const TEXT_DIMMED = '#68717D';
 export const TEXT_ON_ACCENT = '#FFFFFF';
 
 /* Brand / Accent */
-
-// Primary brand blue
-export const ACCENT_BLUE = '#1A5FE8';
-
-// Google blue — used for links, thinking headers
+export const ACCENT_BLUE = '#2563EB';
 export const ACCENT_LIGHT_BLUE = '#60A5FA';
-
-// Sky blue — TTS active, like button
 export const ACCENT_SKY = '#38BDF8';
+export const ACCENT_CYAN = '#22D3EE';
+export const ACCENT_CYAN_DIM = '#06B6D4';
+export const ACCENT_CYAN_BG = '#164E63';
 
-// Cyan — live-talk / recording glow
-export const ACCENT_CYAN = '#00E5FF';
-
-// Cyan dim — recording active bg
-export const ACCENT_CYAN_DIM = '#00B8FF';
-
-// Deeper cyan bg for recording state
-export const ACCENT_CYAN_BG = '#005D82';
-
-/* Semantic Colors */
-
-// Success / online indicator
-export const SUCCESS = '#10B981';
-
-// Error / stop
+/* Semantic */
+export const SUCCESS = '#34D399';
 export const ERROR = '#F87171';
-
-// Warning / destructive
-export const WARNING = '#EF4444';
+export const WARNING = '#FBBF24';
 
 /* Border / Divider */
-
-// Strong border
-export const BORDER_STRONG = '#44494fff';
-
-// Subtle border
-export const BORDER_SUBTLE = 'rgba(255,255,255,0.12)';
-
-// Very faint separator
-export const BORDER_FAINT = 'rgba(255,255,255,0.06)';
-
-// Accent border (blue tinted)
+export const BORDER_STRONG = '#3A414A';
+export const BORDER_SUBTLE = 'rgba(255, 255, 255, 0.10)';
+export const BORDER_FAINT = 'rgba(255, 255, 255, 0.055)';
 export const BORDER_ACCENT = '#3B82F6';
 
-// User message bubble background (ChatGPT-style refined dark blue)
 export const USER_BUBBLE_BG = '#21437D';
+export const ASSISTANT_BUBBLE_BG = 'rgba(37, 99, 235, 0.08)';
+export const ASSISTANT_BUBBLE_BORDER = 'rgba(37, 99, 235, 0.25)';
 
-// Assistant message bubble background
-export const ASSISTANT_BUBBLE_BG = `rgba(26,115,232,0.08)`;
-export const ASSISTANT_BUBBLE_BORDER = `rgba(26,115,232,0.25)`;
+export const THINKING_BORDER = '#2563EB';
+export const THINKING_BG = 'rgba(37, 99, 235, 0.08)';
 
-// Thinking block accent
-export const THINKING_BORDER = '#1A73E8';
-export const THINKING_BG = `rgba(26,115,232,0.08)`;
+export const ERROR_BUBBLE_BG = 'rgba(248, 113, 113, 0.15)';
+export const TTS_ACTIVE_BG = 'rgba(96, 165, 250, 0.15)';
 
-// Error bubble
-export const ERROR_BUBBLE_BG = 'rgba(239,68,68,0.15)';
+export const ICON_MUTED = '#9AA3AD';
+export const ICON_SLATE = '#C5CBD3';
 
-// TTS active bubble
-export const TTS_ACTIVE_BG = 'rgba(138,180,248,0.15)';
+/* Dracula Theme */
+export const DRACULA_CURRENT_LINE = '#44475A';
+export const DRACULA_FOREGROUND = '#F8F8F2';
 
-// Icon muted (Google Material)
-export const ICON_MUTED = '#9AA0A6';
+/* Syntax */
+export const SYNTAX_KEYWORD = '#FF79C6';
+export const SYNTAX_OPERATOR = '#FF79C6';
+export const SYNTAX_PUNCTUATION = '#F8F8F2';
+export const SYNTAX_STRING = '#F1FA8C';
+export const SYNTAX_NUMBER = '#BD93F9';
+export const SYNTAX_CONSTANT = '#BD93F9';
+export const SYNTAX_COMMENT = '#6272A4';
+export const SYNTAX_FUNCTION = '#50FA7B';
+export const SYNTAX_TYPE = '#8BE9FD';
+export const SYNTAX_VARIABLE = '#F8F8F2';
+export const SYNTAX_PROPERTY = '#50FA7B';
+export const SYNTAX_TAG = '#FF79C6';
+export const SYNTAX_ATTRIBUTE = '#50FA7B';
+export const SYNTAX_EMBEDDED = '#F8F8F2';
 
-// Icon muted (Slate)
-export const ICON_SLATE = '#C4C7C5';
+const SyntaxColors = {
+  keyword: SYNTAX_KEYWORD,
+  operator: SYNTAX_OPERATOR,
+  punctuation: SYNTAX_PUNCTUATION,
+  string: SYNTAX_STRING,
+  number: SYNTAX_NUMBER,
+  constant: SYNTAX_CONSTANT,
+  comment: SYNTAX_COMMENT,
+  function: SYNTAX_FUNCTION,
+  type: SYNTAX_TYPE,
+  variable: SYNTAX_VARIABLE,
+  property: SYNTAX_PROPERTY,
+  tag: SYNTAX_TAG,
+  attribute: SYNTAX_ATTRIBUTE,
+  embedded: SYNTAX_EMBEDDED,
+} as const;
 
 /* Typography */
 export const FONT_SIZE_2XS = 11;
@@ -181,7 +147,6 @@ export const Radius = {
 } as const;
 
 export const Colors = {
-  // Backgrounds
   bgDeepest: BG_DEEPEST,
   bgBase: BG_BASE,
   bgSurface: BG_SURFACE,
@@ -192,14 +157,12 @@ export const Colors = {
   bgCard: BG_CARD,
   bgScrim: BG_SCRIM,
 
-  // Text
   textPrimary: TEXT_PRIMARY,
   textSecondary: TEXT_SECONDARY,
   textMuted: TEXT_MUTED,
   textDimmed: TEXT_DIMMED,
   textOnAccent: TEXT_ON_ACCENT,
 
-  // Accent
   accentBlue: ACCENT_BLUE,
   accentLightBlue: ACCENT_LIGHT_BLUE,
   accentSky: ACCENT_SKY,
@@ -207,34 +170,37 @@ export const Colors = {
   accentCyanDim: ACCENT_CYAN_DIM,
   accentCyanBg: ACCENT_CYAN_BG,
 
-  // Semantic
   success: SUCCESS,
   error: ERROR,
   warning: WARNING,
 
-  // Borders
   borderStrong: BORDER_STRONG,
   borderSubtle: BORDER_SUBTLE,
   borderFaint: BORDER_FAINT,
   borderAccent: BORDER_ACCENT,
 
-  // Message bubbles
   userBubbleBg: USER_BUBBLE_BG,
   assistantBubbleBg: ASSISTANT_BUBBLE_BG,
   assistantBubbleBorder: ASSISTANT_BUBBLE_BORDER,
+
   thinkingBorder: THINKING_BORDER,
   thinkingBg: THINKING_BG,
+
   errorBubbleBg: ERROR_BUBBLE_BG,
   ttsActiveBg: TTS_ACTIVE_BG,
 
-  // Icons
   iconMuted: ICON_MUTED,
   iconSlate: ICON_SLATE,
+
+  draculaCurrentLine: DRACULA_CURRENT_LINE,
+  draculaForeground: DRACULA_FOREGROUND,
+
+  syntaxColors: SyntaxColors,
 } as const;
 
 export const Theme = {
   colors: Colors,
   typography: Typography,
   iconSizes: IconSizes,
-  radius: Radius,
+  radius: Radius
 } as const;

@@ -1,15 +1,15 @@
-import { useCallback } from 'react';
 import {
-  LlmModelModal,
-  ModelSelectModal,
-  PermissionsChecklistModal,
-  VoiceModelModal,
+    LlmModelModal,
+    ModelSelectModal,
+    PermissionsChecklistModal,
+    VoiceModelModal,
 } from '@/components/chat/modals';
 import { ChatSidebar } from '@/components/chat/ui';
 import { useChatSession, useSidebar, useSpeaker } from '@/hooks';
 import { ChatSessionService, modelDownloadService } from '@/services';
 import { useModelStore, useVoiceStore } from '@/stores';
 import { ModelRecord } from '@/types';
+import { useCallback } from 'react';
 
 interface Props {
   sidebarOpen: boolean;
@@ -47,8 +47,8 @@ export function ChatScreenModals({
   const handleSessionSelect = useCallback(
     async (id: string) => {
       try {
-        await openChat(id);
         setSidebarOpen(false);
+        await openChat(id);
       } catch (e: any) {
         setSessionError(e.message || 'Failed to load messages');
       }
@@ -58,8 +58,8 @@ export function ChatScreenModals({
 
   const handleNewChat = useCallback(async () => {
     try {
-      await beginNewChat();
       setSidebarOpen(false);
+      await beginNewChat();
     } catch (e: any) {
       setSessionError(e.message || 'Failed to create new chat session');
     }

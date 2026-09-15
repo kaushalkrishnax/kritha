@@ -6,4 +6,5 @@ export type ChatMessage = {
   createdAt?: number;
   status?: 'sending' | 'sent' | 'failed';
   variants?: { index: number; total: number };
+  runId?: string;
 };

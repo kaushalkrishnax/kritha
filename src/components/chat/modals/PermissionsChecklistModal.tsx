@@ -194,7 +194,7 @@ export function PermissionsChecklistModal({
         >
           <Icon
             size={IconSizes.base}
-            color={isGranted ? Colors.accentCyan : descriptor.iconColor}
+            color={isGranted ? Colors.accentLightBlue : descriptor.iconColor}
             strokeWidth={1.8}
           />
         </View>
@@ -212,12 +212,12 @@ export function PermissionsChecklistModal({
             <View style={styles.grantedIndicator}>
               <Check
                 size={IconSizes.xs}
-                color={Colors.accentCyan}
+                color={Colors.accentLightBlue}
                 strokeWidth={3}
               />
             </View>
           ) : isActive ? (
-            <ActivityIndicator size="small" color={Colors.accentCyan} />
+            <ActivityIndicator size="small" color={Colors.accentLightBlue} />
           ) : isSpecial ? (
             <TouchableOpacity
               activeOpacity={0.7}
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: Radius.xs,
-    backgroundColor: Colors.accentCyan,
+    backgroundColor: Colors.accentLightBlue,
   },
 
   closeButton: {
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   },
 
   permissionCardGranted: {
-    borderColor: Colors.accentCyan,
+    borderColor: Colors.accentLightBlue,
     backgroundColor: 'rgba(0, 229, 255, 0.05)',
   },
 

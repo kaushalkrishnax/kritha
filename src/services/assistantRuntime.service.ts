@@ -1,4 +1,3 @@
-import uuid from 'react-native-uuid';
 import {
   ChatMode,
   LiveTalkPhase,
@@ -12,6 +11,7 @@ import { useAssistantStore } from '@/stores/assistant.store';
 import { useChatStore } from '@/stores/chat.store';
 import { useModelStore } from '@/stores/model.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import uuid from 'react-native-uuid';
 import { ChatSessionService } from './chat.service';
 import {
   buildConversationContext,
@@ -88,6 +88,7 @@ export async function submitPrompt(options: {
       content: trimmed,
       customId: userMessageId,
       createdAt: now,
+      runId,
     });
 
     useChatStore.getState().upsertMessage({
@@ -97,6 +98,7 @@ export async function submitPrompt(options: {
       text: trimmed,
       createdAt: now,
       status: 'sent',
+      runId,
     });
 
     const historical = useChatStore.getState().messages.map((m) => ({
@@ -143,7 +145,7 @@ export async function submitPrompt(options: {
           current.appendResponse(chunk);
           useChatStore
             .getState()
-            .appendMessageChunk(current.assistantRunId!, chunk);
+            .appendMessageChunk(current.assistantRunId!, chunk, runId);
         },
 
         onComplete: (fullText: string) => {
@@ -159,6 +161,7 @@ export async function submitPrompt(options: {
             content: fullText,
             customId: assistantMessageId,
             createdAt: ts,
+            runId,
           }).catch((err) =>
             console.error(
               '[Runtime] Failed to persist assistant message:',
@@ -168,7 +171,7 @@ export async function submitPrompt(options: {
 
           useChatStore
             .getState()
-            .completeMessageStream(assistantMessageId, fullText);
+            .completeMessageStream(assistantMessageId, fullText, ts, runId);
 
           current.setLlmPhase(LlmPhase.IDLE);
           activeLlmHandle = null;
@@ -460,6 +463,7 @@ export async function editAndResubmitPrompt(
     await ChatSessionService.truncateMessages(
       sessionId,
       targetMessage.createdAt,
+      targetMessage.runId,
     );
 
     const assistantStore = useAssistantStore.getState();

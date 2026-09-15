@@ -1,3 +1,16 @@
+import { ChatMode, RequestOrigin } from '@/constants';
+import { useChatInputHeight } from '@/hooks';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
+import {
+  useAssistantStore,
+  useChatStore,
+  useIsLlmBusy,
+  useIsLlmGenerating,
+  useIsLlmThinking,
+  useIsSttTranscribing,
+  useModelStore,
+} from '@/stores';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import {
   ArrowUp,
   AudioLines,
@@ -19,19 +32,6 @@ import {
   View,
 } from 'react-native';
 import uuid from 'react-native-uuid';
-import { ChatMode, RequestOrigin } from '@/constants';
-import { useChatInputHeight } from '@/hooks';
-import * as assistantRuntime from '@/services/assistantRuntime.service';
-import {
-  useAssistantStore,
-  useChatStore,
-  useIsLlmBusy,
-  useIsLlmGenerating,
-  useIsLlmThinking,
-  useIsSttTranscribing,
-  useModelStore,
-} from '@/stores';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
@@ -395,7 +395,7 @@ export function ChatInput({
                 editable={!showJustASec}
                 style={[styles.input, isExpanded && styles.expandedInput]}
                 placeholder={showJustASec ? 'Just a sec...' : 'Ask Kritha...'}
-                placeholderTextColor="rgba(232,234,237,0.46)"
+                placeholderTextColor={Colors.textMuted}
                 multiline
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    shadowColor: '#000',
+    shadowColor: Colors.bgDeepest,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    shadowColor: '#000',
+    shadowColor: Colors.bgDeepest,
     shadowOffset: {
       width: 0,
       height: 2,

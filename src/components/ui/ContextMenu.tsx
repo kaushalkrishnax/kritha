@@ -1,3 +1,5 @@
+import { Colors, Radius, Typography } from '@/theme';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -8,8 +10,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Colors, Radius, Typography } from '@/theme';
 
 export interface ContextMenuItem {
   id: string;
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    shadowColor: '#000',
+    shadowColor: Colors.bgDeepest,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 24,

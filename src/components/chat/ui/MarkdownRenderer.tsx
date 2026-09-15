@@ -5,6 +5,7 @@ import {
   type MarkdownStyle,
 } from 'react-native-enriched-markdown';
 import { Colors, Typography, IconSizes, Radius } from '@/theme';
+
 export const markdownRendererStyle: MarkdownStyle = {
   paragraph: {
     fontSize: Typography.sizeBase,
@@ -114,31 +115,15 @@ export const markdownRendererStyle: MarkdownStyle = {
   codeBlock: {
     fontSize: Typography.sizeBase,
     fontFamily: 'monospace',
-    color: Colors.textSecondary,
-    backgroundColor: Colors.bgDeepest,
-    borderColor: Colors.borderSubtle,
+    color: Colors.draculaForeground,
+    backgroundColor: Colors.bgPrimary,
+    borderColor: Colors.draculaCurrentLine,
     borderWidth: 1,
     borderRadius: Radius.base,
     padding: Typography.sizeBase,
     marginTop: Typography.sizeBase,
-    marginBottom: Typography.sizeMd,
-
-    syntaxColors: {
-      keyword: Colors.accentLightBlue,
-      operator: Colors.textSecondary,
-      punctuation: Colors.textSecondary,
-      string: Colors.success,
-      number: Colors.accentSky,
-      constant: Colors.accentLightBlue,
-      comment: Colors.textMuted,
-      function: Colors.accentSky,
-      type: Colors.accentLightBlue,
-      variable: Colors.textSecondary,
-      property: Colors.accentSky,
-      tag: Colors.accentLightBlue,
-      attribute: Colors.accentSky,
-      embedded: Colors.textSecondary,
-    },
+    marginBottom: Typography.sizeBase,
+    syntaxColors: Colors.syntaxColors,
   },
 
   strong: {
@@ -170,7 +155,6 @@ export const markdownRendererStyle: MarkdownStyle = {
   },
 
   image: {
-    aspectRatio: 16 / 9,
     resizeMode: 'contain',
     borderRadius: Radius.base,
     marginTop: Typography.sizeBase,
@@ -265,7 +249,6 @@ export function MarkdownRenderer({ content }: { content: string }) {
         highlight: true,
         latexMath: true,
       }}
-
       writingDirection="first-strong"
       streamingAnimation={true}
       streamingConfig={{

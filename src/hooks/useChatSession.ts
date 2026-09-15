@@ -2,11 +2,10 @@ import { ChatSessionService } from '@/services';
 import { useAssistantStore } from '@/stores';
 
 export function useChatSession() {
-  const beginNewChat = async (title: string = 'New Chat') => {
+  const beginNewChat = async () => {
     try {
-      const session = await ChatSessionService.createNewChat(title);
+      await ChatSessionService.beginNewChat();
       useAssistantStore.getState().reset();
-      return session;
     } catch (e: any) {
       useAssistantStore
         .getState()

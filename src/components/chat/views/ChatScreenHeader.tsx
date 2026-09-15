@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { ChatHeader } from '@/components/chat/ui/ChatHeader';
 import { useChatSession } from '@/hooks';
 import { useModelStore } from '@/stores';
+import { useCallback, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 interface Props {
   sidebarOpen: boolean;
@@ -27,8 +27,8 @@ export function ChatScreenHeader({
 
   const handleNewChat = useCallback(async () => {
     try {
-      await beginNewChat();
       setSidebarOpen(false);
+      await beginNewChat();
     } catch (e) {
       console.warn('Failed to create new chat session', e);
     }

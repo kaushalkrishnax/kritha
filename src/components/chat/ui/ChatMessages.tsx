@@ -1,26 +1,3 @@
-import { ArrowDown, Brain, Copy, Pencil, Share2 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Dimensions,
-  Keyboard,
-  Animated as RNAnimated,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import Svg, {
-  Defs,
-  Rect,
-  Stop,
-  LinearGradient as SvgGradient,
-} from 'react-native-svg';
 import { ContextMenu } from '@/components/ui/ContextMenu';
 import { useChatInputHeight, useSpeaker } from '@/hooks';
 import { ChatSessionService } from '@/services';
@@ -35,6 +12,29 @@ import {
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { ChatMessage } from '@/types/chat';
 import { formatMessageTime } from '@/utils';
+import * as Clipboard from 'expo-clipboard';
+import { ArrowDown, Brain, Copy, Pencil, Share2 } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
+  Keyboard,
+  Animated as RNAnimated,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, {
+  Defs,
+  Rect,
+  Stop,
+  LinearGradient as SvgGradient,
+} from 'react-native-svg';
 import { ResponseMessage } from './ResponseMessage';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -403,8 +403,8 @@ export function ChatMessages() {
           <Svg height={GRADIENT_TOP_HEIGHT} width={SCREEN_W}>
             <Defs>
               <SvgGradient id="topFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={Colors.bgSurface} stopOpacity="1" />
-                <Stop offset="1" stopColor={Colors.bgSurface} stopOpacity="0" />
+                <Stop offset="0" stopColor={Colors.bgDeepest} stopOpacity="1" />
+                <Stop offset="1" stopColor={Colors.bgDeepest} stopOpacity="0" />
               </SvgGradient>
             </Defs>
             <Rect
@@ -419,8 +419,8 @@ export function ChatMessages() {
           <Svg height={GRADIENT_BOTTOM_HEIGHT} width={SCREEN_W}>
             <Defs>
               <SvgGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={Colors.bgSurface} stopOpacity="0" />
-                <Stop offset="1" stopColor={Colors.bgSurface} stopOpacity="1" />
+                <Stop offset="0" stopColor={Colors.bgDeepest} stopOpacity="0" />
+                <Stop offset="1" stopColor={Colors.bgDeepest} stopOpacity="1" />
               </SvgGradient>
             </Defs>
             <Rect
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgTertiary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.bgDeepest,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,

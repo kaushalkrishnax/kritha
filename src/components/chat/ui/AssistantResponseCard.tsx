@@ -1,7 +1,7 @@
-import { useRef } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors, Radius, Typography } from '@/theme';
 import { ChatMessage } from '@/types';
+import { useRef } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ResponseActions } from './ResponseActions';
 import { ResponseMessage } from './ResponseMessage';
 
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
-    shadowColor: '#000',
+    shadowColor: Colors.bgDeepest,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 16,

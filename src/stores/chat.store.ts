@@ -1,6 +1,6 @@
-import { create } from 'zustand';
 import { Session } from '@/database';
 import { ChatMessage } from '@/types';
+import { create } from 'zustand';
 
 interface ChatStore {
   chatSessionId: string | null;
@@ -24,8 +24,8 @@ interface ChatStore {
   archiveSession: (sessionId: string, archived: boolean) => void;
   deleteSession: (sessionId: string) => void;
   upsertMessage: (message: ChatMessage) => void;
-  appendMessageChunk: (messageId: string, chunk: string) => void;
-  completeMessageStream: (messageId: string, fullText: string) => void;
+  appendMessageChunk: (messageId: string, chunk: string, runId?: string) => void;
+  completeMessageStream: (messageId: string, fullText: string, createdAt?: number, runId?: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()((set) => ({
@@ -170,7 +170,7 @@ export const useChatStore = create<ChatStore>()((set) => ({
       };
     }),
 
-  appendMessageChunk: (messageId, chunk) =>
+  appendMessageChunk: (messageId, chunk, runId) =>
     set((state) => {
       const exists = state.messages.find((m) => m.id === messageId);
       if (!exists) {
@@ -183,18 +183,19 @@ export const useChatStore = create<ChatStore>()((set) => ({
               text: chunk,
               sessionId: state.chatSessionId,
               status: 'sent',
+              runId,
             },
           ],
         };
       }
       return {
         messages: state.messages.map((m) =>
-          m.id === messageId ? { ...m, text: m.text + chunk } : m,
+          m.id === messageId ? { ...m, text: m.text + chunk, runId: runId || m.runId } : m,
         ),
       };
     }),
 
-  completeMessageStream: (messageId, fullText) =>
+  completeMessageStream: (messageId, fullText, createdAt, runId) =>
     set((state) => {
       const exists = state.messages.find((m) => m.id === messageId);
       if (!exists) {
@@ -207,6 +208,8 @@ export const useChatStore = create<ChatStore>()((set) => ({
               text: fullText,
               sessionId: state.chatSessionId,
               status: 'sent',
+              createdAt,
+              runId,
             },
           ],
         };
@@ -214,7 +217,7 @@ export const useChatStore = create<ChatStore>()((set) => ({
       return {
         messages: state.messages.map((m) =>
           m.id === messageId
-            ? { ...m, text: fullText || m.text, status: 'sent' }
+            ? { ...m, text: fullText || m.text, status: 'sent', createdAt: createdAt || m.createdAt, runId: runId || m.runId }
             : m,
         ),
       };
