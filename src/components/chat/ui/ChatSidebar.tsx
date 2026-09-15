@@ -144,7 +144,7 @@ export function ChatSidebar({
         id: 'delete',
         label: 'Delete',
         destructive: true,
-        icon: <Trash2 size={IconSizes.md} color={Colors.warning} />,
+        icon: <Trash2 size={IconSizes.md} color={Colors.error} />,
       },
     ];
   }, [activeSession]);

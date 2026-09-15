@@ -24,8 +24,17 @@ interface ChatStore {
   archiveSession: (sessionId: string, archived: boolean) => void;
   deleteSession: (sessionId: string) => void;
   upsertMessage: (message: ChatMessage) => void;
-  appendMessageChunk: (messageId: string, chunk: string, runId?: string) => void;
-  completeMessageStream: (messageId: string, fullText: string, createdAt?: number, runId?: string) => void;
+  appendMessageChunk: (
+    messageId: string,
+    chunk: string,
+    runId?: string,
+  ) => void;
+  completeMessageStream: (
+    messageId: string,
+    fullText: string,
+    createdAt?: number,
+    runId?: string,
+  ) => void;
 }
 
 export const useChatStore = create<ChatStore>()((set) => ({
@@ -190,7 +199,9 @@ export const useChatStore = create<ChatStore>()((set) => ({
       }
       return {
         messages: state.messages.map((m) =>
-          m.id === messageId ? { ...m, text: m.text + chunk, runId: runId || m.runId } : m,
+          m.id === messageId
+            ? { ...m, text: m.text + chunk, runId: runId || m.runId }
+            : m,
         ),
       };
     }),
@@ -217,7 +228,13 @@ export const useChatStore = create<ChatStore>()((set) => ({
       return {
         messages: state.messages.map((m) =>
           m.id === messageId
-            ? { ...m, text: fullText || m.text, status: 'sent', createdAt: createdAt || m.createdAt, runId: runId || m.runId }
+            ? {
+                ...m,
+                text: fullText || m.text,
+                status: 'sent',
+                createdAt: createdAt || m.createdAt,
+                runId: runId || m.runId,
+              }
             : m,
         ),
       };

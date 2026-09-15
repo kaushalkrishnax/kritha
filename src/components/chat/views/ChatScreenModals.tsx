@@ -1,8 +1,8 @@
 import {
-    LlmModelModal,
-    ModelSelectModal,
-    PermissionsChecklistModal,
-    VoiceModelModal,
+  LlmModelModal,
+  ModelSelectModal,
+  PermissionsChecklistModal,
+  VoiceModelModal,
 } from '@/components/chat/modals';
 import { ChatSidebar } from '@/components/chat/ui';
 import { useChatSession, useSidebar, useSpeaker } from '@/hooks';

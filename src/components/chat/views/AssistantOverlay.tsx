@@ -1,20 +1,20 @@
+import {
+  AssistantResponseCard,
+  ChatInput,
+  DictationCornerGlow,
+  LiveTalkBar,
+} from '@/components/chat/ui';
+import { useAssistantKeyboard, useAssistantSession, useSpeaker } from '@/hooks';
+import {
+  useAssistantStore,
+  useIsLiveTalk,
+  useIsSttListening,
+  useIsTtsPaused,
+  useIsTtsSpeaking,
+} from '@/stores';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import Reanimated from 'react-native-reanimated';
-import {
-  DictationCornerGlow,
-  AssistantResponseCard,
-  ChatInput,
-  LiveTalkBar,
-} from '@/components/chat/ui';
-import { useAssistantKeyboard, useSpeaker, useAssistantSession } from '@/hooks';
-import {
-  useAssistantStore,
-  useIsSttListening,
-  useIsTtsSpeaking,
-  useIsTtsPaused,
-  useIsLiveTalk,
-} from '@/stores';
 
 export function AssistantOverlay() {
   const response = useAssistantStore((s) => s.response);
@@ -40,6 +40,9 @@ export function AssistantOverlay() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      import('@/services/soniqoRuntime.service').then((m) =>
+        m.SoniqoCoordinator.endSession(),
+      );
     };
   }, []);
 

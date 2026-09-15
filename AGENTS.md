@@ -5,3 +5,5 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
 # LLMS.txt
 
 Use https://docs.expo.dev/llms.txt to see the full index of docs contents
+
+See @RULES.md and @CONVENTIONS.md for rules and conventions.

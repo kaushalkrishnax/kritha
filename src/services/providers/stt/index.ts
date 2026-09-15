@@ -1,3 +1,3 @@
+export { soniqoSttProvider as sttProvider } from './soniqo.provider';
 export * from './types';
 
-export { stubSttProvider as sttProvider } from './stub.provider';

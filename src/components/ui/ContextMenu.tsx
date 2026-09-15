@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   menuItemTextDestructive: {
-    color: Colors.warning,
+    color: Colors.error,
   },
   menuItemTextDisabled: {
     color: Colors.textMuted,

@@ -202,5 +202,5 @@ export const Theme = {
   colors: Colors,
   typography: Typography,
   iconSizes: IconSizes,
-  radius: Radius
+  radius: Radius,
 } as const;

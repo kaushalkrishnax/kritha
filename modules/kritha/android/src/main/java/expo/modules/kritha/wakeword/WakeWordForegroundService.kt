@@ -257,12 +257,12 @@ class WakeWordForegroundService : Service() {
             listening.set(false)
             stopRecorder()
             WakeWordListeningActivity.onWakeWordDetected()
-            // REMOVED: AssistantEventBus.publishWakeWord() - module not found
+            emitWakeWordEvent(confidence)
             return
         }
 
         if (isAppInForeground()) {
-            // REMOVED: AssistantEventBus.publishWakeWord() - module not found
+            emitWakeWordEvent(confidence)
             return
         }
 
@@ -271,6 +271,10 @@ class WakeWordForegroundService : Service() {
             stopRecorder()
             launchAssistantActivity()
         }
+    }
+
+    private fun emitWakeWordEvent(confidence: Float) {
+        expo.modules.kritha.KrithaModule.emitWakeWord(confidence)
     }
 
     private fun launchAssistantActivity() {

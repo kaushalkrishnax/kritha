@@ -1,4 +1,7 @@
+import { database } from '@/database';
+import { useChatStore, useWakewordStore } from '@/stores';
 import {
+  addWakeWordListener,
   isDefaultAssistant,
   isNotificationListenerEnabled,
   isRunning,
@@ -7,9 +10,8 @@ import {
   start,
   stop,
 } from '@modules/kritha/src';
-import { database } from '@/database';
-import { useChatStore, useWakewordStore } from '@/stores';
 import { ChatSessionService } from './chat.service';
+import { SoniqoCoordinator } from './soniqoRuntime.service';
 
 export const AssistantBridge = {
   startWakewordListening: start,
@@ -35,6 +37,11 @@ export const bootstrapApp = async (): Promise<void> => {
     useWakewordStore
       .getState()
       .setIsEnabled(AssistantBridge.isWakewordRunning());
+
+    addWakeWordListener((event) => {
+      console.log('Wake word detected', event);
+      SoniqoCoordinator.handleWakeWordDetected();
+    });
   } catch (err) {
     console.warn('Failed to load startup settings or database:', err);
   }

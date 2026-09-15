@@ -239,6 +239,11 @@ export async function startDictation(): Promise<void> {
     store.setSttPhase(SttPhase.IDLE);
     store.setChatMode(ChatMode.TEXTING);
     store.setMic(MicOwner.NONE);
+    if (!error?.message?.includes('not downloaded')) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to start dictation.';
+      store.setError(message);
+    }
   }
 }
 
@@ -356,6 +361,11 @@ export async function startLiveTalk(options?: {
     store.setChatMode(ChatMode.TEXTING);
     store.setLiveTalkPhase(null);
     store.setMic(MicOwner.NONE);
+    if (!error?.message?.includes('not downloaded')) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to start Live Talk.';
+      store.setError(message);
+    }
   }
 }
 

@@ -12,8 +12,10 @@ export const migration002 = {
         ALTER TABLE messages ADD COLUMN run_id TEXT;
       `);
     } catch (error) {
-      console.warn('[Migration] Column run_id might already exist or another error occurred:', error);
+      console.warn(
+        '[Migration] Column run_id might already exist or another error occurred:',
+        error,
+      );
     }
   },
 };
-

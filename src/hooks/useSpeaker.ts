@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import {
-  useAssistantStore,
-  useIsTtsPaused,
-  useIsTtsSpeaking,
-  useVoiceStore,
+    useAssistantStore,
+    useIsTtsPaused,
+    useIsTtsSpeaking,
+    useVoiceStore,
 } from '@/stores';
+import { SoniqoSpeech } from '@modules/kritha/src';
+import { useCallback } from 'react';
 
 export { useVoiceStore };
 
@@ -20,7 +21,7 @@ export function useSpeaker() {
   const selectedTtsModelId = useVoiceStore((s) => s.selectedTtsModelId);
 
   const handleSpeakerPress = useCallback(
-    (messageId: string, text: string) => {
+    async (messageId: string, text: string) => {
       const isCurrentMessage =
         !currentTtsMsgId || currentTtsMsgId === messageId;
 
@@ -32,6 +33,18 @@ export function useSpeaker() {
       if (!text) return;
 
       if (!selectedTtsModelId) {
+        setVoiceModalOpen(true);
+        return;
+      }
+
+      try {
+        const models = await SoniqoSpeech.listVoiceModels();
+        const tts = models.find((m) => m.id === selectedTtsModelId);
+        if (!tts?.isDownloaded) {
+          setVoiceModalOpen(true);
+          return;
+        }
+      } catch {
         setVoiceModalOpen(true);
         return;
       }

@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 import { STORAGE_KEYS } from '@/constants';
 import { secureStorage } from '@/utils';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface VoiceStore {
   isTtsDownloaded: boolean;
@@ -29,8 +29,8 @@ export const useVoiceStore = create<VoiceStore>()(
       isSttDownloaded: false,
       voiceModelProgress: null,
       isVoiceModalOpen: false,
-      selectedSttModelId: null,
-      selectedTtsModelId: null,
+      selectedSttModelId: 'nemotron-multilingual-int8',
+      selectedTtsModelId: 'supertonic-litert',
 
       setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),
       setSttDownloaded: (downloaded) => set({ isSttDownloaded: downloaded }),

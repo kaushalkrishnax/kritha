@@ -1,3 +1,7 @@
+import { useSpeaker } from '@/hooks';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
+import { useVoiceStore } from '@/stores';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { Download, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -9,28 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSpeaker } from '@/hooks';
-import * as assistantRuntime from '@/services/assistantRuntime.service';
-import { useVoiceStore } from '@/stores';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
-import { stubAction } from '@/utils';
 
-type Progress = any;
+import { SoniqoSpeech } from '@modules/kritha/src';
+
 enum ModelCategory {
   Tts = 'tts',
   Stt = 'stt',
 }
-const deleteModel = async (...args: any[]) =>
-  stubAction('VoiceModelModal.deleteModel');
-const ensureModel = async (...args: any[]) =>
-  stubAction('VoiceModelModal.ensureModel');
-const listDownloadedModels = async (...args: any[]) => {
-  stubAction('VoiceModelModal.listDownloadedModels');
-  return [];
-};
-const onProgress = (...args: any[]) => stubAction('VoiceModelModal.onProgress');
-const refreshModels = async (...args: any[]) =>
-  stubAction('VoiceModelModal.refreshModels');
 
 export interface VoiceModelModalProps {
   visible: boolean;
@@ -40,66 +29,24 @@ export interface VoiceModelModalProps {
 const HARDCODED_MODELS = {
   [ModelCategory.Stt]: [
     {
-      id: 'sherpa-onnx-streaming-zipformer-en-2023-02-21',
-      name: 'Ultra-Fast (Zipformer INT8)',
-      size: '18 MB',
-      langs: 'English',
+      id: 'nemotron-multilingual-int8',
+      name: 'Nemotron 3.5 Multilingual (LiteRT INT8)',
+      size: '250 MB',
+      langs: 'Multilingual (25+ Languages)',
     },
     {
-      id: 'sherpa-onnx-streaming-zipformer-en-2023-06-26',
-      name: 'Accurate (Zipformer)',
-      size: '137 MB',
-      langs: 'English',
-    },
-    {
-      id: 'sherpa-onnx-moonshine-tiny-en-int8',
-      name: 'Offline Speed (Moonshine)',
-      size: '41 MB',
-      langs: 'English',
-    },
-    {
-      id: 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17',
-      name: 'Multilingual Fast (SenseVoice)',
-      size: '150 MB',
-      langs: 'EN/ZH/JA/KO',
-    },
-    {
-      id: 'sherpa-onnx-cohere-transcribe-14-lang-int8-2026-04-01',
-      name: 'Cohere Transcribe (14 Langs)',
-      size: '110 MB',
-      langs: 'Multilingual',
+      id: 'nemotron-multilingual-fp16',
+      name: 'Nemotron 3.5 Multilingual (LiteRT FP16)',
+      size: '500 MB',
+      langs: 'Multilingual (High Precision)',
     },
   ],
   [ModelCategory.Tts]: [
     {
-      id: 'kokoro-int8-en-v0_19',
-      name: 'Kokoro (Expressive & Natural)',
-      size: '82 MB',
-      langs: 'English',
-    },
-    {
-      id: 'matcha-icefall-en_US-ljspeech',
-      name: 'Matcha TTS (Fast)',
-      size: '60 MB',
-      langs: 'English',
-    },
-    {
-      id: 'vits-piper-en_US-amy-low',
-      name: 'Piper (Amy, Low Latency)',
-      size: '14 MB',
-      langs: 'English',
-    },
-    {
-      id: 'vits-coqui-en-ljspeech',
-      name: 'VITS LJSpeech (Classic)',
-      size: '28 MB',
-      langs: 'English',
-    },
-    {
-      id: 'sherpa-onnx-supertonic-tts-int8-2026-03-06',
-      name: 'Supertonic 2026 (INT8)',
-      size: '50 MB',
-      langs: 'English',
+      id: 'supertonic-litert',
+      name: 'Supertonic-3 (LiteRT)',
+      size: '140 MB',
+      langs: 'English (10 Voices: F1-F5, M1-M5)',
     },
   ],
 };
@@ -107,6 +54,15 @@ const HARDCODED_MODELS = {
 export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   const [tab, setTab] = useState<ModelCategory>(ModelCategory.Stt);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [availableModels, setAvailableModels] = useState<
+    {
+      id: string;
+      name: string;
+      size: string;
+      langs: string;
+      category: string;
+    }[]
+  >([]);
   const [progresses, setProgresses] = useState<Record<string, number>>({});
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
@@ -114,10 +70,14 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   const selectedTtsModelId = useVoiceStore((s) => s.selectedTtsModelId);
   const { setSelectedSttModelId, setSelectedTtsModelId } = useSpeaker();
 
-  const loadDownloaded = useCallback(async () => {
+  const refreshDownloaded = useCallback(async () => {
     try {
-      const dl = await listDownloadedModels(tab);
-      setDownloadedIds(new Set(dl.map((d: any) => d.id || d)));
+      const models = await SoniqoSpeech.listVoiceModels();
+      setAvailableModels(models);
+      const downloaded = models
+        .filter((m) => m.isDownloaded && m.category === tab)
+        .map((m) => m.id);
+      setDownloadedIds(new Set(downloaded));
     } catch (e) {
       console.warn('Failed to load downloaded models', e);
     }
@@ -125,26 +85,41 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
 
   useEffect(() => {
     if (!visible) return;
-    listDownloadedModels(tab)
-      .then((dl) => setDownloadedIds(new Set(dl.map((d: any) => d.id || d))))
-      .catch((e) => console.warn('Failed to load downloaded models', e));
+    let isMounted = true;
+    SoniqoSpeech.listVoiceModels()
+      .then((models) => {
+        if (!isMounted) return;
+        setAvailableModels(models);
+        const downloaded = models
+          .filter((m) => m.isDownloaded && m.category === tab)
+          .map((m) => m.id);
+        setDownloadedIds(new Set(downloaded));
+      })
+      .catch((e) => {
+        console.warn('Failed to load downloaded models', e);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [visible, tab]);
 
   useEffect(() => {
-    const unsub = onProgress((_: any, modelId: string, progress: Progress) => {
-      setProgresses((prev) => ({ ...prev, [modelId]: progress.percent }));
-      if (progress.percent >= 100) {
-        setTimeout(loadDownloaded, 500);
+    const sub = SoniqoSpeech.addVoiceModelProgressListener((event) => {
+      setProgresses((prev) => ({ ...prev, [event.modelId]: event.progress }));
+      if (event.progress >= 100) {
+        setTimeout(refreshDownloaded, 500);
       }
     });
-    return unsub;
-  }, [loadDownloaded]);
+    return () => {
+      sub.remove();
+    };
+  }, [refreshDownloaded]);
 
   const handleDownload = async (modelId: string) => {
     setLoadingAction(modelId);
     try {
-      await refreshModels(tab);
-      await ensureModel(tab, modelId);
+      await SoniqoSpeech.downloadVoiceModel(modelId);
     } catch (e) {
       console.warn('Failed to download', e);
     } finally {
@@ -154,8 +129,8 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
 
   const handleDelete = async (modelId: string) => {
     try {
-      await deleteModel(tab, modelId);
-      loadDownloaded();
+      await SoniqoSpeech.deleteVoiceModel(modelId);
+      refreshDownloaded();
     } catch (e) {
       console.warn('Failed to delete', e);
     }
@@ -172,7 +147,9 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
   };
 
   const currentModels =
-    HARDCODED_MODELS[tab as keyof typeof HARDCODED_MODELS] || [];
+    availableModels.length > 0
+      ? availableModels.filter((m) => m.category === tab)
+      : HARDCODED_MODELS[tab as keyof typeof HARDCODED_MODELS] || [];
 
   return (
     <Modal
