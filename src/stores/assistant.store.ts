@@ -16,6 +16,8 @@ interface AssistantData {
   ttsPhase: TtsPhase;
   chatMode: ChatMode;
   liveTalkPhase: LiveTalkPhase | null;
+  isSttModelLoading: boolean;
+  isTtsModelLoading: boolean;
 
   assistantRunId: string | null;
   requestOrigin: RequestOrigin | null;
@@ -36,6 +38,8 @@ interface AssistantActions {
   setTtsPhase: (phase: TtsPhase) => void;
   setChatMode: (mode: ChatMode) => void;
   setLiveTalkPhase: (phase: LiveTalkPhase | null) => void;
+  setSttModelLoading: (loading: boolean) => void;
+  setTtsModelLoading: (loading: boolean) => void;
   startRun: (origin: RequestOrigin) => string;
   setDraftText: (text: string) => void;
   setTranscript: (text: string) => void;
@@ -56,6 +60,8 @@ const initialData: AssistantData = {
   ttsPhase: TtsPhase.IDLE,
   chatMode: ChatMode.TEXTING,
   liveTalkPhase: null,
+  isSttModelLoading: false,
+  isTtsModelLoading: false,
 
   assistantRunId: null,
   requestOrigin: null,
@@ -78,6 +84,8 @@ export const useAssistantStore = create<AssistantState>()((set, get) => ({
   setTtsPhase: (ttsPhase) => set({ ttsPhase }),
   setChatMode: (chatMode) => set({ chatMode }),
   setLiveTalkPhase: (liveTalkPhase) => set({ liveTalkPhase }),
+  setSttModelLoading: (isSttModelLoading) => set({ isSttModelLoading }),
+  setTtsModelLoading: (isTtsModelLoading) => set({ isTtsModelLoading }),
 
   startRun: (origin) => {
     const assistantRunId = uuid.v4();
@@ -131,5 +139,9 @@ export const useIsSttTranscribing = () =>
   useAssistantStore(selectIsSttTranscribing);
 export const useIsTtsSpeaking = () => useAssistantStore(selectIsTtsSpeaking);
 export const useIsTtsPaused = () => useAssistantStore(selectIsTtsPaused);
+export const useIsTtsModelLoading = () =>
+  useAssistantStore((s) => s.isTtsModelLoading);
+export const useIsSttModelLoading = () =>
+  useAssistantStore((s) => s.isSttModelLoading);
 export const useIsDictating = () => useAssistantStore(selectIsDictating);
 export const useIsLiveTalk = () => useAssistantStore(selectIsLiveTalk);

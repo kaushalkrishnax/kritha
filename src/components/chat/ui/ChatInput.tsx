@@ -7,6 +7,7 @@ import {
   useIsLlmBusy,
   useIsLlmGenerating,
   useIsLlmThinking,
+  useIsSttModelLoading,
   useIsSttTranscribing,
   useModelStore,
 } from '@/stores';
@@ -67,6 +68,7 @@ export function ChatInput({
   const isThinking = useIsLlmThinking();
   const isGenerating = useIsLlmGenerating();
   const isTranscribing = useIsSttTranscribing();
+  const isSttModelLoading = useIsSttModelLoading();
 
   const effectiveModelId = modelId ?? selectedModelId;
 
@@ -81,7 +83,7 @@ export function ChatInput({
 
   const isDictationMode = chatMode === ChatMode.DICTATION;
   const volume = isDictationMode
-    ? Math.max(0, Math.min(12, volumeRms * 1.2))
+    ? Math.max(0, Math.min(12, volumeRms * 12))
     : 0;
   const isExpanded = hasText && measuredLines > 1;
 
@@ -216,19 +218,10 @@ export function ChatInput({
 
   const handleSubmitDictation = async () => {
     if (!effectiveModelId) return;
+    if (isTranscribing) return;
 
-    const text = await assistantRuntime.stopDictation();
-    const promptText = text.trim() || draftText.trim();
-
-    if (!promptText) return;
-    const msgId = String(uuid.v4());
-
-    await assistantRuntime.submitPrompt({
-      text: promptText,
-      origin: RequestOrigin.MANUAL_DICTATION,
-      modelId: effectiveModelId,
+    await assistantRuntime.sendDictation({
       sessionId: chatSessionId,
-      msgId,
     });
   };
 
@@ -322,6 +315,18 @@ export function ChatInput({
                   Transcribing...
                 </Text>
               </View>
+            ) : isSttModelLoading ? (
+              <View
+                style={[styles.waveformContainer, { justifyContent: 'center' }]}
+              >
+                <View style={styles.loadingModelRow}>
+                  <ActivityIndicator
+                    size="small"
+                    color={Colors.accentLightBlue}
+                  />
+                  <Text style={styles.loadingModelText}>Loading Model...</Text>
+                </View>
+              </View>
             ) : (
               <View style={styles.waveformContainer}>
                 <View style={styles.waveform} pointerEvents="none">
@@ -358,12 +363,15 @@ export function ChatInput({
                 activeOpacity={0.82}
                 style={[
                   styles.actionButton,
-                  !hasText &&
-                    chatMode !== ChatMode.DICTATION && {
-                      opacity: 0.5,
-                    },
+                  ((!hasText && chatMode !== ChatMode.DICTATION) ||
+                    isTranscribing) && {
+                    opacity: 0.5,
+                  },
                 ]}
-                disabled={!hasText && chatMode !== ChatMode.DICTATION}
+                disabled={
+                  isTranscribing ||
+                  (!hasText && chatMode !== ChatMode.DICTATION)
+                }
               >
                 <ArrowUp size={IconSizes.md} color={Colors.textOnAccent} />
               </TouchableOpacity>
@@ -556,6 +564,18 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,
+  },
+
+  loadingModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  loadingModelText: {
+    color: Colors.textMuted,
+    fontSize: Typography.sizeMd,
+    fontFamily: 'Inter-Medium',
   },
 
   inputArea: {

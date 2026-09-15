@@ -71,10 +71,18 @@ export function addWakeWordListener(
   return emitter.addListener('onWakeWordDetected', listener);
 }
 
-// Soniqo Speech replacements
+// Soniqo Speech
 export type SpeechEvent = {
+  requestId?: string;
   text?: string;
   isFinal?: boolean;
+  replaced?: boolean;
+  message?: string;
+  level?: number;
+};
+
+export type SpeechRequestEvent = {
+  requestId: string;
 };
 
 export const SoniqoSpeech = {
@@ -91,48 +99,91 @@ export const SoniqoSpeech = {
       config.ttsModelId ?? null,
     );
   },
+  startListening: async (requestId: string) => {
+    await KrithaModule.soniqoStartListening(requestId);
+  },
+  stopListening: async (requestId: string): Promise<string> => {
+    return await KrithaModule.soniqoStopListening(requestId);
+  },
+  cancelListening: async (requestId: string) => {
+    await KrithaModule.soniqoCancelListening(requestId);
+  },
   start: async (llmModelPath?: string | null, llmDevice?: string | null) => {
     await KrithaModule.soniqoStart(llmModelPath ?? null, llmDevice ?? 'cpu');
   },
   stop: async () => {
     await KrithaModule.soniqoStop();
   },
-  speak: async (text: string, voice?: string | null) => {
-    await KrithaModule.soniqoSpeak(text, voice ?? null);
+  speak: async (requestId: string, text: string, voice?: string | null) => {
+    await KrithaModule.soniqoSpeak(requestId, text, voice ?? null);
   },
-  stopSpeaking: async () => {
-    await KrithaModule.soniqoStopSpeaking();
+  pauseSpeaking: async (requestId?: string | null) => {
+    await KrithaModule.soniqoPauseSpeaking(requestId ?? null);
+  },
+  resumeSpeaking: async (requestId?: string | null) => {
+    await KrithaModule.soniqoResumeSpeaking(requestId ?? null);
+  },
+  stopSpeaking: async (requestId?: string | null) => {
+    await KrithaModule.soniqoStopSpeaking(requestId ?? null);
   },
   addTool: async (name: string, desc: string) => {
     await KrithaModule.soniqoAddTool(name, desc);
   },
   addSpeechStartedListener: (listener: () => void) => {
-    emitter.addListener('onSpeechStarted', listener);
     return emitter.addListener('onSpeechStarted', listener);
   },
   addSpeechEndedListener: (listener: () => void) => {
-    emitter.addListener('onSpeechEnded', listener);
     return emitter.addListener('onSpeechEnded', listener);
   },
   addTranscriptListener: (listener: (e: SpeechEvent) => void) => {
-    emitter.addListener('onTranscript', listener);
     return emitter.addListener('onTranscript', listener);
   },
   addResponseCreatedListener: (listener: (e: SpeechEvent) => void) => {
-    emitter.addListener('onResponseCreated', listener);
     return emitter.addListener('onResponseCreated', listener);
   },
-  addResponseDoneListener: (listener: () => void) => {
-    emitter.addListener('onResponseDone', listener);
+  addResponseDoneListener: (listener: (e: SpeechEvent) => void) => {
     return emitter.addListener('onResponseDone', listener);
   },
-  addResponseInterruptedListener: (listener: () => void) => {
-    emitter.addListener('onResponseInterrupted', listener);
+  addResponseInterruptedListener: (listener: (e: SpeechEvent) => void) => {
     return emitter.addListener('onResponseInterrupted', listener);
   },
   addErrorListener: (listener: (e: any) => void) => {
-    emitter.addListener('onError', listener);
     return emitter.addListener('onError', listener);
+  },
+  addSttStartedListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onSttStarted', listener);
+  },
+  addSttStoppedListener: (
+    listener: (e: { requestId: string; text?: string }) => void,
+  ) => {
+    return emitter.addListener('onSttStopped', listener);
+  },
+  addSttCancelledListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onSttCancelled', listener);
+  },
+  addSttErrorListener: (listener: (e: SpeechEvent) => void) => {
+    return emitter.addListener('onSttError', listener);
+  },
+  addAudioLevelListener: (listener: (e: SpeechEvent) => void) => {
+    return emitter.addListener('onAudioLevel', listener);
+  },
+  addTtsStartedListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onTtsStarted', listener);
+  },
+  addTtsPausedListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onTtsPaused', listener);
+  },
+  addTtsResumedListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onTtsResumed', listener);
+  },
+  addTtsCompletedListener: (listener: (e: SpeechRequestEvent) => void) => {
+    return emitter.addListener('onTtsCompleted', listener);
+  },
+  addTtsStoppedListener: (listener: (e: SpeechEvent) => void) => {
+    return emitter.addListener('onTtsStopped', listener);
+  },
+  addTtsErrorListener: (listener: (e: SpeechEvent) => void) => {
+    return emitter.addListener('onTtsError', listener);
   },
   listVoiceModels: async () => {
     return await KrithaModule.listVoiceModels();
@@ -155,6 +206,5 @@ export {
   LocalLlmGenerateRequest,
   LocalLlmMessage,
   VoiceModelInfo,
-  WakeWordEvent
+  WakeWordEvent,
 };
-

@@ -1,10 +1,15 @@
-export interface SttProvider {
-  startListening: () => Promise<void>;
+export interface SttResult {
+  requestId: string;
+  text: string;
+}
 
-  /**
-   * Stops listening and resolves with the transcript.
-   *
-   * Providers with no captured speech must return an empty string.
-   */
-  stopListening: () => Promise<string>;
+export interface SttStartOptions {
+  onPartial?: (text: string, requestId: string) => void;
+  onAudioLevel?: (level: number, requestId: string) => void;
+}
+
+export interface SttProvider {
+  startListening: (options?: SttStartOptions) => Promise<string>;
+  stopListening: () => Promise<SttResult>;
+  cancelListening: () => Promise<void>;
 }

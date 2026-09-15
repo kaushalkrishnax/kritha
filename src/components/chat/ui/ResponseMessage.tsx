@@ -12,6 +12,7 @@ export interface ResponseMessageProps {
   showActions?: boolean;
   isTtsSpeaking?: boolean;
   isTtsPaused?: boolean;
+  isTtsBuffering?: boolean;
   onSpeakerPress?: (msgId: string) => void;
   style?: object;
 }
@@ -43,6 +44,7 @@ export function ResponseMessage({
   showActions = false,
   isTtsSpeaking = false,
   isTtsPaused = false,
+  isTtsBuffering = false,
   onSpeakerPress,
   style,
 }: ResponseMessageProps) {
@@ -75,6 +77,7 @@ export function ResponseMessage({
             textToCopy={answer || message.text}
             isTtsSpeaking={isTtsSpeaking}
             isTtsPaused={isTtsPaused}
+            isTtsBuffering={isTtsBuffering}
             onSpeakerPress={
               onSpeakerPress ? () => onSpeakerPress(message.id) : undefined
             }

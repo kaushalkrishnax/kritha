@@ -9,6 +9,7 @@ import {
   useAssistantStore,
   useIsLiveTalk,
   useIsSttListening,
+  useIsTtsModelLoading,
   useIsTtsPaused,
   useIsTtsSpeaking,
 } from '@/stores';
@@ -23,6 +24,7 @@ export function AssistantOverlay() {
   const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMessageId);
   const isTtsSpeaking = useIsTtsSpeaking();
   const isTtsPaused = useIsTtsPaused();
+  const isTtsModelLoading = useIsTtsModelLoading();
   const isLiveTalk = useIsLiveTalk();
 
   const isRecording = useIsSttListening();
@@ -145,6 +147,7 @@ export function AssistantOverlay() {
             error={error}
             isTtsSpeaking={isTtsSpeaking}
             isTtsPaused={isTtsPaused}
+            isTtsBuffering={isTtsModelLoading}
             ttsMsgId={currentTtsMsgId}
             onSpeakerPress={() => {
               if (response) {

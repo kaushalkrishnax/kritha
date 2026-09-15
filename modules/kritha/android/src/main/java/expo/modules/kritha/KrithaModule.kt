@@ -62,9 +62,20 @@ class KrithaModule : Module() {
             "onResponseInterrupted",
             "onError",
             "onLocalLlmDelta",
-            "onVoiceModelProgress"
+            "onVoiceModelProgress",
+            "onSttStarted",
+            "onSttStopped",
+            "onSttCancelled",
+            "onSttError",
+            "onAudioLevel",
+            "onTtsStarted",
+            "onTtsPaused",
+            "onTtsResumed",
+            "onTtsCompleted",
+            "onTtsStopped",
+            "onTtsError"
         )
-        
+
         AsyncFunction("soniqoInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
             if (voiceManager == null) {
                 val context = resolveContext()
@@ -82,6 +93,40 @@ class KrithaModule : Module() {
             }
         }
         
+        AsyncFunction("soniqoStartListening") { requestId: String, promise: Promise ->
+            ensureVoiceManager()
+            moduleScope.launch {
+                try {
+                    voiceManager?.startListening(requestId)
+                    promise.resolve(null)
+                } catch (e: Exception) {
+                    promise.reject("ERR_STT_START", e.message, e)
+                }
+            }
+        }
+
+        AsyncFunction("soniqoStopListening") { requestId: String, promise: Promise ->
+            moduleScope.launch {
+                try {
+                    val transcript = voiceManager?.stopListening(requestId) ?: ""
+                    promise.resolve(transcript)
+                } catch (e: Exception) {
+                    promise.reject("ERR_STT_STOP", e.message, e)
+                }
+            }
+        }
+
+        AsyncFunction("soniqoCancelListening") { requestId: String, promise: Promise ->
+            moduleScope.launch {
+                try {
+                    voiceManager?.cancelListening(requestId)
+                    promise.resolve(null)
+                } catch (e: Exception) {
+                    promise.reject("ERR_STT_CANCEL", e.message, e)
+                }
+            }
+        }
+
         AsyncFunction("soniqoStart") { llmModelPath: String?, llmDevice: String? ->
             voiceManager?.start(llmModelPath, llmDevice ?: "cpu")
             null
@@ -92,25 +137,29 @@ class KrithaModule : Module() {
             null
         }
 
-        AsyncFunction("soniqoSpeak") { text: String, voice: String?, promise: Promise ->
-            if (voiceManager == null) {
-                val context = resolveContext()
-                voiceManager = SoniqoVoiceManager(context, localLlmExecutor) { event, data ->
-                    sendEvent(event, data)
-                }
-            }
-            voiceManager?.speak(text, voice ?: "F1") {
+        AsyncFunction("soniqoSpeak") { requestId: String, text: String, voice: String?, promise: Promise ->
+            ensureVoiceManager()
+            voiceManager?.speak(requestId, text, voice ?: "F1") {
                 promise.resolve(null)
             }
         }
 
-        AsyncFunction("soniqoStopSpeaking") {
-            voiceManager?.stopSpeaking()
+        AsyncFunction("soniqoPauseSpeaking") { requestId: String? ->
+            voiceManager?.pauseSpeaking(requestId)
+            null
+        }
+
+        AsyncFunction("soniqoResumeSpeaking") { requestId: String? ->
+            voiceManager?.resumeSpeaking(requestId)
+            null
+        }
+
+        AsyncFunction("soniqoStopSpeaking") { requestId: String? ->
+            voiceManager?.stopSpeaking(requestId)
             null
         }
 
         AsyncFunction("soniqoAddTool") { name: String, desc: String ->
-            // Pass to tools registry if applicable
             null
         }
 
@@ -170,55 +219,38 @@ class KrithaModule : Module() {
             val context = resolveContext()
             moduleScope.launch {
                 try {
-                    when (modelId) {
-                        "supertonic-litert" -> {
-                            audio.soniqo.speech.ModelManager.ensureTtsModels(
-                                context = context,
-                                ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
-                                onProgress = { p ->
-                                    val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
-                                    sendEvent("onVoiceModelProgress", mapOf(
-                                        "modelId" to modelId,
-                                        "progress" to pct
-                                    ))
-                                }
-                            )
+                    if (isTtsOnlyModelId(modelId)) {
+                        audio.soniqo.speech.ModelManager.ensureTtsModels(
+                            context = context,
+                            ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
+                            onProgress = { p ->
+                                val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
+                                sendEvent("onVoiceModelProgress", mapOf(
+                                    "modelId" to modelId,
+                                    "progress" to pct
+                                ))
+                            }
+                        )
+                    } else {
+                        val precision = if (modelId.contains("fp16")) {
+                            audio.soniqo.speech.ModelPrecision.FP32
+                        } else {
+                            audio.soniqo.speech.ModelPrecision.INT8
                         }
-                        "nemotron-multilingual-fp16" -> {
-                            audio.soniqo.speech.ModelManager.ensureModels(
-                                context = context,
-                                precision = audio.soniqo.speech.ModelPrecision.FP32,
-                                sttModel = audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                                sttBackend = audio.soniqo.speech.SttBackend.LITERT,
-                                ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
-                                onProgress = { p ->
-                                    val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
-                                    sendEvent("onVoiceModelProgress", mapOf(
-                                        "modelId" to modelId,
-                                        "progress" to pct
-                                    ))
-                                }
-                            )
-                        }
-                        "nemotron-multilingual-int8" -> {
-                            audio.soniqo.speech.ModelManager.ensureModels(
-                                context = context,
-                                precision = audio.soniqo.speech.ModelPrecision.INT8,
-                                sttModel = audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                                sttBackend = audio.soniqo.speech.SttBackend.LITERT,
-                                ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
-                                onProgress = { p ->
-                                    val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
-                                    sendEvent("onVoiceModelProgress", mapOf(
-                                        "modelId" to modelId,
-                                        "progress" to pct
-                                    ))
-                                }
-                            )
-                        }
-                        else -> {
-                            throw IllegalArgumentException("Unknown or unsupported voice model: $modelId")
-                        }
+                        audio.soniqo.speech.ModelManager.ensureModels(
+                            context = context,
+                            precision = precision,
+                            sttModel = audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
+                            sttBackend = audio.soniqo.speech.SttBackend.LITERT,
+                            ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
+                            onProgress = { p ->
+                                val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
+                                sendEvent("onVoiceModelProgress", mapOf(
+                                    "modelId" to modelId,
+                                    "progress" to pct
+                                ))
+                            }
+                        )
                     }
                     sendEvent("onVoiceModelProgress", mapOf(
                         "modelId" to modelId,
@@ -234,31 +266,23 @@ class KrithaModule : Module() {
 
         AsyncFunction("deleteVoiceModel") { modelId: String ->
             val context = resolveContext()
-            when (modelId) {
-                "supertonic-litert" -> {
-                    val dir = File(audio.soniqo.speech.ModelManager.ttsModelDir(context))
-                    if (dir.exists()) dir.deleteRecursively()
+            if (isTtsOnlyModelId(modelId)) {
+                val dir = File(audio.soniqo.speech.ModelManager.ttsModelDir(context))
+                if (dir.exists()) dir.deleteRecursively()
+            } else {
+                val precision = if (modelId.contains("fp16")) {
+                    audio.soniqo.speech.ModelPrecision.FP32
+                } else {
+                    audio.soniqo.speech.ModelPrecision.INT8
                 }
-                "nemotron-multilingual-fp16" -> {
-                    val dir = File(audio.soniqo.speech.ModelManager.modelDir(
-                        context,
-                        audio.soniqo.speech.ModelPrecision.FP32,
-                        audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                        audio.soniqo.speech.SttBackend.LITERT,
-                        audio.soniqo.speech.TtsModel.SUPERTONIC
-                    ))
-                    if (dir.exists()) dir.deleteRecursively()
-                }
-                "nemotron-multilingual-int8" -> {
-                    val dir = File(audio.soniqo.speech.ModelManager.modelDir(
-                        context,
-                        audio.soniqo.speech.ModelPrecision.INT8,
-                        audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                        audio.soniqo.speech.SttBackend.LITERT,
-                        audio.soniqo.speech.TtsModel.SUPERTONIC
-                    ))
-                    if (dir.exists()) dir.deleteRecursively()
-                }
+                val dir = File(audio.soniqo.speech.ModelManager.modelDir(
+                    context,
+                    precision,
+                    audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
+                    audio.soniqo.speech.SttBackend.LITERT,
+                    audio.soniqo.speech.TtsModel.SUPERTONIC
+                ))
+                if (dir.exists()) dir.deleteRecursively()
             }
             null
         }
@@ -337,6 +361,22 @@ class KrithaModule : Module() {
     private fun resolveContext(): Context = appContext.reactContext
         ?: appContext.currentActivity?.applicationContext
         ?: throw Exceptions.ReactContextLost()
+
+    private fun ensureVoiceManager(): SoniqoVoiceManager {
+        val existing = voiceManager
+        if (existing != null) return existing
+        val context = resolveContext()
+        val created = SoniqoVoiceManager(context, localLlmExecutor) { event, data ->
+            sendEvent(event, data)
+        }
+        voiceManager = created
+        return created
+    }
+
+    private fun isTtsOnlyModelId(modelId: String): Boolean {
+        val id = modelId.lowercase()
+        return id.contains("supertonic") || id.contains("kokoro") || id.contains("pocket") || id.startsWith("tts")
+    }
 
     private fun generateLocal(request: Map<String, Any?>, promise: Promise) {
         val requestId = request["requestId"] as? String

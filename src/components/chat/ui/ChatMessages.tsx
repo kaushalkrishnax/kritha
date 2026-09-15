@@ -7,6 +7,7 @@ import {
   useIsLlmGenerating,
   useIsLlmThinking,
   useIsTtsPaused,
+  useIsTtsModelLoading,
   useIsTtsSpeaking,
 } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
@@ -108,6 +109,7 @@ export function ChatMessages() {
   const currentTtsMsgId = useAssistantStore((s) => s.currentTtsMessageId);
   const isTtsSpeaking = useIsTtsSpeaking();
   const isTtsPaused = useIsTtsPaused();
+  const isTtsModelLoading = useIsTtsModelLoading();
   const setEditingMessageId = useAssistantStore((s) => s.setEditingMessageId);
   const setDraftText = useAssistantStore((s) => s.setDraftText);
   const { chatInputHeight } = useChatInputHeight();
@@ -372,6 +374,9 @@ export function ChatMessages() {
                       isTtsPaused={
                         isTtsPaused &&
                         (!currentTtsMsgId || currentTtsMsgId === msg.id)
+                      }
+                      isTtsBuffering={
+                        isTtsModelLoading && currentTtsMsgId === msg.id
                       }
                       onSpeakerPress={() =>
                         handleSpeakerPress(msg.id, msg.text)

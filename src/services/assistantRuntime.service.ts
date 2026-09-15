@@ -11,6 +11,7 @@ import { useAssistantStore } from '@/stores/assistant.store';
 import { useChatStore } from '@/stores/chat.store';
 import { useModelStore } from '@/stores/model.store';
 import { useSettingsStore } from '@/stores/settings.store';
+import { useVoiceStore } from '@/stores/voice.store';
 import uuid from 'react-native-uuid';
 import { ChatSessionService } from './chat.service';
 import {
@@ -24,8 +25,54 @@ import {
   sttProvider,
   ttsProvider,
 } from './providers';
+import { VoiceModelMissingError } from './soniqoRuntime.service';
 
 let activeLlmHandle: { cancel: () => void } | null = null;
+
+let activeSttRequestId: string | null = null;
+let activeTtsRequestId: string | null = null;
+let activeTtsMessageId: string | null = null;
+let ttsEventSubscribed = false;
+let sttLevelSmoothed = 0;
+
+function ensureTtsEventSubscription(): void {
+  if (ttsEventSubscribed) return;
+  ttsEventSubscribed = true;
+  ttsProvider.subscribe((event) => {
+    const current = useAssistantStore.getState();
+    if (event.requestId !== activeTtsRequestId) return;
+
+    switch (event.kind) {
+      case 'started':
+        current.setTtsPhase(TtsPhase.SPEAKING);
+        break;
+      case 'paused':
+        current.setTtsPhase(TtsPhase.PAUSED);
+        break;
+      case 'resumed':
+        current.setTtsPhase(TtsPhase.SPEAKING);
+        break;
+      case 'completed':
+      case 'stopped':
+        activeTtsRequestId = null;
+        activeTtsMessageId = null;
+        current.setTtsPhase(TtsPhase.IDLE);
+        current.setCurrentTtsMessageId(null);
+        break;
+      case 'error':
+        activeTtsRequestId = null;
+        activeTtsMessageId = null;
+        current.setError(event.message);
+        current.setTtsPhase(TtsPhase.ERROR);
+        current.setCurrentTtsMessageId(null);
+        break;
+    }
+  });
+}
+
+function openVoiceModalForMissingModel(): void {
+  useVoiceStore.getState().setVoiceModalOpen(true);
+}
 
 export async function submitPrompt(options: {
   text: string;
@@ -222,33 +269,68 @@ export function cancelRun(): void {
 }
 
 export async function startDictation(): Promise<void> {
+  const store = useAssistantStore.getState();
+  if (
+    store.sttPhase === SttPhase.LISTENING ||
+    store.sttPhase === SttPhase.TRANSCRIBING
+  ) {
+    return;
+  }
+
+  store.setChatMode(ChatMode.DICTATION);
+  store.setSttPhase(SttPhase.LISTENING);
+  store.setMic(MicOwner.STT);
+  sttLevelSmoothed = 0;
+
   try {
-    const store = useAssistantStore.getState();
-
-    store.setChatMode(ChatMode.DICTATION);
-    store.setSttPhase(SttPhase.LISTENING);
-    store.setMic(MicOwner.STT);
-
-    await sttProvider.startListening();
+    const requestId = await sttProvider.startListening({
+      onPartial: (text, requestId) => {
+        const current = useAssistantStore.getState();
+        if (requestId !== activeSttRequestId) return;
+        if (current.sttPhase !== SttPhase.LISTENING) return;
+        current.setTranscript(text);
+      },
+      onAudioLevel: (level, requestId) => {
+        if (requestId !== activeSttRequestId) return;
+        sttLevelSmoothed += (level - sttLevelSmoothed) * 0.45;
+        const current = useAssistantStore.getState();
+        if (current.sttPhase !== SttPhase.LISTENING) return;
+        current.setMic(MicOwner.STT, sttLevelSmoothed);
+      },
+    });
+    activeSttRequestId = requestId;
   } catch (error: any) {
+    activeSttRequestId = null;
+    sttLevelSmoothed = 0;
+    const store = useAssistantStore.getState();
+    if (error instanceof VoiceModelMissingError) {
+      openVoiceModalForMissingModel();
+      store.setSttPhase(SttPhase.IDLE);
+      store.setChatMode(ChatMode.TEXTING);
+      store.setMic(MicOwner.NONE);
+      return;
+    }
     const message =
       error instanceof Error ? error.message : 'Failed to start dictation.';
-    const store = useAssistantStore.getState();
-
     store.setError(message);
-    store.setSttPhase(SttPhase.IDLE);
+    store.setSttPhase(SttPhase.ERROR);
     store.setChatMode(ChatMode.TEXTING);
     store.setMic(MicOwner.NONE);
-    if (!error?.message?.includes('not downloaded')) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to start dictation.';
-      store.setError(message);
-    }
   }
 }
 
-export function cancelDictation(): void {
+export async function cancelDictation(): Promise<void> {
+  const requestId = activeSttRequestId;
+  activeSttRequestId = null;
+
+  try {
+    await sttProvider.cancelListening();
+  } catch (e) {
+    console.warn('[Runtime] cancelDictation native cleanup failed', e);
+  }
+
   const store = useAssistantStore.getState();
+  if (requestId === null && store.sttPhase === SttPhase.IDLE) return;
 
   store.setSttPhase(SttPhase.IDLE);
   store.setChatMode(ChatMode.TEXTING);
@@ -258,32 +340,45 @@ export function cancelDictation(): void {
 }
 
 export async function stopDictation(): Promise<string> {
+  const store = useAssistantStore.getState();
+  if (store.sttPhase !== SttPhase.LISTENING) {
+    return '';
+  }
+  const requestId = activeSttRequestId;
+
+  store.setSttPhase(SttPhase.TRANSCRIBING);
+
   try {
-    const store = useAssistantStore.getState();
+    const result = await sttProvider.stopListening();
+    // Stale guard: ignore results from an operation that is no longer active.
+    if (requestId !== null && result.requestId !== requestId) {
+      return '';
+    }
+    activeSttRequestId = null;
 
-    store.setSttPhase(SttPhase.TRANSCRIBING);
-
-    const transcript = await sttProvider.stopListening();
-
-    const trimmed = transcript.trim();
+    const trimmed = result.text.trim();
+    const current = useAssistantStore.getState();
     if (trimmed) {
-      store.setTranscript(trimmed);
-      store.setDraftText(trimmed);
+      current.setTranscript(trimmed);
+      current.setDraftText(trimmed);
+    } else {
+      current.setTranscript('');
     }
 
-    store.setSttPhase(SttPhase.IDLE);
-    store.setChatMode(ChatMode.TEXTING);
-    store.setMic(MicOwner.NONE);
+    current.setSttPhase(SttPhase.IDLE);
+    current.setChatMode(ChatMode.TEXTING);
+    current.setMic(MicOwner.NONE);
     return trimmed;
   } catch (error: any) {
+    activeSttRequestId = null;
     const message =
       error instanceof Error ? error.message : 'Failed to stop dictation.';
-    const store = useAssistantStore.getState();
+    const current = useAssistantStore.getState();
 
-    store.setError(message);
-    store.setSttPhase(SttPhase.IDLE);
-    store.setChatMode(ChatMode.TEXTING);
-    store.setMic(MicOwner.NONE);
+    current.setError(message);
+    current.setSttPhase(SttPhase.ERROR);
+    current.setChatMode(ChatMode.TEXTING);
+    current.setMic(MicOwner.NONE);
     return '';
   }
 }
@@ -292,23 +387,38 @@ export async function sendDictation(options?: {
   sessionId?: string | null;
   msgId?: string | null;
 }): Promise<void> {
+  const store = useAssistantStore.getState();
+  if (store.sttPhase !== SttPhase.LISTENING) {
+    return;
+  }
+  const requestId = activeSttRequestId;
+
+  store.setSttPhase(SttPhase.TRANSCRIBING);
+
   try {
-    const store = useAssistantStore.getState();
-
-    store.setSttPhase(SttPhase.TRANSCRIBING);
     const result = await sttProvider.stopListening();
+    // Stale guard: never submit a transcript from a superseded operation.
+    if (requestId !== null && result.requestId !== requestId) {
+      return;
+    }
+    activeSttRequestId = null;
 
-    const transcript =
-      result.trim() || store.transcript.trim() || store.draftText.trim();
+    const transcript = result.text.trim();
 
     if (!transcript) {
-      cancelDictation();
+      const current = useAssistantStore.getState();
+      current.setTranscript('');
+      current.setSttPhase(SttPhase.IDLE);
+      current.setChatMode(ChatMode.TEXTING);
+      current.setMic(MicOwner.NONE);
       return;
     }
 
-    store.setSttPhase(SttPhase.IDLE);
-    store.setChatMode(ChatMode.TEXTING);
-    store.setMic(MicOwner.NONE);
+    const current = useAssistantStore.getState();
+    current.setTranscript(transcript);
+    current.setSttPhase(SttPhase.IDLE);
+    current.setChatMode(ChatMode.TEXTING);
+    current.setMic(MicOwner.NONE);
 
     const modelId = useModelStore.getState().selectedModelId;
     const sessionId =
@@ -323,14 +433,15 @@ export async function sendDictation(options?: {
       msgId,
     });
   } catch (error: any) {
+    activeSttRequestId = null;
     const message =
       error instanceof Error ? error.message : 'Failed to send dictation.';
-    const store = useAssistantStore.getState();
+    const current = useAssistantStore.getState();
 
-    store.setError(message);
-    store.setSttPhase(SttPhase.IDLE);
-    store.setChatMode(ChatMode.TEXTING);
-    store.setMic(MicOwner.NONE);
+    current.setError(message);
+    current.setSttPhase(SttPhase.ERROR);
+    current.setChatMode(ChatMode.TEXTING);
+    current.setMic(MicOwner.NONE);
   }
 }
 
@@ -350,7 +461,8 @@ export async function startLiveTalk(options?: {
     store.setSttPhase(SttPhase.LISTENING);
     store.setMic(MicOwner.STT);
 
-    await sttProvider.startListening();
+    const requestId = await sttProvider.startListening();
+    activeSttRequestId = requestId;
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to start Live Talk.';
@@ -394,7 +506,8 @@ export async function resumeLiveTalk(): Promise<void> {
     store.setSttPhase(SttPhase.LISTENING);
     store.setMic(MicOwner.STT);
 
-    await sttProvider.startListening();
+    const requestId = await sttProvider.startListening();
+    activeSttRequestId = requestId;
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to resume Live Talk.';
@@ -409,8 +522,13 @@ export async function resumeLiveTalk(): Promise<void> {
 export function stopLiveTalk(): void {
   cancelRun();
 
-  ttsProvider.stop();
-  sttProvider.stopListening().catch(() => {});
+  const ttsRequestId = activeTtsRequestId;
+  activeTtsRequestId = null;
+  activeTtsMessageId = null;
+  ttsProvider.stop(ttsRequestId ?? undefined).catch(() => {});
+
+  activeSttRequestId = null;
+  sttProvider.cancelListening().catch(() => {});
 
   const store = useAssistantStore.getState();
 
@@ -423,31 +541,83 @@ export function stopLiveTalk(): void {
 }
 
 export function speakMessage(text: string, messageId: string): void {
+  ensureTtsEventSubscription();
   const store = useAssistantStore.getState();
 
-  const currentId = store.currentTtsMessageId;
-  if (currentId && currentId !== messageId) {
-    ttsProvider.stop();
+  if (activeTtsRequestId !== null && activeTtsMessageId !== messageId) {
+    const stale = activeTtsRequestId;
+    activeTtsRequestId = null;
+    activeTtsMessageId = null;
+    ttsProvider.stop(stale).catch(() => {});
+  } else if (activeTtsRequestId !== null) {
+    return;
   }
 
+  if (!text.trim()) return;
+
+  const requestId = String(uuid.v4());
+  activeTtsRequestId = requestId;
+  activeTtsMessageId = messageId;
+
   store.setCurrentTtsMessageId(messageId);
-  store.setTtsPhase(TtsPhase.SPEAKING);
-
-  ttsProvider.speak(text, messageId, () => {
+  ttsProvider.speak(text, { requestId }).catch((error: any) => {
+    if (requestId !== activeTtsRequestId) return;
+    activeTtsRequestId = null;
+    activeTtsMessageId = null;
     const current = useAssistantStore.getState();
-    if (current.currentTtsMessageId !== messageId) return;
-
-    current.setTtsPhase(TtsPhase.IDLE);
+    if (error instanceof VoiceModelMissingError) {
+      openVoiceModalForMissingModel();
+      current.setTtsPhase(TtsPhase.IDLE);
+      current.setCurrentTtsMessageId(null);
+      return;
+    }
+    current.setError(
+      error instanceof Error ? error.message : 'Failed to speak message.',
+    );
+    current.setTtsPhase(TtsPhase.ERROR);
     current.setCurrentTtsMessageId(null);
   });
 }
 
-export function stopSpeaking(): void {
-  ttsProvider.stop();
-
+export function pauseSpeaking(): void {
+  ensureTtsEventSubscription();
+  if (activeTtsRequestId === null) return;
   const store = useAssistantStore.getState();
-  store.setTtsPhase(TtsPhase.IDLE);
-  store.setCurrentTtsMessageId(null);
+  if (store.ttsPhase !== TtsPhase.SPEAKING) return;
+
+  ttsProvider.pause(activeTtsRequestId).catch((error: any) => {
+    useAssistantStore
+      .getState()
+      .setError(error instanceof Error ? error.message : 'Failed to pause.');
+  });
+}
+
+export function resumeSpeaking(): void {
+  ensureTtsEventSubscription();
+  if (activeTtsRequestId === null) return;
+  const store = useAssistantStore.getState();
+  if (store.ttsPhase !== TtsPhase.PAUSED) return;
+
+  ttsProvider.resume(activeTtsRequestId).catch((error: any) => {
+    useAssistantStore
+      .getState()
+      .setError(error instanceof Error ? error.message : 'Failed to resume.');
+  });
+}
+
+export function stopSpeaking(): void {
+  ensureTtsEventSubscription();
+  const requestId = activeTtsRequestId;
+  if (requestId === null) {
+    const store = useAssistantStore.getState();
+    if (store.ttsPhase !== TtsPhase.IDLE) {
+      store.setTtsPhase(TtsPhase.IDLE);
+      store.setCurrentTtsMessageId(null);
+    }
+    return;
+  }
+
+  ttsProvider.stop(requestId).catch(() => {});
 }
 
 export async function editAndResubmitPrompt(

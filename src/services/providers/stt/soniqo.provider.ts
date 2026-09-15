@@ -1,55 +1,90 @@
-import { useAssistantStore } from '@/stores/assistant.store';
-import { useVoiceStore } from '@/stores/voice.store';
-import { SoniqoSpeech, SpeechEvent } from '@modules/kritha/src';
-import { SttProvider } from './types';
+import {
+  cancelListening as runtimeCancelListening,
+  startListening as runtimeStartListening,
+  stopListening as runtimeStopListening,
+  subscribeSoniqoSpeechEvents,
+  VoiceModelMissingError,
+} from '@/services/soniqoRuntime.service';
+import uuid from 'react-native-uuid';
 
-let accumulatedTranscript = '';
-let transcriptSub: { remove: () => void } | null = null;
+import { SttProvider, SttResult, SttStartOptions } from './types';
+
+let activeRequestId: string | null = null;
+let partialHandler: ((text: string, requestId: string) => void) | null = null;
+let audioLevelHandler: ((level: number, requestId: string) => void) | null =
+  null;
+let subscribed = false;
+
+function ensureSubscribed(): void {
+  if (subscribed) return;
+  subscribed = true;
+  subscribeSoniqoSpeechEvents((event) => {
+    if (event.kind === 'transcript') {
+      if (event.requestId !== activeRequestId) return;
+      if (!event.isFinal) {
+        partialHandler?.(event.text, event.requestId);
+      }
+      return;
+    }
+    if (event.kind === 'audioLevel') {
+      if (event.requestId !== activeRequestId) return;
+      audioLevelHandler?.(event.level, event.requestId);
+    }
+  });
+}
 
 export const soniqoSttProvider: SttProvider = {
-  startListening: async () => {
-    accumulatedTranscript = '';
-    const sttModelId = useVoiceStore.getState().selectedSttModelId;
-    const ttsModelId = useVoiceStore.getState().selectedTtsModelId;
-
-    const models = await SoniqoSpeech.listVoiceModels();
-    const sttModel = models.find((m) => m.id === sttModelId);
-    if (!sttModel?.isDownloaded) {
-      useVoiceStore.getState().setVoiceModalOpen(true);
+  startListening: async (options?: SttStartOptions): Promise<string> => {
+    ensureSubscribed();
+    if (activeRequestId !== null) {
+      throw new Error('STT capture already active.');
+    }
+    const requestId = String(uuid.v4());
+    partialHandler = options?.onPartial ?? null;
+    audioLevelHandler = options?.onAudioLevel ?? null;
+    try {
+      await runtimeStartListening(requestId);
+    } catch (e) {
+      partialHandler = null;
+      audioLevelHandler = null;
+      if (e instanceof VoiceModelMissingError) {
+        throw e;
+      }
       throw new Error(
-        'STT model not downloaded. Please download it from Voice Models.',
+        e instanceof Error ? e.message : 'Failed to start microphone capture.',
       );
     }
-
-    await SoniqoSpeech.initialize({
-      sttModelId: sttModelId ?? undefined,
-      ttsModelId: ttsModelId ?? undefined,
-    });
-
-    if (!transcriptSub) {
-      transcriptSub = SoniqoSpeech.addTranscriptListener(
-        (event: SpeechEvent) => {
-          if (event.text) {
-            accumulatedTranscript = event.text;
-            useAssistantStore.getState().setTranscript(event.text);
-            useAssistantStore.getState().setDraftText(event.text);
-          }
-        },
-      );
-    }
-
-    // Start Soniqo in transcribe mode (no llmModelPath)
-    await SoniqoSpeech.start(undefined, 'cpu');
+    activeRequestId = requestId;
+    return requestId;
   },
 
-  stopListening: async () => {
-    try {
-      await SoniqoSpeech.stop();
-    } catch (e) {
-      console.warn('Failed to stop Soniqo STT', e);
+  stopListening: async (): Promise<SttResult> => {
+    const requestId = activeRequestId;
+    if (requestId === null) {
+      return { requestId: '', text: '' };
     }
-    const finalTranscript = accumulatedTranscript;
-    accumulatedTranscript = '';
-    return finalTranscript;
+    try {
+      const text = await runtimeStopListening(requestId);
+      return { requestId, text: (text ?? '').trim() };
+    } catch (e) {
+      throw new Error(
+        e instanceof Error ? e.message : 'Failed to transcribe recording.',
+      );
+    } finally {
+      if (activeRequestId === requestId) {
+        activeRequestId = null;
+      }
+      partialHandler = null;
+      audioLevelHandler = null;
+    }
+  },
+
+  cancelListening: async (): Promise<void> => {
+    const requestId = activeRequestId;
+    activeRequestId = null;
+    partialHandler = null;
+    audioLevelHandler = null;
+    if (requestId === null) return;
+    await runtimeCancelListening(requestId);
   },
 };

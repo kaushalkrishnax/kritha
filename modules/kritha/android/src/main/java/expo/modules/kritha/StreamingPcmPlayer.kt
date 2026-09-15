@@ -12,15 +12,12 @@ import kotlin.math.min
 
 /**
  * One continuous low-latency Android output stream for a complete TTS turn.
- *
- * Pocket emits 80 ms frames. Recreating a static [AudioTrack] for every frame
- * inserts device warm-up latency and audible gaps, so the player is opened
- * once, prefilled with the first frame, and fed until the utterance drains.
  */
 internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
 
     private val closed = AtomicBoolean(false)
     private var started = false
+    private var paused = false
     private var framePositionAtStart = 0L
     private var underrunsAtStart = 0
 
@@ -44,9 +41,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         )
         require(minimum > 0) { "AudioTrack rejected ${sampleRate} Hz PCM: $minimum" }
 
-        // Capacity is deliberately larger than Pocket's 80 ms frame. Capacity
-        // does not force prebuffering; it gives the faster-than-real-time model
-        // enough scheduling slack to avoid underruns while retaining fast start.
         val frame160Ms = sampleRate * PCM_BYTES_PER_FRAME * 160 / 1_000
         bufferSizeBytes = max(minimum, frame160Ms)
         track = AudioTrack.Builder()
@@ -107,7 +101,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
 
     /**
      * Estimate when frame zero reached AudioFlinger using its monotonic audio
-     * timestamp. Returns null when this route does not expose timestamps.
      */
     suspend fun awaitFirstPresentationNanos(timeoutMs: Long = 500): Long? {
         if (!started || closed.get()) return null
@@ -128,8 +121,13 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
     suspend fun awaitDrained() {
         if (!started || closed.get()) return
         val durationMs = framesWritten * 1_000 / sampleRate
-        val deadline = SystemClock.elapsedRealtime() + durationMs + DRAIN_GRACE_MS
+        var deadline = SystemClock.elapsedRealtime() + durationMs + DRAIN_GRACE_MS
         while (!closed.get() && SystemClock.elapsedRealtime() < deadline) {
+            if (paused) {
+                delay(20)
+                deadline += 20
+                continue
+            }
             val position = track.playbackHeadPosition.toLong() and UINT32_MASK
             val played = (position - framePositionAtStart) and UINT32_MASK
             if (played >= framesWritten) return
@@ -148,9 +146,35 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         track.pause()
         track.flush()
         started = false
+        paused = false
         framesWritten = 0
         stopPlayback()
     }
+
+    /**
+     * True playback pause: keeps the AudioTrack head position so a later
+     */
+    fun pausePlayback() {
+        if (closed.get() || !started || paused) return
+        try {
+            track.pause()
+        } catch (_: Exception) {}
+        paused = true
+    }
+
+    fun resumePlayback() {
+        if (closed.get() || !started || !paused) return
+        try {
+            track.play()
+        } catch (_: Exception) {}
+        paused = false
+    }
+
+    val isPaused: Boolean
+        get() = paused
+
+    val isStarted: Boolean
+        get() = started
 
     /** Safely stops and flushes playback if it was started. */
     fun stopPlayback() {
@@ -160,6 +184,7 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
                 track.flush()
             } catch (_: Exception) {}
             started = false
+            paused = false
             framesWritten = 0
         }
     }

@@ -13,6 +13,7 @@ export interface AssistantResponseCardProps {
   error: string | null;
   isTtsSpeaking: boolean;
   isTtsPaused: boolean;
+  isTtsBuffering: boolean;
   ttsMsgId: string | null;
   onSpeakerPress: (msgId: string) => void;
   onExpandPress?: () => void;
@@ -27,6 +28,7 @@ export function AssistantResponseCard({
   error,
   isTtsSpeaking,
   isTtsPaused,
+  isTtsBuffering,
   ttsMsgId,
   onSpeakerPress,
   onExpandPress,
@@ -68,6 +70,7 @@ export function AssistantResponseCard({
             isTtsPaused={
               isTtsPaused && (!ttsMsgId || ttsMsgId === latestAssistant.id)
             }
+            isTtsBuffering={isTtsBuffering && ttsMsgId === latestAssistant.id}
             onSpeakerPress={onSpeakerPress}
           />
         ) : error ? (

@@ -38,11 +38,28 @@ export type VoiceModelProgressEvent = {
 };
 
 export type SpeechTextEvent = {
+  requestId?: string;
   text?: string;
   isFinal?: boolean;
 };
 
+export type SpeechRequestEvent = {
+  requestId: string;
+};
+
+export type SpeechAudioLevelEvent = {
+  requestId?: string;
+  level?: number;
+};
+
+export type SpeechStoppedEvent = {
+  requestId: string;
+  text?: string;
+  replaced?: boolean;
+};
+
 export type SpeechErrorEvent = {
+  requestId?: string;
   message?: string;
 };
 
@@ -54,9 +71,20 @@ export type KrithaModuleEvents = {
   onSpeechEnded(): void;
   onTranscript(event: SpeechTextEvent): void;
   onResponseCreated(event: SpeechTextEvent): void;
-  onResponseDone(): void;
-  onResponseInterrupted(): void;
+  onResponseDone(event: SpeechTextEvent): void;
+  onResponseInterrupted(event: SpeechTextEvent): void;
   onError(event: SpeechErrorEvent): void;
+  onSttStarted(event: SpeechRequestEvent): void;
+  onSttStopped(event: SpeechStoppedEvent): void;
+  onSttCancelled(event: SpeechRequestEvent): void;
+  onSttError(event: SpeechErrorEvent): void;
+  onAudioLevel(event: SpeechAudioLevelEvent): void;
+  onTtsStarted(event: SpeechRequestEvent): void;
+  onTtsPaused(event: SpeechRequestEvent): void;
+  onTtsResumed(event: SpeechRequestEvent): void;
+  onTtsCompleted(event: SpeechRequestEvent): void;
+  onTtsStopped(event: SpeechStoppedEvent): void;
+  onTtsError(event: SpeechErrorEvent): void;
 };
 
 declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
@@ -77,13 +105,22 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
     sttModelId?: string | null,
     ttsModelId?: string | null,
   ): Promise<void>;
+  soniqoStartListening(requestId: string): Promise<void>;
+  soniqoStopListening(requestId: string): Promise<string>;
+  soniqoCancelListening(requestId: string): Promise<void>;
   soniqoStart(
     llmModelPath?: string | null,
     llmDevice?: string | null,
   ): Promise<void>;
   soniqoStop(): Promise<void>;
-  soniqoSpeak(text: string, voice?: string | null): Promise<void>;
-  soniqoStopSpeaking(): Promise<void>;
+  soniqoSpeak(
+    requestId: string,
+    text: string,
+    voice?: string | null,
+  ): Promise<void>;
+  soniqoPauseSpeaking(requestId?: string | null): Promise<void>;
+  soniqoResumeSpeaking(requestId?: string | null): Promise<void>;
+  soniqoStopSpeaking(requestId?: string | null): Promise<void>;
   soniqoAddTool(name: string, desc: string): Promise<void>;
   listVoiceModels(): Promise<VoiceModelInfo[]>;
   downloadVoiceModel(modelId: string): Promise<void>;

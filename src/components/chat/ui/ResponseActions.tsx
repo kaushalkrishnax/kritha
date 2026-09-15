@@ -11,13 +11,20 @@ import {
   Volume2,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Share, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export interface ResponseActionsProps {
   msgId?: string;
   textToCopy: string;
   isTtsSpeaking?: boolean;
   isTtsPaused?: boolean;
+  isTtsBuffering?: boolean;
   onSpeakerPress?: (msgId?: string) => void;
   style?: object;
 }
@@ -27,6 +34,7 @@ export function ResponseActions({
   textToCopy,
   isTtsSpeaking = false,
   isTtsPaused = false,
+  isTtsBuffering = false,
   onSpeakerPress,
   style,
 }: ResponseActionsProps) {
@@ -70,12 +78,19 @@ export function ResponseActions({
         <TouchableOpacity
           style={[
             styles.actionIconBtn,
-            (isTtsSpeaking || isTtsPaused) && styles.speakerActive,
+            (isTtsSpeaking || isTtsPaused || isTtsBuffering) &&
+              styles.speakerActive,
           ]}
           activeOpacity={0.8}
           onPress={() => onSpeakerPress(msgId)}
         >
-          {isTtsSpeaking ? (
+          {isTtsBuffering ? (
+            <ActivityIndicator
+              size="small"
+              color={Colors.iconMuted}
+              style={styles.bufferingIndicator}
+            />
+          ) : isTtsSpeaking ? (
             <Pause
               fill={Colors.iconMuted}
               size={IconSizes.base}
@@ -122,5 +137,8 @@ const styles = StyleSheet.create({
   },
   speakerActive: {
     backgroundColor: Colors.ttsActiveBg,
+  },
+  bufferingIndicator: {
+    transform: [{ scale: 0.9 }],
   },
 });
