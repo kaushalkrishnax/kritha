@@ -1,0 +1,8 @@
+Add to modules/kritha/android/build.gradle:
+
+implementation "com.google.ai.edge.litert:litert:2.2.0"
+
+LiteRT-LM remains the existing dependency. The current Kritha module already has:
+implementation "com.google.ai.edge.litert:litertlm-android:0.15.0"
+
+Do not add ONNX Runtime for this runtime.
