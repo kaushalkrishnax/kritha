@@ -17,6 +17,7 @@ class MapTokenizer(
             .toIntArray()
 
     override fun decode(tokenIds: IntArray): String =
-        tokenIds.mapNotNull { idToToken[it] }
+        tokenIds.asSequence()
+            .mapNotNull { idToToken[it] }
             .joinToString("")
 }

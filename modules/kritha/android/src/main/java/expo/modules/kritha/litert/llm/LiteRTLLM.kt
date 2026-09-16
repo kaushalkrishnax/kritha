@@ -99,8 +99,6 @@ class LiteRTLLM(private val context: Context) : Closeable {
                 ThinkingConfig(it, request.thinkingTokenBudget)
             },
             enableResponseFormat = request.enableResponseFormat,
-            enableSpeculativeDecoding = request.enableSpeculativeDecoding,
-            chatTemplate = request.chatTemplate,
             tools = request.tools.map { it.toProvider() },
         )
 
