@@ -1,0 +1,27 @@
+plugins {
+    id("com.android.dynamic-feature")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "expo.modules.kritha.feature.litert"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdk = rootProject.ext.minSdkVersion
+    }
+}
+
+dependencies {
+    implementation(project(":app"))
+    implementation(project(":kritha"))
+    implementation("com.google.ai.edge.litert:litert:2.2.0")
+    // Note: since the features move the Kotlin files there, they might also need the base module. Wait, if it's Expo, they need project(":modules:kritha")?
+    // Wait, let me check what :app depends on. 
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions {
+    freeCompilerArgs += ["-Xskip-metadata-version-check"]
+  }
+}

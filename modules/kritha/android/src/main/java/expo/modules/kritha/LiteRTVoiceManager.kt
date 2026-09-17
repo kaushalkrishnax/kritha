@@ -1,7 +1,7 @@
 package expo.modules.kritha
 
 import android.util.Log
-import expo.modules.kritha.litert.speech.tts.SpeechAudio
+import expo.modules.kritha.runtime.tts.SpeechAudio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

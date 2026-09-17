@@ -30,6 +30,7 @@
       "package": "com.kritha.app"
     },
     "plugins": [
+      "./modules/kritha/app.plugin.js",
       "expo-router",
       [
         "expo-navigation-bar",

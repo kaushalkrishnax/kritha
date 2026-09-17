@@ -36,4 +36,10 @@ rootProject.name = 'Kritha'
 expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
+include ':feature_litert'
+project(':feature_litert').projectDir = new File(rootProject.projectDir, '../modules/kritha/android/feature_litert')
+include ':feature_litertlm'
+project(':feature_litertlm').projectDir = new File(rootProject.projectDir, '../modules/kritha/android/feature_litertlm')
+include ':feature_onnx'
+project(':feature_onnx').projectDir = new File(rootProject.projectDir, '../modules/kritha/android/feature_onnx')
 includeBuild(expoAutolinking.reactNativeGradlePlugin)

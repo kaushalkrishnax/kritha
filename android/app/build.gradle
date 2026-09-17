@@ -82,6 +82,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    dynamicFeatures += [':feature_litert', ':feature_litertlm', ':feature_onnx']
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -98,25 +99,8 @@ android {
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
 
-    splits {
-        abi {
-            enable true
-            reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            universalApk false
-        }
-    }
+    
 
-    android.applicationVariants.all { variant ->
-        variant.outputs.each { output ->
-            def abi = output.getFilter(com.android.build.OutputFile.ABI)
-            if (abi != null) {
-                output.outputFileName = "Kritha-${variant.versionName}-${abi}.apk"
-            } else {
-                output.outputFileName = "Kritha-${variant.versionName}.apk"
-            }
-        }
-    }
 
     signingConfigs {
         debug {
@@ -210,3 +194,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+configurations.all { exclude group: 'com.google.android.play', module: 'core' }

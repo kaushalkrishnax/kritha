@@ -1,13 +1,15 @@
 package expo.modules.kritha
 
+import expo.modules.kritha.runtime.RuntimeManager
+import expo.modules.kritha.runtime.RuntimeId
+import expo.modules.kritha.runtime.llm.LlmProvider
+import expo.modules.kritha.runtime.tts.TtsProvider
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import expo.modules.kotlin.Promise
-import expo.modules.kritha.platform.LocalLlmExecutor
-import expo.modules.kritha.platform.LocalLlmMessage
-import expo.modules.kritha.platform.LiteRTEngineManager
+
 import expo.modules.kritha.platform.wakeword.WakeWordForegroundService
 import expo.modules.kritha.tools.DeviceTools
 import expo.modules.kotlin.exception.Exceptions
@@ -22,11 +24,12 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 class KrithaModule : Module() {
+    private val runtimeManager by lazy { RuntimeManager(appContext.reactContext ?: throw IllegalStateException("No context")) }
+
 
     private val moduleScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeGenerationJobs = ConcurrentHashMap<String, Job>()
     private val activeVoiceDownloads = ConcurrentHashMap.newKeySet<String>()
-    private val localLlmExecutor = LocalLlmExecutor()
     private var liteRtBridge: LiteRTModuleBridge? = null
     private var voiceManager: LiteRTVoiceManager? = null
 
@@ -44,7 +47,11 @@ class KrithaModule : Module() {
         
         OnCreate {
             instance = this@KrithaModule
-            liteRtBridge = LiteRTModuleBridge(resolveContext())
+            try {
+                liteRtBridge = LiteRTModuleBridge(resolveContext())
+            } catch (t: Throwable) {
+                android.util.Log.e("KrithaModule", "Failed to initialize LiteRTModuleBridge", t)
+            }
         }
         
         OnDestroy {
@@ -82,7 +89,6 @@ class KrithaModule : Module() {
 
         AsyncFunction("speechInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
             ensureVoiceManager()
-            ensureLiteRtBridge().setTtsModelSelection(ttsModelId)
             promise.resolve(null)
         }
 
@@ -406,8 +412,7 @@ class KrithaModule : Module() {
     private fun generateLocal(request: Map<String, Any?>, promise: Promise) {
         val requestId = request["requestId"] as? String
         val modelPath = request["modelPath"] as? String ?: ""
-        val device = LiteRTEngineManager.Device.from(request["device"] as? String)
-        val messages = parseMessages(request["messages"])
+                val messages = parseMessages(request["messages"])
 
         if (requestId == null || modelPath.isEmpty() || messages == null || messages.isEmpty()) {
             promise.reject(
@@ -420,14 +425,10 @@ class KrithaModule : Module() {
 
         val job = moduleScope.launch {
             try {
-                val text = localLlmExecutor.generateLocal(
-                    requestId = requestId,
-                    modelPath = modelPath,
-                    device = device,
-                    messages = messages,
-                ) { delta ->
+                val provider = runtimeManager.provider(RuntimeId.LITERT_LM)?.llm() as? LlmProvider ?: throw IllegalStateException("LiteRT-LM is not installed")
+                val text = provider.generate(request, onDelta = { delta ->
                     sendEvent("onLocalLlmDelta", mapOf("requestId" to requestId, "delta" to delta))
-                }
+                })
                 promise.resolve(text)
             } catch (e: CancellationException) {
                 promise.reject("ERR_CANCELLED", "Local generation cancelled", e)
@@ -443,20 +444,20 @@ class KrithaModule : Module() {
     private fun cancelLocalGeneration(requestId: String): Boolean {
         val job = activeGenerationJobs.remove(requestId) ?: return false
         moduleScope.launch {
-            runCatching { localLlmExecutor.cancelProcess(requestId) }
+            
             job.cancel()
         }
         return true
     }
 
-    private fun parseMessages(raw: Any?): List<LocalLlmMessage>? {
+    private fun parseMessages(raw: Any?): List<Map<String, String>>? {
         if (raw !is List<*>) return null
-        val messages = mutableListOf<LocalLlmMessage>()
+        val messages = mutableListOf<Map<String, String>>()
         for (item in raw) {
             if (item !is Map<*, *>) return null
             val role = item["role"] as? String ?: return null
             val content = item["content"] as? String ?: return null
-            messages += LocalLlmMessage(role = role, content = content)
+            messages += mapOf("role" to role, "content" to content)
         }
         return messages
     }
