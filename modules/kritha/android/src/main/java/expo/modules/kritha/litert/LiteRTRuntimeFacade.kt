@@ -3,9 +3,6 @@ package expo.modules.kritha.litert
 import android.content.Context
 import expo.modules.kritha.litert.llm.LiteRTLLM
 import expo.modules.kritha.litert.llm.LiteRTLLMRequest
-import expo.modules.kritha.litert.speech.SpeechRuntime
-import expo.modules.kritha.litert.speech.Tokenizer
-import expo.modules.kritha.litert.speech.SpeechModelManifest
 import expo.modules.kritha.litert.speech.tts.SynthesisOptions
 import expo.modules.kritha.litert.speech.tts.SynthesisResult
 import expo.modules.kritha.litert.speech.tts.Tts
@@ -16,7 +13,6 @@ import java.io.Closeable
 /** Single entry point for Kritha's native local inference stack. */
 class LiteRT(private val context: Context) : Closeable {
     val models = LiteRTRuntime(context)
-    val speech = SpeechRuntime(context)
     val tts = Tts(models)
     val llm = LiteRTLLM(context)
 
@@ -24,12 +20,6 @@ class LiteRT(private val context: Context) : Closeable {
         descriptor: LiteRTModelDescriptor,
         options: LiteRTExecutionOptions = LiteRTExecutionOptions()
     ): LiteRTRuntime.LoadedModel = models.load(descriptor, options)
-
-    fun loadSpeech(
-        manifest: SpeechModelManifest,
-        tokenizer: Tokenizer,
-        options: LiteRTExecutionOptions = LiteRTExecutionOptions()
-    ): AutoCloseable = speech.load(manifest, tokenizer)
 
     fun synthesizeTts(
         model: TtsModelAssets,
@@ -48,7 +38,6 @@ class LiteRT(private val context: Context) : Closeable {
 
     override fun close() {
         tts.close()
-        speech.close()
         llm.close()
         models.close()
     }
