@@ -71,7 +71,6 @@ export function addWakeWordListener(
   return emitter.addListener('onWakeWordDetected', listener);
 }
 
-// Soniqo Speech
 export type SpeechEvent = {
   requestId?: string;
   text?: string;
@@ -85,14 +84,14 @@ export type SpeechRequestEvent = {
   requestId: string;
 };
 
-export const SoniqoSpeech = {
+export const KrithaSpeech = {
   initialize: async (config: {
     llmModelPath?: string | null;
     llmDevice?: string | null;
     sttModelId?: string | null;
     ttsModelId?: string | null;
   }) => {
-    await KrithaModule.soniqoInitialize(
+    await KrithaModule.speechInitialize(
       config.llmModelPath ?? null,
       config.llmDevice ?? 'cpu',
       config.sttModelId ?? null,
@@ -100,34 +99,34 @@ export const SoniqoSpeech = {
     );
   },
   startListening: async (requestId: string) => {
-    await KrithaModule.soniqoStartListening(requestId);
+    await KrithaModule.startListening(requestId);
   },
   stopListening: async (requestId: string): Promise<string> => {
-    return await KrithaModule.soniqoStopListening(requestId);
+    return await KrithaModule.stopListening(requestId);
   },
   cancelListening: async (requestId: string) => {
-    await KrithaModule.soniqoCancelListening(requestId);
+    await KrithaModule.cancelListening(requestId);
   },
   start: async (llmModelPath?: string | null, llmDevice?: string | null) => {
-    await KrithaModule.soniqoStart(llmModelPath ?? null, llmDevice ?? 'cpu');
+    await KrithaModule.speechStart(llmModelPath ?? null, llmDevice ?? 'cpu');
   },
   stop: async () => {
-    await KrithaModule.soniqoStop();
+    await KrithaModule.speechStop();
   },
   speak: async (requestId: string, text: string, voice?: string | null) => {
-    await KrithaModule.soniqoSpeak(requestId, text, voice ?? null);
+    await KrithaModule.speak(requestId, text, voice ?? null);
   },
   pauseSpeaking: async (requestId?: string | null) => {
-    await KrithaModule.soniqoPauseSpeaking(requestId ?? null);
+    await KrithaModule.pauseSpeaking(requestId ?? null);
   },
   resumeSpeaking: async (requestId?: string | null) => {
-    await KrithaModule.soniqoResumeSpeaking(requestId ?? null);
+    await KrithaModule.resumeSpeaking(requestId ?? null);
   },
   stopSpeaking: async (requestId?: string | null) => {
-    await KrithaModule.soniqoStopSpeaking(requestId ?? null);
+    await KrithaModule.stopSpeaking(requestId ?? null);
   },
   addTool: async (name: string, desc: string) => {
-    await KrithaModule.soniqoAddTool(name, desc);
+    await KrithaModule.addTool(name, desc);
   },
   addSpeechStartedListener: (listener: () => void) => {
     return emitter.addListener('onSpeechStarted', listener);

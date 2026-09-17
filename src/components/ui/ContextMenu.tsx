@@ -58,14 +58,12 @@ export function ContextMenu({
 
     const elementHeight = targetHeight ?? anchor.height ?? 0;
 
-    // Horizontal placement based on align prop
     let left: number;
     if (align === 'left') {
       left = insets.left + 12;
     } else if (align === 'right') {
       left = screenWidth - insets.right - MENU_WIDTH - 12;
     } else {
-      // 'auto': align based on anchor touch X position, clamped within safe margins
       left = anchor.x;
       if (left + MENU_WIDTH > screenWidth - insets.right - 12) {
         left = screenWidth - insets.right - MENU_WIDTH - 12;
@@ -75,11 +73,9 @@ export function ContextMenu({
       }
     }
 
-    // Accurate estimate of menu height
     const headerHeight = header ? 42 : 0;
     const estimatedHeight = items.length * ITEM_HEIGHT + 8 + headerHeight + 2;
 
-    // Vertical placement based on trigger element height (default below, flip above if overflowing bottom)
     let top = anchor.y + elementHeight + VERTICAL_GAP;
     if (top + estimatedHeight > screenHeight - insets.bottom - 24) {
       top = anchor.y - estimatedHeight - VERTICAL_GAP;

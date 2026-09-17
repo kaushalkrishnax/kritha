@@ -50,7 +50,6 @@ export class ToolRepository {
     };
   }
 
-  //  Creates a new tool definition and optionally inserts its vector embedding atomically.
   async createTool(input: CreateToolInput): Promise<ToolDefinition> {
     if (!input.name || input.name.trim() === '') {
       throw new ValidationError('Tool name is required');
@@ -133,7 +132,6 @@ export class ToolRepository {
     }
   }
 
-  // Retrieves a tool by ID.
   async getTool(id: string): Promise<ToolDefinition | null> {
     if (!id) return null;
     const db = await this.provider.getDbAsync();
@@ -147,7 +145,6 @@ export class ToolRepository {
     }
   }
 
-  // Retrieves a tool by name.
   async getToolByName(name: string): Promise<ToolDefinition | null> {
     if (!name) return null;
     const db = await this.provider.getDbAsync();
@@ -163,7 +160,6 @@ export class ToolRepository {
     }
   }
 
-  // Retrieves all tools, optionally filtered by category.
   async getTools(category?: string): Promise<ToolDefinition[]> {
     const db = await this.provider.getDbAsync();
     try {
@@ -181,7 +177,6 @@ export class ToolRepository {
     }
   }
 
-  // Updates an existing tool and/or its vector embedding inside an atomic transaction.
   async updateTool(
     id: string,
     input: UpdateToolInput,
@@ -263,7 +258,6 @@ export class ToolRepository {
     }
   }
 
-  // Deletes a tool and its associated vector embedding atomically.
   async deleteTool(id: string): Promise<void> {
     const existing = await this.getTool(id);
     if (!existing) return;
@@ -279,7 +273,6 @@ export class ToolRepository {
     }
   }
 
-  // Searches for nearest tools by query vector. Returns matches along with their ToolDefinition metadata.
   async searchTools(
     queryEmbedding: number[],
     limit: number = 5,

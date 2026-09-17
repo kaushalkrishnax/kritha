@@ -56,7 +56,6 @@ export function LiveTalkBar() {
   return (
     <View style={styles.outerContainer}>
       <View style={styles.barRow}>
-        {/* Button 1: Video / Camera */}
         <TouchableOpacity
           activeOpacity={0.75}
           style={styles.circleBtn}
@@ -65,7 +64,6 @@ export function LiveTalkBar() {
           <Video size={IconSizes.lg} color={Colors.textPrimary} />
         </TouchableOpacity>
 
-        {/* Button 2: Screen share */}
         <TouchableOpacity
           activeOpacity={0.75}
           style={styles.circleBtn}
@@ -74,7 +72,6 @@ export function LiveTalkBar() {
           <ScreenShare size={IconSizes.lg} color={Colors.textPrimary} />
         </TouchableOpacity>
 
-        {/* Center: Glowing Visualizer Pill */}
         <View style={styles.glowPill}>
           <Animated.View
             style={[styles.glowSvgWrap, { opacity: pulseAnim }]}
@@ -115,7 +112,6 @@ export function LiveTalkBar() {
           </Animated.View>
         </View>
 
-        {/* Button 3: Mic toggle */}
         <TouchableOpacity
           activeOpacity={0.75}
           onPress={
@@ -132,7 +128,6 @@ export function LiveTalkBar() {
           )}
         </TouchableOpacity>
 
-        {/* Button 4: Close (X) */}
         <TouchableOpacity
           activeOpacity={0.75}
           style={styles.circleBtn}

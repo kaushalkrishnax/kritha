@@ -378,9 +378,14 @@ export function ChatMessages() {
                       isTtsBuffering={
                         isTtsModelLoading && currentTtsMsgId === msg.id
                       }
-                      onSpeakerPress={() =>
-                        handleSpeakerPress(msg.id, msg.text)
-                      }
+                      onSpeakerPress={() => {
+                        console.log('[TTS_DEBUG] ChatMessages: onSpeakerPress triggered', {
+                          messageId: msg.id,
+                          textPreview: msg.text?.slice(0, 50),
+                          textLength: msg.text?.length,
+                        });
+                        handleSpeakerPress(msg.id, msg.text);
+                      }}
                     />
                   );
                 })}
@@ -501,7 +506,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: Colors.bgDeepest,
     paddingHorizontal: 16,
-    paddingTop: 70,
+    paddingTop: 80,
     paddingBottom: GRADIENT_BOTTOM_HEIGHT + 12,
     gap: 8,
   },

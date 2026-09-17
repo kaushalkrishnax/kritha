@@ -185,7 +185,6 @@ export function ChatSidebar({
     ],
   );
 
-  // Separate pinned and unpinned sessions
   const activeSessions = sessions.filter((s) => !s.archived);
   const pinnedSessions = activeSessions.filter((s) => s.pinned);
   const recentSessions = activeSessions.filter((s) => !s.pinned);
@@ -231,7 +230,6 @@ export function ChatSidebar({
     );
   };
 
-  // Slide animation
   const [slideAnim] = useState(() => new Animated.Value(-330));
   const [backdropOpacity] = useState(() => new Animated.Value(0));
 

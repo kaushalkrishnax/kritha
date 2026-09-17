@@ -92,7 +92,6 @@ export function ChatInput({
   const [glowScale] = useState(() => new Animated.Value(1));
   const [fadeAnim] = useState(() => new Animated.Value(1));
 
-  /** Animation synchronizations */
   useEffect(() => {
     if (isGenerating) {
       const animation = Animated.loop(

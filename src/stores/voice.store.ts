@@ -30,7 +30,7 @@ export const useVoiceStore = create<VoiceStore>()(
       voiceModelProgress: null,
       isVoiceModalOpen: false,
       selectedSttModelId: 'nemotron-multilingual-int8',
-      selectedTtsModelId: 'supertonic-litert',
+      selectedTtsModelId: 'qwen3-tts',
 
       setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),
       setSttDownloaded: (downloaded) => set({ isSttDownloaded: downloaded }),

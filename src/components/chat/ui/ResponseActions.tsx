@@ -82,7 +82,16 @@ export function ResponseActions({
               styles.speakerActive,
           ]}
           activeOpacity={0.8}
-          onPress={() => onSpeakerPress(msgId)}
+          onPress={() => {
+            console.log('[TTS_DEBUG] ResponseActions: speaker button clicked', {
+              msgId,
+              textLength: textToCopy?.length,
+              isTtsSpeaking,
+              isTtsPaused,
+              isTtsBuffering,
+            });
+            onSpeakerPress(msgId);
+          }}
         >
           {isTtsBuffering ? (
             <ActivityIndicator

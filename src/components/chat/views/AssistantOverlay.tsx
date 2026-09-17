@@ -42,8 +42,8 @@ export function AssistantOverlay() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      import('@/services/soniqoRuntime.service').then((m) =>
-        m.SoniqoCoordinator.endSession(),
+      import('@/services/speechRuntime.service').then((m) =>
+        m.SpeechCoordinator.endSession(),
       );
     };
   }, []);
@@ -104,8 +104,6 @@ export function AssistantOverlay() {
 
   const handleClose = useCallback(() => {
     try {
-      // ::TODO:: Close the Natively opened Overlay
-      // AssistantBridge.dismissOverlay();
     } catch (e) {
       console.warn('Failed to dismiss assistant session:', e);
     }
@@ -113,9 +111,6 @@ export function AssistantOverlay() {
 
   const handleExpandPress = useCallback(() => {
     try {
-      // ::TODO:: Route to the main app with the current session context
-      // AssistantBridge.dismissOverlay();
-      // AssistantBridge.openMainApp();
     } catch (e) {
       console.warn('Failed to open main app:', e);
     }
@@ -150,6 +145,11 @@ export function AssistantOverlay() {
             isTtsBuffering={isTtsModelLoading}
             ttsMsgId={currentTtsMsgId}
             onSpeakerPress={() => {
+              console.log('[TTS_DEBUG] AssistantOverlay: onSpeakerPress triggered', {
+                activeResponseMessageId,
+                responseLength: response?.length,
+                hasResponse: Boolean(response),
+              });
               if (response) {
                 handleSpeakerPress(activeResponseMessageId, response);
               }

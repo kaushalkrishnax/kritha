@@ -4,25 +4,20 @@ import android.content.Context
 import expo.modules.kritha.litert.LiteRTExecutionOptions
 import expo.modules.kritha.litert.LiteRTRuntime
 import org.json.JSONObject
-import java.io.Closeable
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Speech facade. It owns model adapters but does not own audio capture or playback.
- * Those remain outside the inference runtime.
- */
 class SpeechRuntime(
     context: Context,
     private val execution: LiteRTExecutionOptions = LiteRTExecutionOptions()
-) : Closeable {
+) : AutoCloseable {
     private val runtime = LiteRTRuntime(context)
-    private val adapters = ConcurrentHashMap<String, Closeable>()
+    private val adapters = ConcurrentHashMap<String, AutoCloseable>()
 
-    fun load(manifest: SpeechModelManifest, tokenizer: Tokenizer): Closeable {
+    fun load(manifest: SpeechModelManifest, tokenizer: Tokenizer): AutoCloseable {
         adapters[manifest.id]?.let { return it }
 
-        val adapter: Closeable = when (manifest.task) {
+        val adapter: AutoCloseable = when (manifest.task) {
             SpeechTask.ASR, SpeechTask.STT -> when (manifest.architecture.lowercase()) {
                 "ctc", "parakeet-ctc", "wav2vec2" ->
                     CtcAsrAdapter(runtime, manifest, execution, tokenizer)

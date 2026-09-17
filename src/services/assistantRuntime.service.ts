@@ -25,7 +25,7 @@ import {
   sttProvider,
   ttsProvider,
 } from './providers';
-import { VoiceModelMissingError } from './soniqoRuntime.service';
+import { VoiceModelMissingError } from './speechRuntime.service';
 
 let activeLlmHandle: { cancel: () => void } | null = null;
 
@@ -38,28 +38,49 @@ let sttLevelSmoothed = 0;
 function ensureTtsEventSubscription(): void {
   if (ttsEventSubscribed) return;
   ttsEventSubscribed = true;
+  console.log('[TTS_DEBUG] assistantRuntime: subscribing to ttsProvider events');
   ttsProvider.subscribe((event) => {
+    console.log('[TTS_DEBUG] assistantRuntime: ttsProvider event received', {
+      event,
+      activeTtsRequestId,
+      activeTtsMessageId,
+    });
+    if (event.requestId !== activeTtsRequestId) {
+      console.warn(
+        '[TTS_DEBUG] assistantRuntime: ignoring TTS event due to requestId mismatch',
+        {
+          eventRequestId: event.requestId,
+          activeTtsRequestId,
+        },
+      );
+      return;
+    }
+
     const current = useAssistantStore.getState();
-    if (event.requestId !== activeTtsRequestId) return;
 
     switch (event.kind) {
       case 'started':
+        console.log('[TTS_DEBUG] assistantRuntime: TTS started, setting SPEAKING phase');
         current.setTtsPhase(TtsPhase.SPEAKING);
         break;
       case 'paused':
+        console.log('[TTS_DEBUG] assistantRuntime: TTS paused, setting PAUSED phase');
         current.setTtsPhase(TtsPhase.PAUSED);
         break;
       case 'resumed':
+        console.log('[TTS_DEBUG] assistantRuntime: TTS resumed, setting SPEAKING phase');
         current.setTtsPhase(TtsPhase.SPEAKING);
         break;
       case 'completed':
       case 'stopped':
+        console.log(`[TTS_DEBUG] assistantRuntime: TTS ${event.kind}, resetting to IDLE`);
         activeTtsRequestId = null;
         activeTtsMessageId = null;
         current.setTtsPhase(TtsPhase.IDLE);
         current.setCurrentTtsMessageId(null);
         break;
       case 'error':
+        console.error('[TTS_DEBUG] assistantRuntime: TTS error event received:', event.message);
         activeTtsRequestId = null;
         activeTtsMessageId = null;
         current.setError(event.message);
@@ -541,31 +562,56 @@ export function stopLiveTalk(): void {
 }
 
 export function speakMessage(text: string, messageId: string): void {
+  console.log('[TTS_DEBUG] assistantRuntime: speakMessage called', {
+    messageId,
+    textPreview: text?.slice(0, 50),
+    activeTtsRequestId,
+    activeTtsMessageId,
+  });
+
   ensureTtsEventSubscription();
   const store = useAssistantStore.getState();
 
   if (activeTtsRequestId !== null && activeTtsMessageId !== messageId) {
+    console.log('[TTS_DEBUG] assistantRuntime: stopping stale TTS request', activeTtsRequestId);
     const stale = activeTtsRequestId;
     activeTtsRequestId = null;
     activeTtsMessageId = null;
     ttsProvider.stop(stale).catch(() => {});
   } else if (activeTtsRequestId !== null) {
-    return;
+    console.warn(
+      '[TTS_DEBUG] assistantRuntime: breaking early because activeTtsRequestId is already active for this message',
+      {
+        activeTtsRequestId,
+      activeTtsMessageId,
+      messageId,
+    },
+  );
+  return;
   }
 
-  if (!text.trim()) return;
+  if (!text.trim()) {
+    console.warn('[TTS_DEBUG] assistantRuntime: breaking early because text.trim() is empty');
+    return;
+  }
 
   const requestId = String(uuid.v4());
   activeTtsRequestId = requestId;
   activeTtsMessageId = messageId;
 
+  console.log('[TTS_DEBUG] assistantRuntime: calling ttsProvider.speak with requestId', requestId);
   store.setCurrentTtsMessageId(messageId);
   ttsProvider.speak(text, { requestId }).catch((error: any) => {
-    if (requestId !== activeTtsRequestId) return;
+    console.error('[TTS_DEBUG] assistantRuntime: ttsProvider.speak catch block hit:', error);
+    if (requestId !== activeTtsRequestId) {
+      console.warn('[TTS_DEBUG] assistantRuntime: catch block ignored because requestId changed');
+      return;
+    }
     activeTtsRequestId = null;
     activeTtsMessageId = null;
     const current = useAssistantStore.getState();
     if (error instanceof VoiceModelMissingError) {
+      console.warn('[TTS_DEBUG] assistantRuntime: VoiceModelMissingError caught -> opening voice modal');
       openVoiceModalForMissingModel();
       current.setTtsPhase(TtsPhase.IDLE);
       current.setCurrentTtsMessageId(null);
@@ -580,12 +626,14 @@ export function speakMessage(text: string, messageId: string): void {
 }
 
 export function pauseSpeaking(): void {
+  console.log('[TTS_DEBUG] assistantRuntime: pauseSpeaking called', { activeTtsRequestId });
   ensureTtsEventSubscription();
   if (activeTtsRequestId === null) return;
   const store = useAssistantStore.getState();
   if (store.ttsPhase !== TtsPhase.SPEAKING) return;
 
   ttsProvider.pause(activeTtsRequestId).catch((error: any) => {
+    console.error('[TTS_DEBUG] assistantRuntime: ttsProvider.pause error', error);
     useAssistantStore
       .getState()
       .setError(error instanceof Error ? error.message : 'Failed to pause.');
@@ -593,12 +641,14 @@ export function pauseSpeaking(): void {
 }
 
 export function resumeSpeaking(): void {
+  console.log('[TTS_DEBUG] assistantRuntime: resumeSpeaking called', { activeTtsRequestId });
   ensureTtsEventSubscription();
   if (activeTtsRequestId === null) return;
   const store = useAssistantStore.getState();
   if (store.ttsPhase !== TtsPhase.PAUSED) return;
 
   ttsProvider.resume(activeTtsRequestId).catch((error: any) => {
+    console.error('[TTS_DEBUG] assistantRuntime: ttsProvider.resume error', error);
     useAssistantStore
       .getState()
       .setError(error instanceof Error ? error.message : 'Failed to resume.');
@@ -606,6 +656,7 @@ export function resumeSpeaking(): void {
 }
 
 export function stopSpeaking(): void {
+  console.log('[TTS_DEBUG] assistantRuntime: stopSpeaking called', { activeTtsRequestId });
   ensureTtsEventSubscription();
   const requestId = activeTtsRequestId;
   if (requestId === null) {
@@ -617,7 +668,9 @@ export function stopSpeaking(): void {
     return;
   }
 
-  ttsProvider.stop(requestId).catch(() => {});
+  ttsProvider.stop(requestId).catch((error) => {
+    console.error('[TTS_DEBUG] assistantRuntime: ttsProvider.stop error', error);
+  });
 }
 
 export async function editAndResubmitPrompt(

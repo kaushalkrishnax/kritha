@@ -4,10 +4,6 @@ import expo.modules.kritha.litert.*
 import kotlin.math.ln
 import kotlin.math.exp
 
-/**
- * Common CTC decoder. It is useful for CTC ASR models such as Parakeet-CTC and
- * other models that expose a [time, vocab] logits tensor.
- */
 class CtcAsrAdapter(
     private val runtime: LiteRTRuntime,
     private val manifest: SpeechModelManifest,
@@ -83,13 +79,6 @@ class CtcAsrAdapter(
     override fun close() = model.close()
 }
 
-/**
- * Encoder-decoder ASR adapter for Whisper/Moonshine-style graphs.
- *
- * The model must expose an encoder and decoder signature and a tokenizer. The
- * manifest carries the graph names and token IDs. This keeps the inference
- * engine generic while the model-family contract stays explicit.
- */
 class Seq2SeqAsrAdapter(
     private val runtime: LiteRTRuntime,
     private val manifest: SpeechModelManifest,
@@ -178,10 +167,6 @@ class Seq2SeqAsrAdapter(
     override fun close() = model.close()
 }
 
-/**
- * Generic single-graph TTS adapter. Model-specific tokenisation is deliberately
- * injected instead of hardcoded into the runtime.
- */
 class SingleGraphTtsAdapter(
     private val runtime: LiteRTRuntime,
     private val manifest: SpeechModelManifest,

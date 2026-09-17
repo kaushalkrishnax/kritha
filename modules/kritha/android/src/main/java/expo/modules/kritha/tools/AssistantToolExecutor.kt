@@ -12,8 +12,6 @@ import android.util.Log
  */
 internal class AssistantToolExecutor(private val context: Context) {
 
-    // REMOVED: L1DeterministicMatcher import - module not found
-    // Using a simple data class as placeholder for the command
     data class Command(val name: String, val args: Map<String, Any?>)
 
     fun execute(command: Command): String? {

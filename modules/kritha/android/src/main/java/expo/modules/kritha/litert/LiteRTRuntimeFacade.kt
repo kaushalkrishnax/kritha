@@ -6,17 +6,18 @@ import expo.modules.kritha.litert.llm.LiteRTLLMRequest
 import expo.modules.kritha.litert.speech.SpeechRuntime
 import expo.modules.kritha.litert.speech.Tokenizer
 import expo.modules.kritha.litert.speech.SpeechModelManifest
+import expo.modules.kritha.litert.speech.tts.SynthesisOptions
+import expo.modules.kritha.litert.speech.tts.SynthesisResult
+import expo.modules.kritha.litert.speech.tts.Tts
+import expo.modules.kritha.litert.speech.tts.TtsModelAssets
+import expo.modules.kritha.litert.speech.tts.TtsModelId
 import java.io.Closeable
 
-/**
- * Single entry point for Kritha's local LiteRT stack.
- *
- * LLM requests go through LiteRT-LM. Ordinary .tflite models go through
- * LiteRT CompiledModel. Speech model semantics are supplied by speech adapters.
- */
+/** Single entry point for Kritha's native local inference stack. */
 class LiteRT(private val context: Context) : Closeable {
     val models = LiteRTRuntime(context)
     val speech = SpeechRuntime(context)
+    val tts = Tts(models)
     val llm = LiteRTLLM(context)
 
     fun loadModel(
@@ -28,10 +29,16 @@ class LiteRT(private val context: Context) : Closeable {
         manifest: SpeechModelManifest,
         tokenizer: Tokenizer,
         options: LiteRTExecutionOptions = LiteRTExecutionOptions()
-    ): Closeable {
-        // SpeechRuntime owns its own LiteRTRuntime so adapters can be independently released.
-        return speech.load(manifest, tokenizer)
-    }
+    ): AutoCloseable = speech.load(manifest, tokenizer)
+
+    fun synthesizeTts(
+        model: TtsModelAssets,
+        text: String,
+        options: SynthesisOptions = SynthesisOptions(),
+    ): SynthesisResult = tts.synthesize(model, text, options)
+
+    /** Free the TTS adapter for [modelId] (graphs, KV caches, buffers) to return memory to the system. */
+    fun releaseTts(modelId: TtsModelId) = tts.release(modelId)
 
     suspend fun generate(
         request: LiteRTLLMRequest,
@@ -40,6 +47,7 @@ class LiteRT(private val context: Context) : Closeable {
     ): String = llm.generate(request, onDelta, onChannel)
 
     override fun close() {
+        tts.close()
         speech.close()
         llm.close()
         models.close()

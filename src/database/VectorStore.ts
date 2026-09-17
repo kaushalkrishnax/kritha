@@ -4,7 +4,6 @@ import { DbProvider, QueryExecutor, VectorSearchResult } from './types';
 export class VectorStore {
   constructor(private readonly provider: DbProvider) {}
 
-  // Validates embedding dimension and numeric integrity.
   public validateEmbedding(
     embedding: number[],
     expectedDimension?: number,
@@ -31,7 +30,6 @@ export class VectorStore {
     }
   }
 
-  // Inserts an embedding for a tool into the sqlite-vec virtual table.
   async insert(
     toolId: string,
     embedding: number[],
@@ -62,7 +60,6 @@ export class VectorStore {
     }
   }
 
-  // Performs actual nearest-neighbor vector search using sqlite-vec MATCH syntax.
   async search(
     queryEmbedding: number[],
     limit: number = 5,
@@ -96,7 +93,6 @@ export class VectorStore {
     }
   }
 
-  // Updates an existing vector for a tool.
   async update(
     toolId: string,
     embedding: number[],
@@ -106,7 +102,6 @@ export class VectorStore {
     await this.insert(toolId, embedding, expectedDimension, executor);
   }
 
-  // Deletes a vector by toolId.
   async delete(toolId: string, executor?: QueryExecutor): Promise<void> {
     if (!toolId) {
       throw new ValidationError('Tool ID is required for vector deletion');
@@ -124,7 +119,6 @@ export class VectorStore {
     }
   }
 
-  // Retrieves a stored vector by toolId (if present).
   async get(
     toolId: string,
     executor?: QueryExecutor,

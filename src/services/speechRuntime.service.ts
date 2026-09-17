@@ -1,11 +1,11 @@
 import { useAssistantStore } from '@/stores/assistant.store';
 import { useModelStore } from '@/stores/model.store';
 import { useVoiceStore } from '@/stores/voice.store';
-import { SoniqoSpeech, SpeechEvent } from '@modules/kritha/src';
+import { KrithaSpeech, SpeechEvent } from '@modules/kritha/src';
 
 import { modelDownloadService } from './model.service';
 
-export type SoniqoSttEvent =
+export type SttRuntimeEvent =
   | { kind: 'sttStarted'; requestId: string }
   | { kind: 'transcript'; requestId: string; text: string; isFinal: boolean }
   | { kind: 'sttStopped'; requestId: string; text: string }
@@ -13,7 +13,7 @@ export type SoniqoSttEvent =
   | { kind: 'sttError'; requestId: string | null; message: string }
   | { kind: 'audioLevel'; requestId: string; level: number };
 
-export type SoniqoTtsEvent =
+export type TtsRuntimeEvent =
   | { kind: 'ttsStarted'; requestId: string }
   | { kind: 'ttsPaused'; requestId: string }
   | { kind: 'ttsResumed'; requestId: string }
@@ -21,9 +21,9 @@ export type SoniqoTtsEvent =
   | { kind: 'ttsStopped'; requestId: string; replaced?: boolean }
   | { kind: 'ttsError'; requestId: string | null; message: string };
 
-export type SoniqoSpeechEvent = SoniqoSttEvent | SoniqoTtsEvent;
+export type SpeechRuntimeEvent = SttRuntimeEvent | TtsRuntimeEvent;
 
-export type SoniqoSpeechListener = (event: SoniqoSpeechEvent) => void;
+export type SpeechRuntimeListener = (event: SpeechRuntimeEvent) => void;
 
 export interface VoiceModelStatus {
   id: string;
@@ -51,7 +51,7 @@ export class VoiceModelMissingError extends Error {
   }
 }
 
-const listeners = new Set<SoniqoSpeechListener>();
+const listeners = new Set<SpeechRuntimeListener>();
 let nativeListenersAttached = false;
 let initializedSelections: { stt: string | null; tts: string | null } | null =
   null;
@@ -81,12 +81,12 @@ function endModelLoad(forCapability: 'stt' | 'tts' | 'both'): void {
   }
 }
 
-function emit(event: SoniqoSpeechEvent): void {
+function emit(event: SpeechRuntimeEvent): void {
   listeners.forEach((listener) => {
     try {
       listener(event);
     } catch (e) {
-      console.warn('[soniqoRuntime] speech listener threw', e);
+      console.warn('[speechRuntime] speech listener threw', e);
     }
   });
 }
@@ -95,12 +95,12 @@ function attachNativeListeners(): void {
   if (nativeListenersAttached) return;
   nativeListenersAttached = true;
 
-  SoniqoSpeech.addSttStartedListener((e) => {
+  KrithaSpeech.addSttStartedListener((e) => {
     if (!e?.requestId) return;
     emit({ kind: 'sttStarted', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addTranscriptListener((e: SpeechEvent) => {
+  KrithaSpeech.addTranscriptListener((e: SpeechEvent) => {
     if (!e?.requestId || typeof e.text !== 'string') return;
     emit({
       kind: 'transcript',
@@ -110,17 +110,17 @@ function attachNativeListeners(): void {
     });
   });
 
-  SoniqoSpeech.addSttStoppedListener((e) => {
+  KrithaSpeech.addSttStoppedListener((e) => {
     if (!e?.requestId) return;
     emit({ kind: 'sttStopped', requestId: e.requestId, text: e.text ?? '' });
   });
 
-  SoniqoSpeech.addSttCancelledListener((e) => {
+  KrithaSpeech.addSttCancelledListener((e) => {
     if (!e?.requestId) return;
     emit({ kind: 'sttCancelled', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addSttErrorListener((e: SpeechEvent) => {
+  KrithaSpeech.addSttErrorListener((e: SpeechEvent) => {
     emit({
       kind: 'sttError',
       requestId: e?.requestId ?? null,
@@ -128,7 +128,7 @@ function attachNativeListeners(): void {
     });
   });
 
-  SoniqoSpeech.addAudioLevelListener((e: SpeechEvent) => {
+  KrithaSpeech.addAudioLevelListener((e: SpeechEvent) => {
     if (!e?.requestId || typeof e.level !== 'number') return;
     emit({
       kind: 'audioLevel',
@@ -137,27 +137,32 @@ function attachNativeListeners(): void {
     });
   });
 
-  SoniqoSpeech.addTtsStartedListener((e) => {
+  KrithaSpeech.addTtsStartedListener((e) => {
+    console.log('[TTS_DEBUG] speechRuntime: native event onTtsStarted', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsStarted', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addTtsPausedListener((e) => {
+  KrithaSpeech.addTtsPausedListener((e) => {
+    console.log('[TTS_DEBUG] speechRuntime: native event onTtsPaused', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsPaused', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addTtsResumedListener((e) => {
+  KrithaSpeech.addTtsResumedListener((e) => {
+    console.log('[TTS_DEBUG] speechRuntime: native event onTtsResumed', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsResumed', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addTtsCompletedListener((e) => {
+  KrithaSpeech.addTtsCompletedListener((e) => {
+    console.log('[TTS_DEBUG] speechRuntime: native event onTtsCompleted', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsCompleted', requestId: e.requestId });
   });
 
-  SoniqoSpeech.addTtsStoppedListener((e: SpeechEvent) => {
+  KrithaSpeech.addTtsStoppedListener((e: SpeechEvent) => {
+    console.log('[TTS_DEBUG] speechRuntime: native event onTtsStopped', e);
     if (!e?.requestId) return;
     emit({
       kind: 'ttsStopped',
@@ -166,7 +171,8 @@ function attachNativeListeners(): void {
     });
   });
 
-  SoniqoSpeech.addTtsErrorListener((e: SpeechEvent) => {
+  KrithaSpeech.addTtsErrorListener((e: SpeechEvent) => {
+    console.error('[TTS_DEBUG] speechRuntime: native event onTtsError', e);
     emit({
       kind: 'ttsError',
       requestId: e?.requestId ?? null,
@@ -174,7 +180,7 @@ function attachNativeListeners(): void {
     });
   });
 
-  SoniqoSpeech.addErrorListener((e: any) => {
+  KrithaSpeech.addErrorListener((e: any) => {
     const message =
       typeof e?.message === 'string' && e.message
         ? e.message
@@ -183,11 +189,8 @@ function attachNativeListeners(): void {
   });
 }
 
-/**
- * Subscribe to normalized speech events.
- */
-export function subscribeSoniqoSpeechEvents(
-  listener: SoniqoSpeechListener,
+export function subscribeSpeechRuntimeEvents(
+  listener: SpeechRuntimeListener,
 ): () => void {
   attachNativeListeners();
   listeners.add(listener);
@@ -201,24 +204,33 @@ async function assertModelsDownloaded(
   ttsModelId: string | null,
   forCapability: 'stt' | 'tts' | 'both',
 ): Promise<void> {
-  const models = await SoniqoSpeech.listVoiceModels();
+  console.log('[TTS_DEBUG] speechRuntime: assertModelsDownloaded called', {
+    sttModelId,
+    ttsModelId,
+    forCapability,
+  });
+  const models = await KrithaSpeech.listVoiceModels();
+  console.log('[TTS_DEBUG] speechRuntime: listVoiceModels result:', models);
   if (forCapability === 'stt' || forCapability === 'both') {
     const stt = models.find((m) => m.id === sttModelId);
     if (!sttModelId || !stt?.isDownloaded) {
+      console.warn('[TTS_DEBUG] speechRuntime: STT model missing or not downloaded', { sttModelId, stt });
       throw new VoiceModelMissingError('stt', sttModelId);
     }
   }
   if (forCapability === 'tts' || forCapability === 'both') {
     const tts = models.find((m) => m.id === ttsModelId);
     if (!ttsModelId || !tts?.isDownloaded) {
+      console.warn('[TTS_DEBUG] speechRuntime: TTS model missing or not downloaded', { ttsModelId, tts });
       throw new VoiceModelMissingError('tts', ttsModelId);
     }
   }
 }
 
-export async function ensureSoniqoInitialized(
+export async function ensureSpeechRuntimeInitialized(
   forCapability: 'stt' | 'tts' | 'both' = 'both',
 ): Promise<void> {
+  console.log('[TTS_DEBUG] speechRuntime: ensureSpeechRuntimeInitialized starting for', forCapability);
   attachNativeListeners();
   const sttModelId = useVoiceStore.getState().selectedSttModelId;
   const ttsModelId = useVoiceStore.getState().selectedTtsModelId;
@@ -230,43 +242,51 @@ export async function ensureSoniqoInitialized(
     initializedSelections.stt === sttModelId &&
     initializedSelections.tts === ttsModelId;
   if (selectionsMatch) return;
+  if (selectionsMatch) {
+    console.log('[TTS_DEBUG] speechRuntime: selectionsMatch is true, already initialized');
+    return;
+  }
 
   const modelId = useModelStore.getState().selectedModelId;
   const modelPath = await modelDownloadService.getDownloadedModelPath(modelId);
+  console.log('[TTS_DEBUG] speechRuntime: initializing KrithaSpeech with', {
+    modelPath,
+    sttModelId,
+    ttsModelId,
+  });
 
   beginModelLoad(forCapability);
   try {
-    await SoniqoSpeech.initialize({
+    await KrithaSpeech.initialize({
       llmModelPath: modelPath ?? undefined,
       llmDevice: 'cpu',
       sttModelId: sttModelId ?? undefined,
       ttsModelId: ttsModelId ?? undefined,
     });
     initializedSelections = { stt: sttModelId, tts: ttsModelId };
+    console.log('[TTS_DEBUG] speechRuntime: KrithaSpeech.initialize succeeded');
+  } catch (initErr) {
+    console.error('[TTS_DEBUG] speechRuntime: KrithaSpeech.initialize failed', initErr);
+    throw initErr;
   } finally {
     endModelLoad(forCapability);
   }
 }
 
-/** Start real microphone capture for one dictation operation. */
 export async function startListening(requestId: string): Promise<void> {
-  await ensureSoniqoInitialized('stt');
-  await SoniqoSpeech.startListening(requestId);
+  await ensureSpeechRuntimeInitialized('stt');
+  await KrithaSpeech.startListening(requestId);
 }
 
-/**
- * Stop capture and await the real final transcription.
- */
 export async function stopListening(requestId: string): Promise<string> {
-  return await SoniqoSpeech.stopListening(requestId);
+  return await KrithaSpeech.stopListening(requestId);
 }
 
-/** Abandon capture without producing a transcript. */
 export async function cancelListening(requestId: string): Promise<void> {
   try {
-    await SoniqoSpeech.cancelListening(requestId);
+    await KrithaSpeech.cancelListening(requestId);
   } catch (e) {
-    console.warn('[soniqoRuntime] cancelListening failed', e);
+    console.warn('[speechRuntime] cancelListening failed', e);
   }
 }
 
@@ -275,63 +295,73 @@ export async function speak(
   text: string,
   voice?: string | null,
 ): Promise<void> {
-  await ensureSoniqoInitialized('tts');
-  await SoniqoSpeech.speak(requestId, text, voice ?? 'F1');
+  console.log('[TTS_DEBUG] speechRuntime: speak called', {
+    requestId,
+    textPreview: text?.slice(0, 50),
+    textLength: text?.length,
+    voice,
+  });
+  await ensureSpeechRuntimeInitialized('tts');
+  console.log('[TTS_DEBUG] speechRuntime: calling KrithaSpeech.speak...');
+  try {
+    await KrithaSpeech.speak(requestId, text, voice ?? 'F1');
+    console.log('[TTS_DEBUG] speechRuntime: KrithaSpeech.speak invocation finished');
+  } catch (speakErr) {
+    console.error('[TTS_DEBUG] speechRuntime: KrithaSpeech.speak invocation threw', speakErr);
+    throw speakErr;
+  }
 }
 
-/** Hold playback at the current position (never restarts). */
 export async function pauseSpeaking(requestId?: string): Promise<void> {
-  await SoniqoSpeech.pauseSpeaking(requestId ?? null);
+  await KrithaSpeech.pauseSpeaking(requestId ?? null);
 }
 
-/** Continue from the held position. */
 export async function resumeSpeaking(requestId?: string): Promise<void> {
-  await SoniqoSpeech.resumeSpeaking(requestId ?? null);
+  await KrithaSpeech.resumeSpeaking(requestId ?? null);
 }
 
 /** Stop playback. Completion must not be inferred from a stop. */
 export async function stopSpeaking(requestId?: string): Promise<void> {
   try {
-    await SoniqoSpeech.stopSpeaking(requestId ?? null);
+    await KrithaSpeech.stopSpeaking(requestId ?? null);
   } catch (e) {
-    console.warn('[soniqoRuntime] stopSpeaking failed', e);
+    console.warn('[speechRuntime] stopSpeaking failed', e);
   }
 }
 
-/** Tear down mic capture and playback resources. */
 export async function shutdownSpeech(): Promise<void> {
   try {
-    await SoniqoSpeech.stop();
+    await KrithaSpeech.stop();
   } catch (e) {
-    console.warn('[soniqoRuntime] shutdown failed', e);
+    console.warn('[speechRuntime] shutdown failed', e);
   }
 }
 
 export async function listVoiceModels(): Promise<VoiceModelStatus[]> {
-  return (await SoniqoSpeech.listVoiceModels()) as VoiceModelStatus[];
+  return (await KrithaSpeech.listVoiceModels()) as VoiceModelStatus[];
 }
 
 export async function downloadVoiceModel(modelId: string): Promise<void> {
-  await SoniqoSpeech.downloadVoiceModel(modelId);
+  await KrithaSpeech.downloadVoiceModel(modelId);
 }
 
 export async function deleteVoiceModel(modelId: string): Promise<void> {
-  await SoniqoSpeech.deleteVoiceModel(modelId);
+  await KrithaSpeech.deleteVoiceModel(modelId);
 }
 
 export function subscribeVoiceModelProgress(
   listener: (event: { modelId: string; progress: number }) => void,
 ): () => void {
-  const sub = SoniqoSpeech.addVoiceModelProgressListener(listener);
+  const sub = KrithaSpeech.addVoiceModelProgressListener(listener);
   return () => sub.remove();
 }
 
 let _isSessionActive = false;
 
-export const SoniqoCoordinator = {
+export const SpeechCoordinator = {
   async init(): Promise<boolean> {
     try {
-      await ensureSoniqoInitialized('both');
+      await ensureSpeechRuntimeInitialized('both');
       attachNativeListeners();
       return true;
     } catch (e) {
@@ -339,7 +369,7 @@ export const SoniqoCoordinator = {
         useVoiceStore.getState().setVoiceModalOpen(true);
         return false;
       }
-      console.error('Failed to initialize Soniqo', e);
+      console.error('Failed to initialize Kritha speech', e);
       return false;
     }
   },
@@ -357,13 +387,13 @@ export const SoniqoCoordinator = {
       const { pauseForStt } = await import('@modules/kritha/src');
       pauseForStt();
 
-      SoniqoSpeech.addTool('torch', 'Turn flashlight on or off');
-      SoniqoSpeech.addTool('mute', 'Mute or unmute device volume');
-      SoniqoSpeech.addTool(
+      KrithaSpeech.addTool('torch', 'Turn flashlight on or off');
+      KrithaSpeech.addTool('mute', 'Mute or unmute device volume');
+      KrithaSpeech.addTool(
         'settings',
         'Open settings. Requires type argument (e.g. wifi, bluetooth, display)',
       );
-      SoniqoSpeech.addTool('dialer', 'Open the phone dialer');
+      KrithaSpeech.addTool('dialer', 'Open the phone dialer');
 
       const store = useAssistantStore.getState();
       store.setChatMode(ChatMode.LIVE_TALK);
@@ -373,7 +403,7 @@ export const SoniqoCoordinator = {
       const modelId = useModelStore.getState().selectedModelId;
       const modelPath =
         await modelDownloadService.getDownloadedModelPath(modelId);
-      await SoniqoSpeech.start(modelPath ?? undefined, 'cpu');
+      await KrithaSpeech.start(modelPath ?? undefined, 'cpu');
     } catch (e) {
       console.error('Failed to start voice session', e);
       this.endSession();
@@ -383,9 +413,9 @@ export const SoniqoCoordinator = {
   async endSession() {
     if (!_isSessionActive) return;
     try {
-      await SoniqoSpeech.stop();
+      await KrithaSpeech.stop();
     } catch (e) {
-      console.error('Failed to stop Soniqo', e);
+      console.error('Failed to stop Kritha speech', e);
     } finally {
       _isSessionActive = false;
       const { useAssistantStore } = await import('@/stores/assistant.store');

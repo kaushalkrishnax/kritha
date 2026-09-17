@@ -10,9 +10,6 @@ import kotlinx.coroutines.delay
 import kotlin.math.max
 import kotlin.math.min
 
-/**
- * One continuous low-latency Android output stream for a complete TTS turn.
- */
 internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
 
     private val closed = AtomicBoolean(false)
@@ -67,7 +64,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         }
     }
 
-    /** Prefill the stream with the first native frame, then start playback. */
     fun start(firstPcm16: ByteArray) {
         check(!started) { "Streaming PCM playback already started" }
         require(firstPcm16.isNotEmpty()) { "First PCM frame is empty" }
@@ -99,9 +95,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         check(written == pcm16.size)
     }
 
-    /**
-     * Estimate when frame zero reached AudioFlinger using its monotonic audio
-     */
     suspend fun awaitFirstPresentationNanos(timeoutMs: Long = 500): Long? {
         if (!started || closed.get()) return null
         val timestamp = AudioTimestamp()
@@ -117,7 +110,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         return null
     }
 
-    /** Wait until every queued frame has been presented, without fixed gaps. */
     suspend fun awaitDrained() {
         if (!started || closed.get()) return
         val durationMs = framesWritten * 1_000 / sampleRate
@@ -139,7 +131,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         }
     }
 
-    /** Keep the allocated Android output path warm for the next assistant turn. */
     fun resetForNextUtterance() {
         check(!closed.get()) { "Streaming PCM playback is closed" }
         check(started) { "Streaming PCM playback has not started" }
@@ -151,9 +142,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
         stopPlayback()
     }
 
-    /**
-     * True playback pause: keeps the AudioTrack head position so a later
-     */
     fun pausePlayback() {
         if (closed.get() || !started || paused) return
         try {
@@ -176,7 +164,6 @@ internal class StreamingPcmPlayer(val sampleRate: Int) : AutoCloseable {
     val isStarted: Boolean
         get() = started
 
-    /** Safely stops and flushes playback if it was started. */
     fun stopPlayback() {
         if (!closed.get() && started) {
             try {

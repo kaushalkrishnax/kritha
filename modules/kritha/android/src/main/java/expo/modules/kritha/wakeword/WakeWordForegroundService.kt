@@ -24,18 +24,11 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-// REMOVED: import expo.modules.kritha.domain.AssistantEventBus - module not found
-// import expo.modules.kritha.platform.MicrophoneManager
+import expo.modules.kritha.KrithaModule
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
-/**
- * Foreground service that owns wake-word detection: it holds the recorder
- * while no other component owns the microphone, runs inference on audio
- * slices and reacts to detections (emit to JS, or open the assistant overlay
- * when the app is in the background).
- */
 class WakeWordForegroundService : Service() {
     private val listening = AtomicBoolean(false)
     private val assistantActive = AtomicBoolean(false)
@@ -207,7 +200,6 @@ class WakeWordForegroundService : Service() {
             }
 
             recorderRef.set(recorder)
-            // MicrophoneManager.setWakeWordOwner()
             try {
                 recorder.startRecording()
                 runDetectionLoop(recorder)
@@ -216,7 +208,6 @@ class WakeWordForegroundService : Service() {
                 recorder.release()
                 recorderRef.compareAndSet(recorder, null)
                 listening.set(false)
-                // MicrophoneManager.releaseWakeWordOwner()
                 Log.d(TAG, "Detection thread exited")
             }
         }
@@ -303,8 +294,6 @@ class WakeWordForegroundService : Service() {
         })
     }
 
-    // AudioRecord helpers
-
     private fun createAudioRecord(): AudioRecord? {
         val minBuf =
             AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
@@ -334,8 +323,6 @@ class WakeWordForegroundService : Service() {
             it.release()
         }
     }
-
-    // Notification helpers
 
     private fun startForegroundCompat(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -411,8 +398,6 @@ class WakeWordForegroundService : Service() {
                 }
             )
     }
-
-    // Misc helpers
 
     private fun acquireWakeLock() {
         wakeLock = (getSystemService(PowerManager::class.java))

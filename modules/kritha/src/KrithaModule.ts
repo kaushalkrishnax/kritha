@@ -99,32 +99,66 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   requestNotificationListenerPermission(): boolean;
   generateLocal(request: LocalLlmGenerateRequest): Promise<string>;
   cancelLocalGeneration(requestId: string): boolean;
-  soniqoInitialize(
+  speechInitialize(
     llmModelPath?: string | null,
     llmDevice?: string | null,
     sttModelId?: string | null,
     ttsModelId?: string | null,
   ): Promise<void>;
-  soniqoStartListening(requestId: string): Promise<void>;
-  soniqoStopListening(requestId: string): Promise<string>;
-  soniqoCancelListening(requestId: string): Promise<void>;
-  soniqoStart(
+  startListening(requestId: string): Promise<void>;
+  stopListening(requestId: string): Promise<string>;
+  cancelListening(requestId: string): Promise<void>;
+  speechStart(
     llmModelPath?: string | null,
     llmDevice?: string | null,
   ): Promise<void>;
-  soniqoStop(): Promise<void>;
-  soniqoSpeak(
+  speechStop(): Promise<void>;
+  speak(
     requestId: string,
     text: string,
     voice?: string | null,
   ): Promise<void>;
-  soniqoPauseSpeaking(requestId?: string | null): Promise<void>;
-  soniqoResumeSpeaking(requestId?: string | null): Promise<void>;
-  soniqoStopSpeaking(requestId?: string | null): Promise<void>;
-  soniqoAddTool(name: string, desc: string): Promise<void>;
+  pauseSpeaking(requestId?: string | null): Promise<void>;
+  resumeSpeaking(requestId?: string | null): Promise<void>;
+  stopSpeaking(requestId?: string | null): Promise<void>;
+  addTool(name: string, desc: string): Promise<void>;
   listVoiceModels(): Promise<VoiceModelInfo[]>;
   downloadVoiceModel(modelId: string): Promise<void>;
   deleteVoiceModel(modelId: string): Promise<void>;
+  liteRtInfo(): Promise<{
+    version: number;
+    tasks: string[];
+    devices: string[];
+  }>;
+  liteRtInspectModel(request: {
+    id: string;
+    path: string;
+    task?: string;
+    signature: string;
+    inputs: string[];
+    outputs: string[];
+    outputTypes: string[];
+  }): Promise<unknown>;
+  liteRtTtsSynthesize(request: {
+    modelId?: string;
+    modelDirectory: string;
+    text: string;
+    language?: string;
+    voice?: number;
+    speed?: number;
+    greedy?: boolean;
+    seed?: number;
+  }): Promise<{
+    modelId: string;
+    sampleRate: number;
+    channels: number;
+    samples: number;
+    durationMs: number;
+    elapsedMs: number;
+    bridgeElapsedMs: number;
+    wavPath: string;
+    wavUri: string;
+  }>;
 }
 
 export default requireNativeModule<KrithaModule>('Kritha');

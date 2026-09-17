@@ -2,9 +2,9 @@ import {
   cancelListening as runtimeCancelListening,
   startListening as runtimeStartListening,
   stopListening as runtimeStopListening,
-  subscribeSoniqoSpeechEvents,
+  subscribeSpeechRuntimeEvents,
   VoiceModelMissingError,
-} from '@/services/soniqoRuntime.service';
+} from '@/services/speechRuntime.service';
 import uuid from 'react-native-uuid';
 
 import { SttProvider, SttResult, SttStartOptions } from './types';
@@ -18,7 +18,7 @@ let subscribed = false;
 function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
-  subscribeSoniqoSpeechEvents((event) => {
+  subscribeSpeechRuntimeEvents((event) => {
     if (event.kind === 'transcript') {
       if (event.requestId !== activeRequestId) return;
       if (!event.isFinal) {
@@ -33,7 +33,7 @@ function ensureSubscribed(): void {
   });
 }
 
-export const soniqoSttProvider: SttProvider = {
+export const lrtSttProvider: SttProvider = {
   startListening: async (options?: SttStartOptions): Promise<string> => {
     ensureSubscribed();
     if (activeRequestId !== null) {

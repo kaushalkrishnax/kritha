@@ -1,2 +1,2 @@
-export { soniqoSttProvider as sttProvider } from './soniqo.provider';
+export { lrtSttProvider as sttProvider } from './litert.provider';
 export * from './types';

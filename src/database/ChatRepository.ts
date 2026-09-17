@@ -35,7 +35,6 @@ export class ChatRepository {
     };
   }
 
-  // Creates a new chat session.
   async createSession(
     titleOrInput: string | CreateSessionInput,
   ): Promise<Session> {
@@ -81,7 +80,6 @@ export class ChatRepository {
     }
   }
 
-  // Retrieves a chat session by ID.
   async getSession(id: string): Promise<Session | null> {
     if (!id) return null;
     const db = await this.provider.getDbAsync();
@@ -97,7 +95,6 @@ export class ChatRepository {
     }
   }
 
-  // Gets sessions ordered by pinned status and updated_at desc.
   async getSessions(includeArchived: boolean = false): Promise<Session[]> {
     const db = await this.provider.getDbAsync();
     try {
@@ -113,7 +110,6 @@ export class ChatRepository {
     }
   }
 
-  // Updates session properties (title, pinned, archived).
   async updateSession(id: string, input: UpdateSessionInput): Promise<Session> {
     const session = await this.getSession(id);
     if (!session) {
@@ -171,7 +167,6 @@ export class ChatRepository {
     return this.updateSession(id, { archived });
   }
 
-  // Deletes a session and its cascading messages.
   async deleteSession(id: string): Promise<void> {
     const db = await this.provider.getDbAsync();
     try {
@@ -181,7 +176,6 @@ export class ChatRepository {
     }
   }
 
-  // Saves a message in a session. Updates session updated_at timestamp.
   async saveMessage(
     sessionIdOrInput: string | CreateMessageInput,
     role?: 'user' | 'assistant',
@@ -276,7 +270,6 @@ export class ChatRepository {
     }
   }
 
-  // Retrieves messages for a session in chronological order (created_at ASC).
   async getMessages(
     sessionId: string,
     limit?: number,
@@ -309,7 +302,6 @@ export class ChatRepository {
     }
   }
 
-  // Retrieves recent messages for context building (up to limit).
   async getHistory(sessionId: string, limit: number = 20): Promise<Message[]> {
     if (!sessionId) return [];
     const db = await this.provider.getDbAsync();
@@ -330,7 +322,6 @@ export class ChatRepository {
     }
   }
 
-  // Deletes all messages in a session.
   async deleteMessages(sessionId: string): Promise<void> {
     if (!sessionId) return;
     const db = await this.provider.getDbAsync();

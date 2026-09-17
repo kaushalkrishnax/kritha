@@ -10,13 +10,6 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.system.measureTimeMillis
 
-/**
- * Small, task-agnostic LiteRT runtime.
- *
- * The class deliberately does not try to infer model semantics from tensor names.
- * It exposes LiteRT's real signature/tensor contract and lets task adapters own
- * preprocessing, decoding and postprocessing.
- */
 class LiteRTRuntime(private val context: Context) : Closeable {
     private val models = ConcurrentHashMap<String, LoadedModel>()
 
@@ -41,9 +34,13 @@ class LiteRTRuntime(private val context: Context) : Closeable {
             throw t
         }
 
-        return LoadedModel(descriptor, compiled).also {
-            models[descriptor.id] = it
+        val loaded = LoadedModel(descriptor, compiled, environment)
+        val existing = models.putIfAbsent(descriptor.id, loaded)
+        if (existing != null) {
+            loaded.closeInternal()
+            return existing
         }
+        return loaded
     }
 
     fun loadAsset(
@@ -64,20 +61,22 @@ class LiteRTRuntime(private val context: Context) : Closeable {
             environment.close()
             throw t
         }
-        return LoadedModel(descriptor, compiled).also {
-            models[descriptor.id] = it
+
+        val loaded = LoadedModel(descriptor, compiled, environment)
+        val existing = models.putIfAbsent(descriptor.id, loaded)
+        if (existing != null) {
+            loaded.closeInternal()
+            return existing
         }
+        return loaded
     }
 
-    fun get(id: String): LoadedModel =
-        models[id] ?: error("LiteRT model is not loaded: $id")
-
     fun unload(id: String) {
-        models.remove(id)?.close()
+        models.remove(id)?.closeInternal()
     }
 
     fun unloadAll() {
-        models.values.forEach { runCatching { it.close() } }
+        models.values.forEach { runCatching { it.closeInternal() } }
         models.clear()
     }
 
@@ -85,11 +84,30 @@ class LiteRTRuntime(private val context: Context) : Closeable {
 
     inner class LoadedModel internal constructor(
         val descriptor: LiteRTModelDescriptor,
-        private val model: CompiledModel
+        private val model: CompiledModel,
+        private val environment: Environment
     ) : Closeable {
+
+        fun session(
+            signature: String,
+            inputNames: List<String> = emptyList(),
+            outputNames: List<String> = emptyList()
+        ): LiteRTSession {
+            require(signature.isNotBlank()) { "Session signature cannot be blank" }
+            if (inputNames.isNotEmpty()) {
+                require(inputNames.distinct().size == inputNames.size) { "Duplicate input names" }
+            }
+            if (outputNames.isNotEmpty()) {
+                require(outputNames.distinct().size == outputNames.size) { "Duplicate output names" }
+            }
+            return LiteRTSession(model, signature)
+        }
+
+        fun positionalSession(): LiteRTSession = LiteRTSession(model, null)
 
         fun inspect(): LiteRTModelInfo {
             val signature = descriptor.signature
+            require(signature.isNotBlank()) { "Descriptor signature is required for inspect()" }
             val inputNames = modelInputNames(signature)
             val outputNames = modelOutputNames(signature)
 
@@ -98,12 +116,8 @@ class LiteRTRuntime(private val context: Context) : Closeable {
                 signatures = listOf(
                     LiteRTSignatureInfo(
                         name = signature,
-                        inputs = inputNames.map {
-                            tensorInfo(it, true, signature)
-                        },
-                        outputs = outputNames.map {
-                            tensorInfo(it, false, signature)
-                        }
+                        inputs = inputNames.map { tensorInfo(it, true, signature) },
+                        outputs = outputNames.map { tensorInfo(it, false, signature) }
                     )
                 )
             )
@@ -115,40 +129,32 @@ class LiteRTRuntime(private val context: Context) : Closeable {
         ): LiteRTRunResult {
             val inputBuffers = model.createInputBuffers(signature)
             val outputBuffers = model.createOutputBuffers(signature)
+            try {
+                require(inputs.size == inputBuffers.size) {
+                    "Expected ${inputBuffers.size} inputs, got ${inputs.size}"
+                }
+                inputs.forEachIndexed { index, input -> write(inputBuffers[index], input.data) }
 
-            require(inputs.size == inputBuffers.size) {
-                "Expected ${inputBuffers.size} inputs, got ${inputs.size}"
+                val elapsed = measureTimeMillis { model.run(inputBuffers, outputBuffers, signature) }
+                val outputNames = modelOutputNames(signature)
+                val outputTypes = descriptor.metadata["outputTypes"]
+                    ?.split(',')?.map { it.trim() }
+                    ?: error("Model '${descriptor.id}' needs outputTypes metadata")
+                require(outputTypes.size == outputBuffers.size) {
+                    "outputTypes count ${outputTypes.size} does not match ${outputBuffers.size} outputs"
+                }
+                val outputs = outputBuffers.mapIndexed { index, buffer ->
+                    LiteRTTensorOutput(
+                        name = outputNames.getOrNull(index) ?: "output_$index",
+                        data = readTyped(buffer, outputTypes[index]),
+                        signature = signature
+                    )
+                }
+                return LiteRTRunResult(outputs, elapsed)
+            } finally {
+                inputBuffers.forEach { runCatching { it.close() } }
+                outputBuffers.forEach { runCatching { it.close() } }
             }
-
-            inputs.forEachIndexed { index, input ->
-                write(inputBuffers[index], input.data)
-            }
-
-            var elapsed = 0L
-            elapsed = measureTimeMillis {
-                model.run(inputBuffers, outputBuffers, signature)
-            }
-
-            val outputNames = modelOutputNames(signature)
-            val outputTypes = descriptor.metadata["outputTypes"]
-                ?.split(',')
-                ?.map { it.trim() }
-                ?: error("Model '${descriptor.id}' needs outputTypes metadata")
-            require(outputTypes.size == outputBuffers.size) {
-                "outputTypes count ${outputTypes.size} does not match ${outputBuffers.size} outputs"
-            }
-            val outputs = outputBuffers.mapIndexed { index, buffer ->
-                LiteRTTensorOutput(
-                    name = outputNames.getOrNull(index) ?: "output_$index",
-                    data = readTyped(buffer, outputTypes[index]),
-                    signature = signature
-                )
-            }
-
-            inputBuffers.forEach { runCatching { it.close() } }
-            outputBuffers.forEach { runCatching { it.close() } }
-
-            return LiteRTRunResult(outputs, elapsed)
         }
 
         fun runNamed(
@@ -157,56 +163,39 @@ class LiteRTRuntime(private val context: Context) : Closeable {
         ): LiteRTRunResult {
             val inputBuffers = model.createInputBuffers(signature)
             val outputBuffers = model.createOutputBuffers(signature)
-            val names = modelInputNames(signature)
+            try {
+                val names = modelInputNames(signature)
+                require(names.size == inputBuffers.size) { "LiteRT signature input count mismatch" }
+                names.forEachIndexed { index, name ->
+                    val value = inputs[name] ?: error("Missing LiteRT input '$name'")
+                    write(inputBuffers[index], value)
+                }
 
-            require(names.size == inputBuffers.size) {
-                "LiteRT signature input count mismatch"
+                val elapsed = measureTimeMillis { model.run(inputBuffers, outputBuffers, signature) }
+                val outputNames = modelOutputNames(signature)
+                val outputTypes = descriptor.metadata["outputTypes"]
+                    ?.split(',')?.map { it.trim() }
+                    ?: error("Model '${descriptor.id}' needs outputTypes metadata")
+                require(outputTypes.size == outputBuffers.size) {
+                    "outputTypes count ${outputTypes.size} does not match ${outputBuffers.size} outputs"
+                }
+                val outputs = outputBuffers.mapIndexed { index, buffer ->
+                    LiteRTTensorOutput(
+                        outputNames.getOrNull(index) ?: "output_$index",
+                        readTyped(buffer, outputTypes[index]),
+                        signature
+                    )
+                }
+                return LiteRTRunResult(outputs, elapsed)
+            } finally {
+                inputBuffers.forEach { runCatching { it.close() } }
+                outputBuffers.forEach { runCatching { it.close() } }
             }
-
-            names.forEachIndexed { index, name ->
-                val value = inputs[name]
-                    ?: error("Missing LiteRT input '$name'")
-                write(inputBuffers[index], value)
-            }
-
-            val elapsed = measureTimeMillis {
-                model.run(inputBuffers, outputBuffers, signature)
-            }
-
-            val outputNames = modelOutputNames(signature)
-            val outputTypes = descriptor.metadata["outputTypes"]
-                ?.split(',')
-                ?.map { it.trim() }
-                ?: error("Model '${descriptor.id}' needs outputTypes metadata")
-            require(outputTypes.size == outputBuffers.size) {
-                "outputTypes count ${outputTypes.size} does not match ${outputBuffers.size} outputs"
-            }
-            val outputs = outputBuffers.mapIndexed { index, buffer ->
-                LiteRTTensorOutput(
-                    outputNames.getOrNull(index) ?: "output_$index",
-                    readTyped(buffer, outputTypes[index]),
-                    signature
-                )
-            }
-
-            inputBuffers.forEach { runCatching { it.close() } }
-            outputBuffers.forEach { runCatching { it.close() } }
-
-            return LiteRTRunResult(outputs, elapsed)
         }
 
-        private fun modelInputNames(signature: String): List<String> =
-            discoverTensorNames(signature, true)
+        private fun modelInputNames(signature: String): List<String> = discoverTensorNames(signature, true)
+        private fun modelOutputNames(signature: String): List<String> = discoverTensorNames(signature, false)
 
-        private fun modelOutputNames(signature: String): List<String> =
-            discoverTensorNames(signature, false)
-
-        /*
-         * CompiledModel exposes name-based buffer creation but not a public
-         * get-all-names method in the current Kotlin API. The model descriptor
-         * therefore supplies names for task adapters. For the generic path,
-         * use the signature's conventional metadata when available.
-         */
         private fun discoverTensorNames(signature: String, input: Boolean): List<String> {
             val metadataNames = if (input) {
                 descriptor.metadata["inputs"]?.split(',')?.map { it.trim() }
@@ -214,18 +203,13 @@ class LiteRTRuntime(private val context: Context) : Closeable {
                 descriptor.metadata["outputs"]?.split(',')?.map { it.trim() }
             }
             return metadataNames?.filter { it.isNotEmpty() }
-                ?: error(
-                    "Model '${descriptor.id}' needs explicit ${if (input) "inputs" else "outputs"} " +
-                        "metadata. LiteRT does not expose arbitrary semantic tensor names through " +
-                        "this API; use ModelDescriptor.metadata."
-                )
+                ?: run {
+                    val kind = if (input) "inputs" else "outputs"
+                    error("Model '${descriptor.id}' needs explicit $kind metadata")
+                }
         }
 
-        private fun tensorInfo(
-            name: String,
-            input: Boolean,
-            signature: String
-        ): LiteRTTensorInfo {
+        private fun tensorInfo(name: String, input: Boolean, signature: String): LiteRTTensorInfo {
             val type: TensorType = if (input) {
                 model.getInputTensorType(name, signature)
             } else {
@@ -251,19 +235,21 @@ class LiteRTRuntime(private val context: Context) : Closeable {
             }
         }
 
-        private fun readTyped(buffer: TensorBuffer, type: String): Any =
-            when (type.uppercase()) {
-                "FLOAT" -> buffer.readFloat()
-                "INT" -> buffer.readInt()
-                "INT8" -> buffer.readInt8()
-                "INT64" -> buffer.readLong()
-                "BOOLEAN" -> buffer.readBoolean()
-                else -> error("Unsupported LiteRT output type: $type")
-            }
-
-        override fun close() {
-            models.remove(descriptor.id, this)
-            model.close()
+        private fun readTyped(buffer: TensorBuffer, type: String): Any = when (type.uppercase()) {
+            "FLOAT" -> buffer.readFloat()
+            "INT" -> buffer.readInt()
+            "INT8" -> buffer.readInt8()
+            "INT64" -> buffer.readLong()
+            "BOOLEAN" -> buffer.readBoolean()
+            else -> error("Unsupported LiteRT output type: $type")
         }
+
+        internal fun closeInternal() {
+            models.remove(descriptor.id, this)
+            runCatching { model.close() }
+            runCatching { environment.close() }
+        }
+
+        override fun close() = closeInternal()
     }
 }

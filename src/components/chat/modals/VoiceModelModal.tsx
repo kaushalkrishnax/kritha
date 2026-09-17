@@ -5,7 +5,7 @@ import {
   downloadVoiceModel,
   listVoiceModels,
   subscribeVoiceModelProgress,
-} from '@/services/soniqoRuntime.service';
+} from '@/services/speechRuntime.service';
 import { SPEECH_MODELS } from '@/constants';
 import { useVoiceStore } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
@@ -34,11 +34,13 @@ export interface VoiceModelModalProps {
 const CATALOG_MODELS = SPEECH_MODELS.map((m) => ({
   id: m.id,
   name: m.displayName,
-  size: m.id.includes('fp16')
-    ? '500 MB'
-    : m.type === 'stt'
-      ? '250 MB'
-      : '140 MB',
+  size: m.type === 'stt'
+    ? m.id.includes('fp16')
+      ? '500 MB'
+      : '250 MB'
+    : m.id.includes('kitten')
+      ? '45 MB'
+      : '1.9 GB',
   langs: m.capabilities.languages.join(', '),
   category: m.type,
 }));

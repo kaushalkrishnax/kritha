@@ -50,7 +50,6 @@ export class Database {
         await this.db.execute('PRAGMA foreign_keys = ON;');
         await this.db.execute('PRAGMA journal_mode = WAL;');
 
-        // Run versioned migrations
         await this.runMigrations();
 
         this.initialized = true;
@@ -94,7 +93,6 @@ export class Database {
     }
   }
 
-  // Waits for initialization to complete, then returns the connection.
   whenReady(): Promise<void> {
     if (this.initialized && this.db) {
       return Promise.resolve();

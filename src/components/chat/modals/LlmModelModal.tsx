@@ -41,7 +41,6 @@ export function LlmModelModal({ visible, onClose }: LlmModelModalProps) {
   const handleDelete = async (modelId: string) => {
     try {
       await modelDownloadService.cancelDownload(modelId);
-      // We also need to unmark downloaded in store if canceled/deleted
       useModelStore.setState((state) => ({
         models: state.models.map((m) =>
           m.id === modelId ? { ...m, downloaded: false } : m,

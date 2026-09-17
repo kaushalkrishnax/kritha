@@ -3,9 +3,9 @@ import {
   resumeSpeaking as runtimeResumeSpeaking,
   speak as runtimeSpeak,
   stopSpeaking as runtimeStopSpeaking,
-  subscribeSoniqoSpeechEvents,
+  subscribeSpeechRuntimeEvents,
   VoiceModelMissingError,
-} from '@/services/soniqoRuntime.service';
+} from '@/services/speechRuntime.service';
 
 import { TtsEventListener, TtsProvider, TtsSpeakOptions } from './types';
 
@@ -15,7 +15,9 @@ let subscribed = false;
 function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
-  subscribeSoniqoSpeechEvents((event) => {
+  console.log('[TTS_DEBUG] litert.provider: subscribing to speechRuntime events');
+  subscribeSpeechRuntimeEvents((event) => {
+    console.log('[TTS_DEBUG] litert.provider: received speechRuntime event', event);
     switch (event.kind) {
       case 'ttsStarted':
         listeners.forEach((l) =>
@@ -61,15 +63,23 @@ function ensureSubscribed(): void {
   });
 }
 
-export const soniqoTtsProvider: TtsProvider = {
+export const lrtTtsProvider: TtsProvider = {
   speak: async (text: string, options: TtsSpeakOptions): Promise<void> => {
+    console.log('[TTS_DEBUG] litert.provider: speak called', {
+      textPreview: text?.slice(0, 50),
+      options,
+    });
     ensureSubscribed();
     if (!text.trim()) {
+      console.warn('[TTS_DEBUG] litert.provider: text is empty');
       throw new Error('Nothing to speak.');
     }
     try {
+      console.log('[TTS_DEBUG] litert.provider: calling runtimeSpeak with voice', options.voice ?? 'F1');
       await runtimeSpeak(options.requestId, text, options.voice ?? 'F1');
+      console.log('[TTS_DEBUG] litert.provider: runtimeSpeak finished successfully');
     } catch (e) {
+      console.error('[TTS_DEBUG] litert.provider: runtimeSpeak threw error', e);
       if (e instanceof VoiceModelMissingError) {
         throw e;
       }
@@ -80,16 +90,19 @@ export const soniqoTtsProvider: TtsProvider = {
   },
 
   pause: async (requestId?: string): Promise<void> => {
+    console.log('[TTS_DEBUG] litert.provider: pause called', { requestId });
     ensureSubscribed();
     await runtimePauseSpeaking(requestId);
   },
 
   resume: async (requestId?: string): Promise<void> => {
+    console.log('[TTS_DEBUG] litert.provider: resume called', { requestId });
     ensureSubscribed();
     await runtimeResumeSpeaking(requestId);
   },
 
   stop: async (requestId?: string): Promise<void> => {
+    console.log('[TTS_DEBUG] litert.provider: stop called', { requestId });
     ensureSubscribed();
     await runtimeStopSpeaking(requestId);
   },

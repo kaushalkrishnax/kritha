@@ -2,13 +2,12 @@ package expo.modules.kritha.litert.speech
 
 import expo.modules.kritha.litert.LiteRTExecutionOptions
 import expo.modules.kritha.litert.LiteRTRuntime
-import java.io.Closeable
 
 enum class SpeechTask { ASR, STT, TTS }
 
 data class AudioSpec(
     val sampleRate: Int = 16000,
-    val channels: Int = 1
+    val channels: Int = 1,
 )
 
 data class SpeechModelManifest(
@@ -27,7 +26,7 @@ data class SpeechModelManifest(
     val stopTokenId: Int? = null,
     val maxDecodeTokens: Int = 128,
     val tokenizerPath: String? = null,
-    val metadata: Map<String, String> = emptyMap()
+    val metadata: Map<String, String> = emptyMap(),
 )
 
 data class MelSpec(
@@ -36,24 +35,13 @@ data class MelSpec(
     val nMels: Int = 80,
     val windowLength: Int = 400,
     val preEmphasis: Float = 0f,
-    val normalize: Boolean = true
+    val normalize: Boolean = true,
 )
 
 data class Transcription(
     val text: String,
     val tokenIds: IntArray = intArrayOf(),
-    val elapsedMs: Long = 0L
-)
-
-data class SpeechAudio(
-    val pcm: FloatArray,
-    val sampleRate: Int,
-    val channels: Int = 1
-)
-
-data class SynthesisResult(
-    val audio: SpeechAudio,
-    val elapsedMs: Long
+    val elapsedMs: Long = 0L,
 )
 
 interface Tokenizer {
@@ -61,29 +49,17 @@ interface Tokenizer {
     fun decode(tokenIds: IntArray): String
 }
 
-interface AsrAdapter : Closeable {
+interface AsrAdapter : AutoCloseable {
     fun transcribe(
         audio: FloatArray,
-        options: TranscriptionOptions = TranscriptionOptions()
+        options: TranscriptionOptions = TranscriptionOptions(),
     ): Transcription
-}
-
-interface TtsAdapter : Closeable {
-    fun synthesize(
-        text: String,
-        options: SynthesisOptions = SynthesisOptions()
-    ): SynthesisResult
 }
 
 data class TranscriptionOptions(
     val language: String? = null,
     val task: String = "transcribe",
-    val maxTokens: Int? = null
-)
-
-data class SynthesisOptions(
-    val voice: Int = 0,
-    val speed: Float = 1f
+    val maxTokens: Int? = null,
 )
 
 interface SpeechAdapterFactory {
@@ -91,6 +67,12 @@ interface SpeechAdapterFactory {
     fun create(
         runtime: LiteRTRuntime,
         manifest: SpeechModelManifest,
-        execution: LiteRTExecutionOptions
-    ): Closeable
+        execution: LiteRTExecutionOptions,
+    ): AutoCloseable
 }
+
+// Backwards-compatible aliases for the legacy single-graph speech path.
+typealias SpeechAudio = expo.modules.kritha.litert.speech.tts.SpeechAudio
+typealias SynthesisOptions = expo.modules.kritha.litert.speech.tts.SynthesisOptions
+typealias SynthesisResult = expo.modules.kritha.litert.speech.tts.SynthesisResult
+typealias TtsAdapter = expo.modules.kritha.litert.speech.tts.TtsAdapter

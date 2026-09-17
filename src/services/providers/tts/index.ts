@@ -1,2 +1,2 @@
-export { soniqoTtsProvider as ttsProvider } from './soniqo.provider';
+export { lrtTtsProvider as ttsProvider } from './litert.provider';
 export * from './types';

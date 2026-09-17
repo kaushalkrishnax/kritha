@@ -1,14 +1,6 @@
 package expo.modules.kritha
 
-/**
- * Split a spoken reply into pieces for pipelined synthesis: the app plays
- * piece N while synthesizing piece N+1, so the first sound arrives after one
- * short synthesis instead of after the whole reply. Sentences stay whole; a
- * sentence longer than [MAX_CHARS] splits at the last clause boundary
- * (comma, semicolon, colon, dash) inside the budget, falling back to a word
- * boundary. Mirrors speech-core's synthesis chunker loosely — this split is
- * for playback latency, the core one is for the model's output capacity.
- */
+/** Split text into chunks for pipelined TTS — plays chunk N while synthesising N+1. */
 object SpeechChunks {
     private const val MAX_CHARS = 30
     private const val MIN_CHARS = 10

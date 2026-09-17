@@ -1,8 +1,5 @@
 package expo.modules.kritha.litert
 
-/**
- * Stable request/response vocabulary for the React Native bridge.
- */
 object LiteRTApi {
     const val VERSION = 1
 

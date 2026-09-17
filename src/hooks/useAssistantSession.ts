@@ -1,9 +1,4 @@
-/**
- * Thin read-side wrapper around stores/assistant.store.ts for components
- * that want a convenient bundle of commonly used fields. New code should
- * prefer importing individual selectors from '@/stores' directly; this
- * hook exists for call sites that already expect this shape.
- */
+/** Compatibility bundle for existing call sites; prefer individual selectors from '@/stores'. */
 import { useCallback } from 'react';
 import {
   useAssistantStore,

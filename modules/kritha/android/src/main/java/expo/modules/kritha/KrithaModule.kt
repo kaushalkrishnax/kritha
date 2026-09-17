@@ -19,15 +19,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 class KrithaModule : Module() {
 
     private val moduleScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeGenerationJobs = ConcurrentHashMap<String, Job>()
+    private val activeVoiceDownloads = ConcurrentHashMap.newKeySet<String>()
     private val localLlmExecutor = LocalLlmExecutor()
-    private var voiceManager: SoniqoVoiceManager? = null
+    private var liteRtBridge: LiteRTModuleBridge? = null
+    private var voiceManager: LiteRTVoiceManager? = null
 
     companion object {
         var instance: KrithaModule? = null
@@ -43,6 +44,7 @@ class KrithaModule : Module() {
         
         OnCreate {
             instance = this@KrithaModule
+            liteRtBridge = LiteRTModuleBridge(resolveContext())
         }
         
         OnDestroy {
@@ -50,6 +52,8 @@ class KrithaModule : Module() {
                 instance = null
             }
             voiceManager?.stop()
+            liteRtBridge?.close()
+            liteRtBridge = null
         }
         
         Events(
@@ -76,28 +80,16 @@ class KrithaModule : Module() {
             "onTtsError"
         )
 
-        AsyncFunction("soniqoInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
-            if (voiceManager == null) {
-                val context = resolveContext()
-                voiceManager = SoniqoVoiceManager(context, localLlmExecutor) { event, data ->
-                    sendEvent(event, data)
-                }
-            }
-            moduleScope.launch {
-                try {
-                    voiceManager?.initialize(llmModelPath, sttModelId, ttsModelId)
-                    promise.resolve(null)
-                } catch (e: Exception) {
-                    promise.reject("ERR_SONIQO_INIT", e.message, e)
-                }
-            }
-        }
-        
-        AsyncFunction("soniqoStartListening") { requestId: String, promise: Promise ->
+        AsyncFunction("speechInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
             ensureVoiceManager()
+            ensureLiteRtBridge().setTtsModelSelection(ttsModelId)
+            promise.resolve(null)
+        }
+
+        AsyncFunction("startListening") { requestId: String, promise: Promise ->
             moduleScope.launch {
                 try {
-                    voiceManager?.startListening(requestId)
+                    ensureVoiceManager().startListening(requestId)
                     promise.resolve(null)
                 } catch (e: Exception) {
                     promise.reject("ERR_STT_START", e.message, e)
@@ -105,10 +97,10 @@ class KrithaModule : Module() {
             }
         }
 
-        AsyncFunction("soniqoStopListening") { requestId: String, promise: Promise ->
+        AsyncFunction("stopListening") { requestId: String, promise: Promise ->
             moduleScope.launch {
                 try {
-                    val transcript = voiceManager?.stopListening(requestId) ?: ""
+                    val transcript = ensureVoiceManager().stopListening(requestId)
                     promise.resolve(transcript)
                 } catch (e: Exception) {
                     promise.reject("ERR_STT_STOP", e.message, e)
@@ -116,10 +108,10 @@ class KrithaModule : Module() {
             }
         }
 
-        AsyncFunction("soniqoCancelListening") { requestId: String, promise: Promise ->
+        AsyncFunction("cancelListening") { requestId: String, promise: Promise ->
             moduleScope.launch {
                 try {
-                    voiceManager?.cancelListening(requestId)
+                    ensureVoiceManager().cancelListening(requestId)
                     promise.resolve(null)
                 } catch (e: Exception) {
                     promise.reject("ERR_STT_CANCEL", e.message, e)
@@ -127,63 +119,43 @@ class KrithaModule : Module() {
             }
         }
 
-        AsyncFunction("soniqoStart") { llmModelPath: String?, llmDevice: String? ->
-            voiceManager?.start(llmModelPath, llmDevice ?: "cpu")
+        AsyncFunction("speechStart") { llmModelPath: String?, llmDevice: String? ->
+            ensureVoiceManager().start(llmModelPath, llmDevice ?: "cpu")
             null
         }
         
-        AsyncFunction("soniqoStop") {
+        AsyncFunction("speechStop") {
             voiceManager?.stop()
             null
         }
 
-        AsyncFunction("soniqoSpeak") { requestId: String, text: String, voice: String?, promise: Promise ->
-            ensureVoiceManager()
-            voiceManager?.speak(requestId, text, voice ?: "F1") {
+        AsyncFunction("speak") { requestId: String, text: String, voice: String?, promise: Promise ->
+            ensureVoiceManager().speak(requestId, text, voice ?: "F1") {
                 promise.resolve(null)
             }
         }
 
-        AsyncFunction("soniqoPauseSpeaking") { requestId: String? ->
+        AsyncFunction("pauseSpeaking") { requestId: String? ->
             voiceManager?.pauseSpeaking(requestId)
             null
         }
 
-        AsyncFunction("soniqoResumeSpeaking") { requestId: String? ->
+        AsyncFunction("resumeSpeaking") { requestId: String? ->
             voiceManager?.resumeSpeaking(requestId)
             null
         }
 
-        AsyncFunction("soniqoStopSpeaking") { requestId: String? ->
+        AsyncFunction("stopSpeaking") { requestId: String? ->
             voiceManager?.stopSpeaking(requestId)
             null
         }
 
-        AsyncFunction("soniqoAddTool") { name: String, desc: String ->
+        AsyncFunction("addTool") { name: String, desc: String ->
             null
         }
 
         AsyncFunction("listVoiceModels") {
-            val context = resolveContext()
-            val nemotronInt8Ready = audio.soniqo.speech.ModelManager.areModelsReady(
-                context,
-                audio.soniqo.speech.ModelPrecision.INT8,
-                audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                audio.soniqo.speech.SttBackend.LITERT,
-                audio.soniqo.speech.TtsModel.SUPERTONIC
-            )
-            val nemotronFp16Ready = audio.soniqo.speech.ModelManager.areModelsReady(
-                context,
-                audio.soniqo.speech.ModelPrecision.FP32,
-                audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                audio.soniqo.speech.SttBackend.LITERT,
-                audio.soniqo.speech.TtsModel.SUPERTONIC
-            )
-            val supertonicReady = audio.soniqo.speech.ModelManager.areTtsModelsReady(
-                context,
-                audio.soniqo.speech.TtsModel.SUPERTONIC
-            )
-
+            val bridge = ensureLiteRtBridge()
             listOf(
                 mapOf(
                     "id" to "nemotron-multilingual-int8",
@@ -192,7 +164,7 @@ class KrithaModule : Module() {
                     "langs" to "Multilingual (25+ Languages)",
                     "category" to "stt",
                     "backend" to "LiteRT",
-                    "isDownloaded" to nemotronInt8Ready
+                    "isDownloaded" to false
                 ),
                 mapOf(
                     "id" to "nemotron-multilingual-fp16",
@@ -201,88 +173,56 @@ class KrithaModule : Module() {
                     "langs" to "Multilingual (High Precision)",
                     "category" to "stt",
                     "backend" to "LiteRT",
-                    "isDownloaded" to nemotronFp16Ready
-                ),
-                mapOf(
-                    "id" to "supertonic-litert",
-                    "name" to "Supertonic-3 (LiteRT)",
-                    "size" to "140 MB",
-                    "langs" to "English (10 Voices: F1-F5, M1-M5)",
-                    "category" to "tts",
-                    "backend" to "LiteRT",
-                    "isDownloaded" to supertonicReady
+                    "isDownloaded" to false
                 )
-            )
+            ) + bridge.ttsCatalog()
         }
 
         AsyncFunction("downloadVoiceModel") { modelId: String, promise: Promise ->
-            val context = resolveContext()
+            val bridge = ensureLiteRtBridge()
             moduleScope.launch {
                 try {
-                    if (isTtsOnlyModelId(modelId)) {
-                        audio.soniqo.speech.ModelManager.ensureTtsModels(
-                            context = context,
-                            ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
-                            onProgress = { p ->
-                                val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
-                                sendEvent("onVoiceModelProgress", mapOf(
-                                    "modelId" to modelId,
-                                    "progress" to pct
-                                ))
-                            }
-                        )
-                    } else {
-                        val precision = if (modelId.contains("fp16")) {
-                            audio.soniqo.speech.ModelPrecision.FP32
-                        } else {
-                            audio.soniqo.speech.ModelPrecision.INT8
-                        }
-                        audio.soniqo.speech.ModelManager.ensureModels(
-                            context = context,
-                            precision = precision,
-                            sttModel = audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                            sttBackend = audio.soniqo.speech.SttBackend.LITERT,
-                            ttsModel = audio.soniqo.speech.TtsModel.SUPERTONIC,
-                            onProgress = { p ->
-                                val pct = if (p.totalBytes > 0) ((p.totalBytesDownloaded * 100) / p.totalBytes).toInt() else 0
-                                sendEvent("onVoiceModelProgress", mapOf(
-                                    "modelId" to modelId,
-                                    "progress" to pct
-                                ))
-                            }
+                    if (!bridge.isTtsModel(modelId)) {
+                        throw IllegalStateException(
+                            "STT is stubbed; LiteRT speech-to-text is not implemented yet."
                         )
                     }
-                    sendEvent("onVoiceModelProgress", mapOf(
-                        "modelId" to modelId,
-                        "progress" to 100
-                    ))
-                    promise.resolve(null)
+                    if (!activeVoiceDownloads.add(modelId)) {
+                        throw IllegalStateException("Download for $modelId is already in progress")
+                    }
+                    try {
+                        val onProgress: (Float) -> Unit = { progress ->
+                            sendEvent(
+                                "onVoiceModelProgress",
+                                mapOf("modelId" to modelId, "progress" to progress),
+                            )
+                        }
+                        val target = bridge.downloadTtsModel(modelId, onProgress)
+                        sendEvent(
+                            "onVoiceModelProgress",
+                            mapOf(
+                                "modelId" to modelId,
+                                "progress" to 100,
+                                "path" to target.absolutePath,
+                            ),
+                        )
+                        promise.resolve(null)
+                    } finally {
+                        activeVoiceDownloads.remove(modelId)
+                    }
                 } catch (e: Exception) {
-                    sendEvent("onError", mapOf("message" to (e.message ?: "Download failed")))
+                    sendEvent(
+                        "onError",
+                        mapOf("modelId" to modelId, "message" to (e.message ?: "Download failed")),
+                    )
                     promise.reject("ERR_DOWNLOAD", e.message, e)
                 }
             }
         }
 
         AsyncFunction("deleteVoiceModel") { modelId: String ->
-            val context = resolveContext()
-            if (isTtsOnlyModelId(modelId)) {
-                val dir = File(audio.soniqo.speech.ModelManager.ttsModelDir(context))
-                if (dir.exists()) dir.deleteRecursively()
-            } else {
-                val precision = if (modelId.contains("fp16")) {
-                    audio.soniqo.speech.ModelPrecision.FP32
-                } else {
-                    audio.soniqo.speech.ModelPrecision.INT8
-                }
-                val dir = File(audio.soniqo.speech.ModelManager.modelDir(
-                    context,
-                    precision,
-                    audio.soniqo.speech.SttModel.NEMOTRON_MULTILINGUAL,
-                    audio.soniqo.speech.SttBackend.LITERT,
-                    audio.soniqo.speech.TtsModel.SUPERTONIC
-                ))
-                if (dir.exists()) dir.deleteRecursively()
+            if (isTtsModel(modelId)) {
+                liteRtBridge?.deleteTtsModel(modelId)
             }
             null
         }
@@ -356,26 +296,111 @@ class KrithaModule : Module() {
         Function("cancelLocalGeneration") { requestId: String ->
             cancelLocalGeneration(requestId)
         }
+
+        AsyncFunction("liteRtInfo") {
+            liteRtBridge?.info()
+                ?: throw IllegalStateException("LiteRT bridge is not initialized")
+        }
+
+        AsyncFunction("liteRtInspectModel") {
+            request: Map<String, Any?>,
+            promise: Promise ->
+            moduleScope.launch {
+                try {
+                    val bridge = ensureLiteRtBridge()
+
+                    val id = request["id"] as? String ?: error("id is required")
+                    val path = request["path"] as? String ?: error("path is required")
+                    val task = request["task"] as? String ?: "tts"
+                    val signature = request["signature"] as? String ?: error("signature is required")
+                    val inputs = (request["inputs"] as? List<*>)
+                        ?.map { it as? String ?: error("inputs must contain strings") }
+                        ?: emptyList()
+                    val outputs = (request["outputs"] as? List<*>)
+                        ?.map { it as? String ?: error("outputs must contain strings") }
+                        ?: emptyList()
+                    val outputTypes = (request["outputTypes"] as? List<*>)
+                        ?.map { it as? String ?: error("outputTypes must contain strings") }
+                        ?: emptyList()
+
+                    promise.resolve(
+                        bridge.inspectModel(
+                            id = id,
+                            path = path,
+                            task = task,
+                            signature = signature,
+                            inputNames = inputs,
+                            outputNames = outputs,
+                            outputTypes = outputTypes,
+                        )
+                    )
+                } catch (e: Exception) {
+                    promise.reject("ERR_LITERT_INSPECT", e.message, e)
+                }
+            }
+        }
+
+        AsyncFunction("liteRtTtsSynthesize") {
+            request: Map<String, Any?>,
+            promise: Promise ->
+            moduleScope.launch {
+                try {
+                    val bridge = ensureLiteRtBridge()
+
+                    val modelId = request["modelId"] as? String ?: ensureLiteRtBridge().defaultTtsModelId()
+                    val modelDirectory = request["modelDirectory"] as? String
+                        ?: error("modelDirectory is required")
+                    val text = request["text"] as? String
+                        ?: error("text is required")
+                    val language = request["language"] as? String ?: "english"
+                    val voice = (request["voice"] as? Number)?.toInt() ?: 0
+                    val speed = (request["speed"] as? Number)?.toFloat() ?: 1f
+                    val greedy = request["greedy"] as? Boolean ?: true
+                    val seed = (request["seed"] as? Number)?.toLong()
+
+                    promise.resolve(
+                        bridge.synthesizeTts(
+                            modelId = modelId,
+                            modelDirectory = modelDirectory,
+                            text = text,
+                            language = language,
+                            voice = voice,
+                            speed = speed,
+                            greedy = greedy,
+                            seed = seed,
+                        )
+                    )
+                } catch (e: Exception) {
+                    promise.reject("ERR_LITERT_TTS", e.message, e)
+                }
+            }
+        }
     }
 
     private fun resolveContext(): Context = appContext.reactContext
         ?: appContext.currentActivity?.applicationContext
         ?: throw Exceptions.ReactContextLost()
 
-    private fun ensureVoiceManager(): SoniqoVoiceManager {
+    private fun ensureLiteRtBridge(): LiteRTModuleBridge {
+        val existing = liteRtBridge
+        if (existing != null) return existing
+        val created = LiteRTModuleBridge(resolveContext())
+        liteRtBridge = created
+        return created
+    }
+
+    private fun ensureVoiceManager(): LiteRTVoiceManager {
         val existing = voiceManager
         if (existing != null) return existing
-        val context = resolveContext()
-        val created = SoniqoVoiceManager(context, localLlmExecutor) { event, data ->
+        val created = LiteRTVoiceManager(ensureLiteRtBridge()) { event, data ->
             sendEvent(event, data)
         }
         voiceManager = created
         return created
     }
 
-    private fun isTtsOnlyModelId(modelId: String): Boolean {
-        val id = modelId.lowercase()
-        return id.contains("supertonic") || id.contains("kokoro") || id.contains("pocket") || id.startsWith("tts")
+    private fun isTtsModel(modelId: String): Boolean {
+        return runCatching { ensureLiteRtBridge().isTtsModel(modelId) }.getOrDefault(false)
     }
 
     private fun generateLocal(request: Map<String, Any?>, promise: Promise) {

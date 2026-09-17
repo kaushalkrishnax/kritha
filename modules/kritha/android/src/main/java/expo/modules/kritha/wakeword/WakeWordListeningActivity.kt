@@ -70,8 +70,6 @@ class WakeWordListeningActivity : ReactActivity() {
 
         showAboveLockScreen()
 
-        // REMOVED: AssistantOrchestrator.startVoiceSession() - module not found
-
         window.decorView.post {
             window.decorView.requestFocus()
             window.decorView.requestLayout()
@@ -81,12 +79,9 @@ class WakeWordListeningActivity : ReactActivity() {
     override fun onNewIntent(intent: android.content.Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-
-        // REMOVED: AssistantOrchestrator.startVoiceSession() - RequestOrigin module not found
     }
 
     override fun onBackPressed() {
-        // REMOVED: AssistantOrchestrator.dismiss() - module not found
     }
 
     override fun onDestroy() {
