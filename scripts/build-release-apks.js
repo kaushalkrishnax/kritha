@@ -66,18 +66,26 @@ for (const architecture of architectures) {
     process.exit(result.status ?? 1);
   }
 
-  const builtApkName = fs
+  const builtApkNames = fs
     .readdirSync(apkOutputDir)
-    .find(
+    .filter(
       (name) =>
         name.endsWith(`-${architecture}.apk`) && name.startsWith('Kritha-'),
     );
 
-  if (!builtApkName) {
+  if (builtApkNames.length === 0) {
     console.error(
       `Expected APK for ${architecture} was not generated in ${apkOutputDir}`,
     );
     process.exit(1);
+  }
+
+  for (const builtApkName of builtApkNames) {
+    const builtApk = path.join(apkOutputDir, builtApkName);
+    const archivedApk = path.join(outputDir, builtApkName);
+
+    fs.copyFileSync(builtApk, archivedApk);
+    archivedApks.push(path.relative(root, archivedApk));
   }
 
   const builtApk = path.join(apkOutputDir, builtApkName);

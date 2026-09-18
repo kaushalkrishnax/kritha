@@ -25,6 +25,14 @@ object RuntimeCatalog {
         }
     }
 
+    /**
+     * Gradle/AGP split names use underscores while GloballyDynamic-facing module
+     * names use dashes, so the two forms must be compared normalized.
+     */
+    fun isSameModuleName(left: String, right: String): Boolean {
+        return left.trim().replace('_', '-').equals(right.trim().replace('_', '-'), ignoreCase = true)
+    }
+
     fun getDisplayName(id: RuntimeId): String = when (id) {
         RuntimeId.LITERT -> "LiteRT"
         RuntimeId.LITERT_LM -> "LiteRT-LM"

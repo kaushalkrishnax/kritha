@@ -1,6 +1,5 @@
 export * from './TextComposer';
 
-export * from './AnimatedIcon';
 export * from './ContextMenu';
 export * from './DictationCornerGlow';
 export * from './LiveTalkBar';

@@ -12,7 +12,8 @@ enum class RuntimeStatus {
     INITIALIZING,
     READY,
     FAILED,
-    CANCELLED
+    CANCELLED,
+    PERMISSION_REQUIRED
 }
 
 interface RuntimeProvider {

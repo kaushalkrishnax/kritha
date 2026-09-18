@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 
 import {
+  canInstallRuntimeFeatures,
   getRuntimes,
   installRuntimes,
+  openRuntimeInstallPermissionSettings,
   RuntimeInfo,
   subscribeRuntimeInstallProgress,
 } from '@/services/runtime.service';
@@ -29,40 +31,14 @@ export interface ExtensionsRuntimesModalProps {
   initialTab?: ExtensionsTab;
 }
 
-const FALLBACK_RUNTIMES: RuntimeInfo[] = [
-  {
-    id: 'litert',
-    module: 'feature-litert',
-    installed: false,
-    displayName: 'LiteRT',
-    description: 'On-device LiteRT execution for speech and vision tasks.',
-    capabilities: ['inference', 'tts', 'asr'],
-  },
-  {
-    id: 'litert-lm',
-    module: 'feature-litertlm',
-    installed: false,
-    displayName: 'LiteRT-LM',
-    description: 'On-device local LLM execution via LiteRT-LM.',
-    capabilities: ['llm'],
-  },
-  {
-    id: 'onnx',
-    module: 'feature-onnx',
-    installed: false,
-    displayName: 'ONNX Runtime',
-    description:
-      'On-device inference, speech, and local LLM execution via ONNX Runtime.',
-    capabilities: ['inference', 'tts', 'asr', 'llm'],
-  },
-];
-
 function statusLabel(status: string | undefined, installed: boolean): string {
   switch (status) {
     case 'CHECKING':
       return 'Checking…';
     case 'INSTALLING':
       return 'Installing…';
+    case 'PERMISSION_REQUIRED':
+      return 'Permission needed';
     case 'READY':
     case 'INSTALLED':
       return 'Ready';
@@ -81,10 +57,12 @@ export function ExtensionsRuntimesModal({
   initialTab = ExtensionsTab.Extensions,
 }: ExtensionsRuntimesModalProps) {
   const [tab, setTab] = useState<ExtensionsTab>(initialTab);
-  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>(FALLBACK_RUNTIMES);
+  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([]);
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const [progresses, setProgresses] = useState<Record<string, number>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errorCodes, setErrorCodes] = useState<Record<string, string>>({});
+  const [canInstall, setCanInstall] = useState(true);
   const [installingId, setInstallingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,6 +76,8 @@ export function ExtensionsRuntimesModal({
     } catch (e) {
       console.warn('Failed to list runtimes', e);
     }
+    // Runtimes ship as split APKs, which Android only installs with user consent.
+    setCanInstall(canInstallRuntimeFeatures());
   }, []);
 
   useEffect(() => {
@@ -142,6 +122,11 @@ export function ExtensionsRuntimesModal({
       delete next[runtimeId];
       return next;
     });
+    setErrorCodes((prev) => {
+      const next = { ...prev };
+      delete next[runtimeId];
+      return next;
+    });
     try {
       const results = await installRuntimes(runtimeId);
       const result = results.find((r) => r.id === runtimeId) ?? results[0];
@@ -150,6 +135,12 @@ export function ExtensionsRuntimesModal({
           setErrors((prev) => ({
             ...prev,
             [runtimeId]: result.error as string,
+          }));
+        }
+        if (result.errorCode) {
+          setErrorCodes((prev) => ({
+            ...prev,
+            [runtimeId]: result.errorCode as string,
           }));
         }
         if (result.installed) {
@@ -237,6 +228,20 @@ export function ExtensionsRuntimesModal({
             </View>
           ) : (
             <ScrollView style={styles.scrollArea}>
+              {!canInstall ? (
+                <View style={styles.permissionNotice}>
+                  <Text style={styles.permissionNoticeText}>
+                    Android needs your permission before Kritha can install
+                    runtimes. Allow installation from Kritha, then install again.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.permissionBtn}
+                    onPress={openRuntimeInstallPermissionSettings}
+                  >
+                    <Text style={styles.permissionBtnText}>Allow</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               {runtimes.map((runtime) => {
                 const status = statuses[runtime.id];
                 const progress = progresses[runtime.id];
@@ -269,6 +274,11 @@ export function ExtensionsRuntimesModal({
                         </Text>
                         {error ? (
                           <Text style={styles.optionError}>{error}</Text>
+                        ) : null}
+                        {errorCodes[runtime.id] === 'PERMISSION_REQUIRED' ? (
+                          <Text style={styles.optionHint}>
+                            Allow installation from Kritha, then retry.
+                          </Text>
                         ) : null}
                       </View>
 
@@ -427,6 +437,36 @@ const styles = StyleSheet.create({
     color: Colors.error,
     fontSize: Typography.sizeXs,
     marginTop: 6,
+  },
+  optionHint: {
+    color: Colors.textSecondary,
+    fontSize: Typography.sizeXs,
+    marginTop: 4,
+  },
+  permissionNotice: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.sm,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderAccent,
+    marginBottom: 8,
+  },
+  permissionNoticeText: {
+    color: Colors.textPrimary,
+    fontSize: Typography.sizeSm,
+    marginBottom: 10,
+  },
+  permissionBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.accentBlue,
+  },
+  permissionBtnText: {
+    color: Colors.textOnAccent,
+    fontWeight: '600',
+    fontSize: Typography.sizeSm,
   },
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconBtn: {

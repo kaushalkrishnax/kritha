@@ -3,11 +3,13 @@ package expo.modules.kritha.tools
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 
 /**
- * Notification-listener access checks used by the bridge surface. The only
- * device queries that are actually exercised today live here.
+ * Notification-listener and package-install access checks used by the bridge
+ * surface. The device queries that are actually exercised today live here.
  */
 object DeviceTools {
 
@@ -23,5 +25,31 @@ object DeviceTools {
             }
         }
         context.startActivity(intent)
+    }
+
+    /** Android 8+ only lets an app install split APKs once the user allows it. */
+    fun canInstallPackages(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return try {
+            context.packageManager.canRequestPackageInstalls()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun openInstallPermissionSettings(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+            data = Uri.parse("package:${context.packageName}")
+            if (context !is Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (_: Throwable) {
+            false
+        }
     }
 }

@@ -1,7 +1,9 @@
 import {
+  canInstallPackages,
   installRuntime,
   listRuntimes,
   addRuntimeInstallProgressListener,
+  openInstallPermissionSettings,
   RuntimeInfo,
   RuntimeInstallProgressEvent,
   RuntimeInstallResult,
@@ -19,6 +21,14 @@ export async function installRuntimes(
   runtimeIds: RuntimeIdInput,
 ): Promise<RuntimeInstallResult[]> {
   return await installRuntime(runtimeIds);
+}
+
+export function canInstallRuntimeFeatures(): boolean {
+  return canInstallPackages();
+}
+
+export function openRuntimeInstallPermissionSettings(): boolean {
+  return openInstallPermissionSettings();
 }
 
 export function subscribeRuntimeInstallProgress(

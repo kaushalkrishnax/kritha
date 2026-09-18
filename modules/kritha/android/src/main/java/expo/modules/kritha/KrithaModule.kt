@@ -3,6 +3,7 @@ package expo.modules.kritha
 import expo.modules.kritha.runtime.RuntimeManager
 import expo.modules.kritha.runtime.RuntimeCatalog
 import expo.modules.kritha.runtime.RuntimeId
+import expo.modules.kritha.runtime.InstallPermissionRequiredException
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -295,6 +296,17 @@ class KrithaModule : Module() {
             true
         }
 
+        Function("canInstallPackages") {
+            val context =
+                appContext.reactContext ?: appContext.currentActivity?.applicationContext ?: return@Function false
+            DeviceTools.canInstallPackages(context)
+        }
+
+        Function("openInstallPermissionSettings") {
+            val context = appContext.currentActivity ?: appContext.reactContext ?: return@Function false
+            DeviceTools.openInstallPermissionSettings(context)
+        }
+
         AsyncFunction("listRuntimes") {
             runtimeManager.allRuntimes().map { id ->
                 mapOf(
@@ -465,6 +477,7 @@ class KrithaModule : Module() {
             "installed" to false,
             "providerAvailable" to false,
             "error" to "Unknown runtime ID: $jsId",
+            "errorCode" to "UNKNOWN_RUNTIME",
         )
         val canonicalId = RuntimeCatalog.getJsId(runtime)
         val moduleName = RuntimeCatalog.getModuleName(runtime)
@@ -502,6 +515,25 @@ class KrithaModule : Module() {
                 "installed" to true,
                 "providerAvailable" to true,
                 "error" to null,
+                "errorCode" to null,
+            )
+        } catch (e: InstallPermissionRequiredException) {
+            sendEvent(
+                "onRuntimeInstallProgress",
+                mapOf(
+                    "runtimeId" to canonicalId,
+                    "module" to moduleName,
+                    "status" to "PERMISSION_REQUIRED",
+                    "progress" to null,
+                ),
+            )
+            mapOf(
+                "id" to canonicalId,
+                "module" to moduleName,
+                "installed" to false,
+                "providerAvailable" to false,
+                "error" to (e.message ?: "Install permission required"),
+                "errorCode" to "PERMISSION_REQUIRED",
             )
         } catch (e: Exception) {
             val installed = runCatching { runtimeManager.isInstalled(runtime) }.getOrDefault(false)
@@ -520,6 +552,7 @@ class KrithaModule : Module() {
                 "installed" to installed,
                 "providerAvailable" to false,
                 "error" to (e.message ?: "Install failed"),
+                "errorCode" to "INSTALL_FAILED",
             )
         } finally {
             progressJob.cancel()

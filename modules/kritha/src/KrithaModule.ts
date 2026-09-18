@@ -80,6 +80,7 @@ export type RuntimeInstallResult = {
   installed: boolean;
   providerAvailable: boolean;
   error?: string | null;
+  errorCode?: string | null;
 };
 
 export type RuntimeInstallProgressEvent = {
@@ -145,6 +146,8 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   resumeSpeaking(requestId?: string | null): Promise<void>;
   stopSpeaking(requestId?: string | null): Promise<void>;
   addTool(name: string, desc: string): Promise<void>;
+  canInstallPackages(): boolean;
+  openInstallPermissionSettings(): boolean;
   listRuntimes(): Promise<RuntimeInfo[]>;
   installRuntime(
     runtimeIds: string | string[],
