@@ -6,13 +6,15 @@ plugins {
 android {
     namespace = "expo.modules.kritha.feature.litertlm"
     compileSdk = rootProject.ext.compileSdkVersion
-    defaultConfig { minSdk = rootProject.ext.minSdkVersion }
+    defaultConfig {
+      minSdk = rootProject.ext.minSdkVersion
+    }
 }
 
 dependencies {
     implementation(project(":app"))
     implementation(project(":kritha"))
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.15.0")
+    implementation "com.google.ai.edge.litertlm:litertlm-android:0.15.0"
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {

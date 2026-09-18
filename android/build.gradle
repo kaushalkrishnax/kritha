@@ -25,5 +25,3 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
-
-subprojects { configurations.all { exclude group: 'com.google.android.play', module: 'core' } }

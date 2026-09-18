@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest package="expo.modules.kritha.feature.litert" xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:dist="http://schemas.android.com/apk/distribution">
 
     <dist:module
@@ -8,6 +8,7 @@
         <dist:delivery>
             <dist:on-demand />
         </dist:delivery>
-        <dist:fusing dist:include="true" />
+        <dist:fusing dist:include="false" />
     </dist:module>
+
 </manifest>

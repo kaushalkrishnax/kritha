@@ -379,11 +379,6 @@ export function ChatMessages() {
                         isTtsModelLoading && currentTtsMsgId === msg.id
                       }
                       onSpeakerPress={() => {
-                        console.log('[TTS_DEBUG] ChatMessages: onSpeakerPress triggered', {
-                          messageId: msg.id,
-                          textPreview: msg.text?.slice(0, 50),
-                          textLength: msg.text?.length,
-                        });
                         handleSpeakerPress(msg.id, msg.text);
                       }}
                     />

@@ -145,11 +145,6 @@ export function AssistantOverlay() {
             isTtsBuffering={isTtsModelLoading}
             ttsMsgId={currentTtsMsgId}
             onSpeakerPress={() => {
-              console.log('[TTS_DEBUG] AssistantOverlay: onSpeakerPress triggered', {
-                activeResponseMessageId,
-                responseLength: response?.length,
-                hasResponse: Boolean(response),
-              });
               if (response) {
                 handleSpeakerPress(activeResponseMessageId, response);
               }

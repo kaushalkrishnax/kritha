@@ -46,7 +46,10 @@
     "start": "expo start",
     "android": "expo run:android",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "release": "node scripts/build-release-apks.js",
+    "gd:build": "bun scripts/build-gd-artifacts.js",
+    "gd:deploy": "bunx wrangler deploy"
   },
   "op-sqlite": {
     "sqliteVec": true

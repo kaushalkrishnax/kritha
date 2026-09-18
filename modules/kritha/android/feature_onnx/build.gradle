@@ -6,7 +6,9 @@ plugins {
 android {
     namespace = "expo.modules.kritha.feature.onnx"
     compileSdk = rootProject.ext.compileSdkVersion
-    defaultConfig { minSdk = rootProject.ext.minSdkVersion }
+    defaultConfig {
+      minSdk = rootProject.ext.minSdkVersion
+    }
 }
 
 dependencies {

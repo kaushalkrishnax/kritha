@@ -138,31 +138,26 @@ function attachNativeListeners(): void {
   });
 
   KrithaSpeech.addTtsStartedListener((e) => {
-    console.log('[TTS_DEBUG] speechRuntime: native event onTtsStarted', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsStarted', requestId: e.requestId });
   });
 
   KrithaSpeech.addTtsPausedListener((e) => {
-    console.log('[TTS_DEBUG] speechRuntime: native event onTtsPaused', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsPaused', requestId: e.requestId });
   });
 
   KrithaSpeech.addTtsResumedListener((e) => {
-    console.log('[TTS_DEBUG] speechRuntime: native event onTtsResumed', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsResumed', requestId: e.requestId });
   });
 
   KrithaSpeech.addTtsCompletedListener((e) => {
-    console.log('[TTS_DEBUG] speechRuntime: native event onTtsCompleted', e);
     if (!e?.requestId) return;
     emit({ kind: 'ttsCompleted', requestId: e.requestId });
   });
 
   KrithaSpeech.addTtsStoppedListener((e: SpeechEvent) => {
-    console.log('[TTS_DEBUG] speechRuntime: native event onTtsStopped', e);
     if (!e?.requestId) return;
     emit({
       kind: 'ttsStopped',
@@ -172,7 +167,6 @@ function attachNativeListeners(): void {
   });
 
   KrithaSpeech.addTtsErrorListener((e: SpeechEvent) => {
-    console.error('[TTS_DEBUG] speechRuntime: native event onTtsError', e);
     emit({
       kind: 'ttsError',
       requestId: e?.requestId ?? null,
@@ -204,24 +198,16 @@ async function assertModelsDownloaded(
   ttsModelId: string | null,
   forCapability: 'stt' | 'tts' | 'both',
 ): Promise<void> {
-  console.log('[TTS_DEBUG] speechRuntime: assertModelsDownloaded called', {
-    sttModelId,
-    ttsModelId,
-    forCapability,
-  });
   const models = await KrithaSpeech.listVoiceModels();
-  console.log('[TTS_DEBUG] speechRuntime: listVoiceModels result:', models);
   if (forCapability === 'stt' || forCapability === 'both') {
     const stt = models.find((m) => m.id === sttModelId);
     if (!sttModelId || !stt?.isDownloaded) {
-      console.warn('[TTS_DEBUG] speechRuntime: STT model missing or not downloaded', { sttModelId, stt });
       throw new VoiceModelMissingError('stt', sttModelId);
     }
   }
   if (forCapability === 'tts' || forCapability === 'both') {
     const tts = models.find((m) => m.id === ttsModelId);
     if (!ttsModelId || !tts?.isDownloaded) {
-      console.warn('[TTS_DEBUG] speechRuntime: TTS model missing or not downloaded', { ttsModelId, tts });
       throw new VoiceModelMissingError('tts', ttsModelId);
     }
   }
@@ -230,7 +216,6 @@ async function assertModelsDownloaded(
 export async function ensureSpeechRuntimeInitialized(
   forCapability: 'stt' | 'tts' | 'both' = 'both',
 ): Promise<void> {
-  console.log('[TTS_DEBUG] speechRuntime: ensureSpeechRuntimeInitialized starting for', forCapability);
   attachNativeListeners();
   const sttModelId = useVoiceStore.getState().selectedSttModelId;
   const ttsModelId = useVoiceStore.getState().selectedTtsModelId;
@@ -243,17 +228,11 @@ export async function ensureSpeechRuntimeInitialized(
     initializedSelections.tts === ttsModelId;
   if (selectionsMatch) return;
   if (selectionsMatch) {
-    console.log('[TTS_DEBUG] speechRuntime: selectionsMatch is true, already initialized');
     return;
   }
 
   const modelId = useModelStore.getState().selectedModelId;
   const modelPath = await modelDownloadService.getDownloadedModelPath(modelId);
-  console.log('[TTS_DEBUG] speechRuntime: initializing KrithaSpeech with', {
-    modelPath,
-    sttModelId,
-    ttsModelId,
-  });
 
   beginModelLoad(forCapability);
   try {
@@ -264,9 +243,7 @@ export async function ensureSpeechRuntimeInitialized(
       ttsModelId: ttsModelId ?? undefined,
     });
     initializedSelections = { stt: sttModelId, tts: ttsModelId };
-    console.log('[TTS_DEBUG] speechRuntime: KrithaSpeech.initialize succeeded');
   } catch (initErr) {
-    console.error('[TTS_DEBUG] speechRuntime: KrithaSpeech.initialize failed', initErr);
     throw initErr;
   } finally {
     endModelLoad(forCapability);
@@ -295,19 +272,10 @@ export async function speak(
   text: string,
   voice?: string | null,
 ): Promise<void> {
-  console.log('[TTS_DEBUG] speechRuntime: speak called', {
-    requestId,
-    textPreview: text?.slice(0, 50),
-    textLength: text?.length,
-    voice,
-  });
   await ensureSpeechRuntimeInitialized('tts');
-  console.log('[TTS_DEBUG] speechRuntime: calling KrithaSpeech.speak...');
   try {
     await KrithaSpeech.speak(requestId, text, voice ?? 'F1');
-    console.log('[TTS_DEBUG] speechRuntime: KrithaSpeech.speak invocation finished');
   } catch (speakErr) {
-    console.error('[TTS_DEBUG] speechRuntime: KrithaSpeech.speak invocation threw', speakErr);
     throw speakErr;
   }
 }

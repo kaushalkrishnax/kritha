@@ -1,12 +1,12 @@
 import { Image } from 'expo-image';
 import {
   Archive,
-  Clock,
   Library,
   MessageCircle,
   MoreHorizontal,
   Pencil,
   Pin,
+  Puzzle,
   Search,
   Settings,
   ShieldCheck,
@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import {
   ArchivedChatsModal,
+  ExtensionsRuntimesModal,
   PermissionsChecklistModal,
   SettingsModal,
 } from '@/components/chat/modals';
@@ -81,6 +82,8 @@ export function ChatSidebar({
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [archivedModalVisible, setArchivedModalVisible] = useState(false);
   const [permissionsModalVisible, setPermissionsModalVisible] = useState(false);
+  const [extensionsRuntimesModalVisible, setExtensionsRuntimesModalVisible] =
+    useState(false);
   const insets = useSafeAreaInsets();
 
   const rowRefs = useRef<{ [key: string]: any }>({});
@@ -324,9 +327,13 @@ export function ChatSidebar({
               <Archive size={IconSizes.md} color={Colors.textPrimary} />
               <Text style={styles.actionText}>Archived Chats</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionRow} activeOpacity={0.7}>
-              <Clock size={IconSizes.md} color={Colors.textPrimary} />
-              <Text style={styles.actionText}>Scheduled</Text>
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.7}
+              onPress={() => setExtensionsRuntimesModalVisible(true)}
+            >
+              <Puzzle size={IconSizes.md} color={Colors.textPrimary} />
+              <Text style={styles.actionText}>Extensions & Runtimes</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionRow}
@@ -402,6 +409,11 @@ export function ChatSidebar({
         <PermissionsChecklistModal
           visible={permissionsModalVisible}
           onClose={() => setPermissionsModalVisible(false)}
+        />
+
+        <ExtensionsRuntimesModal
+          visible={extensionsRuntimesModalVisible}
+          onClose={() => setExtensionsRuntimesModalVisible(false)}
         />
       </Animated.View>
     </View>

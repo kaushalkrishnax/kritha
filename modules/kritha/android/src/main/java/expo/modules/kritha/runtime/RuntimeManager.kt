@@ -1,12 +1,22 @@
 package expo.modules.kritha.runtime
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
-import java.util.ServiceLoader
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 class RuntimeManager(private val context: Context) {
+    companion object {
+        private const val TAG = "RuntimeManager"
+    }
+
     private val client: DynamicDeliveryClient = GloballyDynamicDeliveryClient(context)
     private val cachedProviders = mutableMapOf<RuntimeId, RuntimeProvider>()
+    private val installLocks = ConcurrentHashMap<RuntimeId, Mutex>()
+
+    fun allRuntimes(): List<RuntimeId> = RuntimeCatalog.allIds()
 
     fun isInstalled(runtime: RuntimeId): Boolean {
         val moduleName = RuntimeCatalog.getModuleName(runtime)
@@ -17,16 +27,22 @@ class RuntimeManager(private val context: Context) {
         val cached = cachedProviders[runtime]
         if (cached != null) return cached
 
-        val moduleName = RuntimeCatalog.getModuleName(runtime)
-        if (!client.isInstalled(moduleName)) {
-            client.install(moduleName)
-        }
+        val lock = installLocks.getOrPut(runtime) { Mutex() }
+        return lock.withLock {
+            val rechecked = cachedProviders[runtime]
+            if (rechecked != null) return@withLock rechecked
 
-        val provider = discoverProvider(runtime)
-            ?: throw IllegalStateException("Provider for $runtime not found after installation")
-            
-        cachedProviders[runtime] = provider
-        return provider
+            val moduleName = RuntimeCatalog.getModuleName(runtime)
+            if (!client.isInstalled(moduleName)) {
+                client.install(moduleName)
+            }
+
+            val provider = discoverProvider(runtime)
+                ?: throw IllegalStateException("Provider for $runtime not found after installation")
+
+            cachedProviders[runtime] = provider
+            provider
+        }
     }
 
     fun observeInstall(runtime: RuntimeId): Flow<InstallState> {
@@ -45,22 +61,22 @@ class RuntimeManager(private val context: Context) {
     }
 
     private fun discoverProvider(runtime: RuntimeId): RuntimeProvider? {
-        // Because of dynamic modules, we need to load using the context class loader
-        // or the class loader of a class from the dynamic module. However, ServiceLoader
-        // handles it if it's in the merged classpath (which dynamic features are after install).
-        val serviceLoader = ServiceLoader.load(RuntimeProvider::class.java, context.classLoader)
-        for (provider in serviceLoader) {
-            if (provider.id == runtime) {
-                provider.initialize(context)
-                return provider
+        return try {
+            val serviceLoader = loadRuntimeProviders(runtime, context.classLoader)
+            for (provider in serviceLoader) {
+                if (provider.id == runtime) {
+                    provider.initialize(context)
+                    return provider
+                }
             }
+            null
+        } catch (t: Throwable) {
+            Log.e(TAG, "Provider discovery error for $runtime", t)
+            null
         }
-        return null
     }
 
     fun release(runtime: RuntimeId) {
-        // Feature delivery does not typically unload easily at runtime on Android
-        // but we can clear our cache.
         cachedProviders.remove(runtime)
     }
 }

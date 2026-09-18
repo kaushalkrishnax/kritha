@@ -14,12 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * TTS runs end-to-end on LiteRT (chunked synthesis + AudioTrack playback). STT
- * is not implemented by the LiteRT stack yet, so every recognition entry point
- * is a stub that emits lifecycle events without capturing audio.
+ * TTS runs end-to-end through the runtime provider (chunked synthesis +
+ * AudioTrack playback). STT is not implemented by the runtime stack yet, so
+ * every recognition entry point is a stub that emits lifecycle events without
+ * capturing audio.
  */
-internal class LiteRTVoiceManager(
-    private val bridge: LiteRTModuleBridge,
+internal class VoiceManager(
+    private val bridge: TtsModuleBridge,
     private val eventEmitter: (String, Map<String, Any?>) -> Unit,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -30,11 +31,12 @@ internal class LiteRTVoiceManager(
     private val ttsPaused = AtomicBoolean(false)
 
     companion object {
-        private const val TAG = "LiteRTVoiceManager"
+        private const val TAG = "VoiceManager"
 
         private fun friendlyTtsMessage(raw: String): String {
-            // LiteRT surfaces "Failed to invoke the compiled model" generically;
-            // on-device the underlying cause is "Failed to allocate tensors" (OOM).
+            // The runtime surfaces "Failed to invoke the compiled model"
+            // generically; on-device the underlying cause is often "Failed to
+            // allocate tensors" (OOM).
             return if (
                 raw.contains("invoke the compiled model") ||
                 raw.contains("allocate tensors") ||
@@ -81,18 +83,14 @@ internal class LiteRTVoiceManager(
     }
 
     fun speak(requestId: String, text: String, voice: String = "F1", onDone: (() -> Unit)? = null) {
-        Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager.speak called: requestId=$requestId, textLength=${text.length}, voice=$voice")
         if (text.isBlank()) {
-            Log.w(TAG, "[TTS_DEBUG] LiteRTVoiceManager.speak: text is blank, emitting onTtsError")
             eventEmitter("onTtsError", mapOf("requestId" to requestId, "message" to "Nothing to speak"))
             onDone?.invoke()
             return
         }
 
         val selection = bridge.resolveActiveTts()
-        Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager.speak: activeTts=$selection")
         if (selection == null) {
-            Log.e(TAG, "[TTS_DEBUG] LiteRTVoiceManager.speak: TTS model directory is null (model not downloaded)!")
             eventEmitter(
                 "onTtsError",
                 mapOf("requestId" to requestId, "message" to "TTS model not downloaded"),
@@ -104,7 +102,6 @@ internal class LiteRTVoiceManager(
 
         val previous = activeTtsRequestId
         if (previous != null && previous != requestId) {
-            Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager.speak: cancelling previous TTS requestId=$previous")
             // Stop previous playback without completing the old owner.
             speakJob?.cancel()
             try {
@@ -119,17 +116,14 @@ internal class LiteRTVoiceManager(
 
         speakJob = scope.launch {
             try {
-                Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: emitting onTtsStarted for requestId=$requestId")
                 eventEmitter("onTtsStarted", mapOf("requestId" to requestId))
                 eventEmitter("onResponseCreated", mapOf("requestId" to requestId, "text" to ""))
 
                 val pieces = SpeechChunks.split(text)
-                Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: text split into ${pieces.size} chunks: $pieces")
                 var player: StreamingPcmPlayer? = null
 
                 for ((idx, piece) in pieces.withIndex()) {
                     if (!isActive || activeTtsRequestId != requestId) {
-                        Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: speakJob cancelled before chunk $idx")
                         break
                     }
                     while (activeTtsRequestId == requestId && ttsPaused.get()) {
@@ -138,33 +132,26 @@ internal class LiteRTVoiceManager(
                     if (!isActive || activeTtsRequestId != requestId) break
                     if (piece.isBlank()) continue
 
-                    Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: synthesizing chunk $idx: '$piece'...")
                     val audio = synthesize(piece, selection, voice)
-                    Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: chunk $idx synthesized, raw samples=${audio.pcm.size}, rate=${audio.sampleRate}")
                     val pcm16 = if (audio.pcm.isEmpty()) ByteArray(0) else bridge.encodePcm16(audio.pcm)
                     if (pcm16.isEmpty()) {
-                        Log.w(TAG, "[TTS_DEBUG] LiteRTVoiceManager: chunk $idx produced empty pcm16")
                         continue
                     }
                     if (activeTtsRequestId != requestId) break
 
                     if (player == null) {
-                        Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: starting StreamingPcmPlayer with ${pcm16.size} bytes")
                         player = StreamingPcmPlayer(audio.sampleRate).also { speechPlayer = it }
                         player.start(pcm16)
                     } else {
-                        Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: writing ${pcm16.size} bytes to StreamingPcmPlayer")
                         player.write(pcm16)
                     }
                 }
 
                 if (activeTtsRequestId != requestId) {
-                    Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: activeTtsRequestId changed from $requestId to $activeTtsRequestId, abandoning playback")
                     return@launch
                 }
                 val activePlayer = player
                 if (activePlayer == null) {
-                    Log.e(TAG, "[TTS_DEBUG] LiteRTVoiceManager: no audio was generated for $requestId")
                     activeTtsRequestId = null
                     eventEmitter("onTtsError", mapOf("requestId" to requestId, "message" to "No audio generated"))
                     return@launch
@@ -173,21 +160,17 @@ internal class LiteRTVoiceManager(
                     delay(20)
                 }
                 if (activeTtsRequestId != requestId) return@launch
-                Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: awaiting drained player audio...")
                 activePlayer.awaitDrained()
                 activePlayer.stopPlayback()
 
                 if (activeTtsRequestId != requestId) return@launch
                 activeTtsRequestId = null
-                Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: playback completed for $requestId")
                 eventEmitter("onTtsCompleted", mapOf("requestId" to requestId))
                 eventEmitter("onResponseDone", mapOf("requestId" to requestId))
             } catch (e: Exception) {
                 if (e is CancellationException) {
-                    Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: speakJob cancelled via coroutine exception")
                     return@launch
                 }
-                Log.e(TAG, "[TTS_DEBUG] TTS speak error for $requestId", e)
                 if (activeTtsRequestId == requestId) {
                     activeTtsRequestId = null
                     val message = friendlyTtsMessage(e.message ?: "TTS error")
@@ -199,7 +182,6 @@ internal class LiteRTVoiceManager(
                 // produced; free the active model once this request is no longer
                 // current so memory returns to baseline between utterances.
                 if (activeTtsRequestId == null || activeTtsRequestId != requestId) {
-                    Log.d(TAG, "[TTS_DEBUG] LiteRTVoiceManager: no active TTS, releasing TTS engine")
                     bridge.releaseActiveTts()
                 }
                 onDone?.invoke()
@@ -209,7 +191,7 @@ internal class LiteRTVoiceManager(
 
     private fun synthesize(
         piece: String,
-        selection: LiteRTModuleBridge.ActiveTts,
+        selection: TtsModuleBridge.ActiveTts,
         voice: String,
     ): SpeechAudio {
         return bridge.synthesizeTtsPcm(

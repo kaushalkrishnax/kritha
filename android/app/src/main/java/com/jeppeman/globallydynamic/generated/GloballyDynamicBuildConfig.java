@@ -1,10 +1,14 @@
 package com.jeppeman.globallydynamic.generated;
 
+import com.kritha.app.BuildConfig;
+import com.kritha.app.MainActivity;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class GloballyDynamicBuildConfig {
+
     public long getDownloadConnectTimeout() {
         return 30000L;
     }
@@ -18,23 +22,27 @@ public class GloballyDynamicBuildConfig {
     }
 
     public String[] getOnDemandFeatures() {
-        return new String[] { "feature-litert", "feature-litertlm", "feature-onnx" };
+        return new String[] {
+            "feature-litert",
+            "feature-litertlm",
+            "feature-onnx"
+        };
     }
 
     public String getServerUrl() {
-        return "http://10.0.2.2:8080";
+        return BuildConfig.GLOBALLY_DYNAMIC_SERVER_URL;
     }
 
     public String getApplicationId() {
-        return "com.kritha.app.debug";
+        return BuildConfig.APPLICATION_ID;
     }
 
     public String getVariantName() {
-        return "debug";
+        return BuildConfig.BUILD_TYPE;
     }
 
     public int getVersionCode() {
-        return 1;
+        return BuildConfig.VERSION_CODE;
     }
 
     public long getThrottleDownloadBy() {
@@ -42,7 +50,6 @@ public class GloballyDynamicBuildConfig {
     }
 
     public String getMainActivityFullyQualifiedName() {
-        return "com.kritha.app.MainActivity";
+        return MainActivity.class.getName();
     }
 }
-

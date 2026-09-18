@@ -63,10 +63,37 @@ export type SpeechErrorEvent = {
   message?: string;
 };
 
+export type RuntimeId = 'litert' | 'litert-lm' | 'onnx';
+
+export type RuntimeInfo = {
+  id: string;
+  module: string;
+  installed: boolean;
+  displayName: string;
+  description: string;
+  capabilities: string[];
+};
+
+export type RuntimeInstallResult = {
+  id: string;
+  module: string;
+  installed: boolean;
+  providerAvailable: boolean;
+  error?: string | null;
+};
+
+export type RuntimeInstallProgressEvent = {
+  runtimeId: string;
+  module: string;
+  status: string;
+  progress?: number | null;
+};
+
 export type KrithaModuleEvents = {
   onWakeWordDetected(event: WakeWordEvent): void;
   onLocalLlmDelta(event: LocalLlmDeltaEvent): void;
   onVoiceModelProgress(event: VoiceModelProgressEvent): void;
+  onRuntimeInstallProgress(event: RuntimeInstallProgressEvent): void;
   onSpeechStarted(): void;
   onSpeechEnded(): void;
   onTranscript(event: SpeechTextEvent): void;
@@ -122,6 +149,8 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   resumeSpeaking(requestId?: string | null): Promise<void>;
   stopSpeaking(requestId?: string | null): Promise<void>;
   addTool(name: string, desc: string): Promise<void>;
+  listRuntimes(): Promise<RuntimeInfo[]>;
+  installRuntime(runtimeIds: string | string[]): Promise<RuntimeInstallResult[]>;
   listVoiceModels(): Promise<VoiceModelInfo[]>;
   downloadVoiceModel(modelId: string): Promise<void>;
   deleteVoiceModel(modelId: string): Promise<void>;

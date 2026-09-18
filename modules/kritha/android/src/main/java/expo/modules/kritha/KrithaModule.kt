@@ -1,9 +1,8 @@
 package expo.modules.kritha
 
 import expo.modules.kritha.runtime.RuntimeManager
+import expo.modules.kritha.runtime.RuntimeCatalog
 import expo.modules.kritha.runtime.RuntimeId
-import expo.modules.kritha.runtime.llm.LlmProvider
-import expo.modules.kritha.runtime.tts.TtsProvider
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -30,8 +29,8 @@ class KrithaModule : Module() {
     private val moduleScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeGenerationJobs = ConcurrentHashMap<String, Job>()
     private val activeVoiceDownloads = ConcurrentHashMap.newKeySet<String>()
-    private var liteRtBridge: LiteRTModuleBridge? = null
-    private var voiceManager: LiteRTVoiceManager? = null
+    private var ttsBridge: TtsModuleBridge? = null
+    private var voiceManager: VoiceManager? = null
 
     companion object {
         var instance: KrithaModule? = null
@@ -48,9 +47,9 @@ class KrithaModule : Module() {
         OnCreate {
             instance = this@KrithaModule
             try {
-                liteRtBridge = LiteRTModuleBridge(resolveContext())
+                ttsBridge = TtsModuleBridge(resolveContext())
             } catch (t: Throwable) {
-                android.util.Log.e("KrithaModule", "Failed to initialize LiteRTModuleBridge", t)
+                android.util.Log.e("KrithaModule", "Failed to initialize TtsModuleBridge", t)
             }
         }
         
@@ -59,8 +58,8 @@ class KrithaModule : Module() {
                 instance = null
             }
             voiceManager?.stop()
-            liteRtBridge?.close()
-            liteRtBridge = null
+            ttsBridge?.close()
+            ttsBridge = null
         }
         
         Events(
@@ -84,7 +83,8 @@ class KrithaModule : Module() {
             "onTtsResumed",
             "onTtsCompleted",
             "onTtsStopped",
-            "onTtsError"
+            "onTtsError",
+            "onRuntimeInstallProgress"
         )
 
         AsyncFunction("speechInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
@@ -161,7 +161,7 @@ class KrithaModule : Module() {
         }
 
         AsyncFunction("listVoiceModels") {
-            val bridge = ensureLiteRtBridge()
+            val bridge = ensureTtsBridge()
             listOf(
                 mapOf(
                     "id" to "nemotron-multilingual-int8",
@@ -185,7 +185,7 @@ class KrithaModule : Module() {
         }
 
         AsyncFunction("downloadVoiceModel") { modelId: String, promise: Promise ->
-            val bridge = ensureLiteRtBridge()
+            val bridge = ensureTtsBridge()
             moduleScope.launch {
                 try {
                     if (!bridge.isTtsModel(modelId)) {
@@ -228,7 +228,7 @@ class KrithaModule : Module() {
 
         AsyncFunction("deleteVoiceModel") { modelId: String ->
             if (isTtsModel(modelId)) {
-                liteRtBridge?.deleteTtsModel(modelId)
+                ttsBridge?.deleteTtsModel(modelId)
             }
             null
         }
@@ -295,17 +295,58 @@ class KrithaModule : Module() {
             true
         }
 
+        AsyncFunction("listRuntimes") {
+            runtimeManager.allRuntimes().map { id ->
+                mapOf(
+                    "id" to RuntimeCatalog.getJsId(id),
+                    "module" to RuntimeCatalog.getModuleName(id),
+                    "installed" to runCatching { runtimeManager.isInstalled(id) }.getOrDefault(false),
+                    "displayName" to RuntimeCatalog.getDisplayName(id),
+                    "description" to RuntimeCatalog.getDescription(id),
+                    "capabilities" to RuntimeCatalog.getCapabilities(id),
+                )
+            }
+        }
+
+        AsyncFunction("installRuntime") { input: Any?, promise: Promise ->
+            moduleScope.launch {
+                try {
+                    val jsIds = parseRuntimeIds(input)
+                    if (jsIds.isEmpty()) {
+                        promise.reject(
+                            "ERR_INVALID_REQUEST",
+                            "installRuntime requires one runtime ID or an array of runtime IDs",
+                            null,
+                        )
+                        return@launch
+                    }
+                    val unknown = jsIds.filter { RuntimeCatalog.fromJsId(it) == null }
+                    if (unknown.isNotEmpty()) {
+                        promise.reject(
+                            "ERR_UNKNOWN_RUNTIME",
+                            "Unknown runtime ID(s): ${unknown.joinToString()}. Available: litert, litert-lm, onnx",
+                            null,
+                        )
+                        return@launch
+                    }
+                    val results = jsIds.map { jsId -> installOneRuntime(jsId) }
+                    promise.resolve(results)
+                } catch (e: Exception) {
+                    promise.reject("ERR_INSTALL", e.message, e)
+                }
+            }
+        }
+
         AsyncFunction("generateLocal") { request: Map<String, Any?>, promise: Promise ->
             generateLocal(request, promise)
         }
-
         Function("cancelLocalGeneration") { requestId: String ->
             cancelLocalGeneration(requestId)
         }
 
         AsyncFunction("liteRtInfo") {
-            liteRtBridge?.info()
-                ?: throw IllegalStateException("LiteRT bridge is not initialized")
+            ttsBridge?.info()
+                ?: throw IllegalStateException("TTS bridge is not initialized")
         }
 
         AsyncFunction("liteRtInspectModel") {
@@ -313,7 +354,7 @@ class KrithaModule : Module() {
             promise: Promise ->
             moduleScope.launch {
                 try {
-                    val bridge = ensureLiteRtBridge()
+                    val bridge = ensureTtsBridge()
 
                     val id = request["id"] as? String ?: error("id is required")
                     val path = request["path"] as? String ?: error("path is required")
@@ -351,9 +392,9 @@ class KrithaModule : Module() {
             promise: Promise ->
             moduleScope.launch {
                 try {
-                    val bridge = ensureLiteRtBridge()
+                    val bridge = ensureTtsBridge()
 
-                    val modelId = request["modelId"] as? String ?: ensureLiteRtBridge().defaultTtsModelId()
+                    val modelId = request["modelId"] as? String ?: ensureTtsBridge().defaultTtsModelId()
                     val modelDirectory = request["modelDirectory"] as? String
                         ?: error("modelDirectory is required")
                     val text = request["text"] as? String
@@ -387,18 +428,18 @@ class KrithaModule : Module() {
         ?: appContext.currentActivity?.applicationContext
         ?: throw Exceptions.ReactContextLost()
 
-    private fun ensureLiteRtBridge(): LiteRTModuleBridge {
-        val existing = liteRtBridge
+    private fun ensureTtsBridge(): TtsModuleBridge {
+        val existing = ttsBridge
         if (existing != null) return existing
-        val created = LiteRTModuleBridge(resolveContext())
-        liteRtBridge = created
+        val created = TtsModuleBridge(resolveContext())
+        ttsBridge = created
         return created
     }
 
-    private fun ensureVoiceManager(): LiteRTVoiceManager {
+    private fun ensureVoiceManager(): VoiceManager {
         val existing = voiceManager
         if (existing != null) return existing
-        val created = LiteRTVoiceManager(ensureLiteRtBridge()) { event, data ->
+        val created = VoiceManager(ensureTtsBridge()) { event, data ->
             sendEvent(event, data)
         }
         voiceManager = created
@@ -406,7 +447,83 @@ class KrithaModule : Module() {
     }
 
     private fun isTtsModel(modelId: String): Boolean {
-        return runCatching { ensureLiteRtBridge().isTtsModel(modelId) }.getOrDefault(false)
+        return runCatching { ensureTtsBridge().isTtsModel(modelId) }.getOrDefault(false)
+    }
+
+    private fun parseRuntimeIds(input: Any?): List<String> {
+        return when (input) {
+            is String -> listOf(input)
+            is List<*> -> input.mapNotNull { it?.toString() }
+            else -> emptyList()
+        }
+    }
+
+    private suspend fun installOneRuntime(jsId: String): Map<String, Any?> {
+        val runtime = RuntimeCatalog.fromJsId(jsId) ?: return mapOf(
+            "id" to jsId,
+            "module" to null,
+            "installed" to false,
+            "providerAvailable" to false,
+            "error" to "Unknown runtime ID: $jsId",
+        )
+        val canonicalId = RuntimeCatalog.getJsId(runtime)
+        val moduleName = RuntimeCatalog.getModuleName(runtime)
+
+        val progressJob = moduleScope.launch {
+            try {
+                runtimeManager.observeInstall(runtime).collect { state ->
+                    sendEvent(
+                        "onRuntimeInstallProgress",
+                        mapOf(
+                            "runtimeId" to canonicalId,
+                            "module" to moduleName,
+                            "status" to state.status.name,
+                            "progress" to state.progress,
+                        ),
+                    )
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return try {
+            runtimeManager.ensureInstalled(runtime)
+            sendEvent(
+                "onRuntimeInstallProgress",
+                mapOf(
+                    "runtimeId" to canonicalId,
+                    "module" to moduleName,
+                    "status" to "READY",
+                    "progress" to 100,
+                ),
+            )
+            mapOf(
+                "id" to canonicalId,
+                "module" to moduleName,
+                "installed" to true,
+                "providerAvailable" to true,
+                "error" to null,
+            )
+        } catch (e: Exception) {
+            val installed = runCatching { runtimeManager.isInstalled(runtime) }.getOrDefault(false)
+            sendEvent(
+                "onRuntimeInstallProgress",
+                mapOf(
+                    "runtimeId" to canonicalId,
+                    "module" to moduleName,
+                    "status" to "FAILED",
+                    "progress" to null,
+                ),
+            )
+            mapOf(
+                "id" to canonicalId,
+                "module" to moduleName,
+                "installed" to installed,
+                "providerAvailable" to false,
+                "error" to (e.message ?: "Install failed"),
+            )
+        } finally {
+            progressJob.cancel()
+        }
     }
 
     private fun generateLocal(request: Map<String, Any?>, promise: Promise) {
@@ -425,7 +542,7 @@ class KrithaModule : Module() {
 
         val job = moduleScope.launch {
             try {
-                val provider = runtimeManager.provider(RuntimeId.LITERT_LM)?.llm() as? LlmProvider ?: throw IllegalStateException("LiteRT-LM is not installed")
+                val provider = runtimeManager.provider(RuntimeId.LITERT_LM)?.llm() ?: throw IllegalStateException("LiteRT-LM is not installed")
                 val text = provider.generate(request, onDelta = { delta ->
                     sendEvent("onLocalLlmDelta", mapOf("requestId" to requestId, "delta" to delta))
                 })

@@ -8,9 +8,12 @@ import com.jeppeman.globallydynamic.globalsplitinstall.GlobalSplitInstallRequest
 import com.jeppeman.globallydynamic.globalsplitinstall.GlobalSplitInstallSessionState
 import com.jeppeman.globallydynamic.globalsplitinstall.GlobalSplitInstallUpdatedListener
 import com.jeppeman.globallydynamic.globalsplitinstall.GlobalSplitInstallSessionStatus
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -33,17 +36,14 @@ class GloballyDynamicDeliveryClient(
 
     companion object {
         private const val TAG = "GloballyDynamicDelivery"
-
-        private val MODULE_PROPRIETARY_CLASSES = mapOf(
-            "feature-litert" to "expo.modules.kritha.litert.LiteRTRuntimeProvider",
-            "feature-litertlm" to "expo.modules.kritha.litertlm.LiteRTLLMRuntimeProvider",
-            "feature-onnx" to "expo.modules.kritha.onnx.OnnxRuntimeProvider"
-        )
+        private const val INSTALL_TIMEOUT_MS = 15 * 60 * 1000L
     }
 
     private val manager: GlobalSplitInstallManager? by lazy {
         try {
-            GlobalSplitInstallManagerFactory.create(context)
+            GlobalSplitInstallManagerFactory.create(context).also {
+                Log.i(TAG, "GloballyDynamic self-hosted delivery client ready")
+            }
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to initialize GlobalSplitInstallManager, falling back to classpath inspection", t)
             null
@@ -51,56 +51,87 @@ class GloballyDynamicDeliveryClient(
     }
 
     override fun isInstalled(moduleName: String): Boolean {
-        // 1. Check if the module is already present in classloader
-        val className = MODULE_PROPRIETARY_CLASSES[moduleName]
-        if (className != null) {
-            try {
-                Class.forName(className, false, context.classLoader)
-                return true
-            } catch (_: ClassNotFoundException) {
-                // Not in classpath yet
-            } catch (_: Throwable) {
-                // Ignore other classloading issues
-            }
-        }
-
-        // 2. Check dynamic install manager if available
         return try {
-            manager?.installedModules?.contains(moduleName) == true
+            manager?.installedModules?.contains(moduleName) == true ||
+                classpathContainsProvider(moduleName)
         } catch (t: Throwable) {
             Log.w(TAG, "Error checking installed modules for $moduleName", t)
             false
         }
     }
 
-    override suspend fun install(moduleName: String): Unit = suspendCoroutine { cont ->
+    /**
+     * Detects a feature that is present in the current classpath (e.g. bundled
+     * splits) without knowing feature implementation class names. Relying on the
+     * feature's META-INF/services registration keeps the base decoupled from the
+     * feature packages.
+     */
+    private fun classpathContainsProvider(moduleName: String): Boolean {
+        return try {
+            RuntimeCatalog.allIds()
+                .filter { RuntimeCatalog.getModuleName(it) == moduleName }
+                .any { runtime ->
+                    loadRuntimeProviders(runtime, context.classLoader).any()
+                }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    override suspend fun install(moduleName: String) {
         if (isInstalled(moduleName)) {
-            cont.resume(Unit)
-            return@suspendCoroutine
+            return
         }
 
         val mgr = manager
-        if (mgr == null) {
-            cont.resumeWithException(
-                IllegalStateException("Dynamic delivery manager is not available to install $moduleName")
+            ?: throw IllegalStateException(
+                "Dynamic delivery manager is not available to install $moduleName. " +
+                    "Check that the GloballyDynamic self-hosted backend is configured " +
+                    "(GLOBALLY_DYNAMIC_SERVER_URL pointing at the /download endpoint)."
             )
-            return@suspendCoroutine
-        }
 
-        try {
-            val request = GlobalSplitInstallRequest.newBuilder()
+        val request = try {
+            GlobalSplitInstallRequest.newBuilder()
                 .addModule(moduleName)
                 .build()
-
-            mgr.startInstall(request)
-                .addOnSuccessListener {
-                    cont.resume(Unit)
-                }
-                .addOnFailureListener { e ->
-                    cont.resumeWithException(e)
-                }
         } catch (t: Throwable) {
-            cont.resumeWithException(t)
+            throw IllegalStateException("Invalid install request for $moduleName: ${t.message}", t)
+        }
+
+        suspendCoroutine<Unit> { cont ->
+            try {
+                mgr.startInstall(request)
+                    .addOnSuccessListener { cont.resume(Unit) }
+                    .addOnFailureListener { e -> cont.resumeWithException(e) }
+            } catch (t: Throwable) {
+                cont.resumeWithException(t)
+            }
+        }
+        Log.i(TAG, "Started install session for $moduleName")
+
+        val terminal = try {
+            withTimeout(INSTALL_TIMEOUT_MS) {
+                observe(moduleName).first { state ->
+                    state.status == RuntimeStatus.INSTALLED ||
+                        state.status == RuntimeStatus.FAILED ||
+                        state.status == RuntimeStatus.CANCELLED
+                }
+            }
+        } catch (t: TimeoutCancellationException) {
+            throw IllegalStateException("Install of $moduleName timed out waiting for completion", t)
+        }
+
+        when (terminal.status) {
+            RuntimeStatus.FAILED -> throw terminal.error
+                ?: IllegalStateException("Install of $moduleName failed")
+            RuntimeStatus.CANCELLED -> throw IllegalStateException("Install of $moduleName was cancelled")
+            else -> Unit
+        }
+
+        if (!isInstalled(moduleName)) {
+            throw IllegalStateException(
+                "Install session finished but $moduleName is not available"
+            )
         }
     }
 
@@ -119,17 +150,7 @@ class GloballyDynamicDeliveryClient(
 
         val listener = GlobalSplitInstallUpdatedListener { state ->
             if (state.moduleNames().contains(moduleName)) {
-                val status = when (state.status()) {
-                    GlobalSplitInstallSessionStatus.PENDING -> RuntimeStatus.CHECKING
-                    GlobalSplitInstallSessionStatus.DOWNLOADING -> RuntimeStatus.INSTALLING
-                    GlobalSplitInstallSessionStatus.DOWNLOADED -> RuntimeStatus.INSTALLING
-                    GlobalSplitInstallSessionStatus.INSTALLING -> RuntimeStatus.INSTALLING
-                    GlobalSplitInstallSessionStatus.INSTALLED -> RuntimeStatus.INSTALLED
-                    GlobalSplitInstallSessionStatus.FAILED -> RuntimeStatus.FAILED
-                    GlobalSplitInstallSessionStatus.CANCELED -> RuntimeStatus.CANCELLED
-                    else -> RuntimeStatus.NOT_INSTALLED
-                }
-                
+                val status = mapSessionStatus(state)
                 val progress = if (state.totalBytesToDownload() > 0) {
                     ((state.bytesDownloaded() * 100) / state.totalBytesToDownload()).toInt()
                 } else null
@@ -143,7 +164,7 @@ class GloballyDynamicDeliveryClient(
                 )
             }
         }
-        
+
         try {
             mgr.registerListener(listener)
         } catch (t: Throwable) {
@@ -154,6 +175,20 @@ class GloballyDynamicDeliveryClient(
             try {
                 mgr.unregisterListener(listener)
             } catch (_: Throwable) {}
+        }
+    }
+
+    private fun mapSessionStatus(state: GlobalSplitInstallSessionState): RuntimeStatus {
+        return when (state.status()) {
+            GlobalSplitInstallSessionStatus.PENDING -> RuntimeStatus.CHECKING
+            GlobalSplitInstallSessionStatus.DOWNLOADING -> RuntimeStatus.INSTALLING
+            GlobalSplitInstallSessionStatus.DOWNLOADED -> RuntimeStatus.INSTALLING
+            GlobalSplitInstallSessionStatus.INSTALLING -> RuntimeStatus.INSTALLING
+            GlobalSplitInstallSessionStatus.REQUIRES_USER_CONFIRMATION -> RuntimeStatus.INSTALLING
+            GlobalSplitInstallSessionStatus.INSTALLED -> RuntimeStatus.INSTALLED
+            GlobalSplitInstallSessionStatus.FAILED -> RuntimeStatus.FAILED
+            GlobalSplitInstallSessionStatus.CANCELED -> RuntimeStatus.CANCELLED
+            else -> RuntimeStatus.NOT_INSTALLED
         }
     }
 }

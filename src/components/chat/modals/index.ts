@@ -1,4 +1,5 @@
 export * from './ArchivedChatsModal';
+export * from './ExtensionsRuntimesModal';
 export * from './ModelSelectModal';
 export * from './PermissionsChecklistModal';
 export * from './SettingsModal';

@@ -43,13 +43,13 @@ dump*
 
 # generated native folders
 /ios
-.env
 node_modules/
 edge-impulse-sdk/
 model-parameters/
 tflite-model/
 .cxx
 build/
+.wrangler/
 
 android/.gradle/
 android/app/.cxx/
@@ -57,3 +57,4 @@ android/app/build/
 android/build/
 android/.idea/
 android/local.properties
+tools/

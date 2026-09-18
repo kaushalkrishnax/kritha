@@ -5,7 +5,6 @@ import android.net.Uri
 import expo.modules.kritha.runtime.RuntimeManager
 import expo.modules.kritha.runtime.RuntimeId
 import expo.modules.kritha.runtime.tts.*
-import expo.modules.kritha.runtime.llm.*
 import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
@@ -13,7 +12,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-class LiteRTModuleBridge(
+class TtsModuleBridge(
     private val context: Context,
 ) : Closeable {
     private val runtimeManager = RuntimeManager(context)
@@ -104,7 +103,7 @@ class LiteRTModuleBridge(
 
         synchronized(ttsLock) {
             val spec = findSpec(modelId) ?: error("No TTS adapter registered for model: $modelId")
-            val provider = runtimeManager.provider(RuntimeId.LITERT)?.tts() as? TtsProvider ?: throw IllegalStateException("TTS Runtime not installed")
+            val provider = runtimeManager.provider(RuntimeId.LITERT)?.tts() ?: throw IllegalStateException("TTS Runtime not installed")
             val result = provider.synthesize(
                 model = TtsFileAssets(spec.id, root),
                 text = text,
@@ -175,7 +174,7 @@ class LiteRTModuleBridge(
     fun releaseTts(modelId: String) {
         synchronized(ttsLock) {
             findSpec(modelId)?.let {
-                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.let { tts -> (tts as TtsProvider).release(it.id) } }
+                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.release(it.id) }
             }
         }
     }
@@ -183,7 +182,7 @@ class LiteRTModuleBridge(
     fun releaseActiveTts() {
         synchronized(ttsLock) {
             resolveActiveTts()?.let {
-                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.let { tts -> (tts as TtsProvider).release(TtsModelId(it.modelId)) } }
+                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.release(TtsModelId(it.modelId)) }
             }
         }
     }
@@ -231,7 +230,7 @@ class LiteRTModuleBridge(
         }
 
         downloadMissingArtifacts(spec, targetDir, onProgress)
-        runtimeManager.provider(RuntimeId.LITERT)?.tts()?.let { (it as TtsProvider).finishDownload(targetDir, spec.id.value) }
+        runtimeManager.provider(RuntimeId.LITERT)?.tts()?.finishDownload(targetDir, spec.id.value)
 
         val assets = TtsFileAssets(spec.id, targetDir)
         require(spec.isComplete(assets)) {
@@ -327,7 +326,7 @@ class LiteRTModuleBridge(
                 connectTimeout = 30_000
                 readTimeout = 60_000
                 setInstanceFollowRedirects(true)
-                setRequestProperty("User-Agent", "kritha/1.0 (LiteRT TTS bridge)")
+                setRequestProperty("User-Agent", "kritha/1.0 (Kritha TTS bridge)")
                 if (existing > 0L) {
                     setRequestProperty("Range", "bytes=$existing-")
                 }

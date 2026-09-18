@@ -3,6 +3,10 @@ import KrithaModule, {
   LocalLlmDeltaEvent,
   LocalLlmGenerateRequest,
   LocalLlmMessage,
+  RuntimeId,
+  RuntimeInfo,
+  RuntimeInstallProgressEvent,
+  RuntimeInstallResult,
   VoiceModelInfo,
   WakeWordEvent,
 } from './KrithaModule';
@@ -23,6 +27,22 @@ export function addLocalLlmDeltaListener(
   listener: (event: LocalLlmDeltaEvent) => void,
 ): EventSubscription {
   return emitter.addListener('onLocalLlmDelta', listener);
+}
+
+export function listRuntimes(): Promise<RuntimeInfo[]> {
+  return KrithaModule.listRuntimes();
+}
+
+export function installRuntime(
+  runtimeIds: string | string[],
+): Promise<RuntimeInstallResult[]> {
+  return KrithaModule.installRuntime(runtimeIds);
+}
+
+export function addRuntimeInstallProgressListener(
+  listener: (event: RuntimeInstallProgressEvent) => void,
+): EventSubscription {
+  return emitter.addListener('onRuntimeInstallProgress', listener);
 }
 
 export function start(): void {
@@ -204,6 +224,10 @@ export {
   LocalLlmDeltaEvent,
   LocalLlmGenerateRequest,
   LocalLlmMessage,
+  RuntimeId,
+  RuntimeInfo,
+  RuntimeInstallProgressEvent,
+  RuntimeInstallResult,
   VoiceModelInfo,
   WakeWordEvent,
 };

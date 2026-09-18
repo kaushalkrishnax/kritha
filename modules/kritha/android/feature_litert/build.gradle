@@ -15,9 +15,9 @@ android {
 dependencies {
     implementation(project(":app"))
     implementation(project(":kritha"))
-    implementation("com.google.ai.edge.litert:litert:2.2.0")
-    // Note: since the features move the Kotlin files there, they might also need the base module. Wait, if it's Expo, they need project(":modules:kritha")?
-    // Wait, let me check what :app depends on. 
+    implementation("com.google.ai.edge.litert:litert:2.2.0") {
+        exclude group: "com.google.android.play", module: "ai-delivery"
+    }
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {

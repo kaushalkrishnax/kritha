@@ -2,11 +2,11 @@ package expo.modules.kritha.litert
 
 import android.content.Context
 import expo.modules.kritha.runtime.RuntimeId
-import expo.modules.kritha.runtime.RuntimeProvider
+import expo.modules.kritha.runtime.LiteRTRuntimeProviderRegistration
 import expo.modules.kritha.runtime.tts.TtsProvider
 import expo.modules.kritha.litert.speech.tts.Tts
 
-class LiteRTRuntimeProvider : RuntimeProvider {
+class LiteRTRuntimeProvider : LiteRTRuntimeProviderRegistration {
     override val id: RuntimeId = RuntimeId.LITERT
     
     override fun isAvailable(): Boolean = true

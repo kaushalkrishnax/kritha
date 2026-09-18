@@ -96,11 +96,31 @@ android {
         versionCode 1
         versionName "0.1.1"
 
-        buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+        buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL",
+                "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+
+        buildConfigField "String", "GLOBALLY_DYNAMIC_SERVER_URL",
+                "\"${findProperty('globallyDynamicServerUrl') ?: ''}\""
+        ndk {
+            abiFilters(*((findProperty('reactNativeArchitectures') ?: 'arm64-v8a,x86_64')
+                    .split(',')
+                    .collect { it.trim() }
+                    .findAll { it }))
+        }
     }
 
-    
+    def configuredAbis = (findProperty('reactNativeArchitectures') ?: 'arm64-v8a,x86_64')
+            .split(',')
+            .collect { it.trim() }
+            .findAll { it }
 
+    if (configuredAbis.size() == 1) {
+        applicationVariants.all { variant ->
+            variant.outputs.each { output ->
+                output.outputFileName = "Kritha-${variant.versionName}-${configuredAbis[0]}.apk"
+            }
+        }
+    }
 
     signingConfigs {
         debug {
@@ -194,5 +214,3 @@ dependencies {
         implementation jscFlavor
     }
 }
-
-configurations.all { exclude group: 'com.google.android.play', module: 'core' }

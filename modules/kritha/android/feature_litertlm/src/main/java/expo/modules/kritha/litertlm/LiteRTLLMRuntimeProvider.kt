@@ -1,9 +1,10 @@
 package expo.modules.kritha.litertlm
 
 import expo.modules.kritha.runtime.RuntimeId
-import expo.modules.kritha.runtime.RuntimeProvider
+import expo.modules.kritha.runtime.LiteRTLLMRuntimeProviderRegistration
+import expo.modules.kritha.runtime.llm.LlmProvider
 
-class LiteRTLLMRuntimeProvider : RuntimeProvider {
+class LiteRTLLMRuntimeProvider : LiteRTLLMRuntimeProviderRegistration {
     override val id: RuntimeId = RuntimeId.LITERT_LM
     
     override fun isAvailable(): Boolean = true
@@ -16,5 +17,5 @@ class LiteRTLLMRuntimeProvider : RuntimeProvider {
         }
     }
 
-    override fun llm(): Any? = llmEngine
+    override fun llm(): LlmProvider? = llmEngine
 }

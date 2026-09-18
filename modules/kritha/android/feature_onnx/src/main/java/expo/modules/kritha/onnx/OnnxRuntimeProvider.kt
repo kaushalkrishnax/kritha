@@ -1,9 +1,9 @@
 package expo.modules.kritha.onnx
 
 import expo.modules.kritha.runtime.RuntimeId
-import expo.modules.kritha.runtime.RuntimeProvider
+import expo.modules.kritha.runtime.OnnxRuntimeProviderRegistration
 
-class OnnxRuntimeProvider : RuntimeProvider {
+class OnnxRuntimeProvider : OnnxRuntimeProviderRegistration {
     override val id: RuntimeId = RuntimeId.ONNX
     
     override fun isAvailable(): Boolean = true
