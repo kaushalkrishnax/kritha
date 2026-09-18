@@ -1,4 +1,3 @@
-import { Colors, Radius, Typography } from '@/theme';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
@@ -10,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Colors, Radius, Typography } from '@/theme';
 
 export interface ContextMenuItem {
   id: string;

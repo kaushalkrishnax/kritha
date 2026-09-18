@@ -1,3 +1,5 @@
+import uuid from 'react-native-uuid';
+
 import {
   ChatMode,
   LiveTalkPhase,
@@ -12,7 +14,7 @@ import { useChatStore } from '@/stores/chat.store';
 import { useModelStore } from '@/stores/model.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useVoiceStore } from '@/stores/voice.store';
-import uuid from 'react-native-uuid';
+
 import { ChatSessionService } from './chat.service';
 import {
   buildConversationContext,
@@ -40,12 +42,10 @@ function ensureTtsEventSubscription(): void {
   ttsEventSubscribed = true;
   ttsProvider.subscribe((event) => {
     if (event.requestId !== activeTtsRequestId) {
-      console.warn(
-        {
-          eventRequestId: event.requestId,
-          activeTtsRequestId,
-        },
-      );
+      console.warn({
+        eventRequestId: event.requestId,
+        activeTtsRequestId,
+      });
       return;
     }
 
@@ -559,14 +559,12 @@ export function speakMessage(text: string, messageId: string): void {
     activeTtsMessageId = null;
     ttsProvider.stop(stale).catch(() => {});
   } else if (activeTtsRequestId !== null) {
-    console.warn(
-      {
-        activeTtsRequestId,
+    console.warn({
+      activeTtsRequestId,
       activeTtsMessageId,
       messageId,
-    },
-  );
-  return;
+    });
+    return;
   }
 
   if (!text.trim()) {
@@ -637,8 +635,7 @@ export function stopSpeaking(): void {
     return;
   }
 
-  ttsProvider.stop(requestId).catch((error) => {
-  });
+  ttsProvider.stop(requestId).catch((error) => {});
 }
 
 export async function editAndResubmitPrompt(

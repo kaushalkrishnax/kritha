@@ -1,5 +1,6 @@
 /** Compatibility bundle for existing call sites; prefer individual selectors from '@/stores'. */
 import { useCallback } from 'react';
+
 import {
   useAssistantStore,
   useIsLlmThinking,

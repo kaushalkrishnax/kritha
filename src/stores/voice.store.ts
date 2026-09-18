@@ -1,7 +1,8 @@
-import { STORAGE_KEYS } from '@/constants';
-import { secureStorage } from '@/utils';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+
+import { STORAGE_KEYS } from '@/constants';
+import { secureStorage } from '@/utils';
 
 interface VoiceStore {
   isTtsDownloaded: boolean;

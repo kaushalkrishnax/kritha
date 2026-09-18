@@ -1,71 +1,54 @@
 #!/usr/bin/env node
 
-const fs = require("node:fs");
-const path = require("node:path");
-const os = require("node:os");
-const { spawnSync } = require("node:child_process");
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(__dirname, "..");
-const ANDROID_DIR = path.join(ROOT, "android");
-const APP_DIR = path.join(ANDROID_DIR, "app");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT = path.resolve(__dirname, '..');
+const ANDROID_DIR = path.join(ROOT, 'android');
+const APP_DIR = path.join(ANDROID_DIR, 'app');
 const GRADLEW = path.join(
   ANDROID_DIR,
-  process.platform === "win32" ? "gradlew.bat" : "gradlew",
+  process.platform === 'win32' ? 'gradlew.bat' : 'gradlew',
 );
 
-const VARIANT = (process.env.GD_VARIANT || "release").trim();
-const VARIANT_CAP =
-  VARIANT.charAt(0).toUpperCase() + VARIANT.slice(1);
+const VARIANT = (process.env.GD_VARIANT || 'release').trim();
+const VARIANT_CAP = VARIANT.charAt(0).toUpperCase() + VARIANT.slice(1);
 
-const OUTPUT_DIR = path.join(
-  ROOT,
-  "dist",
-  "globally-dynamic",
-  VARIANT,
-);
+const OUTPUT_DIR = path.join(ROOT, 'dist', 'globally-dynamic', VARIANT);
 
-const BUNDLETOOL_VERSION =
-  process.env.BUNDLETOOL_VERSION || "1.18.3";
+const BUNDLETOOL_VERSION = process.env.BUNDLETOOL_VERSION || '1.18.3';
 
-const BUNDLETOOL_DIR = path.join(ROOT, "tools");
+const BUNDLETOOL_DIR = path.join(ROOT, 'tools');
 
 const BUNDLETOOL_JAR =
   process.env.BUNDLETOOL_JAR ||
-  path.join(
-    BUNDLETOOL_DIR,
-    `bundletool-all-${BUNDLETOOL_VERSION}.jar`,
-  );
+  path.join(BUNDLETOOL_DIR, `bundletool-all-${BUNDLETOOL_VERSION}.jar`);
 
-const DEFAULT_ABIS = [
-  "arm64-v8a",
-  "x86_64",
-];
+const DEFAULT_ABIS = ['arm64-v8a', 'x86_64'];
 
-const ABIS = (
-  process.env.GD_ABIS || DEFAULT_ABIS.join(",")
-)
-  .split(",")
+const ABIS = (process.env.GD_ABIS || DEFAULT_ABIS.join(','))
+  .split(',')
   .map((x) => x.trim())
   .filter(Boolean);
 
-const SCREEN_DENSITY = Number(
-  process.env.GD_SCREEN_DENSITY || 420,
-);
+const SCREEN_DENSITY = Number(process.env.GD_SCREEN_DENSITY || 420);
 
-const SDK_VERSION = Number(
-  process.env.GD_SDK_VERSION || 35,
-);
+const SDK_VERSION = Number(process.env.GD_SDK_VERSION || 35);
 
 // Bundletool requires at least one supported locale.
-const LOCALES = (
-  process.env.GD_LOCALES || "en-US"
-)
-  .split(",")
+const LOCALES = (process.env.GD_LOCALES || 'en-US')
+  .split(',')
   .map((x) => x.trim())
   .filter(Boolean);
 
 if (!LOCALES.length) {
-  fail("GD_LOCALES must contain at least one locale.");
+  fail('GD_LOCALES must contain at least one locale.');
 }
 
 function readGradleProperties(file) {
@@ -75,16 +58,10 @@ function readGradleProperties(file) {
 
   const result = {};
 
-  for (const rawLine of fs
-    .readFileSync(file, "utf8")
-    .split(/\r?\n/)) {
+  for (const rawLine of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const line = rawLine.trim();
 
-    if (
-      !line ||
-      line.startsWith("#") ||
-      line.startsWith("!")
-    ) {
+    if (!line || line.startsWith('#') || line.startsWith('!')) {
       continue;
     }
 
@@ -106,46 +83,25 @@ function readGradleProperties(file) {
 function loadGradleProperties() {
   return {
     ...readGradleProperties(
-      path.join(
-        os.homedir(),
-        ".gradle",
-        "gradle.properties",
-      ),
+      path.join(os.homedir(), '.gradle', 'gradle.properties'),
     ),
-    ...readGradleProperties(
-      path.join(
-        ANDROID_DIR,
-        "gradle.properties",
-      ),
-    ),
+    ...readGradleProperties(path.join(ANDROID_DIR, 'gradle.properties')),
   };
 }
 
 const gradleProps = loadGradleProperties();
 
 function property(name, envName = name) {
-  return (
-    process.env[envName] ??
-    gradleProps[name] ??
-    ""
-  ).trim();
+  return (process.env[envName] ?? gradleProps[name] ?? '').trim();
 }
 
-const STORE_FILE = property(
-  "KRITHA_RELEASE_STORE_FILE",
-);
+const STORE_FILE = property('KRITHA_RELEASE_STORE_FILE');
 
-const STORE_PASSWORD = property(
-  "KRITHA_RELEASE_STORE_PASSWORD",
-);
+const STORE_PASSWORD = property('KRITHA_RELEASE_STORE_PASSWORD');
 
-const KEY_ALIAS = property(
-  "KRITHA_RELEASE_KEY_ALIAS",
-);
+const KEY_ALIAS = property('KRITHA_RELEASE_KEY_ALIAS');
 
-const KEY_PASSWORD = property(
-  "KRITHA_RELEASE_KEY_PASSWORD",
-);
+const KEY_PASSWORD = property('KRITHA_RELEASE_KEY_PASSWORD');
 
 function fail(message) {
   console.error(`\nERROR: ${message}\n`);
@@ -153,84 +109,52 @@ function fail(message) {
 }
 
 function run(command, args, options = {}) {
-  console.log(
-    `\n> ${command} ${args.join(" ")}`,
-  );
+  console.log(`\n> ${command} ${args.join(' ')}`);
 
-  const result = spawnSync(
-    command,
-    args,
-    {
-      stdio: "inherit",
-      cwd: options.cwd || ROOT,
-      shell: false,
-      env: process.env,
-    },
-  );
+  const result = spawnSync(command, args, {
+    stdio: 'inherit',
+    cwd: options.cwd || ROOT,
+    shell: false,
+    env: process.env,
+  });
 
   if (result.error) {
-    fail(
-      `Failed to start ${command}: ${result.error.message}`,
-    );
+    fail(`Failed to start ${command}: ${result.error.message}`);
   }
 
   if (result.status !== 0) {
-    fail(
-      `Command failed with exit code ${result.status}`,
-    );
+    fail(`Command failed with exit code ${result.status}`);
   }
 }
 
 function runGradle(args) {
-  if (process.platform === "win32") {
-    run(
-      GRADLEW,
-      args,
-      {
-        cwd: ANDROID_DIR,
-      },
-    );
+  if (process.platform === 'win32') {
+    run(GRADLEW, args, {
+      cwd: ANDROID_DIR,
+    });
   } else {
-    run(
-      "bash",
-      [GRADLEW, ...args],
-      {
-        cwd: ANDROID_DIR,
-      },
-    );
+    run('bash', [GRADLEW, ...args], {
+      cwd: ANDROID_DIR,
+    });
   }
 }
 
 function bundletool(args) {
-  const result = spawnSync(
-    "java",
-    [
-      "-jar",
-      BUNDLETOOL_JAR,
-      ...args,
-    ],
-    {
-      cwd: ROOT,
-      encoding: "utf8",
-      stdio: [
-        "ignore",
-        "pipe",
-        "pipe",
-      ],
-      env: process.env,
-    },
-  );
+  const result = spawnSync('java', ['-jar', BUNDLETOOL_JAR, ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: process.env,
+  });
 
   if (result.error) {
-    fail(
-      `Failed to start Java/bundletool: ${result.error.message}`,
-    );
+    fail(`Failed to start Java/bundletool: ${result.error.message}`);
   }
 
   if (result.status !== 0) {
-    console.error(result.stdout || "");
-    console.error(result.stderr || "");
-    fail("bundletool command failed");
+    console.error(result.stdout || '');
+    console.error(result.stderr || '');
+    fail('bundletool command failed');
   }
 
   return result.stdout.trim();
@@ -241,85 +165,52 @@ async function ensureBundletool() {
     return;
   }
 
-  fs.mkdirSync(
-    BUNDLETOOL_DIR,
-    {
-      recursive: true,
-    },
-  );
+  fs.mkdirSync(BUNDLETOOL_DIR, {
+    recursive: true,
+  });
 
   const url =
-    "https://github.com/google/bundletool/releases/download/" +
+    'https://github.com/google/bundletool/releases/download/' +
     `${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar`;
 
-  console.log(
-    `\nDownloading bundletool ${BUNDLETOOL_VERSION}...`,
-  );
+  console.log(`\nDownloading bundletool ${BUNDLETOOL_VERSION}...`);
 
   console.log(url);
 
   const response = await fetch(url);
 
   if (!response.ok) {
-    fail(
-      `Failed to download bundletool: HTTP ${response.status}`,
-    );
+    fail(`Failed to download bundletool: HTTP ${response.status}`);
   }
 
-  const buffer = Buffer.from(
-    await response.arrayBuffer(),
-  );
+  const buffer = Buffer.from(await response.arrayBuffer());
 
-  fs.writeFileSync(
-    BUNDLETOOL_JAR,
-    buffer,
-  );
+  fs.writeFileSync(BUNDLETOOL_JAR, buffer);
 
-  console.log(
-    `Saved ${path.relative(
-      ROOT,
-      BUNDLETOOL_JAR,
-    )}`,
-  );
+  console.log(`Saved ${path.relative(ROOT, BUNDLETOOL_JAR)}`);
 }
 
 function readDynamicFeatures() {
-  const buildGradlePath = path.join(
-    APP_DIR,
-    "build.gradle",
-  );
+  const buildGradlePath = path.join(APP_DIR, 'build.gradle');
 
   if (!fs.existsSync(buildGradlePath)) {
-    fail(
-      `android/app/build.gradle not found:\n${buildGradlePath}`,
-    );
+    fail(`android/app/build.gradle not found:\n${buildGradlePath}`);
   }
 
-  const buildGradle = fs.readFileSync(
-    buildGradlePath,
-    "utf8",
-  );
+  const buildGradle = fs.readFileSync(buildGradlePath, 'utf8');
 
-  const match = buildGradle.match(
-    /dynamicFeatures\s*\+=\s*\[([\s\S]*?)\]/m,
-  );
+  const match = buildGradle.match(/dynamicFeatures\s*\+=\s*\[([\s\S]*?)\]/m);
 
   if (!match) {
-    fail(
-      "Could not find dynamicFeatures in android/app/build.gradle",
-    );
+    fail('Could not find dynamicFeatures in android/app/build.gradle');
   }
 
-  const features = [
-    ...match[1].matchAll(
-      /['"]:([^'"]+)['"]/g,
-    ),
-  ].map((match) => match[1]);
+  const features = [...match[1].matchAll(/['"]:([^'"]+)['"]/g)].map(
+    (match) => match[1],
+  );
 
   if (!features.length) {
-    fail(
-      "No dynamic feature modules found in android/app/build.gradle",
-    );
+    fail('No dynamic feature modules found in android/app/build.gradle');
   }
 
   return features;
@@ -328,18 +219,10 @@ function readDynamicFeatures() {
 function combinations(values) {
   const result = [];
 
-  for (
-    let mask = 1;
-    mask < (1 << values.length);
-    mask++
-  ) {
+  for (let mask = 1; mask < 1 << values.length; mask++) {
     const combo = [];
 
-    for (
-      let i = 0;
-      i < values.length;
-      i++
-    ) {
+    for (let i = 0; i < values.length; i++) {
       if (mask & (1 << i)) {
         combo.push(values[i]);
       }
@@ -352,52 +235,27 @@ function combinations(values) {
 }
 
 function findAab() {
-  const bundleDir = path.join(
-    APP_DIR,
-    "build",
-    "outputs",
-    "bundle",
-    VARIANT,
-  );
+  const bundleDir = path.join(APP_DIR, 'build', 'outputs', 'bundle', VARIANT);
 
   if (!fs.existsSync(bundleDir)) {
-    fail(
-      `Bundle output directory does not exist: ${bundleDir}`,
-    );
+    fail(`Bundle output directory does not exist: ${bundleDir}`);
   }
 
   const candidates = fs
     .readdirSync(bundleDir)
-    .filter((name) =>
-      name.endsWith(".aab"),
-    )
-    .map((name) =>
-      path.join(
-        bundleDir,
-        name,
-      ),
-    );
+    .filter((name) => name.endsWith('.aab'))
+    .map((name) => path.join(bundleDir, name));
 
   if (!candidates.length) {
-    fail(
-      `No .aab found in ${bundleDir}`,
-    );
+    fail(`No .aab found in ${bundleDir}`);
   }
 
   candidates.sort();
 
   if (candidates.length > 1) {
-    console.log(
-      "\nMultiple AABs found; using the first one alphabetically:",
-    );
+    console.log('\nMultiple AABs found; using the first one alphabetically:');
 
-    console.log(
-      candidates
-        .map(
-          (x) => `  ${path.basename(x)}`,
-        )
-        .join("\n"),
-    );
+    console.log(candidates.map((x) => `  ${path.basename(x)}`).join('\n'));
   }
 
   return candidates[0];
@@ -405,40 +263,34 @@ function findAab() {
 
 function readBundleMetadata(aabPath) {
   const applicationId = bundletool([
-    "dump",
-    "manifest",
+    'dump',
+    'manifest',
     `--bundle=${aabPath}`,
-    "--xpath=/manifest/@package",
+    '--xpath=/manifest/@package',
   ]);
 
   const versionCodeRaw = bundletool([
-    "dump",
-    "manifest",
+    'dump',
+    'manifest',
     `--bundle=${aabPath}`,
-    "--xpath=/manifest/@android:versionCode",
+    '--xpath=/manifest/@android:versionCode',
   ]);
 
   const versionName = bundletool([
-    "dump",
-    "manifest",
+    'dump',
+    'manifest',
     `--bundle=${aabPath}`,
-    "--xpath=/manifest/@android:versionName",
+    '--xpath=/manifest/@android:versionName',
   ]);
 
-  const versionCode = Number(
-    versionCodeRaw,
-  );
+  const versionCode = Number(versionCodeRaw);
 
   if (!applicationId) {
-    fail(
-      "Could not read applicationId from AAB",
-    );
+    fail('Could not read applicationId from AAB');
   }
 
   if (!Number.isInteger(versionCode)) {
-    fail(
-      `Invalid versionCode returned by bundletool: ${versionCodeRaw}`,
-    );
+    fail(`Invalid versionCode returned by bundletool: ${versionCodeRaw}`);
   }
 
   return {
@@ -451,167 +303,111 @@ function readBundleMetadata(aabPath) {
 function resolveStoreFile() {
   if (!STORE_FILE) {
     fail(
-      "KRITHA_RELEASE_STORE_FILE was not found in environment " +
-      "or android/gradle.properties",
+      'KRITHA_RELEASE_STORE_FILE was not found in environment ' +
+        'or android/gradle.properties',
     );
   }
 
-  const candidate = path.isAbsolute(
-    STORE_FILE,
-  )
+  const candidate = path.isAbsolute(STORE_FILE)
     ? STORE_FILE
-    : path.resolve(
-        ANDROID_DIR,
-        STORE_FILE,
-      );
+    : path.resolve(ANDROID_DIR, STORE_FILE);
 
   if (!fs.existsSync(candidate)) {
-    fail(
-      `Release keystore does not exist:\n${candidate}`,
-    );
+    fail(`Release keystore does not exist:\n${candidate}`);
   }
 
   if (!STORE_PASSWORD) {
-    fail(
-      "KRITHA_RELEASE_STORE_PASSWORD is missing",
-    );
+    fail('KRITHA_RELEASE_STORE_PASSWORD is missing');
   }
 
   if (!KEY_ALIAS) {
-    fail(
-      "KRITHA_RELEASE_KEY_ALIAS is missing",
-    );
+    fail('KRITHA_RELEASE_KEY_ALIAS is missing');
   }
 
   return candidate;
 }
 
-function writeSecretFile(
-  directory,
-  name,
-  value,
-) {
+function writeSecretFile(directory, name, value) {
   if (!value) {
     fail(`${name} is missing`);
   }
 
-  const file = path.join(
-    directory,
-    name,
-  );
+  const file = path.join(directory, name);
 
-  fs.writeFileSync(
-    file,
-    `${value}\n`,
-    {
-      mode: 0o600,
-    },
-  );
+  fs.writeFileSync(file, `${value}\n`, {
+    mode: 0o600,
+  });
 
   return file;
 }
 
-function buildApks(
-  aabPath,
-  metadata,
-  tempDir,
-  keystore,
-) {
+function buildApks(aabPath, metadata, tempDir, keystore) {
   const apksPath = path.join(
     tempDir,
     `${metadata.applicationId}_${VARIANT}_${metadata.versionCode}.apks`,
   );
 
-  const keystorePassFile =
-    writeSecretFile(
-      tempDir,
-      "keystore-password.txt",
-      STORE_PASSWORD,
-    );
+  const keystorePassFile = writeSecretFile(
+    tempDir,
+    'keystore-password.txt',
+    STORE_PASSWORD,
+  );
 
-  const keyPassFile =
-    writeSecretFile(
-      tempDir,
-      "key-password.txt",
-      KEY_PASSWORD || STORE_PASSWORD,
-    );
+  const keyPassFile = writeSecretFile(
+    tempDir,
+    'key-password.txt',
+    KEY_PASSWORD || STORE_PASSWORD,
+  );
 
   bundletool([
-    "build-apks",
+    'build-apks',
     `--bundle=${aabPath}`,
     `--output=${apksPath}`,
     `--ks=${keystore}`,
     `--ks-pass=file:${keystorePassFile}`,
     `--ks-key-alias=${KEY_ALIAS}`,
     `--key-pass=file:${keyPassFile}`,
-    "--overwrite",
+    '--overwrite',
   ]);
 
   return apksPath;
 }
 
-function makeDeviceSpec(
-  abi,
-  file,
-) {
+function makeDeviceSpec(abi, file) {
   const spec = {
-    supportedAbis: [
-      abi,
-    ],
+    supportedAbis: [abi],
     glExtensions: [],
     deviceFeatures: [],
-    supportedLocales:
-      LOCALES,
-    screenDensity:
-      SCREEN_DENSITY,
-    sdkVersion:
-      SDK_VERSION,
+    supportedLocales: LOCALES,
+    screenDensity: SCREEN_DENSITY,
+    sdkVersion: SDK_VERSION,
   };
 
-  fs.writeFileSync(
-    file,
-    JSON.stringify(
-      spec,
-      null,
-      2,
-    ),
-  );
+  fs.writeFileSync(file, JSON.stringify(spec, null, 2));
 
   return spec;
 }
 
-function extractFeatureApks({
-  apksPath,
-  deviceSpecPath,
-  features,
-  outputDir,
-}) {
-  fs.mkdirSync(
-    outputDir,
-    {
-      recursive: true,
-    },
-  );
+function extractFeatureApks({ apksPath, deviceSpecPath, features, outputDir }) {
+  fs.mkdirSync(outputDir, {
+    recursive: true,
+  });
 
   const result = spawnSync(
-    "java",
+    'java',
     [
-      "-jar",
+      '-jar',
       BUNDLETOOL_JAR,
-      "extract-apks",
+      'extract-apks',
       `--apks=${apksPath}`,
       `--device-spec=${deviceSpecPath}`,
       `--output-dir=${outputDir}`,
-      `--modules=${features.join(",")}`,
+      `--modules=${features.join(',')}`,
     ],
     {
       cwd: ROOT,
-      encoding: "utf8",
-      stdio: [
-        "ignore",
-        "pipe",
-        "pipe",
-      ],
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     },
   );
@@ -619,334 +415,194 @@ function extractFeatureApks({
   if (result.error) {
     return {
       ok: false,
-      stdout: result.stdout || "",
-      stderr:
-        result.stderr ||
-        result.error.message,
+      stdout: result.stdout || '',
+      stderr: result.stderr || result.error.message,
     };
   }
 
   if (result.status !== 0) {
     return {
       ok: false,
-      stdout: result.stdout || "",
-      stderr: result.stderr || "",
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
     };
   }
 
   return {
     ok: true,
-    stdout: result.stdout || "",
-    stderr: result.stderr || "",
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
   };
 }
 
-function selectFeatureApks(
-  extractedDir,
-  features,
-) {
+function selectFeatureApks(extractedDir, features) {
   const apkFiles = fs
     .readdirSync(extractedDir)
-    .filter((name) =>
-      name.endsWith(".apk"),
-    );
+    .filter((name) => name.endsWith('.apk'));
 
-  const selected =
-    apkFiles.filter((name) =>
-      features.some(
-        (feature) =>
-          name.startsWith(feature),
-      ),
-    );
+  const selected = apkFiles.filter((name) =>
+    features.some((feature) => name.startsWith(feature)),
+  );
 
   selected.sort();
 
-  return selected.map(
-    (name) =>
-      path.join(
-        extractedDir,
-        name,
-      ),
-  );
+  return selected.map((name) => path.join(extractedDir, name));
 }
 
-function zipFiles(
-  apkFiles,
-  outputZip,
-) {
+function zipFiles(apkFiles, outputZip) {
   if (!apkFiles.length) {
-    fail(
-      `No APKs selected for ${path.basename(outputZip)}`,
-    );
+    fail(`No APKs selected for ${path.basename(outputZip)}`);
   }
 
-  run(
-    "zip",
-    [
-      "-q",
-      "-j",
-      outputZip,
-      ...apkFiles,
-    ],
-    {
-      cwd: ROOT,
-    },
-  );
+  run('zip', ['-q', '-j', outputZip, ...apkFiles], {
+    cwd: ROOT,
+  });
 }
 
-function assetName(
-  features,
-  abi,
-) {
-  return `${features.join("+")}-${abi}.zip`;
+function assetName(features, abi) {
+  return `${features.join('+')}-${abi}.zip`;
 }
 
 async function main() {
-  console.log(
-    "\n=== GloballyDynamic build-time artifact generator ===",
-  );
+  console.log('\n=== GloballyDynamic build-time artifact generator ===');
 
   if (!fs.existsSync(ANDROID_DIR)) {
-    fail(
-      `Android project not found:\n${ANDROID_DIR}`,
-    );
+    fail(`Android project not found:\n${ANDROID_DIR}`);
   }
 
   if (!fs.existsSync(APP_DIR)) {
-    fail(
-      `Android app module not found:\n${APP_DIR}`,
-    );
+    fail(`Android app module not found:\n${APP_DIR}`);
   }
 
   if (!fs.existsSync(GRADLEW)) {
     fail(
       `Gradle wrapper not found at:\n${GRADLEW}\n\n` +
-      "Expected:\n" +
-      "  android/gradlew\n" +
-      "  android/app/build.gradle",
+        'Expected:\n' +
+        '  android/gradlew\n' +
+        '  android/app/build.gradle',
     );
   }
 
   await ensureBundletool();
 
-  const features =
-    readDynamicFeatures();
+  const features = readDynamicFeatures();
 
-  console.log(
-    "\nAndroid project:",
-  );
+  console.log('\nAndroid project:');
 
-  console.log(
-    `  ${path.relative(
-      ROOT,
-      ANDROID_DIR,
-    ) || "."}`,
-  );
+  console.log(`  ${path.relative(ROOT, ANDROID_DIR) || '.'}`);
 
-  console.log(
-    `  Gradle wrapper: ${path.relative(
-      ROOT,
-      GRADLEW,
-    )}`,
-  );
+  console.log(`  Gradle wrapper: ${path.relative(ROOT, GRADLEW)}`);
 
-  console.log(
-    "\nDynamic features:",
-  );
+  console.log('\nDynamic features:');
 
   for (const feature of features) {
-    console.log(
-      `  - ${feature}`,
-    );
+    console.log(`  - ${feature}`);
   }
 
-  console.log("\nABIs:");
+  console.log('\nABIs:');
 
   for (const abi of ABIS) {
-    console.log(
-      `  - ${abi}`,
-    );
+    console.log(`  - ${abi}`);
   }
 
-  console.log("\nLocales:");
+  console.log('\nLocales:');
 
   for (const locale of LOCALES) {
-    console.log(
-      `  - ${locale}`,
-    );
+    console.log(`  - ${locale}`);
   }
 
-  runGradle([
-    `:app:bundle${VARIANT_CAP}`,
-  ]);
+  runGradle([`:app:bundle${VARIANT_CAP}`]);
 
   const aabPath = findAab();
 
-  console.log(
-    `\nAAB: ${path.relative(
-      ROOT,
-      aabPath,
-    )}`,
-  );
+  console.log(`\nAAB: ${path.relative(ROOT, aabPath)}`);
 
-  const metadata =
-    readBundleMetadata(
-      aabPath,
-    );
+  const metadata = readBundleMetadata(aabPath);
 
-  console.log(
-    "\nBundle metadata:",
-  );
+  console.log('\nBundle metadata:');
 
-  console.log(
-    `  applicationId: ${metadata.applicationId}`,
-  );
+  console.log(`  applicationId: ${metadata.applicationId}`);
 
-  console.log(
-    `  versionCode:    ${metadata.versionCode}`,
-  );
+  console.log(`  versionCode:    ${metadata.versionCode}`);
 
-  console.log(
-    `  versionName:    ${metadata.versionName}`,
-  );
+  console.log(`  versionName:    ${metadata.versionName}`);
 
-  console.log(
-    `  variant:        ${VARIANT}`,
-  );
+  console.log(`  variant:        ${VARIANT}`);
 
-  const keystore =
-    resolveStoreFile();
+  const keystore = resolveStoreFile();
 
-  const tempRoot =
-    fs.mkdtempSync(
-      path.join(
-        os.tmpdir(),
-        "kritha-gd-",
-      ),
-    );
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kritha-gd-'));
 
   try {
-    const apksPath =
-      buildApks(
-        aabPath,
-        metadata,
-        tempRoot,
-        keystore,
-      );
+    const apksPath = buildApks(aabPath, metadata, tempRoot, keystore);
 
-    console.log(
-      `\nAPK set: ${apksPath}`,
-    );
+    console.log(`\nAPK set: ${apksPath}`);
 
-    fs.mkdirSync(
-      OUTPUT_DIR,
-      {
-        recursive: true,
-      },
-    );
+    fs.mkdirSync(OUTPUT_DIR, {
+      recursive: true,
+    });
 
-    const featureCombinations =
-      combinations(features);
+    const featureCombinations = combinations(features);
 
     const manifest = {
-      applicationId:
-        metadata.applicationId,
-      versionCode:
-        metadata.versionCode,
-      versionName:
-        metadata.versionName,
+      applicationId: metadata.applicationId,
+      versionCode: metadata.versionCode,
+      versionName: metadata.versionName,
       variant: VARIANT,
       features,
       abis: [],
       locales: LOCALES,
-      screenDensity:
-        SCREEN_DENSITY,
-      sdkVersion:
-        SDK_VERSION,
+      screenDensity: SCREEN_DENSITY,
+      sdkVersion: SDK_VERSION,
       assets: [],
     };
 
     for (const abi of ABIS) {
-      const deviceSpecPath =
-        path.join(
-          tempRoot,
-          `device-spec-${abi}.json`,
-        );
+      const deviceSpecPath = path.join(tempRoot, `device-spec-${abi}.json`);
 
-      makeDeviceSpec(
-        abi,
-        deviceSpecPath,
-      );
+      makeDeviceSpec(abi, deviceSpecPath);
 
-      let generatedForAbi =
-        false;
+      let generatedForAbi = false;
 
-      console.log(
-        `\n--- ABI: ${abi} ---`,
-      );
+      console.log(`\n--- ABI: ${abi} ---`);
 
-      for (
-        const combo of featureCombinations
-      ) {
-        const comboName =
-          combo.join("+");
+      for (const combo of featureCombinations) {
+        const comboName = combo.join('+');
 
-        const extractedDir =
-          path.join(
-            tempRoot,
-            "extracted",
-            abi,
-            comboName,
-          );
+        const extractedDir = path.join(tempRoot, 'extracted', abi, comboName);
 
-        fs.rmSync(
-          extractedDir,
-          {
-            recursive: true,
-            force: true,
-          },
-        );
+        fs.rmSync(extractedDir, {
+          recursive: true,
+          force: true,
+        });
 
-        fs.mkdirSync(
-          extractedDir,
-          {
-            recursive: true,
-          },
-        );
+        fs.mkdirSync(extractedDir, {
+          recursive: true,
+        });
 
-        console.log(
-          `\nExtracting: ${combo.join(", ")}`,
-        );
+        console.log(`\nExtracting: ${combo.join(', ')}`);
 
-        const extraction =
-          extractFeatureApks({
-            apksPath,
-            deviceSpecPath,
-            features: combo,
-            outputDir:
-              extractedDir,
-          });
+        const extraction = extractFeatureApks({
+          apksPath,
+          deviceSpecPath,
+          features: combo,
+          outputDir: extractedDir,
+        });
 
         if (!extraction.ok) {
           console.warn(
             `Skipping ${comboName} for ${abi}; bundletool could not ` +
-            "produce a compatible split.",
+              'produce a compatible split.',
           );
 
           if (extraction.stderr) {
-            console.warn(
-              extraction.stderr.trim(),
-            );
+            console.warn(extraction.stderr.trim());
           }
 
           continue;
         }
 
-        const apkFiles =
-          selectFeatureApks(
-            extractedDir,
-            combo,
-          );
+        const apkFiles = selectFeatureApks(extractedDir, combo);
 
         if (!apkFiles.length) {
           console.warn(
@@ -956,57 +612,25 @@ async function main() {
           continue;
         }
 
-        const filename =
-          assetName(
-            combo,
-            abi,
-          );
+        const filename = assetName(combo, abi);
 
-        const outputZip =
-          path.join(
-            OUTPUT_DIR,
-            filename,
-          );
+        const outputZip = path.join(OUTPUT_DIR, filename);
 
-        if (
-          fs.existsSync(
-            outputZip,
-          )
-        ) {
-          fs.unlinkSync(
-            outputZip,
-          );
+        if (fs.existsSync(outputZip)) {
+          fs.unlinkSync(outputZip);
         }
 
-        zipFiles(
-          apkFiles,
-          outputZip,
-        );
+        zipFiles(apkFiles, outputZip);
 
-        const sizeBytes =
-          fs.statSync(
-            outputZip,
-          ).size;
+        const sizeBytes = fs.statSync(outputZip).size;
+
+        console.log(`Created ${path.relative(ROOT, outputZip)}`);
 
         console.log(
-          `Created ${path.relative(
-            ROOT,
-            outputZip,
-          )}`,
+          `  APKs: ${apkFiles.map((x) => path.basename(x)).join(', ')}`,
         );
 
-        console.log(
-          `  APKs: ${apkFiles
-            .map(
-              (x) =>
-                path.basename(x),
-            )
-            .join(", ")}`,
-        );
-
-        console.log(
-          `  Size: ${sizeBytes} bytes`,
-        );
+        console.log(`  Size: ${sizeBytes} bytes`);
 
         manifest.assets.push({
           features: combo,
@@ -1023,77 +647,39 @@ async function main() {
       }
     }
 
-    const manifestPath =
-      path.join(
-        OUTPUT_DIR,
-        "manifest.json",
-      );
+    const manifestPath = path.join(OUTPUT_DIR, 'manifest.json');
 
-    if (
-      manifest.assets.length === 0
-    ) {
+    if (manifest.assets.length === 0) {
       fail(
-        "Bundletool produced no feature artifacts. " +
-        "Check GD_ABIS, GD_LOCALES, GD_SCREEN_DENSITY, and GD_SDK_VERSION.",
+        'Bundletool produced no feature artifacts. ' +
+          'Check GD_ABIS, GD_LOCALES, GD_SCREEN_DENSITY, and GD_SDK_VERSION.',
       );
     }
 
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify(
-        manifest,
-        null,
-        2,
-      ) + "\n",
-    );
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
-    console.log(
-      `\nMetadata: ${path.relative(
-        ROOT,
-        manifestPath,
-      )}`,
-    );
+    console.log(`\nMetadata: ${path.relative(ROOT, manifestPath)}`);
 
-    console.log(
-      `\nGenerated ${manifest.assets.length} artifact(s).`,
-    );
+    console.log(`\nGenerated ${manifest.assets.length} artifact(s).`);
 
-    console.log(
-      "\n=== DONE ===",
-    );
+    console.log('\n=== DONE ===');
 
-    console.log(
-      `Artifacts: ${path.relative(
-        ROOT,
-        OUTPUT_DIR,
-      )}`,
-    );
+    console.log(`Artifacts: ${path.relative(ROOT, OUTPUT_DIR)}`);
 
-    console.log(
-      "\nGenerated assets:",
-    );
+    console.log('\nGenerated assets:');
 
-    for (
-      const asset of manifest.assets
-    ) {
-      console.log(
-        `  ${asset.file}`,
-      );
+    for (const asset of manifest.assets) {
+      console.log(`  ${asset.file}`);
     }
   } finally {
-    fs.rmSync(
-      tempRoot,
-      {
-        recursive: true,
-        force: true,
-      },
-    );
+    fs.rmSync(tempRoot, {
+      recursive: true,
+      force: true,
+    });
   }
 }
 
-main().catch(
-  (error) => {
-    console.error(error);
-    process.exit(1);
-  },
-);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { DownloadState, ModelRecord } from '@/types';
 

@@ -30,11 +30,11 @@ The base app contains:
 
 Optional runtime modules are installed on demand:
 
-| Runtime ID | Dynamic feature | Responsibility |
-|---|---|---|
-| `LITERT` | `feature-litert` | Generic LiteRT execution; LiteRT-backed ASR/TTS/vision/other tasks |
-| `LITERT_LM` | `feature-litertlm` | LiteRT-LM local LLM execution |
-| `ONNX` | `feature-onnx` | ONNX Runtime execution and ONNX-backed ASR/TTS/other models |
+| Runtime ID  | Dynamic feature    | Responsibility                                                     |
+| ----------- | ------------------ | ------------------------------------------------------------------ |
+| `LITERT`    | `feature-litert`   | Generic LiteRT execution; LiteRT-backed ASR/TTS/vision/other tasks |
+| `LITERT_LM` | `feature-litertlm` | LiteRT-LM local LLM execution                                      |
+| `ONNX`      | `feature-onnx`     | ONNX Runtime execution and ONNX-backed ASR/TTS/other models        |
 
 The three runtimes are visible user-facing choices. Installation state must be represented explicitly in the UI.
 

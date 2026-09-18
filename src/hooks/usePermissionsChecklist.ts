@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+
 import { PERMISSION_DESCRIPTORS } from '@/services';
 
 export function usePermissionsChecklist() {

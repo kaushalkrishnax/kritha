@@ -1,4 +1,5 @@
 import { settingsService } from '@/services/settings.service';
+
 import { LlmMessage, LlmProvider } from './types';
 
 const GEMINI_MODEL = 'gemini-flash-lite-latest';

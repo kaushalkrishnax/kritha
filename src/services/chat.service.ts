@@ -1,3 +1,5 @@
+import { Share } from 'react-native';
+
 import database from '@/database/Database';
 import {
   CreateMessageInput,
@@ -7,7 +9,6 @@ import {
   UpdateSessionInput,
 } from '@/database/types';
 import { useChatStore } from '@/stores';
-import { Share } from 'react-native';
 
 export const ChatSessionService = {
   async getSessions(includeArchived: boolean = false): Promise<Session[]> {

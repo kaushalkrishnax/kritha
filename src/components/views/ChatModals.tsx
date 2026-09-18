@@ -1,15 +1,17 @@
+import { useCallback } from 'react';
+
+import { useChatSession, useSidebar, useSpeaker } from '@/hooks';
+import { ChatSessionService, modelDownloadService } from '@/services';
+import { useModelStore, useVoiceStore } from '@/stores';
+import { ModelRecord } from '@/types';
+
 import {
   LlmModelModal,
   ModelSelectModal,
   PermissionsChecklistModal,
   VoiceModelModal,
-} from '@/components/chat/modals';
-import { ChatSidebar } from '@/components/chat/ui';
-import { useChatSession, useSidebar, useSpeaker } from '@/hooks';
-import { ChatSessionService, modelDownloadService } from '@/services';
-import { useModelStore, useVoiceStore } from '@/stores';
-import { ModelRecord } from '@/types';
-import { useCallback } from 'react';
+} from '../modals';
+import { ChatSidebar } from './ChatSidebar';
 
 interface Props {
   sidebarOpen: boolean;
@@ -22,7 +24,7 @@ interface Props {
   setPermissionsModalVisible: (o: boolean) => void;
 }
 
-export function ChatScreenModals({
+export function ChatModals({
   sidebarOpen,
   setSidebarOpen,
   isModelDropdownOpen,

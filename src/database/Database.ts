@@ -1,4 +1,5 @@
 import { DB, open } from '@op-engineering/op-sqlite';
+
 import { ChatRepository } from './ChatRepository';
 import { DatabaseError, MigrationError } from './errors';
 import { migration001 } from './migrations/001_init';

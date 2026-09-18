@@ -140,17 +140,15 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
     llmDevice?: string | null,
   ): Promise<void>;
   speechStop(): Promise<void>;
-  speak(
-    requestId: string,
-    text: string,
-    voice?: string | null,
-  ): Promise<void>;
+  speak(requestId: string, text: string, voice?: string | null): Promise<void>;
   pauseSpeaking(requestId?: string | null): Promise<void>;
   resumeSpeaking(requestId?: string | null): Promise<void>;
   stopSpeaking(requestId?: string | null): Promise<void>;
   addTool(name: string, desc: string): Promise<void>;
   listRuntimes(): Promise<RuntimeInfo[]>;
-  installRuntime(runtimeIds: string | string[]): Promise<RuntimeInstallResult[]>;
+  installRuntime(
+    runtimeIds: string | string[],
+  ): Promise<RuntimeInstallResult[]>;
   listVoiceModels(): Promise<VoiceModelInfo[]>;
   downloadVoiceModel(modelId: string): Promise<void>;
   deleteVoiceModel(modelId: string): Promise<void>;

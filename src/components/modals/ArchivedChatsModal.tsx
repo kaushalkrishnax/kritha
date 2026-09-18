@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ChatSessionService } from '@/services/chat.service';
 import { useChatStore } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';

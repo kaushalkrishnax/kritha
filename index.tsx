@@ -3,7 +3,8 @@ import { AppRegistry } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AssistantOverlay } from '@/components/chat/views';
+
+import { AssistantOverlay } from '@/components/views';
 
 function AssistantOverlayRoot() {
   return (

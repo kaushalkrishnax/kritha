@@ -1,21 +1,22 @@
-import {
-    getRuntimes,
-    installRuntimes,
-    RuntimeInfo,
-    subscribeRuntimeInstallProgress,
-} from '@/services/runtime.service';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { Download, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+
+import {
+  getRuntimes,
+  installRuntimes,
+  RuntimeInfo,
+  subscribeRuntimeInstallProgress,
+} from '@/services/runtime.service';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 enum ExtensionsTab {
   Extensions = 'extensions',

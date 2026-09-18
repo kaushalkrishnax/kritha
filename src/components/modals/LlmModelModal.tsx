@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { modelDownloadService } from '@/services';
 import { useModelStore } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';

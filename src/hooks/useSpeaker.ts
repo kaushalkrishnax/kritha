@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import { listVoiceModels } from '@/services/speechRuntime.service';
 import {
@@ -6,9 +8,6 @@ import {
   useIsTtsSpeaking,
   useVoiceStore,
 } from '@/stores';
-import { useCallback } from 'react';
-
-export { useVoiceStore };
 
 export function useSpeaker() {
   const isTtsSpeaking = useIsTtsSpeaking();
@@ -78,14 +77,12 @@ export function useSpeaker() {
   );
 
   const setSelectedSttModelId = useCallback(
-    (id: string | null) =>
-      useVoiceStore.getState().setSelectedSttModelId(id),
+    (id: string | null) => useVoiceStore.getState().setSelectedSttModelId(id),
     [],
   );
 
   const setSelectedTtsModelId = useCallback(
-    (id: string | null) =>
-      useVoiceStore.getState().setSelectedTtsModelId(id),
+    (id: string | null) => useVoiceStore.getState().setSelectedTtsModelId(id),
     [],
   );
 

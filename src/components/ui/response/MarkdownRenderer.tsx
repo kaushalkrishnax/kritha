@@ -4,6 +4,7 @@ import {
   EnrichedMarkdownText,
   type MarkdownStyle,
 } from 'react-native-enriched-markdown';
+
 import { Colors, Typography, IconSizes, Radius } from '@/theme';
 
 export const markdownRendererStyle: MarkdownStyle = {

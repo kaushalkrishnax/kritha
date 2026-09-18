@@ -1,6 +1,7 @@
+import { create } from 'zustand';
+
 import { Session } from '@/database';
 import { ChatMessage } from '@/types';
-import { create } from 'zustand';
 
 interface ChatStore {
   chatSessionId: string | null;

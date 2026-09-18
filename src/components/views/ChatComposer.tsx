@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
+
 import {
-  ChatInput,
+  TextComposer,
   DictationCornerGlow,
   LiveTalkBar,
-} from '@/components/chat/ui';
+} from '@/components/ui';
 import { ChatMode } from '@/constants';
 import { useAssistantKeyboard } from '@/hooks';
 import { useAssistantStore, useModelStore } from '@/stores';
 
-export function ChatScreenComposer() {
+export function ChatComposer() {
   const animatedBottomStyle = useAssistantKeyboard();
   const chatMode = useAssistantStore((s) => s.chatMode);
   const selectedModelId = useModelStore((s) => s.selectedModelId);
@@ -21,7 +22,7 @@ export function ChatScreenComposer() {
         {chatMode === ChatMode.LIVE_TALK ? (
           <LiveTalkBar />
         ) : (
-          <ChatInput variant="chat" modelId={selectedModelId} />
+          <TextComposer variant="chat" modelId={selectedModelId} />
         )}
       </Animated.View>
     </>

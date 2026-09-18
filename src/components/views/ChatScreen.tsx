@@ -1,13 +1,16 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+
+import { useChatSession } from '@/hooks';
 import { settingsService } from '@/services';
 import { Colors } from '@/theme';
 import { ModelRecord } from '@/types';
-import { ChatScreenBody } from './ChatScreenBody';
-import { ChatScreenComposer } from './ChatScreenComposer';
-import { ChatScreenHeader } from './ChatScreenHeader';
-import { ChatScreenModals } from './ChatScreenModals';
+
+import { ChatComposer } from './ChatComposer';
+import { ChatHeader } from './ChatHeader';
+import { ChatMessages } from './ChatMessages';
+import { ChatModals } from './ChatModals';
 
 export default function ChatScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -18,22 +21,38 @@ export default function ChatScreen() {
     () => !settingsService.hasSeenPermissionsOnboarding(),
   );
 
+  const { beginNewChat } = useChatSession();
+
+  const handleNewChat = useCallback(async () => {
+    try {
+      setSidebarOpen(false);
+      await beginNewChat();
+    } catch (e) {
+      console.warn('Failed to create new chat session', e);
+    }
+  }, [beginNewChat]);
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
       <View style={styles.mainLayout}>
-        <ChatScreenBody />
+        <View style={styles.chatArea}>
+          <ChatMessages />
+        </View>
       </View>
 
-      <ChatScreenHeader
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        onModelSelectClick={() => setModelDropdownOpen((prev) => !prev)}
-      />
-      <ChatScreenComposer />
+      <View style={styles.headerOverlay}>
+        <ChatHeader
+          onMenu={() => setSidebarOpen(true)}
+          onNewSession={handleNewChat}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
+      </View>
+      <ChatComposer />
 
-      <ChatScreenModals
+      <ChatModals
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         isModelDropdownOpen={isModelDropdownOpen}
@@ -50,4 +69,12 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   mainLayout: { flex: 1, backgroundColor: Colors.bgDeepest },
+  chatArea: { flex: 1, backgroundColor: Colors.bgDeepest },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
 });

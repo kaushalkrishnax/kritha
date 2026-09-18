@@ -1,14 +1,3 @@
-import { useSpeaker } from '@/hooks';
-import * as assistantRuntime from '@/services/assistantRuntime.service';
-import {
-  deleteVoiceModel,
-  downloadVoiceModel,
-  listVoiceModels,
-  subscribeVoiceModelProgress,
-} from '@/services/speechRuntime.service';
-import { SPEECH_MODELS } from '@/constants';
-import { useVoiceStore } from '@/stores';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { Download, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,6 +9,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { SPEECH_MODELS } from '@/constants';
+import { useSpeaker } from '@/hooks';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
+import {
+  deleteVoiceModel,
+  downloadVoiceModel,
+  listVoiceModels,
+  subscribeVoiceModelProgress,
+} from '@/services/speechRuntime.service';
+import { useVoiceStore } from '@/stores';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 enum ModelCategory {
   Tts = 'tts',
@@ -34,13 +35,14 @@ export interface VoiceModelModalProps {
 const CATALOG_MODELS = SPEECH_MODELS.map((m) => ({
   id: m.id,
   name: m.displayName,
-  size: m.type === 'stt'
-    ? m.id.includes('fp16')
-      ? '500 MB'
-      : '250 MB'
-    : m.id.includes('kitten')
-      ? '45 MB'
-      : '1.9 GB',
+  size:
+    m.type === 'stt'
+      ? m.id.includes('fp16')
+        ? '500 MB'
+        : '250 MB'
+      : m.id.includes('kitten')
+        ? '45 MB'
+        : '1.9 GB',
   langs: m.capabilities.languages.join(', '),
   category: m.type,
 }));

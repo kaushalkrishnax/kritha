@@ -1,17 +1,3 @@
-import { ChatMode, RequestOrigin } from '@/constants';
-import { useChatInputHeight } from '@/hooks';
-import * as assistantRuntime from '@/services/assistantRuntime.service';
-import {
-  useAssistantStore,
-  useChatStore,
-  useIsLlmBusy,
-  useIsLlmGenerating,
-  useIsLlmThinking,
-  useIsSttModelLoading,
-  useIsSttTranscribing,
-  useModelStore,
-} from '@/stores';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import {
   ArrowUp,
   AudioLines,
@@ -34,6 +20,21 @@ import {
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
+import { ChatMode, RequestOrigin } from '@/constants';
+import { useChatInputHeight } from '@/hooks';
+import * as assistantRuntime from '@/services/assistantRuntime.service';
+import {
+  useAssistantStore,
+  useChatStore,
+  useIsLlmBusy,
+  useIsLlmGenerating,
+  useIsLlmThinking,
+  useIsSttModelLoading,
+  useIsSttTranscribing,
+  useModelStore,
+} from '@/stores';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
+
 const MULTIPLIERS = [
   0.35, 0.65, 0.95, 0.55, 0.85, 1.2, 0.7, 1.0, 1.3, 0.8, 0.45, 0.9, 1.15, 0.6,
   0.9, 0.55, 0.8, 0.35, 0.6, 1.0, 0.45, 0.7,
@@ -45,7 +46,7 @@ const COMPACT_HEIGHT = 58;
 const EXPANDED_MIN_HEIGHT = 116;
 const BOTTOM_ROW_HEIGHT = 44;
 
-export function ChatInput({
+export function TextComposer({
   modelId,
   variant = 'overlay',
 }: {

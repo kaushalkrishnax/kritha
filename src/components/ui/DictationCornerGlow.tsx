@@ -1,6 +1,7 @@
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+
 import { Colors } from '@/theme';
 
 interface DictationCornerGlowProps {

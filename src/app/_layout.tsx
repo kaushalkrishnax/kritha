@@ -1,14 +1,16 @@
-import { bootstrapApp } from '@/services';
-import { NavigationBar } from 'expo-navigation-bar';
+// import { NavigationBar } from 'expo-navigation-bar';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
+// import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TamaguiProvider, Theme } from 'tamagui';
+
+import { bootstrapApp } from '@/services';
+
 import config from '../../tamagui.config';
 import { BG_DEEPEST } from '../theme';
 
@@ -20,7 +22,6 @@ export default function Layout() {
       try {
         await bootstrapApp();
         await SystemUI.setBackgroundColorAsync(BG_DEEPEST);
-        NavigationBar.setStyle('light');
       } catch (e) {
         console.warn('App bootstrap error:', e);
       } finally {
@@ -36,7 +37,7 @@ export default function Layout() {
         <Theme name="dark">
           <SafeAreaProvider>
             <KeyboardProvider>
-              <StatusBar style="light" />
+              {/* <StatusBar style="light" /> */}
               <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <Slot />
               </SafeAreaView>

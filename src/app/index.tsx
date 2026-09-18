@@ -1,4 +1,4 @@
-import { ChatScreen } from '@/components/chat/views';
+import { ChatScreen } from '@/components/views';
 
 export default function Index() {
   return <ChatScreen />;

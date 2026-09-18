@@ -1,5 +1,6 @@
 import { Menu, Radio, SquarePen } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+
 import { useWakeword } from '@/hooks';
 import { Colors, IconSizes, Radius } from '@/theme';
 

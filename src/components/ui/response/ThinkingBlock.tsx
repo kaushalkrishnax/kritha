@@ -1,7 +1,8 @@
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { Brain, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 export interface ThinkingBlockProps {
   thinking: string;

@@ -1,3 +1,5 @@
+import uuid from 'react-native-uuid';
+
 import {
   cancelListening as runtimeCancelListening,
   startListening as runtimeStartListening,
@@ -5,7 +7,6 @@ import {
   subscribeSpeechRuntimeEvents,
   VoiceModelMissingError,
 } from '@/services/speechRuntime.service';
-import uuid from 'react-native-uuid';
 
 import { SttProvider, SttResult, SttStartOptions } from './types';
 

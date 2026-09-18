@@ -1,7 +1,3 @@
-import { usePermissionsChecklist } from '@/hooks';
-import { settingsService } from '@/services';
-import { PermissionDescriptor } from '@/types/permissions';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import {
   Bell,
   BellRing,
@@ -29,6 +25,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { usePermissionsChecklist } from '@/hooks';
+import { settingsService } from '@/services';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
+import { PermissionDescriptor } from '@/types/permissions';
 
 const ICON_MAP: Record<string, any> = {
   Sparkles,

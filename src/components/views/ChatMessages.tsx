@@ -1,18 +1,3 @@
-import { ContextMenu } from '@/components/ui/ContextMenu';
-import { useChatInputHeight, useSpeaker } from '@/hooks';
-import { ChatSessionService } from '@/services';
-import {
-  useAssistantStore,
-  useChatStore,
-  useIsLlmGenerating,
-  useIsLlmThinking,
-  useIsTtsPaused,
-  useIsTtsModelLoading,
-  useIsTtsSpeaking,
-} from '@/stores';
-import { Colors, IconSizes, Radius, Typography } from '@/theme';
-import { ChatMessage } from '@/types/chat';
-import { formatMessageTime } from '@/utils';
 import * as Clipboard from 'expo-clipboard';
 import { ArrowDown, Brain, Copy, Pencil, Share2 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -36,7 +21,24 @@ import Svg, {
   Stop,
   LinearGradient as SvgGradient,
 } from 'react-native-svg';
-import { ResponseMessage } from './ResponseMessage';
+
+import { ContextMenu } from '@/components/ui/ContextMenu';
+import { useChatInputHeight, useSpeaker } from '@/hooks';
+import { ChatSessionService } from '@/services';
+import {
+  useAssistantStore,
+  useChatStore,
+  useIsLlmGenerating,
+  useIsLlmThinking,
+  useIsTtsModelLoading,
+  useIsTtsPaused,
+  useIsTtsSpeaking,
+} from '@/stores';
+import { Colors, IconSizes, Radius, Typography } from '@/theme';
+import { ChatMessage } from '@/types/chat';
+import { formatMessageTime } from '@/utils';
+
+import { ResponseMessage } from '../ui/response/ResponseMessage';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GRADIENT_TOP_HEIGHT = 100;

@@ -7,6 +7,7 @@ import Svg, {
   Stop,
   LinearGradient as SvgGradient,
 } from 'react-native-svg';
+
 import { LiveTalkPhase } from '@/constants';
 import * as assistantRuntime from '@/services/assistantRuntime.service';
 import { useAssistantStore } from '@/stores';

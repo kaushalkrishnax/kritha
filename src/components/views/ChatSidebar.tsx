@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import {
   Archive,
@@ -26,18 +27,19 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
-import {
-  ArchivedChatsModal,
-  ExtensionsRuntimesModal,
-  PermissionsChecklistModal,
-  SettingsModal,
-} from '@/components/chat/modals';
+
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
 import { Session as ChatSession } from '@/database';
 import { useSettingsStore } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { stubAction } from '@/utils';
+
+import {
+  ArchivedChatsModal,
+  ExtensionsRuntimesModal,
+  PermissionsChecklistModal,
+  SettingsModal,
+} from '../modals';
 
 export interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -159,11 +161,12 @@ export function ChatSidebar({
       setMenuState(null);
 
       switch (actionId) {
-        case 'rename':
+        case 'rename': {
           setEditingId(id);
           const session = sessions.find((s) => s.id === id);
           if (session) setEditTitle(session.title);
           break;
+        }
         case 'delete':
           onSessionDelete?.(id);
           break;
@@ -270,7 +273,7 @@ export function ChatSidebar({
     });
   }, [slideAnim, backdropOpacity, onClose]);
 
-  const versionName = Constants.expoConfig?.version || '0.1.0';
+  const versionName = Constants.expoConfig?.version;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">

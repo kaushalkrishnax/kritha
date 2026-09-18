@@ -46,10 +46,10 @@
 
 **Current Version:** `v0.1.0` · Android 7.0+ · ~80 MB
 
-| Build Variant   | Device Compatibility        | Download                                                                        |
-| --------------- | --------------------------- | ------------------------------------------------------------------------------- |
-| **arm64-v8a**   | Modern Android devices      | [![Download arm64-v8a](https://img.shields.io/badge/Download-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kaushalkrishnax/kritha/releases/download/v0.1.0/Kritha-0.1.0-arm64-v8a.apk) |
-| **x86_64**      | Emulators and x86_64 devices | [![Download x86_64](https://img.shields.io/badge/Download-0288D1?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kaushalkrishnax/kritha/releases/download/v0.1.0/Kritha-0.1.0-x86_64.apk) |
+| Build Variant | Device Compatibility         | Download                                                                                                                                                                                                              |
+| ------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **arm64-v8a** | Modern Android devices       | [![Download arm64-v8a](https://img.shields.io/badge/Download-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kaushalkrishnax/kritha/releases/download/v0.1.0/Kritha-0.1.0-arm64-v8a.apk) |
+| **x86_64**    | Emulators and x86_64 devices | [![Download x86_64](https://img.shields.io/badge/Download-0288D1?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kaushalkrishnax/kritha/releases/download/v0.1.0/Kritha-0.1.0-x86_64.apk)       |
 
 > **Quick Guide:** Not sure? Pick **arm64-v8a** — it covers virtually every phone made since 2017. Emulator users should pick **x86_64**.
 
@@ -94,16 +94,16 @@
 
 ## 🔌 Tech
 
-| Area          | Technology                                            |
-| ------------- | ----------------------------------------------------- |
-| UI            | React Native · Tamagui · Zustand                      |
-| Framework     | Expo SDK 57                                           |
-| Native        | Kotlin assistant runtime                              |
-| Local AI      | LiteRT · LiteRT-LM · ONNX (on-demand)                |
-| Wake word     | Edge Impulse                                          |
-| Cloud LLM     | Gemini (optional)                                     |
-| Persistence   | Native SQLite                                         |
-| Package mgr   | Bun                                                   |
+| Area        | Technology                            |
+| ----------- | ------------------------------------- |
+| UI          | React Native · Tamagui · Zustand      |
+| Framework   | Expo SDK 57                           |
+| Native      | Kotlin assistant runtime              |
+| Local AI    | LiteRT · LiteRT-LM · ONNX (on-demand) |
+| Wake word   | Edge Impulse                          |
+| Cloud LLM   | Gemini (optional)                     |
+| Persistence | Native SQLite                         |
+| Package mgr | Bun                                   |
 
 ---
 
@@ -117,11 +117,11 @@ Screenshots coming soon.
 
 ### Prerequisites
 
-| Requirement                 | Version        | Download                                              |
-| --------------------------- | -------------- | ----------------------------------------------------- |
-| **Node.js**                 | 18.x or higher | [nodejs.org](https://nodejs.org/)                     |
+| Requirement                 | Version        | Download                                               |
+| --------------------------- | -------------- | ------------------------------------------------------ |
+| **Node.js**                 | 18.x or higher | [nodejs.org](https://nodejs.org/)                      |
 | **Bun**                     | Latest         | [bun.sh](https://bun.sh/)                              |
-| **Android SDK**             | Latest         | Via Android Studio                                    |
+| **Android SDK**             | Latest         | Via Android Studio                                     |
 | **Android Device/Emulator** | API 24+        | [Android Studio](https://developer.android.com/studio) |
 
 > **⚠️ Note:** Kritha ships custom native Android code, so **Expo Go is not supported** — use a development build.

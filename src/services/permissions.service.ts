@@ -1,6 +1,8 @@
+import { PermissionsAndroid } from 'react-native';
+
 import { Colors } from '@/theme';
 import { PermissionDescriptor } from '@/types/permissions';
-import { PermissionsAndroid } from 'react-native';
+
 import { AssistantBridge } from './app.service';
 
 export const PERMISSION_DESCRIPTORS: PermissionDescriptor[] = [

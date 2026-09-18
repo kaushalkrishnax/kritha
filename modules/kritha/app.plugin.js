@@ -1,4 +1,7 @@
-const { withSettingsGradle, withAppBuildGradle } = require('@expo/config-plugins');
+const {
+  withSettingsGradle,
+  withAppBuildGradle,
+} = require('@expo/config-plugins');
 
 const withDynamicFeatures = (config) => {
   config = withSettingsGradle(config, (config) => {
@@ -16,10 +19,10 @@ project(':feature_onnx').projectDir = new File(rootProject.projectDir, '../modul
   });
 
   config = withAppBuildGradle(config, (config) => {
-    if (!config.modResults.contents.includes("dynamicFeatures =")) {
+    if (!config.modResults.contents.includes('dynamicFeatures =')) {
       config.modResults.contents = config.modResults.contents.replace(
         /android\s*\{/,
-        "android {\n    dynamicFeatures = [':feature_litert', ':feature_litertlm', ':feature_onnx']"
+        "android {\n    dynamicFeatures = [':feature_litert', ':feature_litertlm', ':feature_onnx']",
       );
     }
     return config;

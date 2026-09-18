@@ -1,5 +1,3 @@
-import { Colors, IconSizes, Radius } from '@/theme';
-import { stubAction } from '@/utils';
 import * as Clipboard from 'expo-clipboard';
 import {
   Check,
@@ -18,6 +16,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import { Colors, IconSizes, Radius } from '@/theme';
+import { stubAction } from '@/utils';
 
 export interface ResponseActionsProps {
   msgId?: string;

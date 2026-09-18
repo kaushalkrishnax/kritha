@@ -1,14 +1,48 @@
 #!/usr/bin/env node
 
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const root = path.resolve(__dirname, '..');
 const androidDir = path.join(root, 'android');
 const gradle = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 const architectures = ['arm64-v8a', 'x86_64'];
+const outputDir = path.join(root, 'dist', 'release-apks');
+const apkOutputDir = path.join(
+  androidDir,
+  'app',
+  'build',
+  'outputs',
+  'apk',
+  'release',
+);
+const archivedApks = [];
+const generatedBuildDirs = [
+  path.join(androidDir, 'app', 'build'),
+  path.join(androidDir, 'app', '.cxx'),
+  path.join(root, 'modules', 'kritha', 'android', 'build'),
+  path.join(root, 'modules', 'kritha', 'android', '.cxx'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_litert', 'build'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_litert', '.cxx'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_litertlm', 'build'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_litertlm', '.cxx'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_onnx', 'build'),
+  path.join(root, 'modules', 'kritha', 'android', 'feature_onnx', '.cxx'),
+];
+
+fs.rmSync(outputDir, { recursive: true, force: true });
+fs.mkdirSync(outputDir, { recursive: true });
 
 for (const architecture of architectures) {
+  for (const generatedBuildDir of generatedBuildDirs) {
+    fs.rmSync(generatedBuildDir, { recursive: true, force: true });
+  }
+
   const result = spawnSync(
     gradle,
     ['assembleRelease', `-PreactNativeArchitectures=${architecture}`],
@@ -31,11 +65,29 @@ for (const architecture of architectures) {
     console.error(`Release APK build failed for ${architecture}.`);
     process.exit(result.status ?? 1);
   }
+
+  const builtApkName = fs
+    .readdirSync(apkOutputDir)
+    .find(
+      (name) =>
+        name.endsWith(`-${architecture}.apk`) && name.startsWith('Kritha-'),
+    );
+
+  if (!builtApkName) {
+    console.error(
+      `Expected APK for ${architecture} was not generated in ${apkOutputDir}`,
+    );
+    process.exit(1);
+  }
+
+  const builtApk = path.join(apkOutputDir, builtApkName);
+  const archivedApk = path.join(outputDir, path.basename(builtApk));
+
+  fs.copyFileSync(builtApk, archivedApk);
+  archivedApks.push(path.relative(root, archivedApk));
 }
 
 console.log('\nRelease APKs:');
-for (const architecture of architectures) {
-  console.log(
-    `android/app/build/outputs/apk/release/Kritha-0.1.1-${architecture}.apk`,
-  );
+for (const archivedApk of archivedApks) {
+  console.log(archivedApk);
 }

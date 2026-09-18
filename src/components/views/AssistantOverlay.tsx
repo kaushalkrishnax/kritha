@@ -1,9 +1,13 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+
 import {
   AssistantResponseCard,
-  ChatInput,
+  TextComposer,
   DictationCornerGlow,
   LiveTalkBar,
-} from '@/components/chat/ui';
+} from '@/components/ui';
 import { useAssistantKeyboard, useAssistantSession, useSpeaker } from '@/hooks';
 import {
   useAssistantStore,
@@ -13,9 +17,6 @@ import {
   useIsTtsPaused,
   useIsTtsSpeaking,
 } from '@/stores';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import Reanimated from 'react-native-reanimated';
 
 export function AssistantOverlay() {
   const response = useAssistantStore((s) => s.response);
@@ -104,6 +105,8 @@ export function AssistantOverlay() {
 
   const handleClose = useCallback(() => {
     try {
+      // STUB: close the overlay and return to the main app; no navigation target is wired up yet.
+      console.log('Closing assistant overlay');
     } catch (e) {
       console.warn('Failed to dismiss assistant session:', e);
     }
@@ -111,6 +114,8 @@ export function AssistantOverlay() {
 
   const handleExpandPress = useCallback(() => {
     try {
+      // STUB: expand the overlay into the full app; no navigation target is wired up yet.
+      console.log('Expanding assistant overlay into main app');
     } catch (e) {
       console.warn('Failed to open main app:', e);
     }
@@ -153,7 +158,7 @@ export function AssistantOverlay() {
           />
         </View>
 
-        {isLiveTalk ? <LiveTalkBar /> : <ChatInput />}
+        {isLiveTalk ? <LiveTalkBar /> : <TextComposer />}
       </Reanimated.View>
     </View>
   );

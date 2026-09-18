@@ -1,6 +1,6 @@
+import * as SecureStore from 'expo-secure-store';
 import { createMMKV } from 'react-native-mmkv';
 import { StateStorage } from 'zustand/middleware';
-import * as SecureStore from 'expo-secure-store';
 
 let appMMKV: ReturnType<typeof createMMKV> | null = null;
 

@@ -3,9 +3,12 @@
   "main": "index.tsx",
   "version": "0.1.1",
   "description": "An AI assistant with customizable automations and workflows.",
+  "type": "module",
   "dependencies": {
     "@op-engineering/op-sqlite": "^18.2.3",
     "@tamagui/config": "^2.7.7",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import": "^2.32.0",
     "expo": "^57.0.23",
     "expo-clipboard": "^57.0.2",
     "expo-constants": "~57.0.18",
@@ -40,6 +43,7 @@
     "@types/react": "~19.2.18",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
+    "globals": "^16.5.0",
     "typescript": "~6.0.3"
   },
   "scripts": {

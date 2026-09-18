@@ -1,7 +1,9 @@
-import { Colors, Radius, Typography } from '@/theme';
-import { ChatMessage } from '@/types';
 import { useRef } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { Colors, Radius, Typography } from '@/theme';
+import { ChatMessage } from '@/types';
+
 import { ResponseActions } from './ResponseActions';
 import { ResponseMessage } from './ResponseMessage';
 

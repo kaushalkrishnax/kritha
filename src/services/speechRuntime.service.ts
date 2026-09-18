@@ -243,8 +243,6 @@ export async function ensureSpeechRuntimeInitialized(
       ttsModelId: ttsModelId ?? undefined,
     });
     initializedSelections = { stt: sttModelId, tts: ttsModelId };
-  } catch (initErr) {
-    throw initErr;
   } finally {
     endModelLoad(forCapability);
   }
@@ -273,11 +271,7 @@ export async function speak(
   voice?: string | null,
 ): Promise<void> {
   await ensureSpeechRuntimeInitialized('tts');
-  try {
-    await KrithaSpeech.speak(requestId, text, voice ?? 'F1');
-  } catch (speakErr) {
-    throw speakErr;
-  }
+  await KrithaSpeech.speak(requestId, text, voice ?? 'F1');
 }
 
 export async function pauseSpeaking(requestId?: string): Promise<void> {

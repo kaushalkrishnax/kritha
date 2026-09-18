@@ -52,18 +52,7 @@ export const SPEECH_MODELS: SpeechModelReference[] = [
     capabilities: {
       streaming: true,
       pauseResume: true,
-      languages: [
-        'en',
-        'zh',
-        'es',
-        'ja',
-        'ko',
-        'fr',
-        'de',
-        'it',
-        'pt',
-        'ru',
-      ],
+      languages: ['en', 'zh', 'es', 'ja', 'ko', 'fr', 'de', 'it', 'pt', 'ru'],
     },
   },
   {
