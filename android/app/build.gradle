@@ -82,6 +82,7 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    dynamicFeatures = [':feature_litert', ':feature_litertlm', ':feature_onnx']
     dynamicFeatures += [':feature_litert', ':feature_litertlm', ':feature_onnx']
     ndkVersion rootProject.ext.ndkVersion
 

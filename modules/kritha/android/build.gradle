@@ -8,10 +8,20 @@ version = '0.1.0'
 
 android {
   namespace "expo.modules.kritha"
+
+  def configuredAbis = (findProperty('reactNativeArchitectures') ?: 'arm64-v8a,x86_64')
+    .split(',')
+    .collect { it.trim() }
+    .findAll { it }
+
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
     consumerProguardFiles 'proguard-rules.pro'
+
+    ndk {
+      abiFilters(*configuredAbis)
+    }
 
     externalNativeBuild {
       cmake {
@@ -19,6 +29,7 @@ android {
       }
     }
   }
+
   lintOptions {
     abortOnError false
   }

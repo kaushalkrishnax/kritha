@@ -87,12 +87,6 @@ for (const architecture of architectures) {
     fs.copyFileSync(builtApk, archivedApk);
     archivedApks.push(path.relative(root, archivedApk));
   }
-
-  const builtApk = path.join(apkOutputDir, builtApkName);
-  const archivedApk = path.join(outputDir, path.basename(builtApk));
-
-  fs.copyFileSync(builtApk, archivedApk);
-  archivedApks.push(path.relative(root, archivedApk));
 }
 
 console.log('\nRelease APKs:');
