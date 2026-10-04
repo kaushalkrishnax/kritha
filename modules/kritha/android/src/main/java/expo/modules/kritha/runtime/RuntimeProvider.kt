@@ -1,7 +1,9 @@
 package expo.modules.kritha.runtime
 
+import expo.modules.kritha.runtime.asr.AsrProvider
 import expo.modules.kritha.runtime.llm.LlmProvider
 import expo.modules.kritha.runtime.tts.TtsProvider
+import expo.modules.kritha.runtime.vad.VadProvider
 import java.util.ServiceLoader
 
 enum class RuntimeStatus {
@@ -25,7 +27,8 @@ interface RuntimeProvider {
     // Runtime capabilities, mapped generically
     fun tts(): TtsProvider? = null
     fun llm(): LlmProvider? = null
-    fun asr(): Any? = null
+    fun asr(): AsrProvider? = null
+    fun vad(): VadProvider? = null
 
     fun inspectModel(descriptor: Any): Map<String, Any?>? = null
 }

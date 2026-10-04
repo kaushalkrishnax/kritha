@@ -2,6 +2,8 @@ import { EventSubscription } from 'expo-modules-core';
 
 import KrithaModule, {
   KrithaModuleEvents,
+  LiveTalkEvent,
+  LiveTalkStartConfig,
   LocalLlmDeltaEvent,
   LocalLlmGenerateRequest,
   LocalLlmMessage,
@@ -207,7 +209,30 @@ export const KrithaSpeech = {
   ) => addListener('onVoiceModelProgress', listener),
 };
 
+export const KrithaLiveTalk = {
+  start: (config: LiveTalkStartConfig) => KrithaModule.startLiveTalk(config),
+
+  stop: () => KrithaModule.stopLiveTalk(),
+
+  interrupt: () => KrithaModule.interruptLiveTalk(),
+
+  pause: () => KrithaModule.pauseLiveTalkSession(),
+
+  resume: () => KrithaModule.resumeLiveTalkSession(),
+
+  setContext: (messages: { role: string; content: string }[]) =>
+    KrithaModule.setLiveTalkContext(messages),
+
+  isActive: (): boolean => KrithaModule.isLiveTalkActive?.() ?? false,
+
+  addListener: (
+    listener: (event: LiveTalkEvent) => void,
+  ): EventSubscription => addListener('onLiveTalkEvent', listener),
+};
+
 export {
+  LiveTalkEvent,
+  LiveTalkStartConfig,
   LocalLlmDeltaEvent,
   LocalLlmGenerateRequest,
   LocalLlmMessage,

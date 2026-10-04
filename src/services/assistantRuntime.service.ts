@@ -2,6 +2,7 @@ import uuid from 'react-native-uuid';
 
 import {
   ChatMode,
+  isCloudModel,
   LiveTalkPhase,
   LlmPhase,
   MicOwner,
@@ -20,6 +21,7 @@ import {
   buildConversationContext,
   ContextMessage,
 } from './conversation.service';
+import { liveTalkService } from './liveTalk.service';
 import { modelDownloadService } from './model.service';
 import {
   LlmMessage,
@@ -27,6 +29,7 @@ import {
   sttProvider,
   ttsProvider,
 } from './providers';
+import { settingsService } from './settings.service';
 import { VoiceModelMissingError } from './speechRuntime.service';
 
 let activeLlmHandle: { cancel: () => void } | null = null;
@@ -36,6 +39,11 @@ let activeTtsRequestId: string | null = null;
 let activeTtsMessageId: string | null = null;
 let ttsEventSubscribed = false;
 let sttLevelSmoothed = 0;
+
+let liveTalkConfigured = false;
+let liveTalkTurnRunId: string | null = null;
+let liveTalkSessionId: string | null = null;
+let liveTalkResponseAcc = '';
 
 function ensureTtsEventSubscription(): void {
   if (ttsEventSubscribed) return;
@@ -454,50 +462,327 @@ export async function sendDictation(options?: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Live Talk (native real-time loop; this file remains the only phase writer)
+// ---------------------------------------------------------------------------
+
+const NATIVE_TO_LIVE_TALK_PHASE: Record<string, LiveTalkPhase | null> = {
+  idle: null,
+  listening: LiveTalkPhase.LISTENING,
+  user_speaking: LiveTalkPhase.USER_SPEAKING,
+  processing: LiveTalkPhase.PROCESSING,
+  thinking: LiveTalkPhase.THINKING,
+  speaking: LiveTalkPhase.SPEAKING,
+  interrupted: LiveTalkPhase.INTERRUPTED,
+  paused: LiveTalkPhase.PAUSED,
+};
+
+function buildLiveTalkContext(): ContextMessage[] {
+  const historical = useChatStore.getState().messages.map((m) => ({
+    role: m.role as 'user' | 'assistant',
+    text: m.text,
+  }));
+  const { userName, customInstructions } = useSettingsStore.getState();
+  return buildConversationContext({
+    messages: historical,
+    userName,
+    customInstructions,
+  });
+}
+
+async function persistLiveTalkUserMessage(text: string): Promise<void> {
+  let sessionId = liveTalkSessionId ?? useChatStore.getState().chatSessionId;
+  if (!sessionId) {
+    const session = await ChatSessionService.createNewChat(text.slice(0, 60));
+    sessionId = session.id;
+  }
+  liveTalkSessionId = sessionId;
+
+  const messageId = String(uuid.v4());
+  const now = Date.now();
+  await ChatSessionService.saveMessage({
+    sessionId,
+    role: 'user',
+    content: text,
+    customId: messageId,
+    createdAt: now,
+    runId: liveTalkTurnRunId ?? undefined,
+  });
+  useChatStore.getState().upsertMessage({
+    id: messageId,
+    sessionId,
+    role: 'user',
+    text,
+    createdAt: now,
+    status: 'sent',
+    runId: liveTalkTurnRunId ?? undefined,
+  });
+}
+
+function persistLiveTalkAssistantMessage(
+  text: string,
+  completed: boolean,
+): void {
+  const sessionId = liveTalkSessionId ?? useChatStore.getState().chatSessionId;
+  const messageId = liveTalkTurnRunId;
+  if (!sessionId || !messageId || !text.trim()) return;
+
+  const ts = Date.now();
+  ChatSessionService.saveMessage({
+    sessionId,
+    role: 'assistant',
+    content: text,
+    customId: messageId,
+    createdAt: ts,
+    runId: messageId,
+  }).catch((err) =>
+    console.error('[LiveTalk] Failed to persist assistant message:', err),
+  );
+  useChatStore
+    .getState()
+    .completeMessageStream(messageId, text, ts, messageId);
+
+  if (completed) {
+    // Keep the native working context aligned with the canonical JS history.
+    const context = buildLiveTalkContext().map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+    liveTalkService.setContext(context);
+  }
+}
+
+function handleLiveTalkEvent(event: {
+  type: string;
+  state?: string;
+  text?: string;
+  delta?: string;
+  level?: number;
+  turnId?: string;
+  interrupted?: boolean;
+  code?: string;
+  message?: string;
+  metric?: string;
+  ms?: number;
+}): void {
+  const store = useAssistantStore.getState();
+  if (store.chatMode !== ChatMode.LIVE_TALK && event.type !== 'error') return;
+
+  switch (event.type) {
+    case 'state': {
+      const phase = event.state
+        ? (NATIVE_TO_LIVE_TALK_PHASE[event.state] ?? null)
+        : null;
+      store.setLiveTalkPhase(phase);
+      switch (event.state) {
+        case 'listening':
+          store.setSttPhase(SttPhase.LISTENING);
+          store.setTtsPhase(TtsPhase.IDLE);
+          store.setLlmPhase(LlmPhase.IDLE);
+          store.setMic(MicOwner.STT);
+          break;
+        case 'user_speaking':
+          store.setSttPhase(SttPhase.LISTENING);
+          store.setTranscript('');
+          break;
+        case 'processing':
+          store.setSttPhase(SttPhase.TRANSCRIBING);
+          break;
+        case 'thinking':
+          store.setSttPhase(SttPhase.IDLE);
+          store.setLlmPhase(LlmPhase.THINKING);
+          break;
+        case 'speaking':
+          store.setLlmPhase(LlmPhase.IDLE);
+          store.setTtsPhase(TtsPhase.SPEAKING);
+          break;
+        case 'interrupted':
+          store.setTtsPhase(TtsPhase.IDLE);
+          store.setLlmPhase(LlmPhase.IDLE);
+          break;
+        case 'paused':
+          store.setSttPhase(SttPhase.IDLE);
+          store.setTtsPhase(TtsPhase.IDLE);
+          store.setMic(MicOwner.NONE);
+          break;
+        case 'idle':
+          break;
+      }
+      break;
+    }
+
+    case 'transcription_completed': {
+      const text = (event.text ?? '').trim();
+      store.setTranscript(text);
+      store.setSttPhase(SttPhase.IDLE);
+      if (text) {
+        persistLiveTalkUserMessage(text).catch((err) =>
+          console.error('[LiveTalk] Failed to persist user message:', err),
+        );
+      }
+      break;
+    }
+
+    case 'thinking_started': {
+      liveTalkTurnRunId = String(uuid.v4());
+      liveTalkResponseAcc = '';
+      store.startRun(RequestOrigin.LIVE_TALK);
+      store.setLlmPhase(LlmPhase.THINKING);
+      break;
+    }
+
+    case 'assistant_text': {
+      const delta = event.delta ?? '';
+      liveTalkResponseAcc += delta;
+      store.appendResponse(delta);
+      if (store.llmPhase !== LlmPhase.GENERATING) {
+        store.setLlmPhase(LlmPhase.GENERATING);
+      }
+      const messageId = liveTalkTurnRunId;
+      const sessionId =
+        liveTalkSessionId ?? useChatStore.getState().chatSessionId;
+      if (messageId && sessionId) {
+        useChatStore.getState().appendMessageChunk(messageId, delta, messageId);
+      }
+      break;
+    }
+
+    case 'thinking_completed': {
+      persistLiveTalkAssistantMessage(
+        (event.text ?? liveTalkResponseAcc).trim(),
+        true,
+      );
+      store.setLlmPhase(LlmPhase.IDLE);
+      liveTalkTurnRunId = null;
+      liveTalkResponseAcc = '';
+      break;
+    }
+
+    case 'interrupted': {
+      persistLiveTalkAssistantMessage(liveTalkResponseAcc.trim(), true);
+      store.setLlmPhase(LlmPhase.IDLE);
+      store.setTtsPhase(TtsPhase.IDLE);
+      liveTalkTurnRunId = null;
+      liveTalkResponseAcc = '';
+      break;
+    }
+
+    case 'tts_started':
+      store.setTtsPhase(TtsPhase.SPEAKING);
+      break;
+
+    case 'tts_stopped':
+      store.setTtsPhase(TtsPhase.IDLE);
+      break;
+
+    case 'audio_level':
+      if (store.micOwner === MicOwner.STT) {
+        store.setMic(MicOwner.STT, event.level ?? 0);
+      }
+      break;
+
+    case 'latency':
+      console.debug(`[LiveTalk] ${event.metric}: ${event.ms}ms`);
+      break;
+
+    case 'error': {
+      const message = event.message ?? 'Live Talk error';
+      if (event.code === 'MODEL_MISSING') {
+        openVoiceModalForMissingModel();
+      }
+      store.setError(message);
+      break;
+    }
+
+    case 'session_stopped': {
+      if (store.chatMode === ChatMode.LIVE_TALK) {
+        store.setChatMode(ChatMode.TEXTING);
+        store.setLiveTalkPhase(null);
+        store.setSttPhase(SttPhase.IDLE);
+        store.setLlmPhase(LlmPhase.IDLE);
+        store.setTtsPhase(TtsPhase.IDLE);
+        store.setMic(MicOwner.NONE);
+      }
+      liveTalkTurnRunId = null;
+      liveTalkResponseAcc = '';
+      liveTalkSessionId = null;
+      break;
+    }
+  }
+}
+
+function ensureLiveTalkConfigured(): void {
+  if (liveTalkConfigured) return;
+  liveTalkConfigured = true;
+  liveTalkService.configureHandler(handleLiveTalkEvent);
+  liveTalkService.enableBackgroundStop(() => stopLiveTalk());
+}
+
 export async function startLiveTalk(options?: {
   sessionId?: string | null;
 }): Promise<void> {
+  const store = useAssistantStore.getState();
   try {
-    const store = useAssistantStore.getState();
+    ensureLiveTalkConfigured();
 
-    let sessionId = options?.sessionId ?? useChatStore.getState().chatSessionId;
-    if (sessionId) {
-      useChatStore.getState().setChatSessionId(sessionId);
+    liveTalkSessionId =
+      options?.sessionId ?? useChatStore.getState().chatSessionId;
+    if (liveTalkSessionId) {
+      useChatStore.getState().setChatSessionId(liveTalkSessionId);
     }
 
+    const modelId = useModelStore.getState().selectedModelId;
+    const cloud = isCloudModel(modelId);
+    const [modelPath, apiKey] = await Promise.all([
+      cloud
+        ? Promise.resolve(null)
+        : modelDownloadService.getDownloadedModelPath(modelId),
+      cloud ? settingsService.readApiKey() : Promise.resolve(null),
+    ]);
+
+    const voice = useVoiceStore.getState();
+    const context = buildLiveTalkContext().map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
     store.setChatMode(ChatMode.LIVE_TALK);
-    store.setLiveTalkPhase(LiveTalkPhase.LISTENING);
     store.setSttPhase(SttPhase.LISTENING);
     store.setMic(MicOwner.STT);
 
-    const requestId = await sttProvider.startListening();
-    activeSttRequestId = requestId;
+    await liveTalkService.start({
+      intelligence: {
+        kind: cloud ? 'cloud' : 'local',
+        modelId,
+        modelPath,
+        device: useSettingsStore.getState().deviceType,
+        apiKey,
+      },
+      context,
+      tts: {
+        enabled: voice.liveTalkTtsMode !== 'disabled',
+        mode: voice.liveTalkTtsMode,
+      },
+      sttModelId: voice.selectedSttModelId,
+    });
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to start Live Talk.';
-    const store = useAssistantStore.getState();
-
-    store.setError(message);
-    store.setSttPhase(SttPhase.IDLE);
-    store.setChatMode(ChatMode.TEXTING);
-    store.setLiveTalkPhase(null);
-    store.setMic(MicOwner.NONE);
-    if (!error?.message?.includes('not downloaded')) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to start Live Talk.';
-      store.setError(message);
+    const current = useAssistantStore.getState();
+    if (error?.code === 'MODEL_MISSING') {
+      openVoiceModalForMissingModel();
     }
+    current.setError(message);
+    current.setSttPhase(SttPhase.IDLE);
+    current.setChatMode(ChatMode.TEXTING);
+    current.setLiveTalkPhase(null);
+    current.setMic(MicOwner.NONE);
   }
 }
 
 export async function pauseLiveTalk(): Promise<void> {
   try {
-    const store = useAssistantStore.getState();
-
-    store.setLiveTalkPhase(LiveTalkPhase.PAUSED);
-    store.setSttPhase(SttPhase.IDLE);
-    store.setMic(MicOwner.NONE);
-    store.setTtsPhase(TtsPhase.PAUSED);
+    liveTalkService.pause();
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to pause Live Talk.';
@@ -507,43 +792,33 @@ export async function pauseLiveTalk(): Promise<void> {
 
 export async function resumeLiveTalk(): Promise<void> {
   try {
-    const store = useAssistantStore.getState();
-
-    store.setLiveTalkPhase(LiveTalkPhase.LISTENING);
-    store.setTtsPhase(TtsPhase.IDLE);
-    store.setCurrentTtsMessageId(null);
-    store.setSttPhase(SttPhase.LISTENING);
-    store.setMic(MicOwner.STT);
-
-    const requestId = await sttProvider.startListening();
-    activeSttRequestId = requestId;
+    liveTalkService.resume();
   } catch (error: any) {
     const message =
       error instanceof Error ? error.message : 'Failed to resume Live Talk.';
-    const store = useAssistantStore.getState();
-
-    store.setError(message);
-    store.setSttPhase(SttPhase.IDLE);
-    store.setMic(MicOwner.NONE);
+    useAssistantStore.getState().setError(message);
   }
 }
 
+export function interruptLiveTalk(): void {
+  liveTalkService.interrupt();
+}
+
 export function stopLiveTalk(): void {
-  cancelRun();
+  liveTalkService.stop().catch((err) =>
+    console.warn('[LiveTalk] Native stop failed', err),
+  );
 
-  const ttsRequestId = activeTtsRequestId;
-  activeTtsRequestId = null;
-  activeTtsMessageId = null;
-  ttsProvider.stop(ttsRequestId ?? undefined).catch(() => {});
-
-  activeSttRequestId = null;
-  sttProvider.cancelListening().catch(() => {});
+  liveTalkTurnRunId = null;
+  liveTalkResponseAcc = '';
+  liveTalkSessionId = null;
 
   const store = useAssistantStore.getState();
 
   store.setChatMode(ChatMode.TEXTING);
   store.setLiveTalkPhase(null);
   store.setSttPhase(SttPhase.IDLE);
+  store.setLlmPhase(LlmPhase.IDLE);
   store.setTtsPhase(TtsPhase.IDLE);
   store.setCurrentTtsMessageId(null);
   store.setMic(MicOwner.NONE);

@@ -17,14 +17,24 @@ export function LiveTalkBar() {
   const liveTalkPhase = useAssistantStore((s) => s.liveTalkPhase);
 
   const getActiveState = () => {
-    if (liveTalkPhase === LiveTalkPhase.LISTENING) return 'Listening';
-    if (liveTalkPhase === LiveTalkPhase.SPEAKING) return 'Speaking';
-    return 'Paused';
+    switch (liveTalkPhase) {
+      case LiveTalkPhase.LISTENING:
+      case LiveTalkPhase.USER_SPEAKING:
+      case LiveTalkPhase.INTERRUPTED:
+        return 'Listening';
+      case LiveTalkPhase.PROCESSING:
+      case LiveTalkPhase.THINKING:
+        return 'Thinking';
+      case LiveTalkPhase.SPEAKING:
+        return 'Speaking';
+      default:
+        return 'Paused';
+    }
   };
 
   const activeState = getActiveState();
   const isRecording = activeState === 'Listening';
-  const isSpeaking = activeState === 'Speaking';
+  const isSpeaking = activeState === 'Speaking' || activeState === 'Thinking';
 
   const [pulseAnim] = useState(() => new Animated.Value(0.4));
 

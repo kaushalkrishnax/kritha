@@ -10,7 +10,7 @@ export interface SpeechModelReference {
   id: string;
   type: SpeechModelType;
   displayName: string;
-  provider: 'litert';
+  provider: 'litert' | 'onnx';
   nativeReference: {
     sttModelId?: string | null;
     ttsModelId?: string | null;
@@ -20,27 +20,15 @@ export interface SpeechModelReference {
 
 export const SPEECH_MODELS: SpeechModelReference[] = [
   {
-    id: 'nemotron-multilingual-int8',
+    id: 'moonshine-tiny-onnx',
     type: 'stt',
-    displayName: 'Nemotron 3.5 Multilingual (LiteRT INT8)',
-    provider: 'litert',
-    nativeReference: { sttModelId: 'nemotron-multilingual-int8' },
+    displayName: 'Moonshine Tiny (ONNX)',
+    provider: 'onnx',
+    nativeReference: { sttModelId: 'moonshine-tiny-onnx' },
     capabilities: {
-      streaming: true,
+      streaming: false,
       pauseResume: false,
-      languages: ['multilingual'],
-    },
-  },
-  {
-    id: 'nemotron-multilingual-fp16',
-    type: 'stt',
-    displayName: 'Nemotron 3.5 Multilingual (LiteRT FP16)',
-    provider: 'litert',
-    nativeReference: { sttModelId: 'nemotron-multilingual-fp16' },
-    capabilities: {
-      streaming: true,
-      pauseResume: false,
-      languages: ['multilingual'],
+      languages: ['en'],
     },
   },
   {

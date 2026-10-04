@@ -4,6 +4,12 @@ import expo.modules.kritha.runtime.RuntimeManager
 import expo.modules.kritha.runtime.RuntimeCatalog
 import expo.modules.kritha.runtime.RuntimeId
 import expo.modules.kritha.runtime.InstallPermissionRequiredException
+import expo.modules.kritha.liveTalk.IntelligenceConfig
+import expo.modules.kritha.liveTalk.IntelligenceMessage
+import expo.modules.kritha.liveTalk.LiveTalkConfig
+import expo.modules.kritha.liveTalk.LiveTalkException
+import expo.modules.kritha.liveTalk.LiveTalkSession
+import expo.modules.kritha.liveTalk.LiveTalkTtsMode
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -32,6 +38,8 @@ class KrithaModule : Module() {
     private val activeVoiceDownloads = ConcurrentHashMap.newKeySet<String>()
     private var ttsBridge: TtsModuleBridge? = null
     private var voiceManager: VoiceManager? = null
+    private var speechModelBridge: SpeechModelBridge? = null
+    private var liveTalkSession: LiveTalkSession? = null
 
     companion object {
         var instance: KrithaModule? = null
@@ -58,9 +66,13 @@ class KrithaModule : Module() {
             if (instance === this@KrithaModule) {
                 instance = null
             }
+            liveTalkSession?.stop()
+            liveTalkSession = null
             voiceManager?.stop()
             ttsBridge?.close()
             ttsBridge = null
+            speechModelBridge?.close()
+            speechModelBridge = null
         }
         
         Events(
@@ -85,7 +97,8 @@ class KrithaModule : Module() {
             "onTtsCompleted",
             "onTtsStopped",
             "onTtsError",
-            "onRuntimeInstallProgress"
+            "onRuntimeInstallProgress",
+            "onLiveTalkEvent"
         )
 
         AsyncFunction("speechInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
@@ -163,36 +176,18 @@ class KrithaModule : Module() {
 
         AsyncFunction("listVoiceModels") {
             val bridge = ensureTtsBridge()
-            listOf(
-                mapOf(
-                    "id" to "nemotron-multilingual-int8",
-                    "name" to "Nemotron 3.5 Multilingual (LiteRT INT8)",
-                    "size" to "250 MB",
-                    "langs" to "Multilingual (25+ Languages)",
-                    "category" to "stt",
-                    "backend" to "LiteRT",
-                    "isDownloaded" to false
-                ),
-                mapOf(
-                    "id" to "nemotron-multilingual-fp16",
-                    "name" to "Nemotron 3.5 Multilingual (LiteRT FP16)",
-                    "size" to "500 MB",
-                    "langs" to "Multilingual (High Precision)",
-                    "category" to "stt",
-                    "backend" to "LiteRT",
-                    "isDownloaded" to false
-                )
-            ) + bridge.ttsCatalog()
+            ensureSpeechModelBridge().sttCatalog() + bridge.ttsCatalog()
         }
 
         AsyncFunction("downloadVoiceModel") { modelId: String, promise: Promise ->
             val bridge = ensureTtsBridge()
+            val speechBridge = ensureSpeechModelBridge()
             moduleScope.launch {
                 try {
-                    if (!bridge.isTtsModel(modelId)) {
-                        throw IllegalStateException(
-                            "STT is stubbed; LiteRT speech-to-text is not implemented yet."
-                        )
+                    val isTts = bridge.isTtsModel(modelId)
+                    val isSpeech = speechBridge.isSpeechModel(modelId)
+                    if (!isTts && !isSpeech) {
+                        throw IllegalStateException("Unknown voice model: $modelId")
                     }
                     if (!activeVoiceDownloads.add(modelId)) {
                         throw IllegalStateException("Download for $modelId is already in progress")
@@ -204,7 +199,11 @@ class KrithaModule : Module() {
                                 mapOf("modelId" to modelId, "progress" to progress),
                             )
                         }
-                        val target = bridge.downloadTtsModel(modelId, onProgress)
+                        val target = if (isTts) {
+                            bridge.downloadTtsModel(modelId, onProgress)
+                        } else {
+                            speechBridge.download(modelId, onProgress)
+                        }
                         sendEvent(
                             "onVoiceModelProgress",
                             mapOf(
@@ -230,6 +229,8 @@ class KrithaModule : Module() {
         AsyncFunction("deleteVoiceModel") { modelId: String ->
             if (isTtsModel(modelId)) {
                 ttsBridge?.deleteTtsModel(modelId)
+            } else {
+                speechModelBridge?.delete(modelId)
             }
             null
         }
@@ -434,6 +435,92 @@ class KrithaModule : Module() {
                 }
             }
         }
+        // ------------------------------------------------------------------
+        // Live Talk native API contract (RULES §9.1)
+        //
+        // startLiveTalk(config): Promise<void>
+        //   config = {
+        //     intelligence: { kind: "local"|"cloud", modelId, modelPath?, device?, apiKey? },
+        //     context: [{ role, content }],
+        //     tts: { enabled: boolean, mode: "disabled"|"after_generation"|"stream", voice? },
+        //     sttModelId: string,
+        //     vad?: { speechThreshold?, silenceThreshold?, silenceTimeoutMs?, maxUtteranceMs? },
+        //     forceWebRtcAec?: boolean,
+        //   }
+        //   Rejects with coded LiveTalkException errors (MODEL_MISSING,
+        //   RUNTIME_MISSING, MIC_PERMISSION_DENIED, AUDIO_INIT_FAILED, ...).
+        //
+        // stopLiveTalk(): Promise<void>     — full teardown to IDLE
+        // interruptLiveTalk(): void         — manual barge-in; stop speaking, keep listening
+        // pauseLiveTalkSession(): void      — freeze pipeline (mic stays open)
+        // resumeLiveTalkSession(): void
+        // setLiveTalkContext(messages): void — replace working context between turns
+        // isLiveTalkActive(): boolean
+        //
+        // Events (single channel "onLiveTalkEvent", payload { type, ... }):
+        //   session_started { aec, ttsMode }   session_stopped {}
+        //   state { state }                     — idle|listening|user_speaking|processing|
+        //                                         thinking|speaking|interrupted|paused
+        //   speech_started {}                   speech_ended {}
+        //   transcription_started { turnId }    transcription_completed { turnId, text }
+        //   thinking_started { turnId }         assistant_text { turnId, delta }
+        //   thinking_completed { turnId, text }
+        //   tts_started { turnId }              tts_stopped { turnId, interrupted }
+        //   interrupted { turnId }
+        //   audio_level { level }               — throttled to ~10 Hz
+        //   latency { metric, ms }              — spec §18 metrics
+        //   error { code, message }
+        // ------------------------------------------------------------------
+
+        AsyncFunction("startLiveTalk") { config: Map<String, Any?>, promise: Promise ->
+            moduleScope.launch {
+                try {
+                    startLiveTalkSession(config)
+                    promise.resolve(null)
+                } catch (e: LiveTalkException) {
+                    promise.reject(e.code, e.message, e)
+                } catch (e: Exception) {
+                    promise.reject("ERR_LIVE_TALK_START", e.message, e)
+                }
+            }
+        }
+
+        AsyncFunction("stopLiveTalk") { promise: Promise ->
+            moduleScope.launch {
+                try {
+                    stopLiveTalkSession()
+                    promise.resolve(null)
+                } catch (e: Exception) {
+                    promise.reject("ERR_LIVE_TALK_STOP", e.message, e)
+                }
+            }
+        }
+
+        Function("interruptLiveTalk") {
+            liveTalkSession?.interrupt()
+        }
+
+        Function("pauseLiveTalkSession") {
+            liveTalkSession?.pause()
+        }
+
+        Function("resumeLiveTalkSession") {
+            liveTalkSession?.resume()
+        }
+
+        Function("setLiveTalkContext") { messages: List<Map<String, String>> ->
+            liveTalkSession?.setContext(
+                messages.mapNotNull { raw ->
+                    val role = raw["role"]
+                    val content = raw["content"]
+                    if (role == null || content == null) null else IntelligenceMessage(role, content)
+                },
+            )
+        }
+
+        Function("isLiveTalkActive") {
+            liveTalkSession?.isActive == true
+        }
     }
 
     private fun resolveContext(): Context = appContext.reactContext
@@ -456,6 +543,104 @@ class KrithaModule : Module() {
         }
         voiceManager = created
         return created
+    }
+
+    private fun ensureSpeechModelBridge(): SpeechModelBridge {
+        val existing = speechModelBridge
+        if (existing != null) return existing
+        val created = SpeechModelBridge(resolveContext())
+        speechModelBridge = created
+        return created
+    }
+
+    @Synchronized
+    private fun startLiveTalkSession(config: Map<String, Any?>) {
+        liveTalkSession?.stop()
+        liveTalkSession = null
+
+        val session = LiveTalkSession(
+            context = resolveContext(),
+            runtimeManager = runtimeManager,
+            ttsBridge = ensureTtsBridge(),
+            speechModels = ensureSpeechModelBridge(),
+        ) { payload ->
+            sendEvent("onLiveTalkEvent", payload)
+        }
+        liveTalkSession = session
+
+        WakeWordForegroundService.pauseForStt()
+        try {
+            session.start(parseLiveTalkConfig(config))
+        } catch (e: Exception) {
+            runCatching { session.stop() }
+            liveTalkSession = null
+            WakeWordForegroundService.resumeFromStt()
+            throw e
+        }
+    }
+
+    @Synchronized
+    private fun stopLiveTalkSession() {
+        val session = liveTalkSession ?: return
+        liveTalkSession = null
+        try {
+            session.stop()
+        } finally {
+            WakeWordForegroundService.resumeFromStt()
+        }
+    }
+
+    private fun parseLiveTalkConfig(config: Map<String, Any?>): LiveTalkSession.SessionConfig {
+        val rawIntelligence = config["intelligence"] as? Map<*, *>
+            ?: throw LiveTalkException(
+                LiveTalkException.ERR_INTELLIGENCE,
+                "startLiveTalk requires an intelligence config",
+            )
+        val intelligence = IntelligenceConfig(
+            kind = rawIntelligence["kind"] as? String ?: "local",
+            modelId = rawIntelligence["modelId"] as? String
+                ?: throw LiveTalkException(
+                    LiveTalkException.ERR_INTELLIGENCE,
+                    "intelligence.modelId is required",
+                ),
+            modelPath = rawIntelligence["modelPath"] as? String,
+            device = rawIntelligence["device"] as? String ?: "cpu",
+            apiKey = rawIntelligence["apiKey"] as? String,
+        )
+
+        val context = (config["context"] as? List<*>)?.mapNotNull { item ->
+            (item as? Map<*, *>)?.let { raw ->
+                val role = raw["role"] as? String
+                val content = raw["content"] as? String
+                if (role == null || content == null) null else IntelligenceMessage(role, content)
+            }
+        } ?: emptyList()
+
+        val rawTts = config["tts"] as? Map<*, *>
+        val ttsEnabled = (rawTts?.get("enabled") as? Boolean) ?: true
+        val ttsMode = LiveTalkTtsMode.fromWire(rawTts?.get("mode") as? String)
+        val ttsVoice = rawTts?.get("voice") as? String ?: "F1"
+
+        val rawVad = config["vad"] as? Map<*, *>
+        val vadConfig = LiveTalkConfig(
+            vadSpeechThreshold = (rawVad?.get("speechThreshold") as? Number)?.toFloat() ?: 0.5f,
+            vadSilenceThreshold = (rawVad?.get("silenceThreshold") as? Number)?.toFloat() ?: 0.35f,
+            silenceFrameCount = ((rawVad?.get("silenceTimeoutMs") as? Number)?.toLong()
+                ?.let { it / 32L }?.toInt()) ?: 22,
+            absoluteUtteranceTimeoutMs = (rawVad?.get("maxUtteranceMs") as? Number)?.toLong()
+                ?: 30_000L,
+            forceWebRtcApm = config["forceWebRtcAec"] as? Boolean ?: false,
+        )
+
+        return LiveTalkSession.SessionConfig(
+            intelligence = intelligence,
+            context = context,
+            ttsEnabled = ttsEnabled,
+            ttsMode = ttsMode,
+            ttsVoice = ttsVoice,
+            sttModelId = config["sttModelId"] as? String ?: SpeechModelBridge.DEFAULT_STT_MODEL_ID,
+            vadConfig = vadConfig,
+        )
     }
 
     private fun isTtsModel(modelId: String): Boolean {

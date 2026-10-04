@@ -65,6 +65,76 @@ export type SpeechErrorEvent = {
 
 export type RuntimeId = 'litert' | 'litert-lm' | 'onnx';
 
+export type LiveTalkTtsMode = 'disabled' | 'after_generation' | 'stream';
+
+export type LiveTalkIntelligenceConfig = {
+  kind: 'local' | 'cloud';
+  modelId: string;
+  modelPath?: string | null;
+  device?: string;
+  apiKey?: string | null;
+};
+
+export type LiveTalkStartConfig = {
+  intelligence: LiveTalkIntelligenceConfig;
+  context: { role: string; content: string }[];
+  tts: {
+    enabled: boolean;
+    mode: LiveTalkTtsMode;
+    voice?: string | null;
+  };
+  sttModelId?: string | null;
+  vad?: {
+    speechThreshold?: number;
+    silenceThreshold?: number;
+    silenceTimeoutMs?: number;
+    maxUtteranceMs?: number;
+  };
+  forceWebRtcAec?: boolean;
+};
+
+export type LiveTalkState =
+  | 'idle'
+  | 'listening'
+  | 'user_speaking'
+  | 'processing'
+  | 'thinking'
+  | 'speaking'
+  | 'interrupted'
+  | 'paused';
+
+export type LiveTalkEvent = {
+  type:
+    | 'session_started'
+    | 'session_stopped'
+    | 'state'
+    | 'speech_started'
+    | 'speech_ended'
+    | 'transcription_started'
+    | 'transcription_completed'
+    | 'thinking_started'
+    | 'assistant_text'
+    | 'thinking_completed'
+    | 'tts_started'
+    | 'tts_stopped'
+    | 'interrupted'
+    | 'audio_level'
+    | 'latency'
+    | 'error';
+  state?: LiveTalkState;
+  turnId?: string;
+  text?: string;
+  delta?: string;
+  level?: number;
+  interrupted?: boolean;
+  aec?: 'android' | 'webrtc' | 'none';
+  ttsMode?: string;
+  metric?: string;
+  ms?: number;
+  code?: string;
+  message?: string;
+};
+
 export type RuntimeInfo = {
   id: string;
   module: string;
@@ -113,6 +183,7 @@ export type KrithaModuleEvents = {
   onTtsCompleted(event: SpeechRequestEvent): void;
   onTtsStopped(event: SpeechStoppedEvent): void;
   onTtsError(event: SpeechErrorEvent): void;
+  onLiveTalkEvent(event: LiveTalkEvent): void;
 };
 
 declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
@@ -189,6 +260,13 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
     wavPath: string;
     wavUri: string;
   }>;
+  startLiveTalk(config: LiveTalkStartConfig): Promise<void>;
+  stopLiveTalk(): Promise<void>;
+  interruptLiveTalk(): void;
+  pauseLiveTalkSession(): void;
+  resumeLiveTalkSession(): void;
+  setLiveTalkContext(messages: { role: string; content: string }[]): void;
+  isLiveTalkActive(): boolean;
 }
 
 export default requireNativeModule<KrithaModule>('Kritha');

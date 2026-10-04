@@ -338,56 +338,30 @@ export const SpeechCoordinator = {
 
   async handleWakeWordDetected() {
     if (_isSessionActive) return;
+    _isSessionActive = true;
     try {
+      const { startLiveTalk } = await import('./assistantRuntime.service');
+      await startLiveTalk();
+
       const { useAssistantStore } = await import('@/stores/assistant.store');
-      const { ChatMode, LiveTalkPhase, MicOwner } = await import('@/constants');
-      const ready = await this.init();
-      if (!ready) return;
-
-      _isSessionActive = true;
-
-      const { pauseForStt } = await import('@modules/kritha/src');
-      pauseForStt();
-
-      KrithaSpeech.addTool('torch', 'Turn flashlight on or off');
-      KrithaSpeech.addTool('mute', 'Mute or unmute device volume');
-      KrithaSpeech.addTool(
-        'settings',
-        'Open settings. Requires type argument (e.g. wifi, bluetooth, display)',
-      );
-      KrithaSpeech.addTool('dialer', 'Open the phone dialer');
-
-      const store = useAssistantStore.getState();
-      store.setChatMode(ChatMode.LIVE_TALK);
-      store.setLiveTalkPhase(LiveTalkPhase.LISTENING);
-      store.setMic(MicOwner.STT);
-
-      const modelId = useModelStore.getState().selectedModelId;
-      const modelPath =
-        await modelDownloadService.getDownloadedModelPath(modelId);
-      await KrithaSpeech.start(modelPath ?? undefined, 'cpu');
+      const { ChatMode } = await import('@/constants');
+      if (useAssistantStore.getState().chatMode !== ChatMode.LIVE_TALK) {
+        _isSessionActive = false;
+      }
     } catch (e) {
       console.error('Failed to start voice session', e);
-      this.endSession();
+      _isSessionActive = false;
     }
   },
 
   async endSession() {
     if (!_isSessionActive) return;
+    _isSessionActive = false;
     try {
-      await KrithaSpeech.stop();
+      const { stopLiveTalk } = await import('./assistantRuntime.service');
+      stopLiveTalk();
     } catch (e) {
-      console.error('Failed to stop Kritha speech', e);
-    } finally {
-      _isSessionActive = false;
-      const { useAssistantStore } = await import('@/stores/assistant.store');
-      const { ChatMode, MicOwner } = await import('@/constants');
-      const { resumeFromStt } = await import('@modules/kritha/src');
-      const store = useAssistantStore.getState();
-      store.setChatMode(ChatMode.TEXTING);
-      store.setLiveTalkPhase(null);
-      store.setMic(MicOwner.NONE);
-      resumeFromStt();
+      console.error('Failed to stop voice session', e);
     }
   },
 };

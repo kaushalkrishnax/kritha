@@ -15,8 +15,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSpeaker } from '@/hooks';
 import { settingsService } from '@/services';
-import { useModelStore } from '@/stores';
+import { useModelStore, useVoiceStore } from '@/stores';
+import { LiveTalkTtsMode } from '@/stores/voice.store';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
+
+const LIVE_TALK_TTS_OPTIONS: { value: LiveTalkTtsMode; label: string }[] = [
+  { value: 'stream', label: 'Streaming' },
+  { value: 'after_generation', label: 'After reply' },
+  { value: 'disabled', label: 'Off' },
+];
 
 type SettingsModalProps = {
   visible: boolean;
@@ -26,6 +33,8 @@ type SettingsModalProps = {
 export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const { openVoiceModal } = useSpeaker();
   const setLlmModalOpen = useModelStore((s) => s.setLlmModalOpen);
+  const liveTalkTtsMode = useVoiceStore((s) => s.liveTalkTtsMode);
+  const setLiveTalkTtsMode = useVoiceStore((s) => s.setLiveTalkTtsMode);
   const [userName, setUserName] = useState('Your Name');
   const [apiKey, setApiKey] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
@@ -164,6 +173,39 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
               </View>
 
               <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Live Talk Speech</Text>
+                <Text style={styles.sectionDesc}>
+                  When Kritha speaks during Live Talk. Streaming starts speech
+                  while the reply is still generating.
+                </Text>
+                <View style={styles.segmentedRow}>
+                  {LIVE_TALK_TTS_OPTIONS.map((option) => {
+                    const selected = liveTalkTtsMode === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.segmentBtn,
+                          selected && styles.segmentBtnSelected,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={() => setLiveTalkTtsMode(option.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentText,
+                            selected && styles.segmentTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Custom Instructions</Text>
                 <Text style={styles.sectionDesc}>
                   What would you like Kritha to know about you to provide better
@@ -272,6 +314,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizeBase,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: Radius.base,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    alignItems: 'center',
+    backgroundColor: Colors.bgSurface,
+  },
+  segmentBtnSelected: {
+    backgroundColor: Colors.accentBlue,
+    borderColor: Colors.accentBlue,
+  },
+  segmentText: {
+    fontSize: Typography.sizeSm,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  segmentTextSelected: {
+    color: Colors.textOnAccent,
   },
   textArea: {
     minHeight: 110,

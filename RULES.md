@@ -82,6 +82,31 @@ Do not implement native concerns in JS/TS:
 
 Use the native module boundary for these capabilities.
 
+### 1.5 Live Talk native loop exception
+
+Within an **active Live Talk session**, the real-time conversation loop
+(capture → AEC → VAD → turn detection → ASR → intelligence → TTS → playback,
+including barge-in) runs natively inside `liveTalk/LiveTalkSession.kt`.
+Bridge round-trips cannot satisfy the latency and cancellation requirements
+of an interruptible audio loop, so the architecture requires this exception.
+
+The boundary still holds:
+
+- JS decides **whether** a session runs (start/stop/pause/resume/interrupt).
+- JS decides **which** intelligence is used. The native session receives an
+  explicit `intelligence` config (`kind`, `modelId`, `modelPath`, `apiKey`)
+  and never chooses local-vs-cloud itself.
+- JS owns the canonical conversation. The native session receives a fully
+  formed `context` at start and between turns (`setLiveTalkContext`); it
+  maintains only a per-session working copy.
+- JS owns persistence, system prompts, and provider selection.
+- Kotlin owns turn timing, interruption, and real-time audio within the
+  session and reports only semantic events (`onLiveTalkEvent`).
+
+`liveTalkPhase` is driven by native session events, but still only
+`assistantRuntime.service.ts` may write it (§4.1) — the native event stream
+is an input to that file, not a second writer.
+
 ---
 
 ## 2. Assistant Runtime State

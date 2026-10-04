@@ -34,7 +34,11 @@ export type ChatMode = (typeof ChatMode)[keyof typeof ChatMode];
 
 export const LiveTalkPhase = {
   LISTENING: 'LIVE_TALK_LISTENING',
+  USER_SPEAKING: 'LIVE_TALK_USER_SPEAKING',
+  PROCESSING: 'LIVE_TALK_PROCESSING',
+  THINKING: 'LIVE_TALK_THINKING',
   SPEAKING: 'LIVE_TALK_SPEAKING',
+  INTERRUPTED: 'LIVE_TALK_INTERRUPTED',
   PAUSED: 'LIVE_TALK_PAUSED',
 } as const;
 export type LiveTalkPhase = (typeof LiveTalkPhase)[keyof typeof LiveTalkPhase];
