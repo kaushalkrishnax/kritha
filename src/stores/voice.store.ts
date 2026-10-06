@@ -34,8 +34,8 @@ export const useVoiceStore = create<VoiceStore>()(
       isSttDownloaded: false,
       voiceModelProgress: null,
       isVoiceModalOpen: false,
-      selectedSttModelId: 'moonshine-tiny-onnx',
-      selectedTtsModelId: 'qwen3-tts',
+      selectedSttModelId: 'whisper-tiny-en-onnx',
+      selectedTtsModelId: 'piper-en-us-lessac-low',
       liveTalkTtsMode: 'stream',
 
       setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),

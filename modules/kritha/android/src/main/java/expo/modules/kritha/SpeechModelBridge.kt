@@ -36,7 +36,7 @@ class SpeechModelBridge(
 
     companion object {
         const val VAD_MODEL_ID = "silero-vad"
-        const val DEFAULT_STT_MODEL_ID = "moonshine-tiny-onnx"
+        const val DEFAULT_STT_MODEL_ID = "whisper-tiny-en-onnx"
 
         // Artifact URLs verified against the upstream repos.
         private val specs = listOf(
@@ -47,35 +47,39 @@ class SpeechModelBridge(
                 displaySize = "2.3 MB",
                 languages = "multilingual",
                 backend = "ONNX",
-                directoryName = "silero-vad",
+                directoryName = "silero-vad-v5",
                 artifacts = listOf(
                     Artifact(
                         path = "silero_vad.onnx",
-                        remoteUrl = "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx",
+                        // Pinned to v5.1.2 for sherpa-onnx 1.12.35: its
+                        // Silero detector requires the v5 window of 512
+                        // samples at 16 kHz. The directory is versioned so
+                        // stale files can never be picked up for the wrong
+                        // model revision.
+                        remoteUrl = "https://github.com/snakers4/silero-vad/raw/v5.1.2/src/silero_vad/data/silero_vad.onnx",
                     ),
                 ),
             ),
             SpeechModelSpec(
                 id = DEFAULT_STT_MODEL_ID,
                 kind = Kind.STT,
-                displayName = "Moonshine Tiny (ONNX)",
-                displaySize = "28 MB",
+                displayName = "Whisper Tiny EN (ONNX)",
+                displaySize = "45 MB",
                 languages = "en",
                 backend = "ONNX",
-                directoryName = "moonshine-tiny-onnx",
+                directoryName = "whisper-tiny-en-onnx",
                 artifacts = listOf(
                     Artifact(
-                        path = "encoder_model.onnx",
-                        remoteUrl = "https://huggingface.co/moonshine-ai/moonshine/resolve/main/onnx/merged/tiny/quantized/encoder_model.onnx",
+                        path = "encoder.onnx",
+                        remoteUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/main/tiny.en-encoder.int8.onnx",
                     ),
                     Artifact(
-                        path = "decoder_model_merged.onnx",
-                        remoteUrl = "https://huggingface.co/moonshine-ai/moonshine/resolve/main/onnx/merged/tiny/quantized/decoder_model_merged.onnx",
+                        path = "decoder.onnx",
+                        remoteUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/main/tiny.en-decoder.int8.onnx",
                     ),
-                    // CTranslate2 vocabulary is a JSON array indexed by token id.
                     Artifact(
-                        path = "vocab.json",
-                        remoteUrl = "https://huggingface.co/moonshine-ai/moonshine/resolve/main/ctranslate2/tiny/vocabulary.json",
+                        path = "tokens.txt",
+                        remoteUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/main/tiny.en-tokens.txt",
                     ),
                 ),
             ),
@@ -99,7 +103,10 @@ class SpeechModelBridge(
 
     fun isDownloaded(modelId: String): Boolean {
         val spec = findSpec(modelId) ?: return false
-        return specComplete(spec)
+        if (!specComplete(spec)) return false
+        // An STT model is only usable together with the shared VAD artifact,
+        // so treat the pair as one downloadable unit.
+        return spec.kind != Kind.STT || isDownloaded(VAD_MODEL_ID)
     }
 
     /** True when both the STT model and the shared VAD model are present. */
@@ -124,17 +131,23 @@ class SpeechModelBridge(
     /**
      * Downloads a catalog model. Downloading any STT model also fetches the
      * shared VAD artifact, since Live Talk cannot run without it.
+     *
+     * [onProgress] receives a percent in 0..100. Note that [downloadSpec]
+     * reports percent (0..100), not a 0..1 fraction: the VAD sub-download
+     * occupies the first [VAD_PROGRESS_SHARE] percent of the total and the
+     * model's own artifacts occupy the remainder.
      */
     fun download(modelId: String, onProgress: (Float) -> Unit): File {
         val spec = findSpec(modelId) ?: error("Unknown speech model: $modelId")
+        val baseShare = if (spec.kind == Kind.STT) VAD_PROGRESS_SHARE else 0f
         if (spec.kind == Kind.STT) {
-            downloadSpec(findSpec(VAD_MODEL_ID)!!) { fraction ->
-                onProgress(fraction * VAD_PROGRESS_SHARE)
+            downloadSpec(findSpec(VAD_MODEL_ID)!!) { percent ->
+                onProgress((percent * VAD_PROGRESS_SHARE / 100f).coerceIn(0f, 100f))
             }
         }
-        val baseShare = if (spec.kind == Kind.STT) VAD_PROGRESS_SHARE else 0f
-        val dir = downloadSpec(spec) { fraction ->
-            onProgress(baseShare + fraction * (100f - baseShare))
+        val dir = downloadSpec(spec) { percent ->
+            val scaled = baseShare + (percent / 100f) * (100f - baseShare)
+            onProgress(scaled.coerceIn(0f, 100f))
         }
         onProgress(100f)
         return dir

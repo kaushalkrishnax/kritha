@@ -102,7 +102,8 @@ class KrithaModule : Module() {
         )
 
         AsyncFunction("speechInitialize") { llmModelPath: String?, llmDevice: String?, sttModelId: String?, ttsModelId: String?, promise: Promise ->
-            ensureVoiceManager()
+            val vm = ensureVoiceManager()
+            vm.setSttModelId(sttModelId)
             promise.resolve(null)
         }
 
@@ -196,7 +197,11 @@ class KrithaModule : Module() {
                         val onProgress: (Float) -> Unit = { progress ->
                             sendEvent(
                                 "onVoiceModelProgress",
-                                mapOf("modelId" to modelId, "progress" to progress),
+                                mapOf(
+                                    "modelId" to modelId,
+                                    // UI consumes this as a percent; never emit >100.
+                                    "progress" to progress.coerceIn(0f, 100f),
+                                ),
                             )
                         }
                         val target = if (isTts) {
@@ -357,84 +362,6 @@ class KrithaModule : Module() {
             cancelLocalGeneration(requestId)
         }
 
-        AsyncFunction("liteRtInfo") {
-            ttsBridge?.info()
-                ?: throw IllegalStateException("TTS bridge is not initialized")
-        }
-
-        AsyncFunction("liteRtInspectModel") {
-            request: Map<String, Any?>,
-            promise: Promise ->
-            moduleScope.launch {
-                try {
-                    val bridge = ensureTtsBridge()
-
-                    val id = request["id"] as? String ?: error("id is required")
-                    val path = request["path"] as? String ?: error("path is required")
-                    val task = request["task"] as? String ?: "tts"
-                    val signature = request["signature"] as? String ?: error("signature is required")
-                    val inputs = (request["inputs"] as? List<*>)
-                        ?.map { it as? String ?: error("inputs must contain strings") }
-                        ?: emptyList()
-                    val outputs = (request["outputs"] as? List<*>)
-                        ?.map { it as? String ?: error("outputs must contain strings") }
-                        ?: emptyList()
-                    val outputTypes = (request["outputTypes"] as? List<*>)
-                        ?.map { it as? String ?: error("outputTypes must contain strings") }
-                        ?: emptyList()
-
-                    promise.resolve(
-                        bridge.inspectModel(
-                            id = id,
-                            path = path,
-                            task = task,
-                            signature = signature,
-                            inputNames = inputs,
-                            outputNames = outputs,
-                            outputTypes = outputTypes,
-                        )
-                    )
-                } catch (e: Exception) {
-                    promise.reject("ERR_LITERT_INSPECT", e.message, e)
-                }
-            }
-        }
-
-        AsyncFunction("liteRtTtsSynthesize") {
-            request: Map<String, Any?>,
-            promise: Promise ->
-            moduleScope.launch {
-                try {
-                    val bridge = ensureTtsBridge()
-
-                    val modelId = request["modelId"] as? String ?: ensureTtsBridge().defaultTtsModelId()
-                    val modelDirectory = request["modelDirectory"] as? String
-                        ?: error("modelDirectory is required")
-                    val text = request["text"] as? String
-                        ?: error("text is required")
-                    val language = request["language"] as? String ?: "english"
-                    val voice = (request["voice"] as? Number)?.toInt() ?: 0
-                    val speed = (request["speed"] as? Number)?.toFloat() ?: 1f
-                    val greedy = request["greedy"] as? Boolean ?: true
-                    val seed = (request["seed"] as? Number)?.toLong()
-
-                    promise.resolve(
-                        bridge.synthesizeTts(
-                            modelId = modelId,
-                            modelDirectory = modelDirectory,
-                            text = text,
-                            language = language,
-                            voice = voice,
-                            speed = speed,
-                            greedy = greedy,
-                            seed = seed,
-                        )
-                    )
-                } catch (e: Exception) {
-                    promise.reject("ERR_LITERT_TTS", e.message, e)
-                }
-            }
-        }
         // ------------------------------------------------------------------
         // Live Talk native API contract (RULES §9.1)
         //
@@ -538,7 +465,12 @@ class KrithaModule : Module() {
     private fun ensureVoiceManager(): VoiceManager {
         val existing = voiceManager
         if (existing != null) return existing
-        val created = VoiceManager(ensureTtsBridge()) { event, data ->
+        val created = VoiceManager(
+            ensureTtsBridge(),
+            ensureSpeechModelBridge(),
+            runtimeManager,
+            resolveContext(),
+        ) { event, data ->
             sendEvent(event, data)
         }
         voiceManager = created
@@ -626,7 +558,7 @@ class KrithaModule : Module() {
             vadSpeechThreshold = (rawVad?.get("speechThreshold") as? Number)?.toFloat() ?: 0.5f,
             vadSilenceThreshold = (rawVad?.get("silenceThreshold") as? Number)?.toFloat() ?: 0.35f,
             silenceFrameCount = ((rawVad?.get("silenceTimeoutMs") as? Number)?.toLong()
-                ?.let { it / 32L }?.toInt()) ?: 22,
+                ?.let { it / vadFrameMs }?.toInt()) ?: 22,
             absoluteUtteranceTimeoutMs = (rawVad?.get("maxUtteranceMs") as? Number)?.toLong()
                 ?: 30_000L,
             forceWebRtcApm = config["forceWebRtcAec"] as? Boolean ?: false,
@@ -642,6 +574,12 @@ class KrithaModule : Module() {
             vadConfig = vadConfig,
         )
     }
+
+    /**
+     * VAD analysis cadence in ms: 512 samples @ 16 kHz. Used to convert the
+     * JS-provided silence timeout into VAD frames.
+     */
+    private val vadFrameMs: Long = 32L
 
     private fun isTtsModel(modelId: String): Boolean {
         return runCatching { ensureTtsBridge().isTtsModel(modelId) }.getOrDefault(false)

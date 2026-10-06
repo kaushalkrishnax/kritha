@@ -281,6 +281,10 @@ class LiveTalkSession(
         val preRoll = ArrayDeque<ShortArray>()
         val utterance = PcmBuffer(config.sampleRate * 5)
         val minSpeechFrames = MIN_UTTERANCE_MS * config.sampleRate / 1_000 / frameSize
+        // VAD scratch buffer: sherpa requires feeding the exact 512-sample
+        // window. Any other length kills the detector.
+        val vadWindow = ShortArray(LiveTalkConfig.VAD_WINDOW_SAMPLES)
+        var vadWindowFill = 0
 
         try {
             while (running.get()) {
@@ -289,21 +293,37 @@ class LiveTalkSession(
                     turnDetector.reset()
                     utterance.clear()
                     preRoll.clear()
+                    vadWindowFill = 0
                     continue
                 }
 
                 val processed = audioProcessor?.process(frame) ?: frame
                 emitAudioLevelThrottled(processed)
 
-                val probability = try {
-                    vad?.speechProbability(processed) ?: 0f
-                } catch (e: Exception) {
-                    Log.e(TAG, "VAD failure", e)
-                    emitError(LiveTalkException.ERR_VAD, e.message ?: "VAD failed")
-                    0f
+                // Re-chunk mic frames into exact VAD windows.
+                var probability: Float? = null
+                var consumed = 0
+                while (consumed < processed.size) {
+                    val take = minOf(
+                        LiveTalkConfig.VAD_WINDOW_SAMPLES - vadWindowFill,
+                        processed.size - consumed,
+                    )
+                    System.arraycopy(processed, consumed, vadWindow, vadWindowFill, take)
+                    vadWindowFill += take
+                    consumed += take
+                    if (vadWindowFill < LiveTalkConfig.VAD_WINDOW_SAMPLES) break
+                    vadWindowFill = 0
+                    probability = try {
+                        vad?.speechProbability(vadWindow.copyOf())
+                    } catch (e: Exception) {
+                        Log.e(TAG, "VAD failure", e)
+                        emitError(LiveTalkException.ERR_VAD, e.message ?: "VAD failed")
+                        break
+                    }
                 }
+                val frameProbability = probability ?: 0f
 
-                when (turnDetector.accept(probability)) {
+                when (turnDetector.accept(frameProbability)) {
                     TurnDetector.Signal.SPEECH_START -> {
                         if (state == LiveTalkState.SPEAKING ||
                             state == LiveTalkState.THINKING ||

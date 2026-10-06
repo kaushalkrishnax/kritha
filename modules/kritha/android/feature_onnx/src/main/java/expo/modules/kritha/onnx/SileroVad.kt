@@ -1,89 +1,70 @@
 package expo.modules.kritha.onnx
 
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
+import com.k2fsa.sherpa.onnx.SileroVadModelConfig
+import com.k2fsa.sherpa.onnx.Vad
+import com.k2fsa.sherpa.onnx.VadModelConfig
 import expo.modules.kritha.runtime.vad.VadProvider
 
-/**
- * Silero VAD (ONNX export) — streaming speech probability for 512-sample
- * PCM-16 frames at 16 kHz. Keeps the recurrent state tensor between calls.
- */
 class SileroVad : VadProvider {
-    private var env: OrtEnvironment? = null
-    private var session: OrtSession? = null
-    private var state: Array<Array<FloatArray>> = zeroState()
+    private var vad: Vad? = null
 
     @Synchronized
     override fun load(modelPath: String) {
         release()
-        val environment = OrtEnvironment.getEnvironment()
-        env = environment
-        session = environment.createSession(
-            modelPath,
-            OrtSession.SessionOptions().apply { setIntraOpNumThreads(2) },
+        
+        val sileroConfig = SileroVadModelConfig(
+            model = modelPath,
+            threshold = 0.5f,
+            minSilenceDuration = 0.5f,
+            minSpeechDuration = 0.25f,
+            // Silero VAD at 16 kHz requires exactly 512 samples per window;
+            // sherpa's native compute() rejects any other length.
+            windowSize = EXPECTED_WINDOW_SAMPLES,
+            maxSpeechDuration = 20.0f
         )
-        state = zeroState()
+        
+        val vadConfig = VadModelConfig(
+            sileroVadModelConfig = sileroConfig,
+            tenVadModelConfig = com.k2fsa.sherpa.onnx.TenVadModelConfig("", 0f, 0f, 0f, 0, 0f),
+            sampleRate = 16000,
+            numThreads = 1,
+            provider = "cpu",
+            debug = false
+        )
+        
+        vad = Vad(assetManager = null, config = vadConfig)
     }
 
     @Synchronized
     override fun speechProbability(frame: ShortArray): Float {
-        val active = session ?: error("SileroVad not loaded")
-        require(frame.size == FRAME_SAMPLES) {
-            "SileroVad expects $FRAME_SAMPLES samples per frame, got ${frame.size}"
+        val active = vad ?: error("SileroVad not loaded")
+        // Must be exactly the model window: sherpa's native compute() aborts
+        // the process on any other length.
+        require(frame.size == EXPECTED_WINDOW_SAMPLES) {
+            "SileroVad expects $EXPECTED_WINDOW_SAMPLES samples per frame, got ${frame.size}"
         }
-
+        // sherpa-onnx Vad manages the recurrent state internally in C++;
+        // compute() advances it and returns the window speech probability.
         val input = FloatArray(frame.size) { frame[it] / 32768f }
-        val inputs = mutableMapOf<String, OnnxTensor>()
-        var probability = 0f
-        var nextState = state
-
-        OnnxTensor.createTensor(env, arrayOf(input)).use { inputTensor ->
-            OnnxTensor.createTensor(env, state).use { stateTensor ->
-                OnnxTensor.createTensor(env, longArrayOf(SAMPLE_RATE)).use { srTensor ->
-                    inputs["input"] = inputTensor
-                    inputs["state"] = stateTensor
-                    inputs["sr"] = srTensor
-                    active.run(inputs).use { results ->
-                        val output = results.get(0).value as Array<FloatArray>
-                        probability = output[0][0]
-
-                        @Suppress("UNCHECKED_CAST")
-                        val rawState = results.get(1).value as Array<Array<FloatArray>>
-                        // Results are closed on exit — copy the recurrent state out.
-                        nextState = Array(rawState.size) { layer ->
-                            Array(rawState[layer].size) { batch ->
-                                rawState[layer][batch].copyOf()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        state = nextState
-        return probability
+        return active.compute(input)
     }
 
     @Synchronized
     override fun reset() {
-        state = zeroState()
+        vad?.reset()
     }
 
     @Synchronized
     override fun release() {
-        runCatching { session?.close() }
-        session = null
-        env = null
-        state = zeroState()
+        runCatching { vad?.release() }
+        vad = null
     }
 
-    private fun zeroState(): Array<Array<FloatArray>> =
-        Array(STATE_LAYERS) { Array(1) { FloatArray(STATE_DIM) } }
-
-    private companion object {
-        const val FRAME_SAMPLES = 512
-        const val SAMPLE_RATE = 16_000L
-        const val STATE_LAYERS = 2
-        const val STATE_DIM = 128
+    companion object {
+        /**
+         * Silero VAD analysis window at 16 kHz (32 ms). sherpa-onnx requires
+         * exactly 512 samples per compute() call.
+         */
+        const val EXPECTED_WINDOW_SAMPLES = 512
     }
 }

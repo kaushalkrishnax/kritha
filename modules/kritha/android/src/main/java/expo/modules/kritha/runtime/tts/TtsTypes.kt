@@ -67,6 +67,7 @@ data class TtsModelSpec(
         if (assets.exists(artifact.path)) return true
         return artifact.alternatives.any { assets.exists(it) }
     }
+
 }
 
 /**

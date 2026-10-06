@@ -87,6 +87,7 @@ export type SpeechEvent = {
   replaced?: boolean;
   message?: string;
   level?: number;
+  fatal?: boolean;
 };
 
 export type SpeechRequestEvent = {

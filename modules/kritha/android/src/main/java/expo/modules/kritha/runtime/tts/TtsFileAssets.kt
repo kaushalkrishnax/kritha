@@ -6,7 +6,8 @@ class TtsFileAssets(
     override val modelId: TtsModelId,
     private val root: File,
 ) : TtsModelAssets {
-    private val canonicalRoot = root.canonicalFile
+    val canonicalRootFile: File = root.canonicalFile
+    private val canonicalRoot = canonicalRootFile
 
     init {
         require(canonicalRoot.isDirectory) {
@@ -23,5 +24,5 @@ class TtsFileAssets(
         return file
     }
 
-    override fun exists(name: String): Boolean = file(name).isFile
+    override fun exists(name: String): Boolean = file(name).exists()
 }

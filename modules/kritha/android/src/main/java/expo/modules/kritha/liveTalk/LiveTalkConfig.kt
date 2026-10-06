@@ -7,7 +7,10 @@ package expo.modules.kritha.liveTalk
 data class LiveTalkConfig(
     /** Sample rate for AudioRecord capture (Hz). */
     val sampleRate: Int = 16_000,
-    /** Frame size fed to VAD (samples). 512 = 32ms at 16kHz. */
+    /**
+     * Mic capture frame size (samples). 512 = 32ms at 16kHz. Matches the
+     * Silero VAD window, so LiveTalkSession feeds frames straight through.
+     */
     val vadFrameSize: Int = 512,
     /** Silero VAD speech probability threshold (0–1). */
     val vadSpeechThreshold: Float = 0.5f,
@@ -19,4 +22,12 @@ data class LiveTalkConfig(
     val absoluteUtteranceTimeoutMs: Long = 30_000L,
     /** Whether to use WebRTC APM instead of Android hardware AEC. */
     val forceWebRtcApm: Boolean = false,
-)
+) {
+    companion object {
+        /**
+         * VAD analysis window (samples). Silero at 16 kHz requires exactly
+         * 512 samples per compute() call.
+         */
+        const val VAD_WINDOW_SAMPLES = 512
+    }
+}

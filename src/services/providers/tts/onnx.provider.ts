@@ -61,7 +61,7 @@ function ensureSubscribed(): void {
   });
 }
 
-export const lrtTtsProvider: TtsProvider = {
+export const onnxTtsProvider: TtsProvider = {
   speak: async (text: string, options: TtsSpeakOptions): Promise<void> => {
     ensureSubscribed();
     if (!text.trim()) {

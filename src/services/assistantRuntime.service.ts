@@ -314,7 +314,27 @@ export async function startDictation(): Promise<void> {
         if (current.sttPhase !== SttPhase.LISTENING) return;
         current.setMic(MicOwner.STT, sttLevelSmoothed);
       },
+      onError: (message, fatal) => {
+        const current = useAssistantStore.getState();
+        current.setError(message);
+        if (!fatal) return;
+        // Capture died: release native state and reset the UI exactly like
+        // the start failure path does.
+        activeSttRequestId = null;
+        sttLevelSmoothed = 0;
+        current.setSttPhase(SttPhase.ERROR);
+        current.setChatMode(ChatMode.TEXTING);
+        current.setMic(MicOwner.NONE);
+        sttProvider.cancelListening().catch(() => {});
+      },
     });
+    if (useAssistantStore.getState().sttPhase === SttPhase.ERROR) {
+      // onError fired while startListening was resolving; the session has
+      // already been torn down.
+      activeSttRequestId = null;
+      sttLevelSmoothed = 0;
+      return;
+    }
     activeSttRequestId = requestId;
   } catch (error: any) {
     activeSttRequestId = null;
@@ -750,14 +770,16 @@ export async function startLiveTalk(options?: {
     store.setSttPhase(SttPhase.LISTENING);
     store.setMic(MicOwner.STT);
 
+    const intelligence: Record<string, string> = {
+      kind: cloud ? 'cloud' : 'local',
+      modelId,
+      device: useSettingsStore.getState().deviceType,
+    };
+    if (modelPath) intelligence.modelPath = modelPath;
+    if (apiKey) intelligence.apiKey = apiKey;
+
     await liveTalkService.start({
-      intelligence: {
-        kind: cloud ? 'cloud' : 'local',
-        modelId,
-        modelPath,
-        device: useSettingsStore.getState().deviceType,
-        apiKey,
-      },
+      intelligence: intelligence as any,
       context,
       tts: {
         enabled: voice.liveTalkTtsMode !== 'disabled',

@@ -61,6 +61,7 @@ export type SpeechStoppedEvent = {
 export type SpeechErrorEvent = {
   requestId?: string;
   message?: string;
+  fatal?: boolean;
 };
 
 export type RuntimeId = 'litert' | 'litert-lm' | 'onnx';
@@ -226,40 +227,6 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   listVoiceModels(): Promise<VoiceModelInfo[]>;
   downloadVoiceModel(modelId: string): Promise<void>;
   deleteVoiceModel(modelId: string): Promise<void>;
-  liteRtInfo(): Promise<{
-    version: number;
-    tasks: string[];
-    devices: string[];
-  }>;
-  liteRtInspectModel(request: {
-    id: string;
-    path: string;
-    task?: string;
-    signature: string;
-    inputs: string[];
-    outputs: string[];
-    outputTypes: string[];
-  }): Promise<unknown>;
-  liteRtTtsSynthesize(request: {
-    modelId?: string;
-    modelDirectory: string;
-    text: string;
-    language?: string;
-    voice?: number;
-    speed?: number;
-    greedy?: boolean;
-    seed?: number;
-  }): Promise<{
-    modelId: string;
-    sampleRate: number;
-    channels: number;
-    samples: number;
-    durationMs: number;
-    elapsedMs: number;
-    bridgeElapsedMs: number;
-    wavPath: string;
-    wavUri: string;
-  }>;
   startLiveTalk(config: LiveTalkStartConfig): Promise<void>;
   stopLiveTalk(): Promise<void>;
   interruptLiveTalk(): void;

@@ -192,7 +192,7 @@ export function TextComposer({
   };
 
   const getBarHeight = (multiplier: number) =>
-    Math.max(8, Math.min(42, 6 + (volume / 12) * 36 * multiplier));
+    Math.max(10, Math.min(76, 8 + (volume / 12) * 68 * multiplier));
 
   const handleSubmit = () => {
     if (!effectiveModelId) return;
@@ -281,7 +281,11 @@ export function TextComposer({
         style={[
           styles.composer,
           isExpanded && styles.expandedComposer,
-          { height: isExpanded ? expandedHeight : COMPACT_HEIGHT },
+          {
+            height: isExpanded
+                ? expandedHeight
+                : COMPACT_HEIGHT,
+          },
         ]}
         onLayout={handleContainerLayout}
       >
@@ -550,7 +554,7 @@ const styles = StyleSheet.create({
 
   waveform: {
     width: '100%',
-    height: 44,
+    height: 92,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -558,9 +562,9 @@ const styles = StyleSheet.create({
   },
 
   waveBar: {
-    width: 2,
-    minHeight: 6,
-    maxHeight: 40,
+    width: 3,
+    minHeight: 8,
+    maxHeight: 76,
     borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,

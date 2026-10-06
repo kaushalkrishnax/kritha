@@ -1,67 +1,65 @@
 package expo.modules.kritha.runtime.tts
 
 object StaticTtsSpecs {
+    private const val RELEASE_BASE =
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models"
+
     val allSpecs = listOf(
         TtsModelSpec(
-            id = TtsModelId("qwen3-tts"),
-            displayName = "Qwen3 TTS",
-            version = "0.6b-base",
+            id = TtsModelId("piper-en-us-lessac-low"),
+            displayName = "Piper Lessac Low (EN)",
+            version = "1.0",
             languages = setOf("english"),
-            sampleRate = 24_000,
-            displaySize = "1.5 GB",
-            directoryName = "qwen3-tts-0.6b-base",
+            sampleRate = 22_050,
+            displaySize = "~61 MB",
+            directoryName = "vits-piper-en_US-lessac-low",
             artifacts = listOf(
                 TtsArtifact(
-                    name = "qwen3_tts_0_6b.tflite",
-                    remoteUrl = "https://huggingface.co/litert-community/Qwen3-TTS/resolve/main/qwen3_tts_0_6b.tflite"
-                )
-            )
+                    name = "en_US-lessac-low.onnx",
+                    remoteUrl = "$RELEASE_BASE/vits-piper-en_US-lessac-low.tar.bz2",
+                ),
+                TtsArtifact(name = "tokens.txt"),
+                TtsArtifact(name = "en_US-lessac-low.onnx.json"),
+                TtsArtifact(name = "espeak-ng-data"),
+            ),
         ),
         TtsModelSpec(
-            id = TtsModelId("kitten-tts"),
-            displayName = "KittenTTS Nano 0.8 (LiteRT)",
-            version = "0.8",
-            languages = setOf("english"),
-            sampleRate = 24_000,
-            displaySize = "45 MB",
+            id = TtsModelId("piper-en-us-lessac-medium"),
+            displayName = "Piper Lessac Medium (EN)",
+            version = "1.0",
+            languages = setOf(
+                "english",
+            ),
+            sampleRate = 22_050,
+            displaySize = "~61 MB",
+            directoryName = "vits-piper-en_US-lessac-medium",
             artifacts = listOf(
                 TtsArtifact(
-                    name = "kitten_predictor_fp16.tflite",
-                    remoteUrl = "https://huggingface.co/litert-community/kitten-tts-nano-0.8/resolve/main/kitten_predictor_fp16.tflite"
+                    name = "en_US-lessac-medium.onnx",
+                    remoteUrl = "$RELEASE_BASE/vits-piper-en_US-lessac-medium.tar.bz2",
                 ),
+                TtsArtifact(name = "tokens.txt"),
+                TtsArtifact(name = "en_US-lessac-medium.onnx.json"),
+                TtsArtifact(name = "espeak-ng-data"),
+            ),
+        ),
+        TtsModelSpec(
+            id = TtsModelId("piper-en-us-lessac-high"),
+            displayName = "Piper Lessac High (EN)",
+            version = "1.0",
+            languages = setOf("english"),
+            sampleRate = 22_050,
+            displaySize = "~110 MB",
+            directoryName = "vits-piper-en_US-lessac-high",
+            artifacts = listOf(
                 TtsArtifact(
-                    name = "kitten_prosody_fp16.tflite",
-                    remoteUrl = "https://huggingface.co/litert-community/kitten-tts-nano-0.8/resolve/main/kitten_prosody_fp16.tflite"
+                    name = "en_US-lessac-high.onnx",
+                    remoteUrl = "$RELEASE_BASE/vits-piper-en_US-lessac-high.tar.bz2",
                 ),
-                TtsArtifact(
-                    name = "kitten_vocoder_fp16.tflite",
-                    remoteUrl = "https://huggingface.co/litert-community/kitten-tts-nano-0.8/resolve/main/kitten_vocoder_fp16.tflite"
-                ),
-                TtsArtifact(name = "voices.bin"),
-                TtsArtifact(
-                    name = "voices.npz",
-                    required = false,
-                    remoteUrl = "https://huggingface.co/litert-community/kitten-tts-nano-0.8/resolve/main/voices.npz"
-                ),
-                TtsArtifact(
-                    name = "dp_g2p_matcha_fp16.tflite",
-                    remoteUrl = "https://huggingface.co/litert-community/Matcha-TTS/resolve/main/dp_g2p_matcha_fp16.tflite"
-                ),
-                TtsArtifact(
-                    name = "config.json",
-                    remoteUrl = "https://huggingface.co/litert-community/Matcha-TTS/resolve/main/config.json"
-                ),
-                TtsArtifact(
-                    name = "g2p_meta.json",
-                    remoteUrl = "https://huggingface.co/litert-community/Matcha-TTS/resolve/main/g2p_meta.json"
-                ),
-                TtsArtifact(name = "g2p_dict.txt", required = false),
-                TtsArtifact(
-                    name = "g2p_dict.txt.gz",
-                    required = false,
-                    remoteUrl = "https://huggingface.co/litert-community/Matcha-TTS/resolve/main/g2p_dict.txt.gz"
-                )
-            )
-        )
+                TtsArtifact(name = "tokens.txt"),
+                TtsArtifact(name = "en_US-lessac-high.onnx.json"),
+                TtsArtifact(name = "espeak-ng-data"),
+            ),
+        ),
     )
 }

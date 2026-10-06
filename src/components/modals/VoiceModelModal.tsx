@@ -37,12 +37,12 @@ const CATALOG_MODELS = SPEECH_MODELS.map((m) => ({
   name: m.displayName,
   size:
     m.type === 'stt'
-      ? m.id.includes('fp16')
-        ? '500 MB'
-        : '250 MB'
-      : m.id.includes('kitten')
-        ? '45 MB'
-        : '1.9 GB',
+      ? '45 MB'
+      : m.id.includes('low')
+        ? '61 MB'
+        : m.id.includes('medium')
+          ? '61 MB'
+          : '110 MB',
   langs: m.capabilities.languages.join(', '),
   category: m.type,
 }));
@@ -222,8 +222,13 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
                     ? selectedSttModelId
                     : selectedTtsModelId) === m.id;
                 const prog = progresses[m.id];
+                // Clamp defensively: progress must stay within 0..100%.
+                const progPct =
+                  prog !== undefined
+                    ? Math.min(100, Math.max(0, prog))
+                    : undefined;
                 const isDownloading =
-                  (prog !== undefined && prog < 100 && !isDl) ||
+                  (progPct !== undefined && progPct < 100 && !isDl) ||
                   loadingAction === m.id;
 
                 return (
@@ -272,7 +277,7 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
                           </>
                         ) : isDownloading ? (
                           <Text style={{ color: Colors.textSecondary }}>
-                            {prog !== undefined ? Math.round(prog) : 0}%
+                            {progPct !== undefined ? Math.round(progPct) : 0}%
                           </Text>
                         ) : (
                           <TouchableOpacity
@@ -287,13 +292,13 @@ export function VoiceModelModal({ visible, onClose }: VoiceModelModalProps) {
                         )}
                       </View>
                     </View>
-                    {isDownloading && prog !== undefined && (
+                    {isDownloading && progPct !== undefined && (
                       <View style={styles.progressContainer}>
                         <View style={styles.downloadBarBg}>
                           <View
                             style={[
                               styles.downloadBarFill,
-                              { width: `${prog}%` },
+                              { width: `${progPct}%` },
                             ]}
                           />
                         </View>

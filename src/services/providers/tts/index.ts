@@ -1,2 +1,2 @@
-export { lrtTtsProvider as ttsProvider } from './litert.provider';
+export { onnxTtsProvider as ttsProvider } from './onnx.provider';
 export * from './types';

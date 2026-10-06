@@ -11,6 +11,8 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 
 class TtsModuleBridge(
     private val context: Context,
@@ -42,10 +44,9 @@ class TtsModuleBridge(
     fun isTtsModel(modelId: String): Boolean = findSpec(modelId) != null
 
     fun resolveActiveTts(): ActiveTts? {
-        val fallbacks = buildList {
-            addAll(StaticTtsSpecs.allSpecs.map { modelDirFor(it) })
-            add(File(ttsModelsRoot, "qwen3-tts-0.6b-base"))
-        }.filter { it.isDirectory }
+        val fallbacks = StaticTtsSpecs.allSpecs
+            .map { modelDirFor(it) }
+            .filter { it.isDirectory }
 
         for (dir in fallbacks) {
             val spec = specForDir(dir)
@@ -79,7 +80,7 @@ class TtsModuleBridge(
             "outputNames" to outputNames,
             "outputTypes" to outputTypes,
         )
-        val provider = runtimeManager.provider(RuntimeId.LITERT) ?: throw IllegalStateException("LiteRT not installed")
+        val provider = runtimeManager.provider(RuntimeId.ONNX) ?: throw IllegalStateException("LiteRT not installed")
         return provider.inspectModel(descriptor) ?: emptyMap()
     }
 
@@ -103,7 +104,7 @@ class TtsModuleBridge(
 
         synchronized(ttsLock) {
             val spec = findSpec(modelId) ?: error("No TTS adapter registered for model: $modelId")
-            val provider = runtimeManager.provider(RuntimeId.LITERT)?.tts() ?: throw IllegalStateException("TTS Runtime not installed")
+            val provider = runtimeManager.provider(RuntimeId.ONNX)?.tts() ?: throw IllegalStateException("TTS Runtime not installed")
             val result = provider.synthesize(
                 model = TtsFileAssets(spec.id, root),
                 text = text,
@@ -174,7 +175,7 @@ class TtsModuleBridge(
     fun releaseTts(modelId: String) {
         synchronized(ttsLock) {
             findSpec(modelId)?.let {
-                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.release(it.id) }
+                runCatching { runtimeManager.provider(RuntimeId.ONNX)?.tts()?.release(it.id) }
             }
         }
     }
@@ -182,7 +183,7 @@ class TtsModuleBridge(
     fun releaseActiveTts() {
         synchronized(ttsLock) {
             resolveActiveTts()?.let {
-                runCatching { runtimeManager.provider(RuntimeId.LITERT)?.tts()?.release(TtsModelId(it.modelId)) }
+                runCatching { runtimeManager.provider(RuntimeId.ONNX)?.tts()?.release(TtsModelId(it.modelId)) }
             }
         }
     }
@@ -230,7 +231,7 @@ class TtsModuleBridge(
         }
 
         downloadMissingArtifacts(spec, targetDir, onProgress)
-        runtimeManager.provider(RuntimeId.LITERT)?.tts()?.finishDownload(targetDir, spec.id.value)
+        runtimeManager.provider(RuntimeId.ONNX)?.tts()?.finishDownload(targetDir, spec.id.value)
 
         val assets = TtsFileAssets(spec.id, targetDir)
         require(spec.isComplete(assets)) {
@@ -275,13 +276,40 @@ class TtsModuleBridge(
             downloadFile(artifact.remoteUrl!!, part) { fraction ->
                 report((completed + fraction) / totalFiles * 100f)
             }
-            val finalFile = File(targetDir, artifact.path)
-            if (!part.renameTo(finalFile)) {
-                part.copyTo(finalFile, overwrite = true)
+            if (artifact.remoteUrl!!.endsWith(".tar.bz2")) {
+                extractTarBz2(part, targetDir, stripComponents = 1)
                 part.delete()
+            } else {
+                val finalFile = File(targetDir, artifact.path)
+                if (!part.renameTo(finalFile)) {
+                    part.copyTo(finalFile, overwrite = true)
+                    part.delete()
+                }
             }
             completed += 1f
             report(completed / totalFiles * 100f)
+        }
+    }
+
+    /** Extracts a .tar.bz2 archive into [dest], dropping the single top-level folder. */
+    private fun extractTarBz2(archive: File, dest: File, stripComponents: Int) {
+        BZip2CompressorInputStream(archive.inputStream().buffered()).use { bzIn ->
+            TarArchiveInputStream(bzIn).use { tar ->
+                var entry = tar.nextTarEntry
+                while (entry != null) {
+                    val relative = entry.name.trimStart('/').split('/').drop(stripComponents).joinToString("/")
+                    if (relative.isNotEmpty()) {
+                        val out = File(dest, relative)
+                        if (entry.isDirectory) {
+                            out.mkdirs()
+                        } else {
+                            out.parentFile?.mkdirs()
+                            FileOutputStream(out).use { os -> tar.copyTo(os) }
+                        }
+                    }
+                    entry = tar.nextTarEntry
+                }
+            }
         }
     }
 
@@ -295,8 +323,7 @@ class TtsModuleBridge(
     private fun modelDirFor(spec: TtsModelSpec): File = File(ttsModelsRoot, spec.directoryName)
 
     private fun candidateModelDirs(): List<File> =
-        StaticTtsSpecs.allSpecs.map { modelDirFor(it) } +
-            File(ttsModelsRoot, "qwen3-tts-0.6b-base")
+        StaticTtsSpecs.allSpecs.map { modelDirFor(it) }
 
     private fun specForDir(dir: File): TtsModelSpec? {
         if (!dir.isDirectory) return null
@@ -375,7 +402,7 @@ class TtsModuleBridge(
         channels: Int,
     ): File {
         val safeChannels = channels.coerceAtLeast(1)
-        val outputDir = File(context.cacheDir, "litert-tts").apply { mkdirs() }
+        val outputDir = File(context.cacheDir, "kritha-tts").apply { mkdirs() }
         val file = File(outputDir, "tts_${System.currentTimeMillis()}.wav")
         val bytesPerSample = 2
         val dataSize = pcm.size * bytesPerSample

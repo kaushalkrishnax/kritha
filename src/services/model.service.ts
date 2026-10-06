@@ -49,7 +49,10 @@ class ModelDownloadService {
 
         store.setDownloadState({
           modelId: id,
-          progress: totalBytes > 0 ? bytesWritten / totalBytes : 0,
+          // Never let the percent exceed 100% even if the server misreports
+          // totalBytes (e.g. content-encoding edge cases).
+          progress:
+            totalBytes > 0 ? Math.min(1, Math.max(0, bytesWritten / totalBytes)) : 0,
           downloadedMb,
           totalMb,
           speed,

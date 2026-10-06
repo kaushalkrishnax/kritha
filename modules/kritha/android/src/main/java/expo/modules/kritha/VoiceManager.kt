@@ -1,6 +1,18 @@
 package expo.modules.kritha
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.os.SystemClock
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.Process
 import android.util.Log
+import androidx.core.content.ContextCompat
+import expo.modules.kritha.runtime.RuntimeId
+import expo.modules.kritha.runtime.RuntimeManager
+import expo.modules.kritha.runtime.asr.AsrProvider
+import expo.modules.kritha.runtime.vad.VadProvider
 import expo.modules.kritha.runtime.tts.SpeechAudio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,12 +27,15 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * TTS runs end-to-end through the runtime provider (chunked synthesis +
- * AudioTrack playback). STT is not implemented by the runtime stack yet, so
- * every recognition entry point is a stub that emits lifecycle events without
- * capturing audio.
+ * AudioTrack playback). STT captures PCM in [captureLoop], buffers every
+ * frame (VAD only hints at early flush-on-silence), and transcribes
+ * utterances through the runtime ASR provider.
  */
 internal class VoiceManager(
     private val bridge: TtsModuleBridge,
+    private val speechModels: SpeechModelBridge,
+    private val runtimeManager: RuntimeManager,
+    private val appContext: android.content.Context,
     private val eventEmitter: (String, Map<String, Any?>) -> Unit,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -32,11 +47,23 @@ internal class VoiceManager(
 
     companion object {
         private const val TAG = "VoiceManager"
+        const val STT_SAMPLE_RATE = 16_000
+
+        /**
+         * VAD analysis window (samples). Silero at 16 kHz requires exactly
+         * 512 samples per compute() call (32 ms per probability).
+         */
+        const val VAD_WINDOW_SAMPLES = 512
+        const val MIC_FRAME_SAMPLES = 512
+        const val FRAME_MS = 32
+        const val SILENCE_TIMEOUT_MS = 600
+        const val SPEECH_THRESHOLD = 0.5f
+        const val SPEECH_ACTIVITY_RMS = 0.02f
+        const val LEVEL_EMIT_INTERVAL_MS = 100L
+        const val MAX_UTTERANCE_SAMPLES = 30 * STT_SAMPLE_RATE
+        const val MIN_UTTERANCE_SAMPLES = STT_SAMPLE_RATE / 3
 
         private fun friendlyTtsMessage(raw: String): String {
-            // The runtime surfaces "Failed to invoke the compiled model"
-            // generically; on-device the underlying cause is often "Failed to
-            // allocate tensors" (OOM).
             return if (
                 raw.contains("invoke the compiled model") ||
                 raw.contains("allocate tensors") ||
@@ -49,18 +76,241 @@ internal class VoiceManager(
         }
     }
 
+    fun setSttModelId(id: String?) {
+        if (id != null && id != sttModelId) {
+            runCatching { asrInstance?.release() }
+            asrInstance = null
+        }
+        sttModelId = id
+    }
+
     suspend fun startListening(requestId: String): Unit = withContext(Dispatchers.IO) {
+        if (
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.RECORD_AUDIO,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            throw IllegalStateException("Microphone permission is not granted")
+        }
+        if (activeSttRequestId != null) {
+            throw IllegalStateException("STT capture already active")
+        }
+
+        val onnx = runtimeManager.provider(RuntimeId.ONNX)
+            ?: error("ONNX runtime is not installed. Install it from Extensions & Runtimes in the sidebar.")
+        if (asrInstance == null) {
+            val sttId = sttModelId
+            if (sttId.isNullOrBlank()) error("No STT model selected")
+            val asr = onnx.asr() ?: error("ONNX runtime does not provide ASR")
+            asr.load(speechModels.sttModelDirectory(sttId).absolutePath)
+            asrInstance = asr
+        }
+        if (vadInstance == null) {
+            try {
+                val vad = onnx.vad() ?: error("ONNX runtime does not provide VAD")
+                vad.load(speechModels.vadModelFile().absolutePath)
+                vadInstance = vad
+            } catch (e: Exception) {
+                Log.w(TAG, "VAD failed to load; continuing without it", e)
+                vadInstance = null
+            }
+        }
+        vadInstance?.reset()
+
+        activeSttRequestId = requestId
+        sttTranscript.clear()
+        sttUtterance.clear()
+        sttCaptureError = null
+        sawSpeech = false
         eventEmitter("onSttStarted", mapOf("requestId" to requestId))
+        sttJob = scope.launch { captureLoop(requestId) }
     }
 
     suspend fun stopListening(requestId: String): String = withContext(Dispatchers.IO) {
-        eventEmitter("onSttStopped", mapOf("requestId" to requestId, "text" to ""))
-        ""
+        val active = activeSttRequestId
+        if (active == null || active != requestId) {
+            return@withContext ""
+        }
+        activeSttRequestId = null
+        sttJob?.cancel()
+        sttJob?.join()
+        sttJob = null
+        flushUtterance(requestId)
+        val text = sttTranscript.toString().trim()
+        val captureError = sttCaptureError
+        sttCaptureError = null
+        if (captureError != null && text.isEmpty()) {
+            // Capture died mid-session; surface the failure instead of
+            // pretending the user said nothing.
+            throw IllegalStateException(captureError)
+        }
+        eventEmitter("onSttStopped", mapOf("requestId" to requestId, "text" to text))
+        return@withContext text
     }
 
     suspend fun cancelListening(requestId: String): Unit = withContext(Dispatchers.IO) {
+        val active = activeSttRequestId
+        if (active == null || active != requestId) return@withContext
+        activeSttRequestId = null
+        sttJob?.cancel()
+        sttJob?.join()
+        sttJob = null
+        sttUtterance.clear()
+        sttCaptureError = null
         eventEmitter("onSttCancelled", mapOf("requestId" to requestId))
     }
+
+    private fun flushUtterance(requestId: String) {
+        val pcm = sttUtterance.toShortArray()
+        sttUtterance.clear()
+        // Without detected activity the buffer is room tone; skipping it keeps
+        // stop() fast (whisper would only burn time returning "").
+        if (!sawSpeech) return
+        sawSpeech = false
+        if (pcm.size < MIN_UTTERANCE_SAMPLES) return
+        val asr = asrInstance ?: return
+        try {
+            val text = asr.transcribe(pcm, STT_SAMPLE_RATE)
+            if (text.isNotBlank()) {
+                if (sttTranscript.isNotEmpty()) sttTranscript.append(' ')
+                sttTranscript.append(text.trim())
+                eventEmitter(
+                    "onTranscript",
+                    mapOf("requestId" to requestId, "text" to text.trim(), "isFinal" to false),
+                )
+            }
+        } catch (e: Exception) {
+            // A failed utterance is not fatal: report it and keep capturing.
+            eventEmitter(
+                "onSttError",
+                mapOf("requestId" to requestId, "message" to (e.message ?: "STT failed")),
+            )
+        }
+    }
+
+    private fun captureLoop(requestId: String) {
+        var record: AudioRecord? = null
+        var inSpeech = false
+        var silenceMs = 0
+        var lastLevelEmitAt = 0L
+        // VAD scratch buffer: sherpa requires feeding the exact 512-sample
+        // window. Any other length kills the detector.
+        val vadWindow = ShortArray(VAD_WINDOW_SAMPLES)
+        var vadWindowFill = 0
+        try {
+            val minBuffer = AudioRecord.getMinBufferSize(
+                STT_SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            if (minBuffer <= 0) {
+                error("Unsupported audio configuration for STT capture")
+            }
+            record = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                STT_SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                maxOf(minBuffer, MIC_FRAME_SAMPLES * 4),
+            )
+            if (record.state != AudioRecord.STATE_INITIALIZED) {
+                error("Microphone could not be initialized. Is it in use by another app?")
+            }
+            record.startRecording()
+            val frame = ShortArray(MIC_FRAME_SAMPLES)
+            while (activeSttRequestId == requestId) {
+                val read = record.read(frame, 0, MIC_FRAME_SAMPLES)
+                if (read < 0) {
+                    error("Microphone read failed (code $read)")
+                }
+                if (read == 0) continue
+
+                var sum = 0.0
+                for (i in 0 until read) {
+                    val v = frame[i] / 32768.0
+                    sum += v * v
+                }
+                val rms = Math.sqrt(sum / read)
+
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastLevelEmitAt >= LEVEL_EMIT_INTERVAL_MS) {
+                    lastLevelEmitAt = now
+                    val level = rms.toFloat()
+                    eventEmitter(
+                        "onAudioLevel",
+                        mapOf("requestId" to requestId, "level" to (level * 1.8f).coerceIn(0f, 1f)),
+                    )
+                }
+
+                // VAD only decides when to flush early on silence. Every frame
+                // is buffered regardless, so a VAD miss can never drop speech.
+                var consumed = 0
+                while (consumed < read) {
+                    val take = minOf(VAD_WINDOW_SAMPLES - vadWindowFill, read - consumed)
+                    System.arraycopy(frame, consumed, vadWindow, vadWindowFill, take)
+                    vadWindowFill += take
+                    consumed += take
+                    if (vadWindowFill < VAD_WINDOW_SAMPLES) break
+                    vadWindowFill = 0
+                    val probability = try {
+                        vadInstance?.speechProbability(vadWindow.copyOf())
+                    } catch (e: Exception) {
+                        Log.w(TAG, "VAD probability failed", e)
+                        null
+                    }
+                    if (probability != null && probability >= SPEECH_THRESHOLD) {
+                        inSpeech = true
+                        silenceMs = 0
+                    } else if (inSpeech) {
+                        silenceMs += FRAME_MS
+                    }
+                }
+                // RMS fallback marks activity when VAD is unavailable/unreliable.
+                if (!sawSpeech && rms >= SPEECH_ACTIVITY_RMS) {
+                    sawSpeech = true
+                }
+
+                sttUtterance.addAll(frame.take(read))
+
+                if (sttUtterance.size >= MAX_UTTERANCE_SAMPLES ||
+                    (inSpeech && silenceMs >= SILENCE_TIMEOUT_MS)
+                ) {
+                    flushUtterance(requestId)
+                    inSpeech = false
+                    silenceMs = 0
+                }
+            }
+            // Note: no flush here — stopListening flushes after joining this
+            // job; cancelListening discards the buffer on purpose.
+        } catch (e: Exception) {
+            if (e !is CancellationException) {
+                sttCaptureError = e.message ?: "STT capture failed"
+                Log.e(TAG, "STT capture failed", e)
+                eventEmitter(
+                    "onSttError",
+                    mapOf(
+                        "requestId" to requestId,
+                        "message" to sttCaptureError,
+                        "fatal" to true,
+                    ),
+                )
+            }
+        } finally {
+            runCatching { record?.stop() }
+            runCatching { record?.release() }
+        }
+    }
+
+    private var sttJob: Job? = null
+    private var activeSttRequestId: String? = null
+    private var sttModelId: String? = null
+    private var sttCaptureError: String? = null
+    private var sawSpeech = false
+    private val sttTranscript = StringBuilder()
+    private val sttUtterance = mutableListOf<Short>()
+    private var vadInstance: VadProvider? = null
+    private var asrInstance: AsrProvider? = null
 
     fun start(llmModelPath: String?, llmDevice: String) {
         Log.i(TAG, "Continuous STT is stubbed; LiteRT speech-to-text is not implemented yet.")
@@ -72,6 +322,9 @@ internal class VoiceManager(
         ttsPaused.set(false)
         speakJob?.cancel()
         speakJob = null
+        activeSttRequestId = null
+        sttJob?.cancel()
+        sttJob = null
 
         try {
             speechPlayer?.stopPlayback()

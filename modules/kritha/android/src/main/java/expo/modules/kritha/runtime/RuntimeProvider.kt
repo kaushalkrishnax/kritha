@@ -33,7 +33,6 @@ interface RuntimeProvider {
     fun inspectModel(descriptor: Any): Map<String, Any?>? = null
 }
 
-interface LiteRTRuntimeProviderRegistration : RuntimeProvider
 interface LiteRTLLMRuntimeProviderRegistration : RuntimeProvider
 interface OnnxRuntimeProviderRegistration : RuntimeProvider
 
@@ -41,7 +40,6 @@ internal fun loadRuntimeProviders(
     runtime: RuntimeId,
     classLoader: ClassLoader
 ): ServiceLoader<out RuntimeProvider> = when (runtime) {
-    RuntimeId.LITERT -> ServiceLoader.load(LiteRTRuntimeProviderRegistration::class.java, classLoader)
     RuntimeId.LITERT_LM -> ServiceLoader.load(LiteRTLLMRuntimeProviderRegistration::class.java, classLoader)
     RuntimeId.ONNX -> ServiceLoader.load(OnnxRuntimeProviderRegistration::class.java, classLoader)
 }

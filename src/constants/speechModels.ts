@@ -10,7 +10,7 @@ export interface SpeechModelReference {
   id: string;
   type: SpeechModelType;
   displayName: string;
-  provider: 'litert' | 'onnx';
+  provider: 'onnx';
   nativeReference: {
     sttModelId?: string | null;
     ttsModelId?: string | null;
@@ -20,11 +20,11 @@ export interface SpeechModelReference {
 
 export const SPEECH_MODELS: SpeechModelReference[] = [
   {
-    id: 'moonshine-tiny-onnx',
+    id: 'whisper-tiny-en-onnx',
     type: 'stt',
-    displayName: 'Moonshine Tiny (ONNX)',
+    displayName: 'Whisper Tiny EN (ONNX)',
     provider: 'onnx',
-    nativeReference: { sttModelId: 'moonshine-tiny-onnx' },
+    nativeReference: { sttModelId: 'whisper-tiny-en-onnx' },
     capabilities: {
       streaming: false,
       pauseResume: false,
@@ -32,25 +32,37 @@ export const SPEECH_MODELS: SpeechModelReference[] = [
     },
   },
   {
-    id: 'qwen3-tts',
+    id: 'piper-en-us-lessac-low',
     type: 'tts',
-    displayName: 'Qwen3-TTS 12Hz 0.6B (LiteRT)',
-    provider: 'litert',
-    nativeReference: { ttsModelId: 'qwen3-tts' },
+    displayName: 'Piper Lessac Low (EN)',
+    provider: 'onnx',
+    nativeReference: { ttsModelId: 'piper-en-us-lessac-low' },
     capabilities: {
-      streaming: true,
+      streaming: false,
       pauseResume: true,
-      languages: ['en', 'zh', 'es', 'ja', 'ko', 'fr', 'de', 'it', 'pt', 'ru'],
+      languages: ['en'],
     },
   },
   {
-    id: 'kitten-tts-nano',
+    id: 'piper-en-us-lessac-medium',
     type: 'tts',
-    displayName: 'KittenTTS Nano 0.8 (LiteRT)',
-    provider: 'litert',
-    nativeReference: { ttsModelId: 'kitten-tts-nano' },
+    displayName: 'Piper Lessac Medium (EN)',
+    provider: 'onnx',
+    nativeReference: { ttsModelId: 'piper-en-us-lessac-medium' },
     capabilities: {
-      streaming: true,
+      streaming: false,
+      pauseResume: true,
+      languages: ['en'],
+    },
+  },
+  {
+    id: 'piper-en-us-lessac-high',
+    type: 'tts',
+    displayName: 'Piper Lessac High (EN)',
+    provider: 'onnx',
+    nativeReference: { ttsModelId: 'piper-en-us-lessac-high' },
+    capabilities: {
+      streaming: false,
       pauseResume: true,
       languages: ['en'],
     },

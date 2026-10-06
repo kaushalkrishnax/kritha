@@ -10,7 +10,7 @@ export type SttRuntimeEvent =
   | { kind: 'transcript'; requestId: string; text: string; isFinal: boolean }
   | { kind: 'sttStopped'; requestId: string; text: string }
   | { kind: 'sttCancelled'; requestId: string }
-  | { kind: 'sttError'; requestId: string | null; message: string }
+  | { kind: 'sttError'; requestId: string | null; message: string; fatal: boolean }
   | { kind: 'audioLevel'; requestId: string; level: number };
 
 export type TtsRuntimeEvent =
@@ -125,6 +125,7 @@ function attachNativeListeners(): void {
       kind: 'sttError',
       requestId: e?.requestId ?? null,
       message: e?.message || e?.text || 'Speech recognition failed.',
+      fatal: e.fatal === true,
     });
   });
 
@@ -179,7 +180,12 @@ function attachNativeListeners(): void {
       typeof e?.message === 'string' && e.message
         ? e.message
         : 'Speech engine error.';
-    emit({ kind: 'sttError', requestId: e?.requestId ?? null, message });
+    emit({
+      kind: 'sttError',
+      requestId: e?.requestId ?? null,
+      message,
+      fatal: false,
+    });
   });
 }
 
@@ -227,9 +233,6 @@ export async function ensureSpeechRuntimeInitialized(
     initializedSelections.stt === sttModelId &&
     initializedSelections.tts === ttsModelId;
   if (selectionsMatch) return;
-  if (selectionsMatch) {
-    return;
-  }
 
   const modelId = useModelStore.getState().selectedModelId;
   const modelPath = await modelDownloadService.getDownloadedModelPath(modelId);
