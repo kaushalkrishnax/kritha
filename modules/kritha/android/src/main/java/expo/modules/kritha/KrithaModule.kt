@@ -109,10 +109,12 @@ class KrithaModule : Module() {
 
         AsyncFunction("startListening") { requestId: String, promise: Promise ->
             moduleScope.launch {
+                WakeWordForegroundService.pauseForStt()
                 try {
                     ensureVoiceManager().startListening(requestId)
                     promise.resolve(null)
                 } catch (e: Exception) {
+                    WakeWordForegroundService.resumeFromStt()
                     promise.reject("ERR_STT_START", e.message, e)
                 }
             }
@@ -125,6 +127,8 @@ class KrithaModule : Module() {
                     promise.resolve(transcript)
                 } catch (e: Exception) {
                     promise.reject("ERR_STT_STOP", e.message, e)
+                } finally {
+                    WakeWordForegroundService.resumeFromStt()
                 }
             }
         }
@@ -136,6 +140,8 @@ class KrithaModule : Module() {
                     promise.resolve(null)
                 } catch (e: Exception) {
                     promise.reject("ERR_STT_CANCEL", e.message, e)
+                } finally {
+                    WakeWordForegroundService.resumeFromStt()
                 }
             }
         }
@@ -258,6 +264,20 @@ class KrithaModule : Module() {
 
         Function("isRunning") {
             WakeWordForegroundService.isRunning
+        }
+
+        Function("dismissAssistantOverlay") {
+            WakeWordForegroundService.stopAssistantSession()
+        }
+
+        Function("openMainApp") {
+            val context = resolveContext()
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP) }
+                ?: return@Function false
+            context.startActivity(intent)
+            WakeWordForegroundService.stopAssistantSession()
+            true
         }
 
         Function("isDefaultAssistant") {
@@ -575,10 +595,7 @@ class KrithaModule : Module() {
         )
     }
 
-    /**
-     * VAD analysis cadence in ms: 512 samples @ 16 kHz. Used to convert the
-     * JS-provided silence timeout into VAD frames.
-     */
+    /** 512 samples @ 16 kHz; converts the JS silence timeout into VAD frames. */
     private val vadFrameMs: Long = 32L
 
     private fun isTtsModel(modelId: String): Boolean {

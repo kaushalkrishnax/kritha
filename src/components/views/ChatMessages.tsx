@@ -190,7 +190,7 @@ export function ChatMessages() {
     }
     scrollTimeoutRef.current = setTimeout(() => {
       hideScrollDownButton();
-    }, 3000);
+    }, 1500);
   }, [scrollDownAnim, hideScrollDownButton]);
 
   const animatedContainerStyle = useAnimatedStyle(() => {

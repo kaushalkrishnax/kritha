@@ -17,8 +17,6 @@ class SileroVad : VadProvider {
             threshold = 0.5f,
             minSilenceDuration = 0.5f,
             minSpeechDuration = 0.25f,
-            // Silero VAD at 16 kHz requires exactly 512 samples per window;
-            // sherpa's native compute() rejects any other length.
             windowSize = EXPECTED_WINDOW_SAMPLES,
             maxSpeechDuration = 20.0f
         )
@@ -38,13 +36,9 @@ class SileroVad : VadProvider {
     @Synchronized
     override fun speechProbability(frame: ShortArray): Float {
         val active = vad ?: error("SileroVad not loaded")
-        // Must be exactly the model window: sherpa's native compute() aborts
-        // the process on any other length.
         require(frame.size == EXPECTED_WINDOW_SAMPLES) {
             "SileroVad expects $EXPECTED_WINDOW_SAMPLES samples per frame, got ${frame.size}"
         }
-        // sherpa-onnx Vad manages the recurrent state internally in C++;
-        // compute() advances it and returns the window speech probability.
         val input = FloatArray(frame.size) { frame[it] / 32768f }
         return active.compute(input)
     }
@@ -61,10 +55,7 @@ class SileroVad : VadProvider {
     }
 
     companion object {
-        /**
-         * Silero VAD analysis window at 16 kHz (32 ms). sherpa-onnx requires
-         * exactly 512 samples per compute() call.
-         */
+        /** sherpa-onnx Silero requires exactly 512 samples per compute() at 16 kHz. */
         const val EXPECTED_WINDOW_SAMPLES = 512
     }
 }

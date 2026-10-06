@@ -61,6 +61,9 @@ export const stop = (): void => KrithaModule.stop();
 export const pauseForStt = (): void => KrithaModule.pauseForStt();
 export const resumeFromStt = (): void => KrithaModule.resumeFromStt();
 export const isRunning = (): boolean => KrithaModule.isRunning();
+export const dismissAssistantOverlay = (): void =>
+  KrithaModule.dismissAssistantOverlay();
+export const openMainApp = (): boolean => KrithaModule.openMainApp();
 export const isDefaultAssistant = (): boolean =>
   KrithaModule.isDefaultAssistant();
 export const openAssistantSettings = (): boolean =>

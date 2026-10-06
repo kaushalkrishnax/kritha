@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 enum class LiveTalkTtsMode(val wire: String) {
     DISABLED("disabled"),
@@ -57,6 +58,8 @@ class LiveTalkTtsManager(
 
     private val firstAudioEmitted = AtomicBoolean(false)
 
+    private val generation = AtomicLong(0)
+
     var callback: Callback? = null
 
     val isSpeaking: Boolean
@@ -101,15 +104,17 @@ class LiveTalkTtsManager(
 
     private fun startPipeline(): Channel<String> {
         interrupt()
+        val gen = generation.incrementAndGet()
         val channel = Channel<String>(Channel.UNLIMITED)
         playbackChannel = channel
         firstAudioEmitted.set(false)
         callback?.onTtsStarted()
-        playbackJob = scope.launch { consume(channel) }
+        playbackJob = scope.launch { consume(gen, channel) }
         return channel
     }
 
-    private suspend fun consume(chunks: Channel<String>) {
+    private suspend fun consume(gen: Long, chunks: Channel<String>) {
+        var localPlayer: StreamingPcmPlayer? = null
         var interrupted = false
         try {
             val selection = bridge.resolveActiveTts()
@@ -125,27 +130,35 @@ class LiveTalkTtsManager(
                     text = chunk,
                     voice = voice,
                 )
+                if (generation.get() != gen) throw CancellationException()
                 val pcm16 = if (audio.pcm.isEmpty()) ByteArray(0) else bridge.encodePcm16(audio.pcm)
                 if (pcm16.isEmpty()) continue
-                val active = player
-                if (active == null) {
-                    player = StreamingPcmPlayer(audio.sampleRate).also { it.start(pcm16) }
-                } else {
-                    active.write(pcm16)
+                try {
+                    val active = localPlayer
+                    if (active == null) {
+                        localPlayer = StreamingPcmPlayer(audio.sampleRate).also { it.start(pcm16) }
+                        player = localPlayer
+                    } else {
+                        active.write(pcm16)
+                    }
+                } catch (e: IllegalStateException) {
+                    throw CancellationException()
                 }
                 if (firstAudioEmitted.compareAndSet(false, true)) {
                     callback?.onFirstAudio()
                 }
             }
-            player?.awaitDrained()
+            localPlayer?.awaitDrained()
         } catch (e: CancellationException) {
             interrupted = true
         } finally {
-            runCatching { player?.stopPlayback() }
-            runCatching { player?.close() }
-            player = null
-            bridge.releaseActiveTts()
-            callback?.onTtsFinished(interrupted)
+            runCatching { localPlayer?.stopPlayback() }
+            runCatching { localPlayer?.close() }
+            if (generation.get() == gen) {
+                player = null
+                bridge.releaseActiveTts()
+                callback?.onTtsFinished(interrupted)
+            }
         }
     }
 

@@ -281,10 +281,9 @@ class LiveTalkSession(
         val preRoll = ArrayDeque<ShortArray>()
         val utterance = PcmBuffer(config.sampleRate * 5)
         val minSpeechFrames = MIN_UTTERANCE_MS * config.sampleRate / 1_000 / frameSize
-        // VAD scratch buffer: sherpa requires feeding the exact 512-sample
-        // window. Any other length kills the detector.
         val vadWindow = ShortArray(LiveTalkConfig.VAD_WINDOW_SAMPLES)
         var vadWindowFill = 0
+        var bargeInStreak = 0
 
         try {
             while (running.get()) {
@@ -300,7 +299,6 @@ class LiveTalkSession(
                 val processed = audioProcessor?.process(frame) ?: frame
                 emitAudioLevelThrottled(processed)
 
-                // Re-chunk mic frames into exact VAD windows.
                 var probability: Float? = null
                 var consumed = 0
                 while (consumed < processed.size) {
@@ -323,7 +321,24 @@ class LiveTalkSession(
                 }
                 val frameProbability = probability ?: 0f
 
-                when (turnDetector.accept(frameProbability)) {
+                // Echo guard: during assistant playback/think states, only a
+                // sustained run of confident speech frames counts as barge-in.
+                val assistantActive = state == LiveTalkState.SPEAKING ||
+                    state == LiveTalkState.THINKING ||
+                    state == LiveTalkState.PROCESSING
+                val effectiveProbability = if (assistantActive) {
+                    bargeInStreak = if (frameProbability >= config.bargeInSpeechThreshold) {
+                        bargeInStreak + 1
+                    } else {
+                        0
+                    }
+                    if (bargeInStreak >= config.bargeInConfirmFrames) frameProbability else 0f
+                } else {
+                    bargeInStreak = 0
+                    frameProbability
+                }
+
+                when (turnDetector.accept(effectiveProbability)) {
                     TurnDetector.Signal.SPEECH_START -> {
                         if (state == LiveTalkState.SPEAKING ||
                             state == LiveTalkState.THINKING ||
@@ -340,7 +355,7 @@ class LiveTalkSession(
 
                     TurnDetector.Signal.SPEECH_END -> {
                         utterance.append(processed)
-                        if (turnDetector.speechFrames >= minSpeechFrames) {
+                        if (turnDetector.endedSpeechFrames >= minSpeechFrames) {
                             endUtterance(utterance.toArray())
                         } else {
                             setState(LiveTalkState.LISTENING)

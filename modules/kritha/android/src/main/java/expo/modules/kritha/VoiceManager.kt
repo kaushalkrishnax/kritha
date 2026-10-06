@@ -49,10 +49,7 @@ internal class VoiceManager(
         private const val TAG = "VoiceManager"
         const val STT_SAMPLE_RATE = 16_000
 
-        /**
-         * VAD analysis window (samples). Silero at 16 kHz requires exactly
-         * 512 samples per compute() call (32 ms per probability).
-         */
+        /** Silero analysis window; sherpa compute() requires exactly this at 16 kHz. */
         const val VAD_WINDOW_SAMPLES = 512
         const val MIC_FRAME_SAMPLES = 512
         const val FRAME_MS = 32
@@ -141,8 +138,6 @@ internal class VoiceManager(
         val captureError = sttCaptureError
         sttCaptureError = null
         if (captureError != null && text.isEmpty()) {
-            // Capture died mid-session; surface the failure instead of
-            // pretending the user said nothing.
             throw IllegalStateException(captureError)
         }
         eventEmitter("onSttStopped", mapOf("requestId" to requestId, "text" to text))
@@ -164,8 +159,7 @@ internal class VoiceManager(
     private fun flushUtterance(requestId: String) {
         val pcm = sttUtterance.toShortArray()
         sttUtterance.clear()
-        // Without detected activity the buffer is room tone; skipping it keeps
-        // stop() fast (whisper would only burn time returning "").
+        // No detected activity: buffer is room tone, skip transcription.
         if (!sawSpeech) return
         sawSpeech = false
         if (pcm.size < MIN_UTTERANCE_SAMPLES) return
@@ -181,7 +175,6 @@ internal class VoiceManager(
                 )
             }
         } catch (e: Exception) {
-            // A failed utterance is not fatal: report it and keep capturing.
             eventEmitter(
                 "onSttError",
                 mapOf("requestId" to requestId, "message" to (e.message ?: "STT failed")),
@@ -194,8 +187,6 @@ internal class VoiceManager(
         var inSpeech = false
         var silenceMs = 0
         var lastLevelEmitAt = 0L
-        // VAD scratch buffer: sherpa requires feeding the exact 512-sample
-        // window. Any other length kills the detector.
         val vadWindow = ShortArray(VAD_WINDOW_SAMPLES)
         var vadWindowFill = 0
         try {
@@ -243,8 +234,7 @@ internal class VoiceManager(
                     )
                 }
 
-                // VAD only decides when to flush early on silence. Every frame
-                // is buffered regardless, so a VAD miss can never drop speech.
+                // VAD only triggers early flush; frames are buffered regardless.
                 var consumed = 0
                 while (consumed < read) {
                     val take = minOf(VAD_WINDOW_SAMPLES - vadWindowFill, read - consumed)
@@ -281,8 +271,6 @@ internal class VoiceManager(
                     silenceMs = 0
                 }
             }
-            // Note: no flush here — stopListening flushes after joining this
-            // job; cancelListening discards the buffer on purpose.
         } catch (e: Exception) {
             if (e !is CancellationException) {
                 sttCaptureError = e.message ?: "STT capture failed"
@@ -355,7 +343,6 @@ internal class VoiceManager(
 
         val previous = activeTtsRequestId
         if (previous != null && previous != requestId) {
-            // Stop previous playback without completing the old owner.
             speakJob?.cancel()
             try {
                 speechPlayer?.stopPlayback()
@@ -431,9 +418,6 @@ internal class VoiceManager(
                     eventEmitter("onError", mapOf("requestId" to requestId, "message" to message))
                 }
             } finally {
-                // TTS engines only need to stay resident while speech is being
-                // produced; free the active model once this request is no longer
-                // current so memory returns to baseline between utterances.
                 if (activeTtsRequestId == null || activeTtsRequestId != requestId) {
                     bridge.releaseActiveTts()
                 }

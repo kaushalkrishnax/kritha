@@ -30,9 +30,16 @@ export const bootstrapApp = async (): Promise<void> => {
 
     await ChatSessionService.loadSessions(true);
 
-    // Always open an empty chat window by default, do not default to latest/topmost chat
-    useChatStore.getState().setChatSessionId(null);
-    useChatStore.getState().setMessages([]);
+    // Keep an active wake-word session (overlay expand opens the same chat);
+    // otherwise always open an empty chat window by default.
+    const currentId = useChatStore.getState().chatSessionId;
+    const current = currentId
+      ? useChatStore.getState().sessions.find((s) => s.id === currentId)
+      : null;
+    if (current?.origin !== 'wake_word') {
+      useChatStore.getState().setChatSessionId(null);
+      useChatStore.getState().setMessages([]);
+    }
 
     useWakewordStore
       .getState()

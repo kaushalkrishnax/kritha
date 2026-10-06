@@ -193,6 +193,8 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
   pauseForStt(): void;
   resumeFromStt(): void;
   isRunning(): boolean;
+  dismissAssistantOverlay(): void;
+  openMainApp(): boolean;
   isDefaultAssistant(): boolean;
   openAssistantSettings(): boolean;
   isNotificationListenerEnabled(): boolean;

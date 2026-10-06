@@ -5,9 +5,8 @@ package expo.modules.kritha.runtime.vad
  * (initially the ONNX dynamic feature running Silero VAD).
  *
  * Frames are PCM-16 at the rate the model was loaded for (16 kHz for
- * Silero). Callers must feed exactly the model's window
- * (512 samples for Silero at 16 kHz) — sherpa kills its
- * compute() process-call on any other length.
+ * Silero). Callers must feed exactly the model's window (512 samples for
+ * Silero at 16 kHz) — sherpa kills its compute() call on any other length.
  */
 interface VadProvider {
     /** Load the VAD model from an absolute file path. */

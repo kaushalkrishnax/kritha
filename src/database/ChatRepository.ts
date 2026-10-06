@@ -21,6 +21,7 @@ export class ChatRepository {
       archived: Boolean(row.archived),
       createdAt: Number(row.created_at),
       updatedAt: Number(row.updated_at),
+      origin: row.origin != null ? String(row.origin) : undefined,
     };
   }
 
@@ -59,13 +60,14 @@ export class ChatRepository {
       archived: Boolean(archived),
       createdAt: now,
       updatedAt: now,
+      origin: input.origin,
     };
 
     const db = await this.provider.getDbAsync();
     try {
       await db.execute(
-        `INSERT INTO sessions (id, title, pinned, archived, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (id, title, pinned, archived, created_at, updated_at, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           session.id,
           session.title,
@@ -73,6 +75,7 @@ export class ChatRepository {
           archived,
           session.createdAt,
           session.updatedAt,
+          session.origin ?? null,
         ],
       );
       return session;

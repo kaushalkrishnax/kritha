@@ -4,6 +4,7 @@ import { ChatRepository } from './ChatRepository';
 import { DatabaseError, MigrationError } from './errors';
 import { migration001 } from './migrations/001_init';
 import { migration002 } from './migrations/002_add_run_id_to_messages';
+import { migration003 } from './migrations/003_add_origin_to_sessions';
 import { ToolRepository } from './ToolRepository';
 import { DbProvider } from './types';
 import { VectorStore } from './VectorStore';
@@ -78,7 +79,7 @@ export class Database {
     try {
       const versionResult = await this.db.execute('PRAGMA user_version;');
       const currentVersion = Number(versionResult.rows?.[0]?.user_version ?? 0);
-      const migrations = [migration001, migration002];
+      const migrations = [migration001, migration002, migration003];
 
       for (const migration of migrations) {
         if (currentVersion < migration.version) {

@@ -51,11 +51,7 @@ class SpeechModelBridge(
                 artifacts = listOf(
                     Artifact(
                         path = "silero_vad.onnx",
-                        // Pinned to v5.1.2 for sherpa-onnx 1.12.35: its
-                        // Silero detector requires the v5 window of 512
-                        // samples at 16 kHz. The directory is versioned so
-                        // stale files can never be picked up for the wrong
-                        // model revision.
+                        // Versioned directory so stale revisions are never picked up.
                         remoteUrl = "https://github.com/snakers4/silero-vad/raw/v5.1.2/src/silero_vad/data/silero_vad.onnx",
                     ),
                 ),
@@ -104,8 +100,6 @@ class SpeechModelBridge(
     fun isDownloaded(modelId: String): Boolean {
         val spec = findSpec(modelId) ?: return false
         if (!specComplete(spec)) return false
-        // An STT model is only usable together with the shared VAD artifact,
-        // so treat the pair as one downloadable unit.
         return spec.kind != Kind.STT || isDownloaded(VAD_MODEL_ID)
     }
 

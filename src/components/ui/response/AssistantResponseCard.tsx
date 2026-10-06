@@ -74,6 +74,7 @@ export function AssistantResponseCard({
             }
             isTtsBuffering={isTtsBuffering && ttsMsgId === latestAssistant.id}
             onSpeakerPress={onSpeakerPress}
+            onExpandPress={onExpandPress}
           />
         ) : error ? (
           <View style={styles.errorWrapper}>

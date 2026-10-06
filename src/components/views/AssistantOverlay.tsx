@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 
 import {
@@ -11,12 +11,14 @@ import {
 import { useAssistantKeyboard, useAssistantSession, useSpeaker } from '@/hooks';
 import {
   useAssistantStore,
+  useChatStore,
   useIsLiveTalk,
   useIsSttListening,
   useIsTtsModelLoading,
   useIsTtsPaused,
   useIsTtsSpeaking,
 } from '@/stores';
+import { Colors, Radius } from '@/theme';
 
 export function AssistantOverlay() {
   const response = useAssistantStore((s) => s.response);
@@ -41,6 +43,9 @@ export function AssistantOverlay() {
 
   useEffect(() => {
     mountedRef.current = true;
+    import('@/services/speechRuntime.service').then((m) =>
+      m.SpeechCoordinator.handleWakeWordDetected(),
+    );
     return () => {
       mountedRef.current = false;
       import('@/services/speechRuntime.service').then((m) =>
@@ -104,22 +109,19 @@ export function AssistantOverlay() {
   }, [response, error, showResponse]);
 
   const handleClose = useCallback(() => {
-    try {
-      // STUB: close the overlay and return to the main app; no navigation target is wired up yet.
-      console.log('Closing assistant overlay');
-    } catch (e) {
-      console.warn('Failed to dismiss assistant session:', e);
-    }
+    import('@modules/kritha/src')
+      .then((m) => m.dismissAssistantOverlay())
+      .catch((e) => console.warn('Failed to dismiss assistant session:', e));
   }, []);
 
   const handleExpandPress = useCallback(() => {
-    try {
-      // STUB: expand the overlay into the full app; no navigation target is wired up yet.
-      console.log('Expanding assistant overlay into main app');
-    } catch (e) {
-      console.warn('Failed to open main app:', e);
-    }
+    import('@modules/kritha/src')
+      .then((m) => m.openMainApp())
+      .catch((e) => console.warn('Failed to open main app:', e));
   }, []);
+
+  const messages = useChatStore((s) => s.messages);
+  const latestUserText = [...messages].reverse().find((m) => m.role === 'user')?.text;
 
   const activeResponseMessageId = assistantRunId
     ? `${assistantRunId}_msg`
@@ -138,6 +140,15 @@ export function AssistantOverlay() {
       <Pressable style={styles.backdrop} onPress={handleClose} />
       <DictationCornerGlow active={isRecording} />
       <Reanimated.View style={[styles.bottomContainer, animatedBottomStyle]}>
+        {!!latestUserText && (
+          <View style={styles.userMessageContainer}>
+            <View style={styles.userBubble}>
+              <Text style={styles.userBubbleText} numberOfLines={3}>
+                {latestUserText}
+              </Text>
+            </View>
+          </View>
+        )}
         <View style={styles.responseContainer}>
           <AssistantResponseCard
             responseVisible={responseVisible}
@@ -181,5 +192,22 @@ const styles = StyleSheet.create({
   responseContainer: {
     width: '100%',
     paddingHorizontal: 24,
+  },
+  userMessageContainer: {
+    width: '100%',
+    paddingHorizontal: 24,
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  userBubble: {
+    maxWidth: '80%',
+    backgroundColor: Colors.accentBlue,
+    borderRadius: Radius.xl,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  userBubbleText: {
+    color: Colors.textOnAccent,
+    fontSize: 15,
   },
 });

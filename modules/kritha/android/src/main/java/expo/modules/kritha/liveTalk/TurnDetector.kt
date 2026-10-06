@@ -18,6 +18,8 @@ class TurnDetector(
     private var silentFrames = 0
     var speechFrames = 0
         private set
+    var endedSpeechFrames = 0
+        private set
 
     val frameDurationMs: Long
         get() = config.vadFrameSize * 1_000L / config.sampleRate
@@ -42,6 +44,7 @@ class TurnDetector(
                 speechFrames += 1
                 silentFrames += 1
                 if (silentFrames >= config.silenceFrameCount) {
+                    endedSpeechFrames = speechFrames
                     reset()
                     Signal.SPEECH_END
                 } else {

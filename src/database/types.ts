@@ -12,6 +12,7 @@ export interface Session {
   archived: boolean;
   createdAt: number;
   updatedAt: number;
+  origin?: string;
 }
 
 export interface CreateSessionInput {
@@ -20,6 +21,7 @@ export interface CreateSessionInput {
   archived?: boolean;
   customId?: string;
   createdAt?: number;
+  origin?: string;
 }
 
 export interface UpdateSessionInput {

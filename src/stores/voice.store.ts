@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from '@/constants';
 import { secureStorage } from '@/utils';
 
 export type LiveTalkTtsMode = 'disabled' | 'after_generation' | 'stream';
+export type WakeWordAction = 'dictation' | 'live_talk';
 
 interface VoiceStore {
   isTtsDownloaded: boolean;
@@ -14,6 +15,7 @@ interface VoiceStore {
   selectedSttModelId: string | null;
   selectedTtsModelId: string | null;
   liveTalkTtsMode: LiveTalkTtsMode;
+  wakeWordAction: WakeWordAction;
 
   setTtsDownloaded: (downloaded: boolean) => void;
   setSttDownloaded: (downloaded: boolean) => void;
@@ -24,6 +26,7 @@ interface VoiceStore {
   setSelectedSttModelId: (id: string | null) => void;
   setSelectedTtsModelId: (id: string | null) => void;
   setLiveTalkTtsMode: (mode: LiveTalkTtsMode) => void;
+  setWakeWordAction: (action: WakeWordAction) => void;
   reset: () => void;
 }
 
@@ -37,6 +40,7 @@ export const useVoiceStore = create<VoiceStore>()(
       selectedSttModelId: 'whisper-tiny-en-onnx',
       selectedTtsModelId: 'piper-en-us-lessac-low',
       liveTalkTtsMode: 'stream',
+      wakeWordAction: 'dictation',
 
       setTtsDownloaded: (downloaded) => set({ isTtsDownloaded: downloaded }),
       setSttDownloaded: (downloaded) => set({ isSttDownloaded: downloaded }),
@@ -48,6 +52,7 @@ export const useVoiceStore = create<VoiceStore>()(
       setSelectedTtsModelId: (selectedTtsModelId) =>
         set({ selectedTtsModelId }),
       setLiveTalkTtsMode: (liveTalkTtsMode) => set({ liveTalkTtsMode }),
+      setWakeWordAction: (wakeWordAction) => set({ wakeWordAction }),
       reset: () =>
         set({
           isTtsDownloaded: false,
@@ -63,6 +68,7 @@ export const useVoiceStore = create<VoiceStore>()(
         selectedSttModelId: state.selectedSttModelId,
         selectedTtsModelId: state.selectedTtsModelId,
         liveTalkTtsMode: state.liveTalkTtsMode,
+        wakeWordAction: state.wakeWordAction,
       }),
     },
   ),

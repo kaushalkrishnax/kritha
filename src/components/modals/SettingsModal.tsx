@@ -16,13 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSpeaker } from '@/hooks';
 import { settingsService } from '@/services';
 import { useModelStore, useVoiceStore } from '@/stores';
-import { LiveTalkTtsMode } from '@/stores/voice.store';
+import { LiveTalkTtsMode, WakeWordAction } from '@/stores/voice.store';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 
 const LIVE_TALK_TTS_OPTIONS: { value: LiveTalkTtsMode; label: string }[] = [
   { value: 'stream', label: 'Streaming' },
   { value: 'after_generation', label: 'After reply' },
   { value: 'disabled', label: 'Off' },
+];
+
+const WAKE_WORD_ACTION_OPTIONS: { value: WakeWordAction; label: string }[] = [
+  { value: 'dictation', label: 'Dictation' },
+  { value: 'live_talk', label: 'Live Talk' },
 ];
 
 type SettingsModalProps = {
@@ -35,6 +40,8 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const setLlmModalOpen = useModelStore((s) => s.setLlmModalOpen);
   const liveTalkTtsMode = useVoiceStore((s) => s.liveTalkTtsMode);
   const setLiveTalkTtsMode = useVoiceStore((s) => s.setLiveTalkTtsMode);
+  const wakeWordAction = useVoiceStore((s) => s.wakeWordAction);
+  const setWakeWordAction = useVoiceStore((s) => s.setWakeWordAction);
   const [userName, setUserName] = useState('Your Name');
   const [apiKey, setApiKey] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
@@ -170,6 +177,40 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                     Manage Voice Models
                   </Text>
                 </TouchableOpacity>
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Wake Word Action</Text>
+                <Text style={styles.sectionDesc}>
+                  What happens when you say the wake word. Dictation sends your
+                  speech after ~2s of silence; Live Talk starts a full
+                  hands-free conversation.
+                </Text>
+                <View style={styles.segmentedRow}>
+                  {WAKE_WORD_ACTION_OPTIONS.map((option) => {
+                    const selected = wakeWordAction === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.segmentBtn,
+                          selected && styles.segmentBtnSelected,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={() => setWakeWordAction(option.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentText,
+                            selected && styles.segmentTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={styles.section}>

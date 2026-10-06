@@ -16,6 +16,7 @@ export interface ResponseMessageProps {
   isTtsPaused?: boolean;
   isTtsBuffering?: boolean;
   onSpeakerPress?: (msgId: string) => void;
+  onExpandPress?: () => void;
   style?: object;
 }
 
@@ -48,6 +49,7 @@ export function ResponseMessage({
   isTtsPaused = false,
   isTtsBuffering = false,
   onSpeakerPress,
+  onExpandPress,
   style,
 }: ResponseMessageProps) {
   const { thinking, answer, isThinkingActive } = parseThinkingMessage(
@@ -83,6 +85,7 @@ export function ResponseMessage({
             onSpeakerPress={
               onSpeakerPress ? () => onSpeakerPress(message.id) : undefined
             }
+            onExpandPress={onExpandPress}
           />
         )}
       </View>

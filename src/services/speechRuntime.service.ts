@@ -343,14 +343,53 @@ export const SpeechCoordinator = {
     if (_isSessionActive) return;
     _isSessionActive = true;
     try {
-      const { startLiveTalk } = await import('./assistantRuntime.service');
-      await startLiveTalk();
+      const { ChatSessionService } = await import('./chat.service');
+      const session = await ChatSessionService.createNewChat(
+        'Voice session',
+        'wake_word',
+      );
 
+      const { startDictation, startLiveTalk } = await import(
+        './assistantRuntime.service'
+      );
+      const { RequestOrigin, ChatMode, SttPhase } = await import(
+        '@/constants'
+      );
       const { useAssistantStore } = await import('@/stores/assistant.store');
-      const { ChatMode } = await import('@/constants');
-      if (useAssistantStore.getState().chatMode !== ChatMode.LIVE_TALK) {
-        _isSessionActive = false;
+      const { useVoiceStore } = await import('@/stores/voice.store');
+
+      if (useVoiceStore.getState().wakeWordAction === 'live_talk') {
+        await startLiveTalk({ sessionId: session.id });
+        if (useAssistantStore.getState().chatMode !== ChatMode.LIVE_TALK) {
+          _isSessionActive = false;
+          return;
+        }
+        const unsub = useAssistantStore.subscribe((state) => {
+          if (state.chatMode !== ChatMode.LIVE_TALK) {
+            _isSessionActive = false;
+            unsub();
+          }
+        });
+        return;
       }
+
+      await startDictation({
+        autoSend: true,
+        origin: RequestOrigin.WAKE_WORD,
+        sessionId: session.id,
+      });
+
+      if (useAssistantStore.getState().chatMode !== ChatMode.DICTATION) {
+        _isSessionActive = false;
+        return;
+      }
+
+      const unsub = useAssistantStore.subscribe((state) => {
+        if (state.sttPhase === SttPhase.IDLE) {
+          _isSessionActive = false;
+          unsub();
+        }
+      });
     } catch (e) {
       console.error('Failed to start voice session', e);
       _isSessionActive = false;
@@ -361,7 +400,10 @@ export const SpeechCoordinator = {
     if (!_isSessionActive) return;
     _isSessionActive = false;
     try {
-      const { stopLiveTalk } = await import('./assistantRuntime.service');
+      const { cancelDictation, stopLiveTalk } = await import(
+        './assistantRuntime.service'
+      );
+      await cancelDictation();
       stopLiveTalk();
     } catch (e) {
       console.error('Failed to stop voice session', e);

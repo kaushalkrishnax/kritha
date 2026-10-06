@@ -84,7 +84,7 @@ export function TextComposer({
 
   const isDictationMode = chatMode === ChatMode.DICTATION;
   const volume = isDictationMode
-    ? Math.max(0, Math.min(12, volumeRms * 12))
+    ? Math.max(0, Math.min(12, Math.sqrt(volumeRms) * 26))
     : 0;
   const isExpanded = hasText && measuredLines > 1;
 

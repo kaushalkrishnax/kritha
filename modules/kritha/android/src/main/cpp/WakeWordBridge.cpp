@@ -55,3 +55,9 @@ Java_expo_modules_kritha_wakeword_WakeWordNative_runInference(JNIEnv *env, jobje
     return Java_expo_modules_kritha_WakeWordNative_runInference(env, thiz, samples);
 }
 
+extern "C"
+JNIEXPORT jfloatArray JNICALL
+Java_expo_modules_kritha_platform_wakeword_WakeWordNative_runInference(JNIEnv *env, jobject thiz, jshortArray samples) {
+    return Java_expo_modules_kritha_WakeWordNative_runInference(env, thiz, samples);
+}
+

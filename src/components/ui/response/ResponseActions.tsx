@@ -3,6 +3,7 @@ import {
   Check,
   Copy,
   EllipsisVertical,
+  Maximize2,
   Pause,
   Play,
   Share2,
@@ -27,6 +28,7 @@ export interface ResponseActionsProps {
   isTtsPaused?: boolean;
   isTtsBuffering?: boolean;
   onSpeakerPress?: (msgId?: string) => void;
+  onExpandPress?: () => void;
   style?: object;
 }
 
@@ -37,6 +39,7 @@ export function ResponseActions({
   isTtsPaused = false,
   isTtsBuffering = false,
   onSpeakerPress,
+  onExpandPress,
   style,
 }: ResponseActionsProps) {
   const [copied, setCopied] = useState(false);
@@ -122,6 +125,16 @@ export function ResponseActions({
       >
         <EllipsisVertical size={IconSizes.base} color={Colors.iconMuted} />
       </TouchableOpacity>
+
+      {onExpandPress && (
+        <TouchableOpacity
+          style={[styles.actionIconBtn, styles.expandBtn]}
+          activeOpacity={0.8}
+          onPress={onExpandPress}
+        >
+          <Maximize2 size={IconSizes.base} color={Colors.iconMuted} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -137,6 +150,9 @@ const styles = StyleSheet.create({
   actionIconBtn: {
     padding: 8,
     borderRadius: Radius.lg,
+  },
+  expandBtn: {
+    marginLeft: 'auto',
   },
   speakerActive: {
     backgroundColor: Colors.ttsActiveBg,

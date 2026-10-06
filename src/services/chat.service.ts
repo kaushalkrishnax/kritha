@@ -62,8 +62,11 @@ export const ChatSessionService = {
     useChatStore.getState().mergeSessions(sessions);
   },
 
-  async createNewChat(title: string = 'New Chat'): Promise<Session> {
-    const session = await database.sessions.createSession({ title });
+  async createNewChat(
+    title: string = 'New Chat',
+    origin?: string,
+  ): Promise<Session> {
+    const session = await database.sessions.createSession({ title, origin });
     const store = useChatStore.getState();
     store.upsertSession(session);
     store.setChatSessionId(session.id);

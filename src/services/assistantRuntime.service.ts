@@ -285,7 +285,46 @@ export function cancelRun(): void {
   store.setLlmPhase(LlmPhase.IDLE);
 }
 
-export async function startDictation(): Promise<void> {
+const AUTO_SEND_SILENCE_MS = 3_000;
+const AUTO_SEND_NO_SPEECH_MS = 10_000;
+const AUTO_SEND_ACTIVITY_LEVEL = 0.06;
+
+let autoSendTimer: ReturnType<typeof setInterval> | null = null;
+let autoSendLastActivityAt = 0;
+let autoSendSawSpeech = false;
+
+function clearAutoSend(): void {
+  if (autoSendTimer) {
+    clearInterval(autoSendTimer);
+    autoSendTimer = null;
+  }
+}
+
+function armAutoSend(origin: RequestOrigin, sessionId?: string | null): void {
+  clearAutoSend();
+  autoSendSawSpeech = false;
+  autoSendLastActivityAt = Date.now();
+  autoSendTimer = setInterval(() => {
+    if (useAssistantStore.getState().sttPhase !== SttPhase.LISTENING) {
+      clearAutoSend();
+      return;
+    }
+    const idleFor = Date.now() - autoSendLastActivityAt;
+    if (autoSendSawSpeech && idleFor >= AUTO_SEND_SILENCE_MS) {
+      clearAutoSend();
+      void sendDictation({ sessionId, origin });
+    } else if (!autoSendSawSpeech && idleFor >= AUTO_SEND_NO_SPEECH_MS) {
+      clearAutoSend();
+      void cancelDictation();
+    }
+  }, 300);
+}
+
+export async function startDictation(options?: {
+  autoSend?: boolean;
+  origin?: RequestOrigin;
+  sessionId?: string | null;
+}): Promise<void> {
   const store = useAssistantStore.getState();
   if (
     store.sttPhase === SttPhase.LISTENING ||
@@ -293,6 +332,9 @@ export async function startDictation(): Promise<void> {
   ) {
     return;
   }
+
+  const autoSend = options?.autoSend ?? false;
+  const origin = options?.origin ?? RequestOrigin.MANUAL_DICTATION;
 
   store.setChatMode(ChatMode.DICTATION);
   store.setSttPhase(SttPhase.LISTENING);
@@ -306,6 +348,10 @@ export async function startDictation(): Promise<void> {
         if (requestId !== activeSttRequestId) return;
         if (current.sttPhase !== SttPhase.LISTENING) return;
         current.setTranscript(text);
+        if (text.trim()) {
+          autoSendSawSpeech = true;
+          autoSendLastActivityAt = Date.now();
+        }
       },
       onAudioLevel: (level, requestId) => {
         if (requestId !== activeSttRequestId) return;
@@ -313,6 +359,10 @@ export async function startDictation(): Promise<void> {
         const current = useAssistantStore.getState();
         if (current.sttPhase !== SttPhase.LISTENING) return;
         current.setMic(MicOwner.STT, sttLevelSmoothed);
+        if (level >= AUTO_SEND_ACTIVITY_LEVEL) {
+          autoSendSawSpeech = true;
+          autoSendLastActivityAt = Date.now();
+        }
       },
       onError: (message, fatal) => {
         const current = useAssistantStore.getState();
@@ -336,6 +386,7 @@ export async function startDictation(): Promise<void> {
       return;
     }
     activeSttRequestId = requestId;
+    if (autoSend) armAutoSend(origin, options?.sessionId);
   } catch (error: any) {
     activeSttRequestId = null;
     sttLevelSmoothed = 0;
@@ -357,6 +408,7 @@ export async function startDictation(): Promise<void> {
 }
 
 export async function cancelDictation(): Promise<void> {
+  clearAutoSend();
   const requestId = activeSttRequestId;
   activeSttRequestId = null;
 
@@ -377,6 +429,7 @@ export async function cancelDictation(): Promise<void> {
 }
 
 export async function stopDictation(): Promise<string> {
+  clearAutoSend();
   const store = useAssistantStore.getState();
   if (store.sttPhase !== SttPhase.LISTENING) {
     return '';
@@ -423,7 +476,9 @@ export async function stopDictation(): Promise<string> {
 export async function sendDictation(options?: {
   sessionId?: string | null;
   msgId?: string | null;
+  origin?: RequestOrigin;
 }): Promise<void> {
+  clearAutoSend();
   const store = useAssistantStore.getState();
   if (store.sttPhase !== SttPhase.LISTENING) {
     return;
@@ -464,7 +519,7 @@ export async function sendDictation(options?: {
 
     await submitPrompt({
       text: transcript,
-      origin: RequestOrigin.MANUAL_DICTATION,
+      origin: options?.origin ?? RequestOrigin.MANUAL_DICTATION,
       modelId,
       sessionId,
       msgId,
@@ -598,6 +653,7 @@ function handleLiveTalkEvent(event: {
         case 'listening':
           store.setSttPhase(SttPhase.LISTENING);
           store.setTtsPhase(TtsPhase.IDLE);
+          store.setCurrentTtsMessageId(null);
           store.setLlmPhase(LlmPhase.IDLE);
           store.setMic(MicOwner.STT);
           break;
@@ -682,6 +738,7 @@ function handleLiveTalkEvent(event: {
       persistLiveTalkAssistantMessage(liveTalkResponseAcc.trim(), true);
       store.setLlmPhase(LlmPhase.IDLE);
       store.setTtsPhase(TtsPhase.IDLE);
+      store.setCurrentTtsMessageId(null);
       liveTalkTurnRunId = null;
       liveTalkResponseAcc = '';
       break;
@@ -689,10 +746,12 @@ function handleLiveTalkEvent(event: {
 
     case 'tts_started':
       store.setTtsPhase(TtsPhase.SPEAKING);
+      store.setCurrentTtsMessageId(liveTalkTurnRunId);
       break;
 
     case 'tts_stopped':
       store.setTtsPhase(TtsPhase.IDLE);
+      store.setCurrentTtsMessageId(null);
       break;
 
     case 'audio_level':
