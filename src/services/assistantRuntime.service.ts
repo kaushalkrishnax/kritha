@@ -9,6 +9,7 @@ import {
   RequestOrigin,
   SttPhase,
   TtsPhase,
+  VOICE_SILENCE_TIMEOUT_MS,
 } from '@/constants';
 import { useAssistantStore } from '@/stores/assistant.store';
 import { useChatStore } from '@/stores/chat.store';
@@ -285,7 +286,6 @@ export function cancelRun(): void {
   store.setLlmPhase(LlmPhase.IDLE);
 }
 
-const AUTO_SEND_SILENCE_MS = 3_000;
 const AUTO_SEND_NO_SPEECH_MS = 10_000;
 const AUTO_SEND_ACTIVITY_LEVEL = 0.06;
 
@@ -310,7 +310,7 @@ function armAutoSend(origin: RequestOrigin, sessionId?: string | null): void {
       return;
     }
     const idleFor = Date.now() - autoSendLastActivityAt;
-    if (autoSendSawSpeech && idleFor >= AUTO_SEND_SILENCE_MS) {
+    if (autoSendSawSpeech && idleFor >= VOICE_SILENCE_TIMEOUT_MS) {
       clearAutoSend();
       void sendDictation({ sessionId, origin });
     } else if (!autoSendSawSpeech && idleFor >= AUTO_SEND_NO_SPEECH_MS) {
@@ -844,6 +844,7 @@ export async function startLiveTalk(options?: {
         enabled: voice.liveTalkTtsMode !== 'disabled',
         mode: voice.liveTalkTtsMode,
       },
+      vad: { silenceTimeoutMs: VOICE_SILENCE_TIMEOUT_MS },
       sttModelId: voice.selectedSttModelId,
     });
   } catch (error: any) {

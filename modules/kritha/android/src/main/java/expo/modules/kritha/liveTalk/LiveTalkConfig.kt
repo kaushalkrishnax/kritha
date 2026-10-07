@@ -13,15 +13,15 @@ data class LiveTalkConfig(
     val vadSpeechThreshold: Float = 0.5f,
     /** Silero VAD silence probability threshold (0–1). */
     val vadSilenceThreshold: Float = 0.35f,
-    /** Consecutive silent frames before turn ends (frames × 32ms ≈ 700ms). */
+    /** Consecutive silent frames before turn ends (frames × 32ms ≈ 1000ms). */
     val silenceFrameCount: Int = 22,
     /**
      * Barge-in echo guard: while assistant audio is playing, a turn interrupt
      * needs [bargeInConfirmFrames] consecutive frames above this threshold,
      * so speaker echo leaking past AEC cannot cancel its own playback.
      */
-    val bargeInSpeechThreshold: Float = 0.85f,
-    val bargeInConfirmFrames: Int = 6,
+    val bargeInSpeechThreshold: Float = 0.6f,
+    val bargeInConfirmFrames: Int = 3,
     /** Absolute utterance timeout (ms). Protects against VAD stalls. */
     val absoluteUtteranceTimeoutMs: Long = 30_000L,
     /** Whether to use WebRTC APM instead of Android hardware AEC. */

@@ -1,0 +1,8 @@
+name = "kritha-registry"
+main = "workers/registry.js"
+compatibility_date = "2026-09-17"
+preview_urls = true
+workers_dev = true
+
+[vars]
+GITHUB_REPO = "kaushalkrishnax/kritha"

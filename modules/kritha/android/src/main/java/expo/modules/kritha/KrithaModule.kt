@@ -107,11 +107,11 @@ class KrithaModule : Module() {
             promise.resolve(null)
         }
 
-        AsyncFunction("startListening") { requestId: String, promise: Promise ->
+        AsyncFunction("startListening") { requestId: String, silenceTimeoutMs: Int?, promise: Promise ->
             moduleScope.launch {
                 WakeWordForegroundService.pauseForStt()
                 try {
-                    ensureVoiceManager().startListening(requestId)
+                    ensureVoiceManager().startListening(requestId, silenceTimeoutMs)
                     promise.resolve(null)
                 } catch (e: Exception) {
                     WakeWordForegroundService.resumeFromStt()

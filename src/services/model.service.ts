@@ -16,12 +16,25 @@ class ModelDownloadService {
     const model = MODELS.find((m) => m.id === id);
     if (!model) return null;
     const target = new File(Paths.document, model.localPath);
-    return target.exists ? target.uri : null;
+    // Native side expects a raw filesystem path, not a file:// URI.
+    return target.exists ? target.uri.replace(/^file:\/\//, '') : null;
   }
 
   async isModelDownloaded(id: string): Promise<boolean> {
     if (isCloudModel(id)) return true;
     return (await this.getDownloadedModelPath(id)) !== null;
+  }
+
+  async syncDownloadedModels(): Promise<void> {
+    const store = useModelStore.getState();
+    const models = await Promise.all(
+      store.models.map(async (m) =>
+        m.isCloud || m.downloaded
+          ? m
+          : { ...m, downloaded: await this.isModelDownloaded(m.id) },
+      ),
+    );
+    store.setModels(models);
   }
 
   async startDownload(id: string): Promise<void> {

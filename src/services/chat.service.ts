@@ -62,15 +62,13 @@ export const ChatSessionService = {
     useChatStore.getState().mergeSessions(sessions);
   },
 
-  async createNewChat(
-    title: string = 'New Chat',
-    origin?: string,
-  ): Promise<Session> {
-    const session = await database.sessions.createSession({ title, origin });
+  async createNewChat(title: string = 'New Chat'): Promise<Session> {
+    const session = await database.sessions.createSession({ title });
     const store = useChatStore.getState();
     store.upsertSession(session);
     store.setChatSessionId(session.id);
     store.setMessages([]);
+    store.setHasMoreMessages(false);
     return session;
   },
 
@@ -78,6 +76,7 @@ export const ChatSessionService = {
     const store = useChatStore.getState();
     store.setChatSessionId(null);
     store.setMessages([]);
+    store.setHasMoreMessages(false);
   },
 
   async openChat(sessionId: string): Promise<void> {

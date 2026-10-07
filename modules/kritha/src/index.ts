@@ -116,8 +116,8 @@ export const KrithaSpeech = {
       config.ttsModelId ?? null,
     ),
 
-  startListening: (requestId: string) =>
-    KrithaModule.startListening(requestId),
+  startListening: (requestId: string, silenceTimeoutMs?: number | null) =>
+    KrithaModule.startListening(requestId, silenceTimeoutMs ?? null),
 
   stopListening: (requestId: string): Promise<string> =>
     KrithaModule.stopListening(requestId),

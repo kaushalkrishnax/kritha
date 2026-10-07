@@ -50,8 +50,6 @@ export function AssistantResponseCard({
         },
       ]}
     >
-      <View style={styles.responseHandle} />
-
       <ScrollView
         ref={responseScrollRef}
         style={styles.responseScroll}
@@ -100,8 +98,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard,
     borderRadius: Radius['2xl'],
     paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 4,
+    paddingBottom: 4,
     marginBottom: 10,
     maxHeight: 280,
     width: '100%',
@@ -112,14 +110,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 10,
-  },
-  responseHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: Radius.xs,
-    backgroundColor: Colors.borderSubtle,
-    alignSelf: 'center',
-    marginBottom: 10,
   },
   responseScroll: {
     minHeight: 44,

@@ -253,7 +253,8 @@ export async function ensureSpeechRuntimeInitialized(
 
 export async function startListening(requestId: string): Promise<void> {
   await ensureSpeechRuntimeInitialized('stt');
-  await KrithaSpeech.startListening(requestId);
+  const { VOICE_SILENCE_TIMEOUT_MS } = await import('@/constants');
+  await KrithaSpeech.startListening(requestId, VOICE_SILENCE_TIMEOUT_MS);
 }
 
 export async function stopListening(requestId: string): Promise<string> {
@@ -344,10 +345,7 @@ export const SpeechCoordinator = {
     _isSessionActive = true;
     try {
       const { ChatSessionService } = await import('./chat.service');
-      const session = await ChatSessionService.createNewChat(
-        'Voice session',
-        'wake_word',
-      );
+      await ChatSessionService.beginNewChat();
 
       const { startDictation, startLiveTalk } = await import(
         './assistantRuntime.service'
@@ -359,7 +357,7 @@ export const SpeechCoordinator = {
       const { useVoiceStore } = await import('@/stores/voice.store');
 
       if (useVoiceStore.getState().wakeWordAction === 'live_talk') {
-        await startLiveTalk({ sessionId: session.id });
+        await startLiveTalk({ sessionId: null });
         if (useAssistantStore.getState().chatMode !== ChatMode.LIVE_TALK) {
           _isSessionActive = false;
           return;
@@ -376,7 +374,7 @@ export const SpeechCoordinator = {
       await startDictation({
         autoSend: true,
         origin: RequestOrigin.WAKE_WORD,
-        sessionId: session.id,
+        sessionId: null,
       });
 
       if (useAssistantStore.getState().chatMode !== ChatMode.DICTATION) {

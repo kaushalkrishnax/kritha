@@ -207,7 +207,7 @@ declare class KrithaModule extends NativeModule<KrithaModuleEvents> {
     sttModelId?: string | null,
     ttsModelId?: string | null,
   ): Promise<void>;
-  startListening(requestId: string): Promise<void>;
+  startListening(requestId: string, silenceTimeoutMs?: number | null): Promise<void>;
   stopListening(requestId: string): Promise<string>;
   cancelListening(requestId: string): Promise<void>;
   speechStart(

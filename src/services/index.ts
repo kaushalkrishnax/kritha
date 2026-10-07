@@ -6,3 +6,4 @@ export * from './permissions.service';
 export * from './settings.service';
 export * from './providers';
 export * from './assistantRuntime.service';
+export * from './update.service';

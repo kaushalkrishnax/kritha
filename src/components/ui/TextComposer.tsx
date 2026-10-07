@@ -191,8 +191,9 @@ export function TextComposer({
     }
   };
 
+  const maxBarHeight = COMPACT_HEIGHT * 0.9;
   const getBarHeight = (multiplier: number) =>
-    Math.max(10, Math.min(76, 8 + (volume / 12) * 68 * multiplier));
+    Math.max(10, Math.min(maxBarHeight, 8 + (volume / 12) * (maxBarHeight - 8) * multiplier));
 
   const handleSubmit = () => {
     if (!effectiveModelId) return;
@@ -564,7 +565,7 @@ const styles = StyleSheet.create({
   waveBar: {
     width: 3,
     minHeight: 8,
-    maxHeight: 76,
+    maxHeight: COMPACT_HEIGHT * 0.9,
     borderRadius: 2,
     backgroundColor: Colors.textOnAccent,
     opacity: 0.95,

@@ -1,7 +1,7 @@
 {
   "name": "kritha",
   "main": "index.tsx",
-  "version": "0.1.1",
+  "version": "0.1.2-beta.1",
   "description": "An AI assistant with customizable automations and workflows.",
   "type": "module",
   "dependencies": {
@@ -10,6 +10,7 @@
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import": "^2.32.0",
     "expo": "^57.0.23",
+    "expo-application": "^57.0.3",
     "expo-clipboard": "^57.0.2",
     "expo-constants": "~57.0.18",
     "expo-image": "~57.0.5",
@@ -52,6 +53,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "release": "node scripts/build-release-apks.js",
+    "bump:beta": "node scripts/bump.js --beta",
+    "bump:release": "node scripts/bump.js --release",
     "gd:build": "bun scripts/build-gd-artifacts.js",
     "gd:deploy": "bunx wrangler deploy"
   },

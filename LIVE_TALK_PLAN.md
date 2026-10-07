@@ -99,7 +99,7 @@ messages, and re-sync native context after each completed turn.
 - STT model: `voice.store.selectedSttModelId` — default `'moonshine-tiny-onnx'`
   (replaces the Nemotron LiteRT stubs in `speechModels.ts` / native catalog).
 - VAD thresholds: overridable per session via `vad` config; defaults in
-  `LiveTalkConfig.kt` (0.5/0.35, ~700 ms silence, 30 s absolute timeout).
+  `LiveTalkConfig.kt` (0.5/0.35, ~1000 ms silence, 30 s absolute timeout).
 
 ## 6. Model Packaging
 

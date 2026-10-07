@@ -1,14 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useChatSession, useSidebar, useSpeaker } from '@/hooks';
 import { ChatSessionService, modelDownloadService } from '@/services';
-import { useModelStore, useVoiceStore } from '@/stores';
+import { useModelStore, useUpdateStore, useVoiceStore } from '@/stores';
 import { ModelRecord } from '@/types';
 
 import {
   LlmModelModal,
   ModelSelectModal,
   PermissionsChecklistModal,
+  UpdateModal,
   VoiceModelModal,
 } from '../modals';
 import { ChatSidebar } from './ChatSidebar';
@@ -41,6 +42,23 @@ export function ChatModals({
   const isLlmModalOpen = useModelStore((s) => s.isLlmModalOpen);
   const setLlmModalOpen = useModelStore((s) => s.setLlmModalOpen);
   const isVoiceModalOpen = useVoiceStore((s) => s.isVoiceModalOpen);
+
+  const { appUpdate } = useUpdateStore();
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const shownVersionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (appUpdate.available && appUpdate.info) {
+      const seenVersion = appUpdate.seenVersion;
+      const latestVersion = appUpdate.info.latestVersion;
+      const shouldShow = !seenVersion || latestVersion !== seenVersion;
+      const isHighSeverity = appUpdate.info.severity === 'high';
+      if (shouldShow && isHighSeverity && shownVersionRef.current !== latestVersion) {
+        shownVersionRef.current = latestVersion;
+        setUpdateModalVisible(true);
+      }
+    }
+  }, [appUpdate.available, appUpdate.info, appUpdate.seenVersion]);
 
   const { sessions, activeSessionId } = useSidebar();
 
@@ -139,6 +157,11 @@ export function ChatModals({
       <LlmModelModal
         visible={isLlmModalOpen}
         onClose={() => setLlmModalOpen(false)}
+      />
+
+      <UpdateModal
+        visible={updateModalVisible}
+        onClose={() => setUpdateModalVisible(false)}
       />
     </>
   );

@@ -12,7 +12,9 @@ import {
 } from '@modules/kritha/src';
 
 import { ChatSessionService } from './chat.service';
+import { modelDownloadService } from './model.service';
 import { SpeechCoordinator } from './speechRuntime.service';
+import { updateService } from './update.service';
 
 export const AssistantBridge = {
   startWakewordListening: start,
@@ -29,17 +31,12 @@ export const bootstrapApp = async (): Promise<void> => {
     await database.init();
 
     await ChatSessionService.loadSessions(true);
+    await modelDownloadService.syncDownloadedModels();
 
-    // Keep an active wake-word session (overlay expand opens the same chat);
-    // otherwise always open an empty chat window by default.
-    const currentId = useChatStore.getState().chatSessionId;
-    const current = currentId
-      ? useChatStore.getState().sessions.find((s) => s.id === currentId)
-      : null;
-    if (current?.origin !== 'wake_word') {
-      useChatStore.getState().setChatSessionId(null);
-      useChatStore.getState().setMessages([]);
-    }
+    // Always open an empty chat window by default, do not default to latest/topmost chat
+    useChatStore.getState().setChatSessionId(null);
+    useChatStore.getState().setMessages([]);
+    useChatStore.getState().setHasMoreMessages(false);
 
     useWakewordStore
       .getState()
@@ -49,6 +46,8 @@ export const bootstrapApp = async (): Promise<void> => {
       console.log('Wake word detected', event);
       SpeechCoordinator.handleWakeWordDetected();
     });
+
+    updateService.checkForUpdates();
   } catch (err) {
     console.warn('Failed to load startup settings or database:', err);
   }

@@ -295,7 +295,7 @@ class TtsModuleBridge(
     private fun extractTarBz2(archive: File, dest: File, stripComponents: Int) {
         BZip2CompressorInputStream(archive.inputStream().buffered()).use { bzIn ->
             TarArchiveInputStream(bzIn).use { tar ->
-                var entry = tar.nextTarEntry
+                var entry = tar.nextEntry
                 while (entry != null) {
                     val relative = entry.name.trimStart('/').split('/').drop(stripComponents).joinToString("/")
                     if (relative.isNotEmpty()) {
@@ -307,7 +307,7 @@ class TtsModuleBridge(
                             FileOutputStream(out).use { os -> tar.copyTo(os) }
                         }
                     }
-                    entry = tar.nextTarEntry
+                    entry = tar.nextEntry
                 }
             }
         }

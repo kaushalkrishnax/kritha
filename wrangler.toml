@@ -1,7 +1,7 @@
 name = "kritha-globally-dynamic"
 main = "workers/globally-dynamic.js"
 compatibility_date = "2026-09-17"
-preview_urls= true
+preview_urls = true
 workers_dev = true
 
 [assets]

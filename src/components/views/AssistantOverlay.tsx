@@ -159,7 +159,7 @@ export function AssistantOverlay() {
             isTtsSpeaking={isTtsSpeaking}
             isTtsPaused={isTtsPaused}
             isTtsBuffering={isTtsModelLoading}
-            ttsMsgId={currentTtsMsgId}
+            ttsMsgId={isLiveTalk ? (latestAssistant?.id ?? null) : currentTtsMsgId}
             onSpeakerPress={() => {
               if (response) {
                 handleSpeakerPress(activeResponseMessageId, response);

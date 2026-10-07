@@ -8,6 +8,7 @@ import {
   Pencil,
   Pin,
   Puzzle,
+  RefreshCw,
   Search,
   Settings,
   ShieldCheck,
@@ -30,7 +31,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContextMenu, ContextMenuItem } from '@/components/ui/ContextMenu';
 import { Session as ChatSession } from '@/database';
-import { useSettingsStore } from '@/stores';
+import { updateService } from '@/services/update.service';
+import { useSettingsStore, useUpdateStore } from '@/stores';
 import { Colors, IconSizes, Radius, Typography } from '@/theme';
 import { stubAction } from '@/utils';
 
@@ -67,6 +69,7 @@ export function ChatSidebar({
   onClose,
 }: ChatSidebarProps) {
   const userName = useSettingsStore((s) => s.userName);
+  const { appUpdate, runtimeExtensionUpdates } = useUpdateStore();
   const initials = useMemo(() => {
     return (
       userName
@@ -299,6 +302,23 @@ export function ChatSidebar({
           <Text style={styles.headerTitle}>Kritha</Text>
           <Text style={styles.headerVersion}>v{versionName}</Text>
           <View style={{ flex: 1 }} />
+          {appUpdate.available && appUpdate.info && (
+            <TouchableOpacity
+              style={styles.headerUpdateBtn}
+              activeOpacity={0.7}
+              onPress={() => updateService.openReleaseUrl()}
+            >
+              <View style={styles.updateBtnContent}>
+                <RefreshCw size={IconSizes.md} color={Colors.textPrimary} />
+                <View
+                  style={[
+                    styles.notificationDot,
+                    appUpdate.info.severity === 'low' && { backgroundColor: '#FFFFFF' },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.headerSearchBtn}
             activeOpacity={0.7}
@@ -335,7 +355,16 @@ export function ChatSidebar({
               activeOpacity={0.7}
               onPress={() => setExtensionsRuntimesModalVisible(true)}
             >
-              <Puzzle size={IconSizes.md} color={Colors.textPrimary} />
+              <View style={styles.actionIconContainer}>
+                <Puzzle size={IconSizes.md} color={Colors.textPrimary} />
+                {runtimeExtensionUpdates.available && runtimeExtensionUpdates.info && runtimeExtensionUpdates.info.count > 0 && (
+                  <View style={styles.actionNotificationBadge}>
+                    <Text style={styles.actionNotificationBadgeText}>
+                      {runtimeExtensionUpdates.info.count >= 9 ? '9+' : runtimeExtensionUpdates.info.count}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.actionText}>Extensions & Runtimes</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -479,6 +508,62 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgSecondary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerUpdateBtn: {
+    width: 44,
+    height: 44,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bgSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  updateBtnContent: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.accentBlue,
+    borderWidth: 2,
+    borderColor: Colors.bgSecondary,
+  },
+  actionIconContainer: {
+    position: 'relative',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionNotificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Colors.bgDeepest,
+  },
+  actionNotificationBadgeText: {
+    color: Colors.textOnAccent,
+    fontSize: Typography.size2xs,
+    fontWeight: '700',
   },
   topActions: {
     marginTop: 10,

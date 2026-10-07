@@ -53,7 +53,7 @@ internal class VoiceManager(
         const val VAD_WINDOW_SAMPLES = 512
         const val MIC_FRAME_SAMPLES = 512
         const val FRAME_MS = 32
-        const val SILENCE_TIMEOUT_MS = 600
+        const val DEFAULT_SILENCE_TIMEOUT_MS = 1000
         const val SPEECH_THRESHOLD = 0.5f
         const val SPEECH_ACTIVITY_RMS = 0.02f
         const val LEVEL_EMIT_INTERVAL_MS = 100L
@@ -81,7 +81,11 @@ internal class VoiceManager(
         sttModelId = id
     }
 
-    suspend fun startListening(requestId: String): Unit = withContext(Dispatchers.IO) {
+    @Volatile
+    private var silenceTimeoutMs = DEFAULT_SILENCE_TIMEOUT_MS
+
+    suspend fun startListening(requestId: String, silenceTimeoutMs: Int? = null): Unit = withContext(Dispatchers.IO) {
+        this@VoiceManager.silenceTimeoutMs = silenceTimeoutMs ?: DEFAULT_SILENCE_TIMEOUT_MS
         if (
             ContextCompat.checkSelfPermission(
                 appContext,
@@ -264,7 +268,7 @@ internal class VoiceManager(
                 sttUtterance.addAll(frame.take(read))
 
                 if (sttUtterance.size >= MAX_UTTERANCE_SAMPLES ||
-                    (inSpeech && silenceMs >= SILENCE_TIMEOUT_MS)
+                    (inSpeech && silenceMs >= silenceTimeoutMs)
                 ) {
                     flushUtterance(requestId)
                     inSpeech = false

@@ -4,4 +4,5 @@ export const STORAGE_KEYS = {
   voiceStore: 'kritha-voice-store',
   modelStore: 'kritha-model-store',
   settingsStore: 'kritha-settings-store',
+  updateStore: 'kritha-update-store',
 };
