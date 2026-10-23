@@ -31,8 +31,8 @@ or clearly-labelled runtime tooling.
 The shared Flutter UI, theme, SQLite history and composer run on every target.
 Platform folders for Android, iOS, macOS and Windows are checked in; there is no
 web or Linux target in this foundation. The verification pass builds Android,
-iOS and macOS locally; the Windows x64 release is compiled by the checked-in
-GitHub Actions workflow on a Windows runner.
+iOS and macOS locally. Windows x64 builds require a Windows host with the
+native toolchain installed.
 
 Launcher icons for every target are generated from the checked-in brand sources
 with:
@@ -58,6 +58,58 @@ flutter run
 They are checked in, so the app runs without it unless you change a model or
 table.
 
+## Signed release builds
+
+The release lifecycle scripts use Node.js built-ins; no `npm install` is needed.
+First create local signing configuration files from the checked-in examples:
+
+```sh
+cp android/key.example.properties android/key.properties
+cp ios/Flutter/Signing.xcconfig.example ios/Flutter/Signing.xcconfig
+cp ios/ExportOptions.plist.example ios/ExportOptions.plist
+cp macos/Runner/Configs/Signing.xcconfig.example macos/Runner/Configs/Signing.xcconfig
+```
+
+Fill in the Android passwords, key alias and keystore path in
+`android/key.properties`. Generate your own keystore from the `android/`
+directory if needed:
+
+```sh
+keytool -genkey -v -keystore ../upload-keystore.jks -keyalg RSA \
+  -keysize 2048 -validity 10000 -alias upload
+```
+
+The `.jks` and `key.properties` are ignored by Git. Keep backups of the signing
+keystore and passwords; they are needed for every future Android update. The
+release Gradle tasks fail rather than silently signing with a debug key.
+
+For Apple targets, set your Apple Developer Team ID in the local xcconfig files
+and Xcode export plist, then make sure the matching signing certificates and
+provisioning profiles are installed in the local Xcode/keychain environment.
+For macOS, choose `Developer ID Application` for direct distribution or
+`Apple Distribution` for a Mac App Store build. These configs/certificates are
+not committed.
+
+```sh
+npm run build:android  # signed APKs, one each for arm64-v8a and x86_64
+npm run build:aab      # signed AAB containing both Android ABIs for Play
+npm run build:ios      # signed arm64 iOS device .app for local installation
+npm run build:app      # signed arm64 IPA exported for App Store Connect
+npm run build:macos    # signed universal arm64 + x86_64 macOS .app
+```
+
+Artifacts are archived under `dist/`. Android APKs are split per ABI; the AAB
+intentionally contains both ABIs so Google Play can generate device-specific
+downloads. Apple App Store device apps use **arm64 only**—a simulator `x86_64`
+slice must not be merged into an App Store IPA. `build:app` therefore creates
+the store-ready arm64 IPA, while `build:ios` creates the signed device `.app`.
+
+The copied Flexiyo lifecycle helpers are adapted here as
+`scripts/build-release.js` and `scripts/bump.js`. `npm run bump:beta` or
+`npm run bump:release` updates `pubspec.yaml` and `package.json`; commit those
+changes, rerun the command to create a local version tag, and push the tag only
+after reviewing it.
+
 ## Verification
 
 ```sh
@@ -67,7 +119,7 @@ flutter test           # 45 tests
 flutter build apk --debug
 flutter build ios --no-codesign
 flutter build macos --release
-flutter build windows --release   # from a Windows x64 host; also run in CI
+flutter build windows --release   # from a Windows x64 host
 ```
 
 `pubspec.yaml` pins `shared_preferences_foundation` 2.5.7 because its 2.6.0

@@ -1,0 +1,6 @@
+// Copy to Signing.xcconfig and replace both values locally.
+KRITHA_DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Use "Developer ID Application" for direct distribution outside the Mac App
+// Store, or "Apple Distribution" for a Mac App Store release.
+KRITHA_MACOS_SIGNING_IDENTITY = Developer ID Application

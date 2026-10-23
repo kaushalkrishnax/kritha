@@ -1,7 +1,58 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val signingPropertiesFile = rootProject.file("key.properties")
+val signingProperties = Properties().apply {
+    if (signingPropertiesFile.exists()) {
+        FileInputStream(signingPropertiesFile).use { load(it) }
+    }
+}
+
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    doLast {
+        if (!signingPropertiesFile.exists()) {
+            throw GradleException(
+                "Missing android/key.properties. Copy android/key.example.properties " +
+                    "to android/key.properties and configure your release keystore."
+            )
+        }
+
+        val requiredProperties = listOf(
+            "storePassword",
+            "keyPassword",
+            "keyAlias",
+            "storeFile",
+        )
+        val missingProperties = requiredProperties.filter {
+            signingProperties.getProperty(it).isNullOrBlank()
+        }
+        if (missingProperties.isNotEmpty()) {
+            throw GradleException(
+                "Missing required values in android/key.properties: " +
+                    missingProperties.joinToString(", ")
+            )
+        }
+
+        val keystore = rootProject.file(signingProperties.getProperty("storeFile"))
+        if (!keystore.isFile) {
+            throw GradleException("Release keystore does not exist: ${keystore.path}")
+        }
+    }
+}
+
+tasks.configureEach {
+    if (
+        name.contains("Release") &&
+        (name.startsWith("assemble") || name.startsWith("bundle") || name.startsWith("package"))
+    ) {
+        dependsOn(verifyReleaseSigning)
+    }
 }
 
 android {
@@ -18,20 +69,26 @@ android {
         applicationId = "com.kritha.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Supported Android ABIs: physical devices (arm64-v8a) and emulators /
-        // x86_64 hosts. This also keeps plugin AARs (notably sherpa-onnx) from
-        // contributing 32-bit libraries we do not ship.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+        // Flutter selects arm64-v8a and x86_64 at build time. Keep ABI
+        // selection out of ndk.abiFilters because Flutter's --split-per-abi
+        // uses Gradle ABI splits, which conflict with that filter.
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = signingProperties.getProperty("keyAlias", "")
+            keyPassword = signingProperties.getProperty("keyPassword", "")
+            storeFile = signingProperties.getProperty("storeFile")
+                ?.let { rootProject.file(it) }
+            storePassword = signingProperties.getProperty("storePassword", "")
         }
-        versionCode = 100
-        versionName = "1.0.0"
     }
 
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

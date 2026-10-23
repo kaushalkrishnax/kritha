@@ -1,0 +1,18 @@
+{
+  "name": "kritha",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:android": "node scripts/build-release.js --platform android",
+    "build:aab": "node scripts/build-release.js --platform aab",
+    "build:app": "node scripts/build-release.js --platform app",
+    "build:ios": "node scripts/build-release.js --platform ios",
+    "build:macos": "node scripts/build-release.js --platform macos",
+    "release:android": "npm run build:android",
+    "release:ios": "npm run build:app",
+    "release:macos": "npm run build:macos",
+    "bump:beta": "node scripts/bump.js --beta",
+    "bump:release": "node scripts/bump.js --release"
+  }
+}

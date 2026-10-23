@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/dist/
 
 # Local size-analysis output and screenshots.
 /artifacts/
@@ -46,6 +47,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local release-signing material. Keep example templates tracked instead.
+/android/key.properties
+/*.jks
+/*.keystore
+*.p12
+*.mobileprovision
+*.provisionprofile
+/ios/Flutter/Signing.xcconfig
+/ios/ExportOptions.plist
+/macos/Runner/Configs/Signing.xcconfig
 
 # Widget Preview related
 .widget_preview/
