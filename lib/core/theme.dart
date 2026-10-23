@@ -207,6 +207,11 @@ abstract final class KrithaDimensions {
   /// “Uploaded files”.
   static const contextMenuWidth = 200.0;
   static const contextMenuItemHeight = 48.0;
+
+  /// Extra top/bottom breathing room owned by the first and last rows. The
+  /// full inset stays inside each row's press surface, so there is still no
+  /// menu-level gutter.
+  static const contextMenuEdgeInset = 8.0;
   static const contextMenuVerticalGap = 8.0;
 
   /// The header is a 17px line (1.55 line-height, ~26.4px) plus 12/8 padding,

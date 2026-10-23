@@ -353,7 +353,7 @@ void main() {
         KrithaDimensions.contextMenuIconSize,
       );
 
-      // Every row is a full press target with no dead padding.
+      // The first row owns the top edge inset inside its full press target.
       expect(
         tester
             .getSize(
@@ -363,7 +363,8 @@ void main() {
               ),
             )
             .height,
-        KrithaDimensions.contextMenuItemHeight,
+        KrithaDimensions.contextMenuItemHeight +
+            KrithaDimensions.contextMenuEdgeInset,
       );
 
       await tester.tapAt(const Offset(4, 4));
@@ -521,19 +522,39 @@ void main() {
       final surface = find.byKey(const ValueKey('context-menu-surface'));
       expect(tester.getSize(surface).width, KrithaDimensions.contextMenuWidth);
       // Rows own all vertical space: no surface gutter, no separator line.
+      // Only the first and last rows add the 8px outer edge inset.
       expect(
         tester.getSize(surface).height,
-        4 * KrithaDimensions.contextMenuItemHeight,
+        4 * KrithaDimensions.contextMenuItemHeight +
+            2 * KrithaDimensions.contextMenuEdgeInset,
       );
       final pinRow = find.ancestor(
         of: find.text('Pin'),
         matching: find.byType(InkWell),
       );
-      expect(tester.getTopLeft(pinRow).dy, tester.getTopLeft(surface).dy);
+      final renameRow = find.ancestor(
+        of: find.text('Rename'),
+        matching: find.byType(InkWell),
+      );
       final deleteRow = find.ancestor(
         of: find.text('Delete'),
         matching: find.byType(InkWell),
       );
+      expect(
+        tester.getSize(pinRow).height,
+        KrithaDimensions.contextMenuItemHeight +
+            KrithaDimensions.contextMenuEdgeInset,
+      );
+      expect(
+        tester.getSize(renameRow).height,
+        KrithaDimensions.contextMenuItemHeight,
+      );
+      expect(
+        tester.getSize(deleteRow).height,
+        KrithaDimensions.contextMenuItemHeight +
+            KrithaDimensions.contextMenuEdgeInset,
+      );
+      expect(tester.getTopLeft(pinRow).dy, tester.getTopLeft(surface).dy);
       expect(
         tester.getBottomRight(deleteRow).dy,
         tester.getBottomRight(surface).dy,
@@ -836,10 +857,12 @@ void main() {
       );
       final surface = find.byKey(const ValueKey('context-menu-surface'));
       expect(tester.getSize(surface).width, KrithaDimensions.contextMenuWidth);
-      // Five rows, no menu-level guttering and no separator lines.
+      // Five rows, no menu-level guttering and no separator lines. The first
+      // and last rows own the extra edge insets.
       expect(
         tester.getSize(surface).height,
-        5 * KrithaDimensions.contextMenuItemHeight,
+        5 * KrithaDimensions.contextMenuItemHeight +
+            2 * KrithaDimensions.contextMenuEdgeInset,
       );
       expect(find.text('Camera'), findsOneWidget);
       expect(find.text('Photos'), findsOneWidget);

@@ -187,21 +187,21 @@ to an inner rectangle.
 | Property | Value |
 | --- | --- |
 | Menu width | 200 px |
-| Row height | 48 px |
+| Row height | 48 px; first/last rows are 56 px |
 | Horizontal padding | `KrithaSpacing.s20` |
-| Vertical padding | Owned entirely by the row; no menu-level top/bottom gutter |
+| Vertical padding | Owned entirely by the row; first/last rows include an 8 px outer edge inset, with no menu-level gutter |
 | Icon column | 24 px, icon 18 px, gap 16 px |
 | Label | 18 px, `FontWeight.w700`, one line, ellipsis |
 | Press feedback | `contextMenuPressed` overlay, `NoSplash` |
 | Disabled | `Opacity(0.5)`, no tap handler |
 | Destructive | `KrithaColors.error` for icon and label |
 
-The whole 48 px row is the hit target, and rows fill the surface edge to edge.
-The first and last rows still leave a calm visual inset around the clipped
-rounded corners because their 18 px labels/icons are vertically centred inside
-48 px. Menus never draw horizontal separator rules; group emphasis comes from
-the row rhythm and destructive colour. Do not add surface padding, row margins
-or `<hr>`-style dividers.
+The whole row is the hit target, including the first/last row's 8 px outer edge
+inset, so press feedback fills the surface edge to edge. That inset gives the
+top and bottom rows extra breathing room around the clipped 24 px corners
+without dead bands. Middle rows stay 48 px. Menus never draw horizontal
+separator rules; group emphasis comes from the row rhythm and destructive
+colour. Do not add surface padding, row margins or `<hr>`-style dividers.
 
 ### 3.10 User message bubble — `UserMessage`
 

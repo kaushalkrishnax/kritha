@@ -222,10 +222,10 @@ popup menus.
 | Property | Value |
 | --- | --- |
 | Width | 200 px |
-| Row height | 48 px |
+| Row height | 48 px; first/last rows are 56 px with an 8 px outer edge inset |
 | Corner radius | 24 px (`KrithaRadius.xl`) |
 | Surface | `bgPrimary`, `borderSubtle`, 24 px shadow |
-| Row padding | 20 px horizontal; the 48 px row owns all vertical space |
+| Row padding | 20 px horizontal; the first/last row also owns the 8 px outer edge inset |
 | Icon | 18 px in a 24 px column; 16 px icon-to-label gap |
 | Label | 18 px, `FontWeight.w700`, one line, ellipsis |
 | Menu-level vertical padding | **None** |
@@ -242,12 +242,12 @@ popup menus.
 - `requestFocus: false` so the composer keyboard stays up.
 - `NoSplash` with a `contextMenuPressed` overlay for menu rows; no ripple leaks
   past the rounded surface.
-- Full row is tappable and fills the surface edge to edge. The first/last row's
-  centred content gives the visual inset around the rounded corners, so no
-  surface gutter or separator rule is needed.
+- Full row is tappable and fills the surface edge to edge. The first and last
+  rows own an extra 8 px outer edge inset inside their press surface, so the
+  content clears the rounded corners without a menu-level gutter or separator.
 - Disabled rows are dimmed and inert. Destructive rows use `error`.
 - Headed menus: user-message time, chat title. Headerless: attachment picker and
-  session actions start directly with their first 48 px row.
+  session actions start directly with their first 56 px edge row.
 
 ### Anchors
 

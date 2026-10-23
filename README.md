@@ -169,12 +169,12 @@ normal route behaviour.
 ### Shared context menu
 
 `lib/widgets/context_menu.dart` is a reusable port of the React Native
-`ContextMenu.tsx`: 200px wide, 48px rows, 24px corners, safe-area clamping,
-8px anchor gap, fade + scale from the nearest corner, destructive and disabled
-states. Rows own all vertical padding: there is no surface-level top/bottom
-gutter, and menus never draw separator lines. The first and last rows are full
-48px press surfaces, clipped by the rounded surface, so feedback fills the menu
-without a visible hairline or dead band. It is used by:
+`ContextMenu.tsx`: 200px wide, 48px middle rows, 24px corners, safe-area
+clamping, 8px anchor gap, fade + scale from the nearest corner, destructive and
+disabled states. The first and last rows are 56px: each owns an 8px outer edge
+inset inside its press surface. There is no surface-level top/bottom gutter and
+menus never draw separator lines, so feedback fills the menu without a visible
+hairline or dead band. It is used by:
 
 - the composer's attachment button
 - the header's ellipsis (chat title, Share, Pin/Unpin, Uploaded files, Find in

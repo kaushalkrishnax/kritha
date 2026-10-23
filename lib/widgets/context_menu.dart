@@ -5,7 +5,8 @@ import '../core/theme.dart';
 /// One row in a [showKrithaContextMenu] menu.
 ///
 /// Menus never draw separator lines. Group emphasis comes from destructive
-/// colour and the uniform 48px row rhythm.
+/// colour and the 48px row rhythm, with an 8px outer inset owned by the first
+/// and last rows.
 class ContextMenuItem {
   const ContextMenuItem({
     required this.id,
@@ -53,9 +54,10 @@ class ContextMenuAnchor {
 /// or `null` when dismissed.
 ///
 /// This is a direct Flutter port of `src/components/ui/ContextMenu.tsx`:
-/// 200px wide, 48px rows, 24px corners, the same safe-area clamping, the same
-/// 8px gap and flip-above behaviour when there is room, and the same fade +
-/// spring-in animation. With the software keyboard open the menu stays fully
+/// 200px wide, 48px rows with an 8px edge inset on the first/last row, 24px
+/// corners, the same safe-area clamping, the same 8px gap and flip-above
+/// behaviour when there is room, and the same fade + spring-in animation. With
+/// the software keyboard open the menu stays fully
 /// above the IME (the IME is a separate window on Android, so anything drawn
 /// inside its rectangle would be hidden) and the route does not request focus,
 /// so the composer keyboard stays up.
@@ -149,10 +151,13 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     final headerHeight = widget.header == null
         ? 0.0
         : KrithaDimensions.contextMenuHeaderHeight;
-    // Every row owns its full 48px press surface; there is no surface-level
-    // vertical gutter to reserve. The 2px allowance covers the 1px border.
+    // Every row owns its full 48px press surface. The first and last rows add
+    // an 8px outer edge inset inside that press surface, so the estimate must
+    // include both insets without introducing a surface-level gutter. The 2px
+    // allowance covers the 1px border.
     final estimatedHeight =
         widget.items.length * KrithaDimensions.contextMenuItemHeight +
+        (KrithaDimensions.contextMenuEdgeInset * 2) +
         headerHeight +
         2;
 
@@ -277,9 +282,9 @@ class _MenuSurface extends StatelessWidget {
         borderRadius: BorderRadius.circular(KrithaRadius.xl),
         child: Material(
           type: MaterialType.transparency,
-          // Rows fill the surface edge to edge. Their 48px height is the only
-          // vertical padding, so the first/last rows still leave a calm inset
-          // around the clipped corners without an extra menu-level gutter.
+          // Rows fill the surface edge to edge. The first and last rows carry
+          // the outer edge inset themselves, so there is no menu-level gutter
+          // and their press feedback still fills the full rounded surface.
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -294,7 +299,16 @@ class _MenuSurface extends StatelessWidget {
                   ),
                   child: header,
                 ),
-              for (final item in items) _MenuItemRow(item: item),
+              for (var index = 0; index < items.length; index++)
+                _MenuItemRow(
+                  item: items[index],
+                  topInset: index == 0
+                      ? KrithaDimensions.contextMenuEdgeInset
+                      : 0,
+                  bottomInset: index == items.length - 1
+                      ? KrithaDimensions.contextMenuEdgeInset
+                      : 0,
+                ),
             ],
           ),
         ),
@@ -304,9 +318,15 @@ class _MenuSurface extends StatelessWidget {
 }
 
 class _MenuItemRow extends StatelessWidget {
-  const _MenuItemRow({required this.item});
+  const _MenuItemRow({
+    required this.item,
+    this.topInset = 0,
+    this.bottomInset = 0,
+  });
 
   final ContextMenuItem item;
+  final double topInset;
+  final double bottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -317,9 +337,14 @@ class _MenuItemRow extends StatelessWidget {
         : KrithaColors.textPrimary;
 
     final row = SizedBox(
-      height: KrithaDimensions.contextMenuItemHeight,
+      height: KrithaDimensions.contextMenuItemHeight + topInset + bottomInset,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: KrithaSpacing.s20),
+        padding: EdgeInsets.fromLTRB(
+          KrithaSpacing.s20,
+          topInset,
+          KrithaSpacing.s20,
+          bottomInset,
+        ),
         child: Row(
           children: [
             if (item.icon != null) ...[
@@ -354,8 +379,8 @@ class _MenuItemRow extends StatelessWidget {
       ),
     );
 
-    // The whole row is the hit target, including the first/last rows: there is
-    // no dead padding between the surface edge and the press feedback.
+    // The whole row is the hit target, including its outer edge inset, so
+    // feedback fills the surface edge to edge with no dead band.
     if (item.disabled) {
       return Opacity(opacity: 0.5, child: row);
     }
