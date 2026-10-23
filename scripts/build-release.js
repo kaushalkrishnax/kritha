@@ -144,7 +144,7 @@ function buildAndroidApks(version) {
   const dist = path.join(ROOT, 'dist', 'android');
   for (const abi of ['arm64-v8a', 'x86_64']) {
     const source = path.join(output, `app-${abi}-release.apk`);
-    copyFile(source, path.join(dist, `Kritha-${version}-${abi}.apk`));
+    copyFile(source, path.join(dist, `Kritha-${version}-${abi}-RELEASE.apk`));
   }
 }
 

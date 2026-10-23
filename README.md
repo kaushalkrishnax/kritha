@@ -71,12 +71,16 @@ cp macos/Runner/Configs/Signing.xcconfig.example macos/Runner/Configs/Signing.xc
 ```
 
 Fill in the Android passwords, key alias and keystore path in
-`android/key.properties`. Generate your own keystore from the `android/`
-directory if needed:
+`android/key.properties`. The sample `../upload-keystore.jks` path is resolved
+relative to `android/app/`, so the keystore belongs at
+`android/upload-keystore.jks`. Generate one from the `android/` directory if
+needed; if you already have the intended signing identity, use its existing
+keystore at this path instead of generating a replacement:
 
 ```sh
-keytool -genkey -v -keystore ../upload-keystore.jks -keyalg RSA \
-  -keysize 2048 -validity 10000 -alias upload
+cd android
+keytool -genkeypair -v -keystore upload-keystore.jks -alias upload \
+  -keyalg RSA -keysize 2048 -validity 10000
 ```
 
 The `.jks` and `key.properties` are ignored by Git. Keep backups of the signing
@@ -98,7 +102,8 @@ npm run build:app      # signed arm64 IPA exported for App Store Connect
 npm run build:macos    # signed universal arm64 + x86_64 macOS .app
 ```
 
-Artifacts are archived under `dist/`. Android APKs are split per ABI; the AAB
+Artifacts are archived under `dist/`. Android APKs are split per ABI and named
+`Kritha-<version>-<abi>-RELEASE.apk`; the AAB
 intentionally contains both ABIs so Google Play can generate device-specific
 downloads. Apple App Store device apps use **arm64 only**—a simulator `x86_64`
 slice must not be merged into an App Store IPA. `build:app` therefore creates

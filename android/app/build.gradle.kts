@@ -39,7 +39,9 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
             )
         }
 
-        val keystore = rootProject.file(signingProperties.getProperty("storeFile"))
+        // Match Android's standard key.properties convention: storeFile is
+        // resolved relative to this app module (android/app/).
+        val keystore = project.file(signingProperties.getProperty("storeFile"))
         if (!keystore.isFile) {
             throw GradleException("Release keystore does not exist: ${keystore.path}")
         }
@@ -81,7 +83,7 @@ android {
             keyAlias = signingProperties.getProperty("keyAlias", "")
             keyPassword = signingProperties.getProperty("keyPassword", "")
             storeFile = signingProperties.getProperty("storeFile")
-                ?.let { rootProject.file(it) }
+                ?.let { project.file(it) }
             storePassword = signingProperties.getProperty("storePassword", "")
         }
     }
