@@ -24,15 +24,15 @@ or clearly-labelled runtime tooling.
 | Platform | Architectures | Notes |
 | --- | --- | --- |
 | Android | `arm64-v8a`, `x86_64` | 32-bit ABIs are filtered out of both the app and plugin AARs |
-| iOS | `arm64` | Device build; simulator uses the host arm64 slice |
+| iOS | `arm64` | Device build; simulator build uses the host architecture |
 | macOS | `arm64`, `x86_64` | Universal release app (deployment target 12.0) |
 | Windows | `x86_64` | Native Windows 10/11 desktop build from a Windows x64 host |
 
 The shared Flutter UI, theme, SQLite history and composer run on every target.
 Platform folders for Android, iOS, macOS and Windows are checked in; there is no
-web or Linux target in this foundation. The verification pass for this branch
-built Android, iOS and macOS on a Mac; Windows must be compiled on a Windows x64
-host with the native toolchain installed.
+web or Linux target in this foundation. The verification pass builds Android,
+iOS and macOS locally; the Windows x64 release is compiled by the checked-in
+GitHub Actions workflow on a Windows runner.
 
 Launcher icons for every target are generated from the checked-in brand sources
 with:
@@ -67,7 +67,7 @@ flutter test           # 45 tests
 flutter build apk --debug
 flutter build ios --no-codesign
 flutter build macos --release
-flutter build windows --release   # from a Windows x64 host
+flutter build windows --release   # from a Windows x64 host; also run in CI
 ```
 
 `pubspec.yaml` pins `shared_preferences_foundation` 2.5.7 because its 2.6.0

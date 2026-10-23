@@ -1,0 +1,31 @@
+name: Windows x64 build
+
+on:
+  push:
+    branches: [kritha-flutter]
+  pull_request:
+    branches: [kritha-flutter]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          channel: stable
+
+      - name: Enable Windows desktop target
+        run: flutter config --enable-windows-desktop
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Windows x64 release
+        run: flutter build windows --release
