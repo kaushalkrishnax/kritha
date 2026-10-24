@@ -112,10 +112,17 @@ class _UserMessage extends ConsumerWidget {
   }
 
   Future<void> _openMenu(BuildContext bubbleContext, WidgetRef ref) async {
+    // Keep the menu beside the bubble instead of snapping to the viewport's
+    // right edge when the chat column is narrower than the window.
+    final bubbleBox = bubbleContext.findRenderObject() as RenderBox?;
+    final bubbleRight = bubbleBox
+        ?.localToGlobal(Offset(bubbleBox.size.width, 0))
+        .dx;
     final selected = await showKrithaContextMenu(
       context: bubbleContext,
       anchor: ContextMenuAnchor.fromContext(bubbleContext),
       align: ContextMenuAlign.right,
+      rightBoundary: bubbleRight,
       header: Text(
         _formatMessageTime(message.createdAt),
         style: TextStyle(

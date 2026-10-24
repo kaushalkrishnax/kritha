@@ -358,11 +358,14 @@ class _SidebarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final docked = onCollapse != null;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s24,
         KrithaSpacing.s4,
-        KrithaSpacing.s24,
+        // The drawer keeps only one trailing control, so the full 24px gutter
+        // leaves a dead band to its right.
+        docked ? KrithaSpacing.s16 : KrithaSpacing.s8,
         KrithaSpacing.s12,
       ),
       child: Row(
@@ -407,14 +410,20 @@ class _SidebarHeader extends StatelessWidget {
             ),
           ),
           Spacer(),
-          _CircleIconButton(
-            icon: HugeIcons.strokeRoundedSearch01,
-            tooltip: 'Search chats',
-            onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
-          ),
-          if (onCollapse != null) ...[
-            SizedBox(width: KrithaSpacing.s8),
+          if (!docked)
             _CircleIconButton(
+              icon: HugeIcons.strokeRoundedSearch01,
+              tooltip: 'Search chats',
+              onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
+            )
+          else ...[
+            _HeaderIconButton(
+              icon: HugeIcons.strokeRoundedSearch01,
+              tooltip: 'Search chats',
+              onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
+            ),
+            SizedBox(width: KrithaSpacing.s4),
+            _HeaderIconButton(
               icon: HugeIcons.strokeRoundedPanelLeft,
               tooltip: 'Collapse sidebar',
               onTap: onCollapse!,
@@ -426,16 +435,66 @@ class _SidebarHeader extends StatelessWidget {
   }
 }
 
-class _AccountControl extends StatelessWidget {
+/// Borderless header action used on the docked desktop sidebar, where the
+/// persistent circular fill of [_CircleIconButton] reads as unnecessary chrome.
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final List<List<dynamic>> icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        hoverColor: KrithaColors.contextMenuPressed,
+        splashColor: KrithaColors.contextMenuPressed,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: KrithaIcon(
+              icon: icon,
+              size: KrithaIcons.md,
+              color: KrithaColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountControl extends StatefulWidget {
   const _AccountControl({required this.compact, required this.onSettings});
 
   final bool compact;
   final VoidCallback onSettings;
 
+  @override
+  State<_AccountControl> createState() => _AccountControlState();
+}
+
+class _AccountControlState extends State<_AccountControl> {
+  Offset? _pressPosition;
+
   Future<void> _openMenu(BuildContext context) async {
     final selection = await showKrithaContextMenu(
       context: context,
-      anchor: ContextMenuAnchor.fromContext(context),
+      // Anchor at the press point so the menu grows from where the user
+      // clicked instead of being pinned to the row's leading edge.
+      anchor: _pressPosition == null
+          ? ContextMenuAnchor.fromContext(context)
+          : ContextMenuAnchor(position: _pressPosition!, size: Size.zero),
       items: [
         ContextMenuItem(
           id: 'free',
@@ -467,7 +526,7 @@ class _AccountControl extends StatelessWidget {
     );
     if (!context.mounted || selection == null) return;
     if (selection == 'settings') {
-      onSettings();
+      widget.onSettings();
       return;
     }
     final message = switch (selection) {
@@ -489,12 +548,13 @@ class _AccountControl extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          onTapDown: (details) => _pressPosition = details.globalPosition,
           onTap: () => _openMenu(context),
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(KrithaRadius.base),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s6),
-            child: compact
+            child: widget.compact
                 ? Center(child: _AccountAvatar(size: 32))
                 : Row(
                     children: [
@@ -602,6 +662,24 @@ class CompactSidebarRail extends StatelessWidget {
             icon: HugeIcons.strokeRoundedSearch01,
             tooltip: 'Search chats',
             onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
+          ),
+          SizedBox(height: KrithaSpacing.s8),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedPin,
+            tooltip: 'Pinned chats',
+            onTap: () => _ChatSidebarState._stub(context, 'Pinned chats'),
+          ),
+          SizedBox(height: KrithaSpacing.s8),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedMessageCircle,
+            tooltip: 'Chats',
+            onTap: () => _ChatSidebarState._stub(context, 'Chats'),
+          ),
+          SizedBox(height: KrithaSpacing.s8),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedLibraryBig,
+            tooltip: 'Library',
+            onTap: () => _ChatSidebarState._stub(context, 'Library'),
           ),
           Spacer(),
           Padding(

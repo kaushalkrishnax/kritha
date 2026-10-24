@@ -167,7 +167,7 @@ class ComposerActionButton extends StatelessWidget {
       tooltip = 'Send message';
     } else {
       icon = HugeIcons.strokeRoundedAudioLines;
-      iconSize = compact ? KrithaIcons.md : KrithaIcons.sm;
+      iconSize = compact ? KrithaIcons.lg : KrithaIcons.md;
       tooltip = 'Live Talk';
     }
 

@@ -62,7 +62,10 @@ and 2 px gaps stable.
 
 ### Structure
 
-1. Header: brand, search circle and desktop collapse control.
+1. Header: brand, search control and desktop collapse control. On the docked
+   desktop sidebar both trailing controls are borderless (hover fill only); the
+   overlay drawer keeps the search circle and tightens its trailing gutter when
+   no collapse control follows.
 2. `New chat`, `Library`, `Archived Chats`, `Plugins`,
    `Permissions`, `More`: 56 px rows, 24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
@@ -78,9 +81,12 @@ Rules:
   Rename, Archive and Delete. The menu opens at the press point and clamps
   inside the sidebar.
 - The collapsed wide-screen rail shows `LayoutAlignLeft` (expand), New chat,
-  Search and the account avatar. The full sidebar header pairs the search circle
-  with a spaced `PanelLeft` collapse control; the compact chat header uses the
-  same `PanelLeft` glyph to open the drawer.
+  Search, Pinned chats (`strokeRoundedPin`), Chats (`strokeRoundedMessageCircle`,
+  matching session rows) and Library, then the account avatar at the bottom.
+  The full sidebar header pairs borderless search and `PanelLeft` collapse
+  controls; the compact chat header uses `MenuTwoLine` to open the drawer.
+- Wide-screen open/close animates the 56↔300 px panel with a clipped width
+  transition plus a short cross-fade; keep it fast but never a snap.
 - Do not add a drawer close icon; the backdrop and edge swipe close it.
 - Archived chats use a dialog with restore/delete actions; do not build a second
   sidebar mode unless the design changes.
@@ -266,9 +272,9 @@ popup menus.
 | --- | --- | --- |
 | Attachment picker | Plus button | Below, clamped |
 | Header ellipsis | Ellipsis button | Right-aligned |
-| User message | Long-press or right-click point/bubble | Right-aligned to message column |
+| User message | Long-press or right-click point/bubble | Right-aligned to the bubble's column (bounded by the bubble's right edge, not the viewport) |
 | Sidebar session | Long-press or right-click point | Clamped inside sidebar |
-| Sidebar account | Footer avatar/name row | Below the row, flips above near the bottom edge |
+| Sidebar account | Click point inside the footer row | Grows from the click, flips above near the bottom edge |
 
 ## 8. Dialogs, sheets and snackbars
 

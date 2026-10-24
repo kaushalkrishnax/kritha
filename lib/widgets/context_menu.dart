@@ -170,11 +170,13 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
       case ContextMenuAlign.left:
         left = insets.left + KrithaDimensions.contextMenuScreenMargin;
       case ContextMenuAlign.right:
+        final rightEdge = widget.rightBoundary ?? (screen.width - insets.right);
         left =
-            screen.width -
-            insets.right -
+            rightEdge -
             KrithaDimensions.contextMenuWidth -
             KrithaDimensions.contextMenuScreenMargin;
+        final minLeft = insets.left + KrithaDimensions.contextMenuScreenMargin;
+        if (left < minLeft) left = minLeft;
       case ContextMenuAlign.auto:
         final minLeft = insets.left + KrithaDimensions.contextMenuScreenMargin;
         var maxLeft =

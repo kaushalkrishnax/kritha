@@ -41,7 +41,7 @@ class ChatHeader extends StatelessWidget {
               _HeaderPill(
                 children: [
                   _HeaderIcon(
-                    icon: HugeIcons.strokeRoundedPanelLeft,
+                    icon: HugeIcons.strokeRoundedMenuTwoLine,
                     tooltip: menuTooltip,
                     onTap: onMenu,
                   ),

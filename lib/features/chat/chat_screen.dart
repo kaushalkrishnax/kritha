@@ -401,17 +401,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               bottom: false,
               child: Row(
                 children: [
-                  if (_dockedSidebarOpen)
-                    SizedBox(
-                      width: KrithaDimensions.sidebarWidth,
-                      child: sidebar,
-                    )
-                  else
-                    CompactSidebarRail(
-                      onExpand: () => _toggleSidebar(viewport),
-                      onNewChat: _newChat,
-                      onSettings: _openSettings,
+                  AnimatedContainer(
+                    duration: KrithaMotion.normal,
+                    curve: Curves.easeOutCubic,
+                    width: _dockedSidebarOpen
+                        ? KrithaDimensions.sidebarWidth
+                        : 56,
+                    child: ClipRect(
+                      // The panel lays out at full width while the outer box
+                      // shrinks, so the sidebar is revealed rather than squeezed.
+                      child: OverflowBox(
+                        alignment: Alignment.centerLeft,
+                        minWidth: KrithaDimensions.sidebarWidth,
+                        maxWidth: KrithaDimensions.sidebarWidth,
+                        child: AnimatedSwitcher(
+                          duration: KrithaMotion.fast,
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: _dockedSidebarOpen
+                              ? KeyedSubtree(
+                                  key: const ValueKey('docked-sidebar'),
+                                  // Stack children get loose constraints; keep
+                                  // the panel at its docked width.
+                                  child: SizedBox(
+                                    width: KrithaDimensions.sidebarWidth,
+                                    child: sidebar,
+                                  ),
+                                )
+                              : Align(
+                                  key: const ValueKey('docked-rail'),
+                                  alignment: Alignment.centerLeft,
+                                  child: CompactSidebarRail(
+                                    onExpand: () => _toggleSidebar(viewport),
+                                    onNewChat: _newChat,
+                                    onSettings: _openSettings,
+                                  ),
+                                ),
+                        ),
+                      ),
                     ),
+                  ),
                   Expanded(child: chatArea),
                 ],
               ),

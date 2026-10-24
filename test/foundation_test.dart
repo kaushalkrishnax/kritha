@@ -337,6 +337,11 @@ void main() {
 
       expect(find.text('Recents').hitTestable(), findsNothing);
       expect(find.byTooltip('Expand sidebar'), findsOneWidget);
+      // The rail repeats New chat, which also lives in the chat header, so use
+      // the rail-only labels.
+      expect(find.byTooltip('Pinned chats'), findsOneWidget);
+      expect(find.byTooltip('Chats'), findsOneWidget);
+      expect(find.byTooltip('Library'), findsOneWidget);
     });
 
     testWidgets('assistant replies have no avatar, bubble or label', (
@@ -414,10 +419,14 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Edit message'), findsOneWidget);
 
-      // User-message menus open against the right edge, not the bubble's left.
+      // User-message menus follow the bubble's column, not the viewport edge.
       expect(
         tester.getTopRight(surface).dx,
-        closeTo(375 - KrithaDimensions.contextMenuScreenMargin, 0.1),
+        closeTo(
+          tester.getTopRight(find.byKey(const ValueKey('message-seed-2'))).dx -
+              KrithaDimensions.contextMenuScreenMargin,
+          0.1,
+        ),
       );
       final copyText = tester.widget<Text>(find.text('Copy'));
       expect(copyText.style!.fontWeight, FontWeight.w700);

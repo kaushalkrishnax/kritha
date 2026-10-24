@@ -13,8 +13,8 @@ already shipped.
 | Need | Pattern | Example |
 | --- | --- | --- |
 | Primary action in a row | Blue 40 px rounded square | Send / Live Talk / stop |
-| Secondary icon in a toolbar or pill | Transparent circular/rounded `InkWell` | Header icons, reply actions |
-| Standalone round utility | 44–48 px circle on `bgSecondary`/`bgTertiary` | Sidebar search, settings back, Live Talk controls |
+| Secondary icon in a toolbar or pill | Transparent circular/rounded `InkWell` | Header icons, reply actions, docked sidebar search/collapse |
+| Standalone round utility | 44–48 px circle on `bgSecondary`/`bgTertiary` | Drawer search, settings back, Live Talk controls |
 | Full-width navigation row | 44–56 px row with `InkWell` | Sidebar actions and sessions |
 | Menu command | 48 px context-menu row | Share, Pin, Archive, Delete |
 | Message action surface | Bubble-shaped `Material` + `InkWell` | Long-press a user message |
