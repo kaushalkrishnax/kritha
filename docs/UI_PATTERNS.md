@@ -77,8 +77,10 @@ Rules:
 - Long-press a session on touch, or right-click it with a mouse, for Pin/Unpin,
   Rename, Archive and Delete. The menu opens at the press point and clamps
   inside the sidebar.
-- The collapsed wide-screen rail keeps the Kritha mark, New chat, Search and
-  account avatar available. Hovering the mark reveals the expand control.
+- The collapsed wide-screen rail shows `LayoutAlignLeft` (expand), New chat,
+  Search and the account avatar. The full sidebar header pairs the search circle
+  with a spaced `PanelLeft` collapse control; the compact chat header uses the
+  same `PanelLeft` glyph to open the drawer.
 - Do not add a drawer close icon; the backdrop and edge swipe close it.
 - Archived chats use a dialog with restore/delete actions; do not build a second
   sidebar mode unless the design changes.

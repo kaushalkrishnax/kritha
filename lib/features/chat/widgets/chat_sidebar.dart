@@ -412,12 +412,14 @@ class _SidebarHeader extends StatelessWidget {
             tooltip: 'Search chats',
             onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
           ),
-          if (onCollapse != null)
+          if (onCollapse != null) ...[
+            SizedBox(width: KrithaSpacing.s8),
             _CircleIconButton(
-              icon: HugeIcons.strokeRoundedLayoutPanelLeft,
+              icon: HugeIcons.strokeRoundedPanelLeft,
               tooltip: 'Collapse sidebar',
               onTap: onCollapse!,
             ),
+          ],
         ],
       ),
     );
@@ -561,7 +563,7 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-class CompactSidebarRail extends StatefulWidget {
+class CompactSidebarRail extends StatelessWidget {
   const CompactSidebarRail({
     super.key,
     required this.onExpand,
@@ -574,13 +576,6 @@ class CompactSidebarRail extends StatefulWidget {
   final VoidCallback onSettings;
 
   @override
-  State<CompactSidebarRail> createState() => _CompactSidebarRailState();
-}
-
-class _CompactSidebarRailState extends State<CompactSidebarRail> {
-  bool _hoveredLogo = false;
-
-  @override
   Widget build(BuildContext context) {
     return Container(
       width: 56,
@@ -591,46 +586,18 @@ class _CompactSidebarRailState extends State<CompactSidebarRail> {
       child: Column(
         children: [
           SizedBox(height: KrithaSpacing.s8),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _hoveredLogo = true),
-            onExit: (_) => setState(() => _hoveredLogo = false),
-            child: Tooltip(
-              message: 'Expand sidebar',
-              child: InkWell(
-                onTap: widget.onExpand,
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: KrithaMotion.fast,
-                      child: _hoveredLogo
-                          ? KrithaIcon(
-                              key: ValueKey('sidebar-toggle'),
-                              icon: HugeIcons.strokeRoundedLayoutPanelLeft,
-                              size: KrithaIcons.md,
-                              color: KrithaColors.textSecondary,
-                            )
-                          : Image.asset(
-                              key: ValueKey('kritha-mark'),
-                              'assets/images/kritha_icon_foreground.png',
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.contain,
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedLayoutAlignLeft,
+            tooltip: 'Expand sidebar',
+            onTap: onExpand,
           ),
           SizedBox(height: KrithaSpacing.s8),
           _RailButton(
             icon: HugeIcons.strokeRoundedSquarePen,
             tooltip: 'New chat',
-            onTap: widget.onNewChat,
+            onTap: onNewChat,
           ),
+          SizedBox(height: KrithaSpacing.s8),
           _RailButton(
             icon: HugeIcons.strokeRoundedSearch01,
             tooltip: 'Search chats',
@@ -639,10 +606,7 @@ class _CompactSidebarRailState extends State<CompactSidebarRail> {
           Spacer(),
           Padding(
             padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
-            child: _AccountControl(
-              compact: true,
-              onSettings: widget.onSettings,
-            ),
+            child: _AccountControl(compact: true, onSettings: onSettings),
           ),
         ],
       ),
