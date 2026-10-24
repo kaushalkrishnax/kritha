@@ -37,7 +37,7 @@ class _ResponseActionsState extends State<ResponseActions> {
     if (!mounted) return;
     setState(() => _copied = true);
     _resetTimer?.cancel();
-    _resetTimer = Timer(const Duration(seconds: 2), () {
+    _resetTimer = Timer(Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
     });
   }
@@ -56,15 +56,15 @@ class _ResponseActionsState extends State<ResponseActions> {
       );
     } on Object {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't open the share sheet.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Couldn't open the share sheet.")));
     }
   }
 
   void _more(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text('More response actions are not available in this build.'),
       ),
     );
@@ -73,30 +73,30 @@ class _ResponseActionsState extends State<ResponseActions> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: KrithaSpacing.s12),
+      padding: EdgeInsets.only(top: KrithaSpacing.s12),
       child: Row(
         children: [
           _ActionIcon(
             icon: _copied
                 ? HugeIcons.strokeRoundedCheck
-                : HugeIcons.strokeRoundedCopy,
+                : HugeIcons.strokeRoundedCopy01,
             color: _copied ? KrithaColors.success : KrithaColors.iconMuted,
             tooltip: _copied ? 'Copied' : 'Copy reply',
             onTap: _copy,
           ),
-          const SizedBox(width: KrithaSpacing.s2),
+          SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
-            icon: HugeIcons.strokeRoundedVolumeHigh,
+            icon: HugeIcons.strokeRoundedVolume02,
             tooltip: 'Read aloud',
             onTap: widget.onSpeak,
           ),
-          const SizedBox(width: KrithaSpacing.s2),
+          SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
-            icon: HugeIcons.strokeRoundedShare01,
+            icon: HugeIcons.strokeRoundedShare08,
             tooltip: 'Share reply',
             onTap: () => _share(context),
           ),
-          const SizedBox(width: KrithaSpacing.s2),
+          SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
             icon: HugeIcons.strokeRoundedEllipsisVertical,
             tooltip: 'More actions',
@@ -113,13 +113,13 @@ class _ActionIcon extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onTap,
-    this.color = KrithaColors.iconMuted,
+    this.color,
   });
 
   final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback onTap;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -142,11 +142,11 @@ class _ActionIcon extends StatelessWidget {
             focusColor: KrithaColors.contextMenuPressed,
             hoverColor: KrithaColors.contextMenuPressed,
             child: Padding(
-              padding: const EdgeInsets.all(KrithaSpacing.s8),
+              padding: EdgeInsets.all(KrithaSpacing.s8),
               child: KrithaIcon(
                 icon: icon,
                 size: KrithaIcons.base,
-                color: color,
+                color: color ?? KrithaColors.iconMuted,
               ),
             ),
           ),

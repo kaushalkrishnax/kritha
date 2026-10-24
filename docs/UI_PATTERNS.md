@@ -57,25 +57,28 @@ and 2 px gaps stable.
 
 | Mode | Width | Notes |
 | --- | --- | --- |
-| Wide | 300 px docked | Collapsible |
+| Wide | 300 px docked; 56 px when collapsed | Collapsible rail stays visible |
 | Compact/medium | 78% of width, max 340 px | Overlay drawer with backdrop and edge swipe |
 
 ### Structure
 
-1. Header: brand, version, search circle.
-2. `New chat`, `Library`, `Archived Chats`, `Extensions`,
+1. Header: brand, search circle and desktop collapse control.
+2. `New chat`, `Library`, `Archived Chats`, `Plugins`,
    `Permissions`, `More`: 56 px rows, 24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
 4. Recents section and 56 px session rows.
-5. Footer actions and settings.
+5. Footer account avatar/name; its menu contains account actions and Settings.
 
 Rules:
 
 - Top action icons use Lucide 600 at 24 px and sit beside 18 px `w700` labels.
 - Rows are full-width hit targets. Selected sessions use `bgPrimary`; unselected
   rows are transparent.
-- Long-press a session for Pin/Unpin, Rename, Archive and Delete. The menu opens
-  at the press point and clamps inside the sidebar.
+- Long-press a session on touch, or right-click it with a mouse, for Pin/Unpin,
+  Rename, Archive and Delete. The menu opens at the press point and clamps
+  inside the sidebar.
+- The collapsed wide-screen rail keeps the Kritha mark, New chat, Search and
+  account avatar available. Hovering the mark reveals the expand control.
 - Do not add a drawer close icon; the backdrop and edge swipe close it.
 - Archived chats use a dialog with restore/delete actions; do not build a second
   sidebar mode unless the design changes.
@@ -222,15 +225,15 @@ popup menus.
 | Property | Value |
 | --- | --- |
 | Width | 200 px |
-| Row height | 48 px; first/last rows are 56 px with an 8 px outer edge inset |
+| Row height | 48 px; the last row is 56 px with an 8 px bottom inset. Without a header the first row is also 56 px |
 | Corner radius | 24 px (`KrithaRadius.xl`) |
-| Surface | `bgPrimary`, `borderSubtle`, 24 px shadow |
+| Surface | `bgPrimary`, `borderSubtle`, 24 px `menuShadow` |
 | Row padding | 20 px horizontal; the first/last row also owns the 8 px outer edge inset |
 | Icon | 18 px in a 24 px column; 16 px icon-to-label gap |
 | Label | 18 px, `FontWeight.w700`, one line, ellipsis |
 | Menu-level vertical padding | **None** |
 | Separators | **None** — no horizontal rules or divider lines |
-| Header (optional) | 47 px high, 20/12/20/8 padding |
+| Header (optional) | 55 px high, 20/20/20/8 padding: the 8 px top edge inset belongs to the header, so the first action row stays 48 px |
 | Anchor gap | 8 px |
 | Screen margin | 12 px; safe top 16 px |
 
@@ -241,13 +244,19 @@ popup menus.
   fully above the IME.
 - `requestFocus: false` so the composer keyboard stays up.
 - `NoSplash` with a `contextMenuPressed` overlay for menu rows; no ripple leaks
-  past the rounded surface.
-- Full row is tappable and fills the surface edge to edge. The first and last
-  rows own an extra 8 px outer edge inset inside their press surface, so the
+  past the rounded surface. `ContextMenuItem.focusColor` overrides the overlay
+  for a single row (destructive rows pass a translucent red) and never derives
+  it from the label colour automatically.
+- Full row is tappable and fills the surface edge to edge. The outer 8 px inset
+  lives on the first/last row, or on the header when one is present, so the
   content clears the rounded corners without a menu-level gutter or separator.
-- Disabled rows are dimmed and inert. Destructive rows use `error`.
-- Headed menus: user-message time, chat title. Headerless: attachment picker and
-  session actions start directly with their first 56 px edge row.
+- Disabled rows are dimmed and inert. Destructive rows use `error` (the real
+  destructive red) for both icon and label.
+- Headed menus: user-message time, chat title. Headerless: attachment picker,
+  session actions and the sidebar account menu start directly with their first
+  56 px edge row.
+- On desktop, session rows and message bubbles open the same menu on right
+  click; touch keeps long-press.
 
 ### Anchors
 
@@ -255,13 +264,14 @@ popup menus.
 | --- | --- | --- |
 | Attachment picker | Plus button | Below, clamped |
 | Header ellipsis | Ellipsis button | Right-aligned |
-| User message | Long-press point/bubble | Right-aligned to message column |
-| Sidebar session | Press point | Clamped inside sidebar |
+| User message | Long-press or right-click point/bubble | Right-aligned to message column |
+| Sidebar session | Long-press or right-click point | Clamped inside sidebar |
+| Sidebar account | Footer avatar/name row | Below the row, flips above near the bottom edge |
 
 ## 8. Dialogs, sheets and snackbars
 
-- Dialogs use the dark theme, `bgSurface`/`bgPrimary`, 24 px corners and a
-  scrim. Destructive actions are red and explicit.
+- Dialogs follow the active light/dark theme, `bgSurface`/`bgPrimary`, 24 px
+  corners and a scrim. Destructive actions are red and explicit.
 - Bottom sheets use `bgSurface`, no surface tint, 24 px top corners.
 - Snackbars are floating, `bgTertiary`, 12 px corners, 15 px text; use them for
   transient confirmations and labelled stub messages.
@@ -289,7 +299,7 @@ popup menus.
   step. Do not swallow exceptions.
 - Stubs: label the action and report “not available in this build” (snackbar or
   disabled row). Visible stubs in the current build include Camera, Plugins,
-  Think harder, Library, Extensions, Permissions, More, chat search,
+  Think harder, Library, Plugins, Permissions, More, chat search,
   read aloud, video and screen sharing.
 - Missing local STT/TTS models should be explicit; do not fabricate a
   transcript.

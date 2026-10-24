@@ -15,6 +15,7 @@ class ChatHeader extends StatelessWidget {
     required this.onMenu,
     required this.onNewChat,
     required this.onChatMenu,
+    this.showMenuButton = true,
     this.menuTooltip = 'Sessions',
   });
 
@@ -23,6 +24,7 @@ class ChatHeader extends StatelessWidget {
 
   /// Opens the chat options menu at the ellipsis button's global position.
   final void Function(BuildContext buttonContext) onChatMenu;
+  final bool showMenuButton;
 
   final String menuTooltip;
 
@@ -31,19 +33,22 @@ class ChatHeader extends StatelessWidget {
     return SizedBox(
       height: KrithaDimensions.headerHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: KrithaSpacing.s16),
+        padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s16),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _HeaderPill(
-              children: [
-                _HeaderIcon(
-                  icon: HugeIcons.strokeRoundedMenu,
-                  tooltip: menuTooltip,
-                  onTap: onMenu,
-                ),
-              ],
-            ),
+            if (showMenuButton)
+              _HeaderPill(
+                children: [
+                  _HeaderIcon(
+                    icon: HugeIcons.strokeRoundedMenuTwoLine,
+                    tooltip: menuTooltip,
+                    onTap: onMenu,
+                  ),
+                ],
+              )
+            else
+              SizedBox.shrink(),
             _HeaderPill(
               children: [
                 _HeaderIcon(
@@ -76,7 +81,7 @@ class _HeaderPill extends StatelessWidget {
       color: KrithaColors.bgSecondary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(KrithaRadius.full),
-        side: const BorderSide(color: KrithaColors.borderSubtle),
+        side: BorderSide(color: KrithaColors.borderSubtle),
       ),
       clipBehavior: Clip.antiAlias,
       // The pill owns no outer padding. Each icon's ink surface fills the full
@@ -118,10 +123,11 @@ class _HeaderIcon extends StatelessWidget {
           highlightColor: KrithaColors.contextMenuPressed,
           focusColor: KrithaColors.contextMenuPressed,
           hoverColor: KrithaColors.contextMenuPressed,
+          mouseCursor: SystemMouseCursors.click,
           child: Padding(
             // 12px all round makes a 48px ink surface: the former 4px pill
             // padding now lives inside the button instead of outside its ink.
-            padding: const EdgeInsets.all(KrithaSpacing.s12),
+            padding: EdgeInsets.all(KrithaSpacing.s12),
             child: KrithaIcon(
               icon: icon,
               size: KrithaIcons.lg,

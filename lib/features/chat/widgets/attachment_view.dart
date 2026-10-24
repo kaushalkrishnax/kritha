@@ -25,7 +25,7 @@ class ComposerAttachmentStrip extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         itemCount: attachments.length,
-        separatorBuilder: (_, _) => const SizedBox(width: KrithaSpacing.s8),
+        separatorBuilder: (_, _) => SizedBox(width: KrithaSpacing.s8),
         itemBuilder: (context, index) {
           final attachment = attachments[index];
           return _AttachmentTile(
@@ -73,11 +73,11 @@ class _AttachmentTile extends StatelessWidget {
                 // One step above the attachment tile (bgTertiary) so the X
                 // reads as a solid control instead of a black cut-out.
                 color: KrithaColors.bgQuaternary,
-                shape: const CircleBorder(),
+                shape: CircleBorder(),
                 child: InkWell(
-                  customBorder: const CircleBorder(),
+                  customBorder: CircleBorder(),
                   onTap: onRemove,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(4),
                     child: KrithaIcon(
                       icon: HugeIcons.strokeRoundedX,
@@ -102,7 +102,7 @@ class _ImageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = KrithaDimensions.attachmentImageSize;
+    final size = KrithaDimensions.attachmentImageSize;
     return Container(
       width: size,
       height: size,
@@ -117,9 +117,9 @@ class _ImageTile extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const Center(
+        errorBuilder: (context, error, stackTrace) => Center(
           child: KrithaIcon(
-            icon: HugeIcons.strokeRoundedImage01,
+            icon: HugeIcons.strokeRoundedAlbum01,
             size: KrithaIcons.md,
             color: KrithaColors.textMuted,
           ),
@@ -138,7 +138,7 @@ class _FileTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: KrithaDimensions.attachmentImageSize,
-      padding: const EdgeInsets.symmetric(
+      padding: EdgeInsets.symmetric(
         horizontal: KrithaSpacing.s10,
         vertical: KrithaSpacing.s8,
       ),
@@ -149,12 +149,12 @@ class _FileTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const KrithaIcon(
-            icon: HugeIcons.strokeRoundedFileText,
+          KrithaIcon(
+            icon: HugeIcons.strokeRoundedAttachment,
             size: KrithaIcons.md,
             color: KrithaColors.accentLightBlue,
           ),
-          const SizedBox(width: KrithaSpacing.s8),
+          SizedBox(width: KrithaSpacing.s8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,17 +164,17 @@ class _FileTile extends StatelessWidget {
                   attachment.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: KrithaText.sizeXs,
                     fontWeight: FontWeight.w600,
                     color: KrithaColors.textSecondary,
                     height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   attachment.readableSize,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: KrithaText.size2xs,
                     color: KrithaColors.textMuted,
                   ),
@@ -196,9 +196,9 @@ class MessageAttachmentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (attachments.isEmpty) return const SizedBox.shrink();
+    if (attachments.isEmpty) return SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: KrithaSpacing.s8),
+      padding: EdgeInsets.only(bottom: KrithaSpacing.s8),
       child: Wrap(
         spacing: KrithaSpacing.s8,
         runSpacing: KrithaSpacing.s8,

@@ -26,7 +26,7 @@ class _LiveTalkPillState extends State<LiveTalkPill>
     with SingleTickerProviderStateMixin {
   late final AnimationController _flow = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2400),
+    duration: Duration(milliseconds: 2400),
     value: 0.3,
   );
 
@@ -61,7 +61,7 @@ class _LiveTalkPillState extends State<LiveTalkPill>
   @override
   Widget build(BuildContext context) {
     return Container(
-      key: const ValueKey('live-talk-pill'),
+      key: ValueKey('live-talk-pill'),
       width: KrithaDimensions.liveTalkPillMaxWidth,
       height: KrithaDimensions.liveTalkPillHeight,
       decoration: BoxDecoration(
@@ -123,7 +123,7 @@ class _LiveTalkGlowPainter extends CustomPainter {
           KrithaColors.accentCyanBg.withValues(alpha: 0.12 * energy),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.35, 0.72, 1.0],
+        stops: [0.0, 0.35, 0.72, 1.0],
       ).createShader(Rect.fromCircle(center: centre, radius: radius));
       canvas.drawCircle(
         centre,
@@ -152,7 +152,7 @@ class _LiveTalkGlowPainter extends CustomPainter {
       }
     }
     final waveAlpha = active ? 1.0 : 0.45;
-    for (final layer in const [
+    for (final layer in [
       (width: 8.0, alpha: 0.06),
       (width: 4.0, alpha: 0.14),
       (width: 1.6, alpha: 0.72),

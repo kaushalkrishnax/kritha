@@ -436,7 +436,7 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
 - **Message editing** — editing restarts the conversation from that turn by
   deleting the edited turn and everything after it. It does not create a branch
   or preserve attachments from the original turn.
-- **Sidebar utilities** — Library, Extensions, Permissions, More and
+- **Sidebar utilities** — Library, Plugins, Permissions, More and
   chat search are visible stubs.
 - **Settings depth** — runtime probes and reset are real; the remaining RN
   settings toggles are not implemented.

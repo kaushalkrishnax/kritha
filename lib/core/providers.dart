@@ -1,8 +1,52 @@
 import 'package:dio/dio.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/app_database.dart';
 import '../services/runtime_probe.dart';
+
+enum KrithaThemePreference { system, light, dark }
+
+extension KrithaThemePreferenceX on KrithaThemePreference {
+  ThemeMode get themeMode => switch (this) {
+    KrithaThemePreference.system => ThemeMode.system,
+    KrithaThemePreference.light => ThemeMode.light,
+    KrithaThemePreference.dark => ThemeMode.dark,
+  };
+
+  String get storageValue => name;
+}
+
+class ThemePreferenceNotifier extends Notifier<KrithaThemePreference> {
+  static const _key = 'kritha.theme.preference';
+
+  @override
+  KrithaThemePreference build() {
+    _restore();
+    return KrithaThemePreference.system;
+  }
+
+  Future<void> _restore() async {
+    final preferences = await SharedPreferences.getInstance();
+    final value = preferences.getString(_key);
+    final preference = KrithaThemePreference.values.where(
+      (item) => item.storageValue == value,
+    );
+    if (ref.mounted && preference.isNotEmpty) state = preference.first;
+  }
+
+  Future<void> setPreference(KrithaThemePreference preference) async {
+    state = preference;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_key, preference.storageValue);
+  }
+}
+
+final themePreferenceProvider =
+    NotifierProvider<ThemePreferenceNotifier, KrithaThemePreference>(
+      ThemePreferenceNotifier.new,
+    );
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase.open();
@@ -15,9 +59,9 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: 'https://api.kritha.app/v1',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: const {'accept': 'application/json'},
+      connectTimeout: Duration(seconds: 10),
+      receiveTimeout: Duration(seconds: 30),
+      headers: {'accept': 'application/json'},
     ),
   );
   dio.interceptors.add(LogInterceptor(requestBody: false, responseBody: false));

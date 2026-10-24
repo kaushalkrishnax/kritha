@@ -83,7 +83,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
+        style: TextStyle(
           color: KrithaColors.textMuted,
           fontSize: KrithaText.sizeMd,
           fontWeight: FontWeight.w500,
@@ -94,7 +94,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ContextMenuItem(
           id: 'share',
           label: 'Share',
-          icon: HugeIcons.strokeRoundedShare01,
+          icon: HugeIcons.strokeRoundedShare08,
           disabled: !hasSession && state.messages.isEmpty,
         ),
         ContextMenuItem(
@@ -105,10 +105,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               : HugeIcons.strokeRoundedPin,
           disabled: !hasSession,
         ),
-        const ContextMenuItem(
+        ContextMenuItem(
           id: 'files',
           label: 'Uploaded files',
-          icon: HugeIcons.strokeRoundedPaperclip,
+          icon: HugeIcons.strokeRoundedAttachment,
         ),
         ContextMenuItem(
           id: 'find',
@@ -125,9 +125,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ContextMenuItem(
           id: 'delete',
           label: 'Delete',
-          icon: HugeIcons.strokeRoundedTrash,
+          icon: HugeIcons.strokeRoundedDelete02,
           destructive: true,
           disabled: !hasSession,
+          focusColor: Color(0x33FF453A),
         ),
       ],
     );
@@ -187,16 +188,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: KrithaColors.bgSurface,
-        title: const Text('Uploaded files'),
+        title: Text('Uploaded files'),
         content: SizedBox(
           width: 360,
           child: files.isEmpty
-              ? const Text(
+              ? Text(
                   'No uploaded files in this chat.',
                   style: TextStyle(color: KrithaColors.textMuted),
                 )
               : ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 360),
+                  constraints: BoxConstraints(maxHeight: 360),
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: files.length,
@@ -204,21 +205,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Divider(height: 1, color: KrithaColors.borderFaint),
                     itemBuilder: (context, index) {
                       final file = files[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: KrithaIcon(
-                          icon: file.isImage
-                              ? HugeIcons.strokeRoundedImage01
-                              : HugeIcons.strokeRoundedFileText,
-                          size: KrithaIcons.md,
-                          color: KrithaColors.iconMuted,
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: KrithaIcon(
+                            icon: file.isImage
+                                ? HugeIcons.strokeRoundedAlbum01
+                                : HugeIcons.strokeRoundedAttachment,
+                            size: KrithaIcons.md,
+                            color: KrithaColors.iconMuted,
+                          ),
+                          title: Text(
+                            file.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(file.readableSize),
                         ),
-                        title: Text(
-                          file.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(file.readableSize),
                       );
                     },
                   ),
@@ -227,7 +231,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text('Close'),
           ),
         ],
       ),
@@ -242,7 +246,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         builder: (context, setDialogState) {
           final query = queryController.text.trim().toLowerCase();
           final matches = query.isEmpty
-              ? const <ChatMessage>[]
+              ? <ChatMessage>[]
               : state.messages
                     .where(
                       (message) => message.text.toLowerCase().contains(query),
@@ -250,7 +254,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     .toList();
           return AlertDialog(
             backgroundColor: KrithaColors.bgSurface,
-            title: const Text('Find in chat'),
+            title: Text('Find in chat'),
             content: SizedBox(
               width: 380,
               height: 360,
@@ -260,11 +264,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     controller: queryController,
                     autofocus: true,
                     onChanged: (_) => setDialogState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Search messages',
-                    ),
+                    decoration: InputDecoration(hintText: 'Search messages'),
                   ),
-                  const SizedBox(height: KrithaSpacing.s12),
+                  SizedBox(height: KrithaSpacing.s12),
                   Expanded(
                     child: matches.isEmpty
                         ? Center(
@@ -272,9 +274,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               query.isEmpty
                                   ? 'Type to search this chat.'
                                   : 'No matches.',
-                              style: const TextStyle(
-                                color: KrithaColors.textMuted,
-                              ),
+                              style: TextStyle(color: KrithaColors.textMuted),
                             ),
                           )
                         : ListView.separated(
@@ -285,17 +285,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                             itemBuilder: (context, index) {
                               final message = matches[index];
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  message.text,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  message.role == ChatRole.user
-                                      ? 'You'
-                                      : 'Kritha',
+                              return Material(
+                                color: Colors.transparent,
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    message.text,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    message.role == ChatRole.user
+                                        ? 'You'
+                                        : 'Kritha',
+                                  ),
                                 ),
                               );
                             },
@@ -307,7 +310,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Close'),
+                child: Text('Close'),
               ),
             ],
           );
@@ -333,6 +336,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    watchKrithaPalette(context);
     ref.listen(chatControllerProvider, (previous, next) {
       final previousCount = previous?.value?.messages.length ?? 0;
       final nextCount = next.value?.messages.length ?? 0;
@@ -356,6 +360,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           final sidebar = ChatSidebar(
             onNewChat: _newChat,
             onSettings: _openSettings,
+            onCollapse: isDocked ? () => _toggleSidebar(viewport) : null,
           );
 
           final chatArea = _ChatArea(
@@ -381,7 +386,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
                 backgroundColor: KrithaColors.bgDeepest,
                 surfaceTintColor: Colors.transparent,
-                shape: const RoundedRectangleBorder(),
+                shape: RoundedRectangleBorder(),
                 elevation: 12,
                 child: sidebar,
               ),
@@ -400,6 +405,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     SizedBox(
                       width: KrithaDimensions.sidebarWidth,
                       child: sidebar,
+                    )
+                  else
+                    CompactSidebarRail(
+                      onExpand: () => _toggleSidebar(viewport),
+                      onNewChat: _newChat,
+                      onSettings: _openSettings,
                     ),
                   Expanded(child: chatArea),
                 ],
@@ -506,13 +517,14 @@ class _ChatAreaState extends State<_ChatArea> {
       bottom: false,
       left: viewport.usesDockedSidebar,
       child: ColoredBox(
+        key: const ValueKey('chat-background'),
         color: KrithaColors.bgDeepest,
         child: Stack(
           children: [
             Positioned.fill(
               child: chat.when(
                 data: (state) => state.messages.isEmpty && !state.sending
-                    ? const _EmptyChat()
+                    ? _EmptyChat()
                     : MessageList(
                         messages: state.messages,
                         sending: state.sending,
@@ -520,12 +532,12 @@ class _ChatAreaState extends State<_ChatArea> {
                         topPadding: KrithaDimensions.headerContentTopPadding,
                         bottomPadding: _composerHeight + KrithaSpacing.s12,
                       ),
-                loading: () => const _LoadingMessages(),
+                loading: () => _LoadingMessages(),
                 error: (error, stackTrace) =>
                     _ChatError(error: error, onRetry: widget.onRetry),
               ),
             ),
-            const Positioned(
+            Positioned(
               top: 0,
               left: 0,
               right: 0,
@@ -540,6 +552,7 @@ class _ChatAreaState extends State<_ChatArea> {
                 onMenu: widget.onMenu,
                 onNewChat: widget.onNewChat,
                 onChatMenu: widget.onChatMenu,
+                showMenuButton: !viewport.usesDockedSidebar,
                 menuTooltip: viewport.usesDockedSidebar
                     ? ((widget.sidebarOpen ?? true)
                           ? 'Hide sidebar'
@@ -555,7 +568,7 @@ class _ChatAreaState extends State<_ChatArea> {
                 child: SizedBox(
                   height:
                       _composerHeight + KrithaDimensions.composerBackdropLift,
-                  child: const _ComposerBackdrop(),
+                  child: _ComposerBackdrop(),
                 ),
               ),
             ),
@@ -588,7 +601,7 @@ class _HeaderBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
-      shaderCallback: (bounds) => const LinearGradient(
+      shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFF000000), Color(0x00000000)],
@@ -616,20 +629,21 @@ class _HeaderBackdrop extends StatelessWidget {
   }
 }
 
-/// Soft blurred/dimmed band behind the floating composer. The top edge fades
-/// out so the transcript appears to dissolve under the composer rather than
-/// stopping at a hard line.
+/// Soft blurred band behind the floating composer. The transcript dissolves
+/// into the page colour instead of ending on a hard edge, and the gradient is
+/// tinted with the active theme so light mode frosts white rather than grey.
 class _ComposerBackdrop extends StatelessWidget {
   const _ComposerBackdrop();
 
   @override
   Widget build(BuildContext context) {
+    final scrim = KrithaColors.composerBackdrop;
     return ShaderMask(
       shaderCallback: (bounds) => const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0x00000000), Color(0xFF000000)],
-        stops: [0.0, 0.45],
+        stops: [0.0, 0.55],
       ).createShader(bounds),
       blendMode: BlendMode.dstIn,
       child: BackdropFilter(
@@ -643,11 +657,15 @@ class _ComposerBackdrop extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0x00000000),
-                KrithaColors.bgDeepest.withValues(
+                scrim.withValues(alpha: 0),
+                scrim.withValues(
+                  alpha: KrithaDimensions.composerBackdropScrimOpacity * 0.55,
+                ),
+                scrim.withValues(
                   alpha: KrithaDimensions.composerBackdropScrimOpacity,
                 ),
               ],
+              stops: const [0.0, 0.45, 1.0],
             ),
           ),
         ),
@@ -750,19 +768,22 @@ class _ScrollDownButtonState extends State<_ScrollDownButton>
         child: Tooltip(
           message: 'Scroll to bottom',
           child: Material(
-            key: const ValueKey('scroll-down-button'),
-            color: KrithaColors.bgTertiary,
-            shape: const CircleBorder(),
-            elevation: 6,
-            shadowColor: KrithaColors.bgDeepest,
+            key: ValueKey('scroll-down-button'),
+            color: KrithaColors.scrollDownSurface,
+            shape: CircleBorder(
+              side: BorderSide(color: KrithaColors.borderSubtle),
+            ),
+            elevation: 4,
+            shadowColor: KrithaColors.composerShadow,
             child: InkWell(
-              customBorder: const CircleBorder(),
+              customBorder: CircleBorder(),
               onTap: _jumpToBottom,
+              mouseCursor: SystemMouseCursors.click,
               child: SizedBox(
                 width: KrithaDimensions.scrollDownButtonSize,
                 height: KrithaDimensions.scrollDownButtonSize,
-                child: const KrithaIcon(
-                  icon: HugeIcons.strokeRoundedArrowDown01,
+                child: KrithaIcon(
+                  icon: HugeIcons.strokeRoundedArrowDown02,
                   size: KrithaIcons.lg,
                   color: KrithaColors.textPrimary,
                 ),
@@ -782,7 +803,7 @@ class _EmptyChat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(KrithaSpacing.s24),
+        padding: EdgeInsets.all(KrithaSpacing.s24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -795,22 +816,22 @@ class _EmptyChat extends StatelessWidget {
                 borderRadius: BorderRadius.circular(KrithaRadius.md),
                 border: Border.all(color: KrithaColors.borderSubtle),
               ),
-              child: const KrithaIcon(
+              child: KrithaIcon(
                 icon: HugeIcons.strokeRoundedSparkles,
                 size: KrithaIcons.lg,
                 color: KrithaColors.accentLightBlue,
               ),
             ),
-            const SizedBox(height: KrithaSpacing.s16),
-            const Text(
+            SizedBox(height: KrithaSpacing.s16),
+            Text(
               'Start a new chat',
               style: TextStyle(
                 fontSize: KrithaText.sizeLg,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: KrithaSpacing.s6),
-            const Text(
+            SizedBox(height: KrithaSpacing.s6),
+            Text(
               'Ask anything. Your conversations stay on this device.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -830,7 +851,7 @@ class _LoadingMessages extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -866,9 +887,9 @@ class _ChatError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(KrithaSpacing.s24),
+        padding: EdgeInsets.all(KrithaSpacing.s24),
         child: Container(
-          padding: const EdgeInsets.all(KrithaSpacing.s18),
+          padding: EdgeInsets.all(KrithaSpacing.s18),
           decoration: BoxDecoration(
             color: KrithaColors.bgSurface,
             borderRadius: BorderRadius.circular(KrithaRadius.md),
@@ -877,30 +898,27 @@ class _ChatError extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const KrithaIcon(
+              KrithaIcon(
                 icon: HugeIcons.strokeRoundedDatabase,
                 color: KrithaColors.error,
                 size: KrithaIcons.lg,
               ),
-              const SizedBox(height: KrithaSpacing.s10),
-              const Text(
+              SizedBox(height: KrithaSpacing.s10),
+              Text(
                 'Local history could not open',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: KrithaSpacing.s4),
+              SizedBox(height: KrithaSpacing.s4),
               Text(
                 '$error',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: KrithaText.sizeXs,
                   color: KrithaColors.textMuted,
                 ),
               ),
-              const SizedBox(height: KrithaSpacing.s12),
-              FilledButton.tonal(
-                onPressed: onRetry,
-                child: const Text('Retry'),
-              ),
+              SizedBox(height: KrithaSpacing.s12),
+              FilledButton.tonal(onPressed: onRetry, child: Text('Retry')),
             ],
           ),
         ),

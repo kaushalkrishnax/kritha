@@ -54,6 +54,7 @@ dependency_overrides:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_native_splash: ^2.4.8
   flutter_lints: ^6.0.0
   build_runner: ^2.16.2
   drift_dev: ^2.35.1
@@ -64,6 +65,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/kritha_logo.png
+    - assets/images/kritha_icon_foreground.png
+    - assets/images/kritha_splash.png
+    - assets/images/kritha_splash_android12.png
   fonts:
     - family: DMSans
       fonts:
@@ -75,3 +79,12 @@ flutter:
           weight: 600
         - asset: assets/fonts/DMSans-Bold.ttf
           weight: 700
+
+flutter_native_splash:
+  color: "#2563EB"
+  image: assets/images/kritha_splash.png
+  android: true
+  ios: true
+  android_12:
+    color: "#2563EB"
+    image: assets/images/kritha_splash_android12.png

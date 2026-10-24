@@ -6,14 +6,16 @@ import '../core/theme.dart';
 ///
 /// Menus never draw separator lines. Group emphasis comes from destructive
 /// colour and the 48px row rhythm, with an 8px outer inset owned by the first
-/// and last rows.
+/// and last rows. If a menu has a heading, the top edge inset belongs to the
+/// heading; the first action remains a normal-height row.
 class ContextMenuItem {
-  const ContextMenuItem({
+  ContextMenuItem({
     required this.id,
     required this.label,
     this.icon,
     this.destructive = false,
     this.disabled = false,
+    this.focusColor,
   });
 
   final String id;
@@ -21,13 +23,14 @@ class ContextMenuItem {
   final List<List<dynamic>>? icon;
   final bool destructive;
   final bool disabled;
+  final Color? focusColor;
 }
 
 enum ContextMenuAlign { left, right, auto }
 
 /// A rectangle in global coordinates that the menu should attach itself to.
 class ContextMenuAnchor {
-  const ContextMenuAnchor({required this.position, required this.size});
+  ContextMenuAnchor({required this.position, required this.size});
 
   /// Top-left corner of the target in global coordinates.
   final Offset position;
@@ -41,7 +44,7 @@ class ContextMenuAnchor {
   }) {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) {
-      return const ContextMenuAnchor(position: Offset.zero, size: Size.zero);
+      return ContextMenuAnchor(position: Offset.zero, size: Size.zero);
     }
     return ContextMenuAnchor(
       position: box.localToGlobal(Offset.zero),
@@ -153,11 +156,12 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         : KrithaDimensions.contextMenuHeaderHeight;
     // Every row owns its full 48px press surface. The first and last rows add
     // an 8px outer edge inset inside that press surface, so the estimate must
-    // include both insets without introducing a surface-level gutter. The 2px
-    // allowance covers the 1px border.
+    // include the outside edge padding, with the leading inset shared with a
+    // header when present. The 2px allowance covers the 1px border.
     final estimatedHeight =
         widget.items.length * KrithaDimensions.contextMenuItemHeight +
-        (KrithaDimensions.contextMenuEdgeInset * 2) +
+        (KrithaDimensions.contextMenuEdgeInset *
+            (widget.header == null ? 2 : 1)) +
         headerHeight +
         2;
 
@@ -264,14 +268,14 @@ class _MenuSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      key: const ValueKey('context-menu-surface'),
+      key: ValueKey('context-menu-surface'),
       decoration: BoxDecoration(
         color: KrithaColors.bgPrimary,
         borderRadius: BorderRadius.circular(KrithaRadius.xl),
         border: Border.all(color: KrithaColors.borderSubtle),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x80000000),
+            color: KrithaColors.menuShadow,
             offset: Offset(0, 10),
             blurRadius: 24,
             spreadRadius: 0,
@@ -291,9 +295,9 @@ class _MenuSurface extends StatelessWidget {
             children: [
               if (header != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     KrithaSpacing.s20,
-                    KrithaSpacing.s12,
+                    KrithaSpacing.s12 + KrithaDimensions.contextMenuEdgeInset,
                     KrithaSpacing.s20,
                     KrithaSpacing.s8,
                   ),
@@ -302,7 +306,7 @@ class _MenuSurface extends StatelessWidget {
               for (var index = 0; index < items.length; index++)
                 _MenuItemRow(
                   item: items[index],
-                  topInset: index == 0
+                  topInset: header == null && index == 0
                       ? KrithaDimensions.contextMenuEdgeInset
                       : 0,
                   bottomInset: index == items.length - 1
@@ -358,7 +362,7 @@ class _MenuItemRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: KrithaDimensions.contextMenuIconGap),
+              SizedBox(width: KrithaDimensions.contextMenuIconGap),
             ],
             Expanded(
               child: Text(
@@ -390,8 +394,8 @@ class _MenuItemRow extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.of(context).pop(item.id),
         splashFactory: NoSplash.splashFactory,
-        overlayColor: const WidgetStatePropertyAll(
-          KrithaColors.contextMenuPressed,
+        overlayColor: WidgetStatePropertyAll(
+          item.focusColor ?? KrithaColors.contextMenuPressed,
         ),
         child: row,
       ),

@@ -18,7 +18,7 @@ Future<void> showAttachmentMenu(
   final selected = await showKrithaContextMenu(
     context: anchorContext,
     anchor: ContextMenuAnchor.fromContext(anchorContext),
-    items: const [
+    items: [
       ContextMenuItem(
         id: 'camera',
         label: 'Camera',
@@ -33,12 +33,12 @@ Future<void> showAttachmentMenu(
       ContextMenuItem(
         id: 'files',
         label: 'Files',
-        icon: HugeIcons.strokeRoundedPaperclip,
+        icon: HugeIcons.strokeRoundedAttachment,
       ),
       ContextMenuItem(
         id: 'plugins',
         label: 'Plugins',
-        icon: HugeIcons.strokeRoundedPuzzle,
+        icon: HugeIcons.strokeRoundedPlug02,
         disabled: true,
       ),
       ContextMenuItem(
@@ -101,7 +101,7 @@ class PlusButton extends StatelessWidget {
         onPressed: onTap,
         padding: EdgeInsets.zero,
         tooltip: 'Add attachments',
-        icon: const KrithaIcon(
+        icon: KrithaIcon(
           icon: HugeIcons.strokeRoundedPlus,
           size: KrithaIcons.lg,
           color: KrithaColors.textSecondary,
@@ -125,7 +125,7 @@ class VoiceModeButton extends StatelessWidget {
         onPressed: onTap,
         padding: EdgeInsets.zero,
         tooltip: 'Start dictation',
-        icon: const KrithaIcon(
+        icon: KrithaIcon(
           icon: HugeIcons.strokeRoundedMic01,
           size: KrithaIcons.lg,
           color: KrithaColors.textPrimary,
@@ -162,7 +162,7 @@ class ComposerActionButton extends StatelessWidget {
       iconSize = 16;
       tooltip = 'Stop response';
     } else if (hasContent) {
-      icon = HugeIcons.strokeRoundedArrowUp01;
+      icon = HugeIcons.strokeRoundedArrowUp02;
       iconSize = compact ? KrithaIcons.md : KrithaIcons.sm;
       tooltip = 'Send message';
     } else {
@@ -205,14 +205,14 @@ class LiveTalkCircleButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     required this.tooltip,
-    this.iconColor = KrithaColors.textPrimary,
+    this.iconColor,
     this.size = KrithaDimensions.liveTalkCircleSize,
   });
 
   final List<List<dynamic>> icon;
   final VoidCallback onTap;
   final String tooltip;
-  final Color iconColor;
+  final Color? iconColor;
   final double size;
 
   @override
@@ -223,7 +223,7 @@ class LiveTalkCircleButton extends StatelessWidget {
         color: KrithaColors.bgTertiary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(KrithaRadius.xl),
-          side: const BorderSide(color: KrithaColors.borderSubtle),
+          side: BorderSide(color: KrithaColors.borderSubtle),
         ),
         child: InkWell(
           onTap: onTap,
@@ -234,7 +234,7 @@ class LiveTalkCircleButton extends StatelessWidget {
             child: KrithaIcon(
               icon: icon,
               size: KrithaIcons.lg,
-              color: iconColor,
+              color: iconColor ?? KrithaColors.textPrimary,
             ),
           ),
         ),

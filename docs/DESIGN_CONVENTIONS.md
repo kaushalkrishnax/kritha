@@ -60,6 +60,12 @@ applies `textPrimary` to the generated text theme. `KrithaApp` merges
 `TextStyle` that omits family and colour inherits both. This is why component
 styles must not repeat them.
 
+[`KrithaColors`] is a static palette with light and dark values. `KrithaApp`
+syncs it from the active theme in its `builder`, and every screen calls
+`watchKrithaPalette(context)` at the start of `build` so a theme switch rebuilds
+mounted subtrees immediately. Any new screen must do the same; otherwise its
+cached token colours stay on the previous theme until the app restarts.
+
 ### Adding a token
 
 Add a value to the narrowest existing class that owns the concern. If it is a

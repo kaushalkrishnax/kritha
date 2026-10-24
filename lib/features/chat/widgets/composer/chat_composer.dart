@@ -21,7 +21,7 @@ class ChatComposer extends ConsumerWidget {
     final viewport = viewportOf(MediaQuery.sizeOf(context).width);
 
     final Widget content = dictation.isActive
-        ? const DictationBar(key: ValueKey('dictation-bar'))
+        ? DictationBar(key: ValueKey('dictation-bar'))
         : state.isLiveTalkActive
         ? LiveTalkBar(
             key: const ValueKey('live-talk'),

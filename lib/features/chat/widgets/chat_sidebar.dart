@@ -22,10 +22,12 @@ class ChatSidebar extends ConsumerStatefulWidget {
     super.key,
     required this.onNewChat,
     required this.onSettings,
+    this.onCollapse,
   });
 
   final VoidCallback onNewChat;
   final VoidCallback onSettings;
+  final VoidCallback? onCollapse;
 
   static double drawerWidthFor(double screenWidth) {
     return math.min(
@@ -65,21 +67,22 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               ? HugeIcons.strokeRoundedPinOff
               : HugeIcons.strokeRoundedPin,
         ),
-        const ContextMenuItem(
+        ContextMenuItem(
           id: 'rename',
           label: 'Rename',
-          icon: HugeIcons.strokeRoundedPencil,
+          icon: HugeIcons.strokeRoundedEdit03,
         ),
-        const ContextMenuItem(
+        ContextMenuItem(
           id: 'archive',
           label: 'Archive',
           icon: HugeIcons.strokeRoundedArchive,
         ),
-        const ContextMenuItem(
+        ContextMenuItem(
           id: 'delete',
           label: 'Delete',
-          icon: HugeIcons.strokeRoundedTrash,
+          icon: HugeIcons.strokeRoundedDelete02,
           destructive: true,
+          focusColor: Color(0x33FF453A),
         ),
       ],
     );
@@ -103,22 +106,22 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: KrithaColors.bgSurface,
-        title: const Text('Rename chat'),
+        title: Text('Rename chat'),
         content: TextField(
           controller: controller,
           autofocus: true,
           textInputAction: TextInputAction.done,
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-          decoration: const InputDecoration(hintText: 'Chat title'),
+          decoration: InputDecoration(hintText: 'Chat title'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
+            child: Text('Save'),
           ),
         ],
       ),
@@ -132,14 +135,14 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   Future<void> _openArchived() async {
     await showDialog<void>(
       context: context,
-      builder: (_) => const _ArchivedSessionsDialog(),
+      builder: (_) => _ArchivedSessionsDialog(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(chatControllerProvider).value;
-    final sessions = chat?.sessions ?? const <ChatSession>[];
+    final sessions = chat?.sessions ?? <ChatSession>[];
     final currentId = chat?.currentSessionId;
     final pinned = sessions.where((session) => session.pinned).toList();
     final recents = sessions.where((session) => !session.pinned).toList();
@@ -153,20 +156,20 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _SidebarHeader(),
+            _SidebarHeader(onCollapse: widget.onCollapse),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: KrithaSpacing.s4),
+                    SizedBox(height: KrithaSpacing.s4),
                     _ActionRow(
                       icon: HugeIcons.strokeRoundedSquarePen,
                       label: 'New chat',
                       onTap: widget.onNewChat,
                     ),
                     _ActionRow(
-                      icon: HugeIcons.strokeRoundedLibrary,
+                      icon: HugeIcons.strokeRoundedLibraryBig,
                       label: 'Library',
                       onTap: () => _stub(context, 'Library'),
                     ),
@@ -176,9 +179,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       onTap: _openArchived,
                     ),
                     _ActionRow(
-                      icon: HugeIcons.strokeRoundedPuzzle,
-                      label: 'Extensions',
-                      onTap: () => _stub(context, 'Extensions'),
+                      icon: HugeIcons.strokeRoundedPlug02,
+                      label: 'Plugins',
+                      onTap: () => _stub(context, 'Plugins'),
                     ),
                     _ActionRow(
                       icon: HugeIcons.strokeRoundedShieldCheck,
@@ -190,9 +193,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       label: 'More',
                       onTap: () => _stub(context, 'More'),
                     ),
-                    const SizedBox(height: KrithaSpacing.s8),
+                    SizedBox(height: KrithaSpacing.s8),
                     if (pinned.isNotEmpty) ...[
-                      const _SectionTitle('Pinned'),
+                      _SectionTitle('Pinned'),
                       for (final session in pinned)
                         _SessionRow(
                           key: ValueKey('session-${session.id}'),
@@ -207,9 +210,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                               ),
                         ),
                     ],
-                    const _SectionTitle('Recents'),
+                    _SectionTitle('Recents'),
                     if (recents.isEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.fromLTRB(
                           KrithaSpacing.s24,
                           KrithaSpacing.s8,
@@ -238,7 +241,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                               session,
                             ),
                       ),
-                    const SizedBox(height: KrithaSpacing.s4),
+                    SizedBox(height: KrithaSpacing.s4),
                   ],
                 ),
               ),
@@ -251,47 +254,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 KrithaSpacing.s24,
                 math.max(bottomInset, KrithaSpacing.s16),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: KrithaColors.accentBlue,
-                      borderRadius: BorderRadius.circular(KrithaRadius.lg),
-                    ),
-                    child: const Text(
-                      'YN',
-                      style: TextStyle(
-                        color: KrithaColors.textOnAccent,
-                        fontSize: KrithaText.sizeBase,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: KrithaSpacing.s12),
-                  const Expanded(
-                    child: Text(
-                      'Your Name',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: KrithaText.sizeMd,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: widget.onSettings,
-                    tooltip: 'Settings',
-                    icon: const KrithaIcon(
-                      icon: HugeIcons.strokeRoundedSettings01,
-                      size: KrithaIcons.md,
-                      color: KrithaColors.iconMuted,
-                    ),
-                  ),
-                ],
+              child: _AccountControl(
+                compact: false,
+                onSettings: widget.onSettings,
               ),
             ),
           ],
@@ -314,17 +279,17 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final archived =
         ref.watch(chatControllerProvider).value?.archivedSessions ??
-        const <ChatSession>[];
+        <ChatSession>[];
 
     return AlertDialog(
       backgroundColor: KrithaColors.bgSurface,
-      title: const Text('Archived chats'),
+      title: Text('Archived chats'),
       content: SizedBox(
         width: 360,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 360),
+          constraints: BoxConstraints(maxHeight: 360),
           child: archived.isEmpty
-              ? const Text(
+              ? Text(
                   'No archived chats.',
                   style: TextStyle(color: KrithaColors.textMuted),
                 )
@@ -335,38 +300,41 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
                       Divider(height: 1, color: KrithaColors.borderFaint),
                   itemBuilder: (context, index) {
                     final session = archived[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        session.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Restore',
-                            onPressed: () => ref
-                                .read(chatControllerProvider.notifier)
-                                .restoreSession(session.id),
-                            icon: const KrithaIcon(
-                              icon: HugeIcons.strokeRoundedArchiveRestore,
-                              size: KrithaIcons.md,
+                    return Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          session.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Restore',
+                              onPressed: () => ref
+                                  .read(chatControllerProvider.notifier)
+                                  .restoreSession(session.id),
+                              icon: KrithaIcon(
+                                icon: HugeIcons.strokeRoundedArchiveRestore,
+                                size: KrithaIcons.md,
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            tooltip: 'Delete',
-                            onPressed: () => ref
-                                .read(chatControllerProvider.notifier)
-                                .deleteSession(session.id),
-                            icon: const KrithaIcon(
-                              icon: HugeIcons.strokeRoundedTrash,
-                              size: KrithaIcons.md,
-                              color: KrithaColors.error,
+                            IconButton(
+                              tooltip: 'Delete',
+                              onPressed: () => ref
+                                  .read(chatControllerProvider.notifier)
+                                  .deleteSession(session.id),
+                              icon: KrithaIcon(
+                                icon: HugeIcons.strokeRoundedDelete02,
+                                size: KrithaIcons.md,
+                                color: KrithaColors.error,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -376,7 +344,7 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text('Close'),
         ),
       ],
     );
@@ -384,12 +352,14 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader();
+  const _SidebarHeader({this.onCollapse});
+
+  final VoidCallback? onCollapse;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s24,
         KrithaSpacing.s4,
         KrithaSpacing.s24,
@@ -412,7 +382,7 @@ class _SidebarHeader extends StatelessWidget {
                   color: KrithaColors.accentBlue,
                   borderRadius: BorderRadius.circular(KrithaRadius.sm),
                 ),
-                child: const Text(
+                child: Text(
                   'K',
                   style: TextStyle(
                     color: KrithaColors.textOnAccent,
@@ -423,8 +393,8 @@ class _SidebarHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: KrithaSpacing.s10),
-          const Flexible(
+          SizedBox(width: KrithaSpacing.s10),
+          Flexible(
             child: Text(
               'Kritha',
               maxLines: 1,
@@ -436,25 +406,276 @@ class _SidebarHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: KrithaSpacing.s6),
-          const Padding(
-            padding: EdgeInsets.only(top: KrithaSpacing.s4),
-            child: Text(
-              'v1.0.0',
-              style: TextStyle(
-                color: KrithaColors.textMuted,
-                fontSize: KrithaText.sizeXs,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const Spacer(),
+          Spacer(),
           _CircleIconButton(
             icon: HugeIcons.strokeRoundedSearch01,
             tooltip: 'Search chats',
             onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
           ),
+          if (onCollapse != null)
+            _CircleIconButton(
+              icon: HugeIcons.strokeRoundedLayoutPanelLeft,
+              tooltip: 'Collapse sidebar',
+              onTap: onCollapse!,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountControl extends StatelessWidget {
+  const _AccountControl({required this.compact, required this.onSettings});
+
+  final bool compact;
+  final VoidCallback onSettings;
+
+  Future<void> _openMenu(BuildContext context) async {
+    final selection = await showKrithaContextMenu(
+      context: context,
+      anchor: ContextMenuAnchor.fromContext(context),
+      items: [
+        ContextMenuItem(
+          id: 'free',
+          label: 'Free',
+          disabled: true,
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        ),
+        ContextMenuItem(
+          id: 'personalization',
+          label: 'Personalization',
+          icon: HugeIcons.strokeRoundedSettings02,
+        ),
+        ContextMenuItem(
+          id: 'profile',
+          label: 'Profile',
+          icon: HugeIcons.strokeRoundedUser,
+        ),
+        ContextMenuItem(
+          id: 'settings',
+          label: 'Settings',
+          icon: HugeIcons.strokeRoundedSettings01,
+        ),
+        ContextMenuItem(
+          id: 'logout',
+          label: 'Log out',
+          icon: HugeIcons.strokeRoundedLogout01,
+        ),
+      ],
+    );
+    if (!context.mounted || selection == null) return;
+    if (selection == 'settings') {
+      onSettings();
+      return;
+    }
+    final message = switch (selection) {
+      'personalization' => 'Personalization is not available yet.',
+      'profile' => 'Profile management is not available yet.',
+      'logout' => 'Sign out is not available yet.',
+      _ => null,
+    };
+    if (message != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Account menu',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openMenu(context),
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(KrithaRadius.base),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s6),
+            child: compact
+                ? Center(child: _AccountAvatar(size: 32))
+                : Row(
+                    children: [
+                      _AccountAvatar(size: 32),
+                      SizedBox(width: KrithaSpacing.s10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Kaushal Krishna',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: KrithaText.sizeSm,
+                                color: KrithaColors.textSecondary.withValues(
+                                  alpha: 0.78,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Free',
+                              style: TextStyle(
+                                fontSize: KrithaText.size2xs,
+                                color: KrithaColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Color(0xFFEF493B),
+        shape: BoxShape.circle,
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      child: Text(
+        'KK',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.38,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class CompactSidebarRail extends StatefulWidget {
+  const CompactSidebarRail({
+    super.key,
+    required this.onExpand,
+    required this.onNewChat,
+    required this.onSettings,
+  });
+
+  final VoidCallback onExpand;
+  final VoidCallback onNewChat;
+  final VoidCallback onSettings;
+
+  @override
+  State<CompactSidebarRail> createState() => _CompactSidebarRailState();
+}
+
+class _CompactSidebarRailState extends State<CompactSidebarRail> {
+  bool _hoveredLogo = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      decoration: BoxDecoration(
+        color: KrithaColors.bgDeepest,
+        border: Border(right: BorderSide(color: KrithaColors.borderSubtle)),
+      ),
+      child: Column(
+        children: [
+          SizedBox(height: KrithaSpacing.s8),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) => setState(() => _hoveredLogo = true),
+            onExit: (_) => setState(() => _hoveredLogo = false),
+            child: Tooltip(
+              message: 'Expand sidebar',
+              child: InkWell(
+                onTap: widget.onExpand,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: KrithaMotion.fast,
+                      child: _hoveredLogo
+                          ? KrithaIcon(
+                              key: ValueKey('sidebar-toggle'),
+                              icon: HugeIcons.strokeRoundedLayoutPanelLeft,
+                              size: KrithaIcons.md,
+                              color: KrithaColors.textSecondary,
+                            )
+                          : Image.asset(
+                              key: ValueKey('kritha-mark'),
+                              'assets/images/kritha_icon_foreground.png',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.contain,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: KrithaSpacing.s8),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedSquarePen,
+            tooltip: 'New chat',
+            onTap: widget.onNewChat,
+          ),
+          _RailButton(
+            icon: HugeIcons.strokeRoundedSearch01,
+            tooltip: 'Search chats',
+            onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
+          ),
+          Spacer(),
+          Padding(
+            padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
+            child: _AccountControl(
+              compact: true,
+              onSettings: widget.onSettings,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RailButton extends StatelessWidget {
+  const _RailButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final List<List<dynamic>> icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: IconButton(
+          onPressed: onTap,
+          tooltip: '',
+          icon: KrithaIcon(
+            icon: icon,
+            size: KrithaIcons.md,
+            color: KrithaColors.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -477,11 +698,9 @@ class _CircleIconButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: KrithaColors.bgSecondary,
-        shape: const CircleBorder(
-          side: BorderSide(color: KrithaColors.borderSubtle),
-        ),
+        shape: CircleBorder(side: BorderSide(color: KrithaColors.borderSubtle)),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          customBorder: CircleBorder(),
           onTap: onTap,
           child: SizedBox(
             width: 44,
@@ -516,7 +735,7 @@ class _ActionRow extends StatelessWidget {
       child: SizedBox(
         height: KrithaDimensions.sidebarActionRowHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
+          padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
           child: Row(
             children: [
               KrithaIcon(
@@ -524,13 +743,13 @@ class _ActionRow extends StatelessWidget {
                 size: KrithaIcons.lg,
                 color: KrithaColors.textPrimary,
               ),
-              const SizedBox(width: KrithaSpacing.s14),
+              SizedBox(width: KrithaSpacing.s14),
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: KrithaText.sizeMd,
                     fontWeight: FontWeight.w700,
                   ),
@@ -552,7 +771,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s24,
         KrithaSpacing.s14,
         KrithaSpacing.s24,
@@ -560,7 +779,7 @@ class _SectionTitle extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: KrithaText.sizeLg,
           fontWeight: FontWeight.w700,
         ),
@@ -603,16 +822,19 @@ class _SessionRowState extends State<_SessionRow> {
         color: widget.selected ? KrithaColors.bgPrimary : Colors.transparent,
         child: InkWell(
           onTap: widget.onTap,
+          mouseCursor: SystemMouseCursors.click,
           onLongPress: () {
+            final position = _pressPosition;
+            if (position != null) widget.onLongPress(context, position);
+          },
+          onSecondaryTap: () {
             final position = _pressPosition;
             if (position != null) widget.onLongPress(context, position);
           },
           child: SizedBox(
             height: KrithaDimensions.sidebarSessionRowHeight,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: KrithaSpacing.s24,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
               child: Row(
                 children: [
                   if (widget.session.pinned) ...[
@@ -623,14 +845,14 @@ class _SessionRowState extends State<_SessionRow> {
                           ? KrithaColors.textPrimary
                           : KrithaColors.textMuted,
                     ),
-                    const SizedBox(width: KrithaSpacing.s12),
+                    SizedBox(width: KrithaSpacing.s12),
                   ],
                   Expanded(
                     child: Text(
                       widget.session.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: KrithaText.sizeMd,
                         fontWeight: FontWeight.w600,
                       ),
@@ -669,7 +891,7 @@ class ChatSidebarPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: KrithaColors.bgDeepest,
         border: viewport.isWide
-            ? const Border(right: BorderSide(color: KrithaColors.borderSubtle))
+            ? Border(right: BorderSide(color: KrithaColors.borderSubtle))
             : null,
       ),
       child: ChatSidebar(onNewChat: onNewChat, onSettings: onSettings),

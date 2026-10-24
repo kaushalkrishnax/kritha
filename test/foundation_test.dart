@@ -154,6 +154,44 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('theme changes repaint mounted screens without a restart', (
+      tester,
+    ) async {
+      await pumpApp(tester, size: const Size(1280, 800));
+
+      Color chatBackground() => tester
+          .widget<ColoredBox>(
+            find.byKey(const ValueKey('chat-background'), skipOffstage: false),
+          )
+          .color;
+
+      expect(chatBackground(), const Color(0xFFF8FAFC));
+
+      await tester.tap(find.byTooltip('Account menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Settings'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tap(find.text('Dark'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(KrithaColors.textPrimary, const Color(0xFFF4F7FA));
+      expect(chatBackground(), const Color(0xFF000000));
+
+      await tester.tap(find.text('Light'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(KrithaColors.textPrimary, const Color(0xFF0F172A));
+      expect(chatBackground(), const Color(0xFFF8FAFC));
+
+      // Leave the static palette in dark mode for any later test that builds
+      // a theme without pumping the app.
+      KrithaColors.setLightMode(false);
+    });
+
     testWidgets(
       'compact shell uses a drawer and hides branding in the header',
       (tester) async {
@@ -172,9 +210,34 @@ void main() {
 
         expect(find.text('New chat').hitTestable(), findsOneWidget);
         expect(find.text('Recents').hitTestable(), findsOneWidget);
-        expect(find.text('Your Name').hitTestable(), findsOneWidget);
-        expect(find.text('YN').hitTestable(), findsOneWidget);
+        expect(find.text('Kaushal Krishna').hitTestable(), findsOneWidget);
+        expect(find.text('KK').hitTestable(), findsOneWidget);
         expect(find.textContaining('messages ·').hitTestable(), findsNothing);
+        await tester.tap(find.byTooltip('Account menu'));
+        await tester.pumpAndSettle();
+        expect(find.text('Free'), findsWidgets);
+        expect(find.text('Personalization'), findsOneWidget);
+        expect(find.text('Profile'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('Log out'), findsOneWidget);
+        final accountMenu = find.byKey(const ValueKey('context-menu-surface'));
+        expect(
+          find.descendant(
+            of: accountMenu,
+            matching: find.text('Kaushal Krishna'),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: accountMenu, matching: find.text('KK')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: accountMenu, matching: find.text('Help')),
+          findsNothing,
+        );
+        await tester.tapAt(Offset(350, 400));
+        await tester.pumpAndSettle();
         // The drawer closes from the backdrop or an edge swipe; no X button.
         expect(find.byTooltip('Close sidebar'), findsNothing);
         expect(
@@ -204,7 +267,11 @@ void main() {
       expect(
         find.descendant(
           of: find.byTooltip('Chat options'),
-          matching: find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedEllipsisVertical),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is HugeIcon &&
+                w.icon == HugeIcons.strokeRoundedEllipsisVertical,
+          ),
         ),
         findsOneWidget,
       );
@@ -231,6 +298,18 @@ void main() {
       expect(find.text('Find in chat'), findsOneWidget);
       expect(find.text('Archive'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
+      final deleteLabel = tester.widget<Text>(find.text('Delete'));
+      expect(deleteLabel.style?.color, KrithaColors.error);
+      final deleteRow = find.ancestor(
+        of: find.text('Delete'),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        tester.widget<InkWell>(deleteRow).overlayColor!.resolve({
+          WidgetState.pressed,
+        }),
+        Color(0x33FF453A),
+      );
     });
 
     testWidgets('medium shell still uses the overlay drawer', (tester) async {
@@ -244,7 +323,7 @@ void main() {
     testWidgets('wide shell docks the sidebar and can hide it', (tester) async {
       await pumpApp(tester, size: const Size(1280, 800));
 
-      expect(find.byTooltip('Hide sidebar'), findsOneWidget);
+      expect(find.byTooltip('Collapse sidebar'), findsOneWidget);
       expect(find.text('Recents').hitTestable(), findsOneWidget);
       expect(
         find.byWidgetPredicate(
@@ -253,11 +332,11 @@ void main() {
         findsWidgets,
       );
 
-      await tester.tap(find.byTooltip('Hide sidebar'));
+      await tester.tap(find.byTooltip('Collapse sidebar'));
       await tester.pumpAndSettle();
 
       expect(find.text('Recents').hitTestable(), findsNothing);
-      expect(find.byTooltip('Show sidebar'), findsOneWidget);
+      expect(find.byTooltip('Expand sidebar'), findsOneWidget);
     });
 
     testWidgets('assistant replies have no avatar, bubble or label', (
@@ -347,14 +426,18 @@ void main() {
             .widget<HugeIcon>(
               find.descendant(
                 of: surface,
-                matching: find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCopy),
+                matching: find.byWidgetPredicate(
+                  (w) =>
+                      w is HugeIcon && w.icon == HugeIcons.strokeRoundedCopy01,
+                ),
               ),
             )
             .size,
         KrithaDimensions.contextMenuIconSize,
       );
 
-      // The first row owns the top edge inset inside its full press target.
+      // The timestamp header receives the top edge padding; the first action
+      // row remains a standard 48px target.
       expect(
         tester
             .getSize(
@@ -364,8 +447,7 @@ void main() {
               ),
             )
             .height,
-        KrithaDimensions.contextMenuItemHeight +
-            KrithaDimensions.contextMenuEdgeInset,
+        KrithaDimensions.contextMenuItemHeight,
       );
 
       await tester.tapAt(const Offset(4, 4));
@@ -448,7 +530,12 @@ void main() {
         expect(find.byTooltip('Read aloud'), findsWidgets);
         expect(find.byTooltip('Share reply'), findsWidgets);
         expect(find.byTooltip('More actions'), findsWidgets);
-        expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShare01), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShare08,
+          ),
+          findsWidgets,
+        );
         expect(
           find.descendant(
             of: find.byTooltip('More actions').first,
@@ -635,8 +722,18 @@ void main() {
     ) async {
       await pumpComposer(tester);
 
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp02,
+        ),
+        findsNothing,
+      );
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsNothing);
 
       // The mic and the primary blue action keep a deliberate 8px gap.
@@ -663,7 +760,12 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Short line');
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp02,
+        ),
+        findsOneWidget,
+      );
 
       await tester.enterText(
         find.byType(TextField),
@@ -790,7 +892,12 @@ void main() {
       await pumpComposer(tester, size: const Size(1280, 800));
 
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('attachment-only messages can be sent and are persisted', (
@@ -829,21 +936,49 @@ void main() {
     ) async {
       await pumpComposer(tester);
 
-      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines,
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedScreenShare), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedScreenShare,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX,
+        ),
+        findsOneWidget,
+      );
       expect(find.byType(TextField), findsNothing);
 
-      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX,
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('attachment picker is the shared context menu', (tester) async {
@@ -953,12 +1088,21 @@ void main() {
     testWidgets('live talk fits a narrow viewport', (tester) async {
       await pumpComposer(tester, size: const Size(320, 640));
 
-      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines,
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(tester.takeException(), isNull);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01,
+        ),
+        findsOneWidget,
+      );
 
       // The glowing pill must remain visible and centred even when the four
       // round controls leave very little horizontal room.
@@ -1004,8 +1148,18 @@ void main() {
       expect(find.byTooltip('Cancel dictation'), findsOneWidget);
       expect(find.byTooltip('Stop and transcribe'), findsOneWidget);
       expect(find.byTooltip('Send dictation'), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSquare), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSquare,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp02,
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     });
   });

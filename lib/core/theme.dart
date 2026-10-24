@@ -6,94 +6,219 @@ import 'package:material_ui/material_ui.dart';
 // ---------------------------------------------------------------------------
 
 abstract final class KrithaColors {
+  static bool _lightMode = false;
+
+  static void setLightMode(bool value) => _lightMode = value;
+
   // Backgrounds
-  static const bgDeepest = Color(0xFF000000);
-  static const bgBase = Color(0xFF0B0D10);
-  static const bgSurface = Color(0xFF111419);
-  static const bgPrimary = Color(0xFF171A1F);
-  static const bgSecondary = Color(0xFF1E2228);
-  static const bgTertiary = Color(0xFF262B32);
-  static const bgQuaternary = Color(0xFF2E343C);
-  static const bgCard = Color(0xFF1B1F24);
-  static const bgScrim = Color(0x99000000); // rgba(0,0,0,0.60)
+  static const _darkBgDeepest = Color(0xFF000000);
+  static Color get bgDeepest => _lightMode ? Color(0xFFF8FAFC) : _darkBgDeepest;
+  static const _darkBgBase = Color(0xFF0B0D10);
+  static Color get bgBase => _lightMode ? Color(0xFFF8FAFC) : _darkBgBase;
+  static const _darkBgSurface = Color(0xFF111419);
+  static Color get bgSurface => _lightMode ? Color(0xFFFFFFFF) : _darkBgSurface;
+  static const _darkBgPrimary = Color(0xFF171A1F);
+  static Color get bgPrimary => _lightMode ? Color(0xFFF1F5F9) : _darkBgPrimary;
+  static const _darkBgSecondary = Color(0xFF1E2228);
+  static Color get bgSecondary =>
+      _lightMode ? Color(0xFFE2E8F0) : _darkBgSecondary;
+  static const _darkBgTertiary = Color(0xFF262B32);
+  static Color get bgTertiary =>
+      _lightMode ? Color(0xFFCBD5E1) : _darkBgTertiary;
+  static const _darkBgQuaternary = Color(0xFF2E343C);
+  static Color get bgQuaternary =>
+      _lightMode ? Color(0xFF94A3B8) : _darkBgQuaternary;
+  static const _darkBgCard = Color(0xFF1B1F24);
+  static Color get bgCard => _lightMode ? Color(0xFFFFFFFF) : _darkBgCard;
+  static const _darkBgScrim = Color(0x99000000);
+  static Color get bgScrim =>
+      _lightMode ? Color(0x66000000) : _darkBgScrim; // rgba(0,0,0,0.60)
 
   /// Translucent composer surface used with a backdrop blur.
-  static const composerGlass = Color(0xD11E2228); // bgSecondary at ~82%
+  static const _darkComposerGlass = Color(0xD11E2228);
+  static Color get composerGlass => _lightMode
+      ? Color(0xE6FFFFFF)
+      : _darkComposerGlass; // bgSecondary at ~82%
+
+  /// Colour the transcript dissolves into behind the floating composer. It has
+  /// to match the chat surface, not be a shadow, or light mode gets a grey
+  /// smudge and dark mode a lighter band.
+  static Color get composerBackdrop => bgDeepest;
+
+  /// Soft elevation around the glass composer. Light mode uses a tinted, wide
+  /// shadow instead of a hard black ring.
+  static Color get composerShadow =>
+      _lightMode ? Color(0x140F172A) : Color(0x66000000);
+
+  /// Semi-transparent puck behind the scroll-to-bottom arrow.
+  static Color get scrollDownSurface =>
+      _lightMode ? Color(0xCCFFFFFF) : Color(0x99262B32);
+
+  /// Floating menu elevation; light mode needs a tinted shadow, not pure black.
+  static Color get menuShadow =>
+      _lightMode ? Color(0x1F0F172A) : Color(0x80000000);
 
   // Text
-  static const textPrimary = Color(0xFFF4F7FA);
-  static const textSecondary = Color(0xFFD7DDE5);
-  static const textMuted = Color(0xFF9299A3);
-  static const textDimmed = Color(0xFF68717D);
-  static const textOnAccent = Color(0xFFFFFFFF);
+  static const _darkTextPrimary = Color(0xFFF4F7FA);
+  static Color get textPrimary =>
+      _lightMode ? Color(0xFF0F172A) : _darkTextPrimary;
+  static const _darkTextSecondary = Color(0xFFD7DDE5);
+  static Color get textSecondary =>
+      _lightMode ? Color(0xFF334155) : _darkTextSecondary;
+  static const _darkTextMuted = Color(0xFF9299A3);
+  static Color get textMuted => _lightMode ? Color(0xFF64748B) : _darkTextMuted;
+  static const _darkTextDimmed = Color(0xFF68717D);
+  static Color get textDimmed =>
+      _lightMode ? Color(0xFF94A3B8) : _darkTextDimmed;
+  static const _darkTextOnAccent = Color(0xFFFFFFFF);
+  static Color get textOnAccent =>
+      _lightMode ? Color(0xFFFFFFFF) : _darkTextOnAccent;
 
   // Brand / Accent
-  static const accentBlue = Color(0xFF2563EB);
-  static const accentLightBlue = Color(0xFF60A5FA);
-  static const accentSky = Color(0xFF38BDF8);
-  static const accentCyan = Color(0xFF22D3EE);
-  static const accentCyanDim = Color(0xFF06B6D4);
-  static const accentCyanBg = Color(0xFF164E63);
+  static const _darkAccentBlue = Color(0xFF2563EB);
+  static Color get accentBlue =>
+      _lightMode ? Color(0xFF2563EB) : _darkAccentBlue;
+  static const _darkAccentLightBlue = Color(0xFF60A5FA);
+  static Color get accentLightBlue =>
+      _lightMode ? Color(0xFF60A5FA) : _darkAccentLightBlue;
+  static const _darkAccentSky = Color(0xFF38BDF8);
+  static Color get accentSky => _lightMode ? Color(0xFF38BDF8) : _darkAccentSky;
+  static const _darkAccentCyan = Color(0xFF22D3EE);
+  static Color get accentCyan =>
+      _lightMode ? Color(0xFF22D3EE) : _darkAccentCyan;
+  static const _darkAccentCyanDim = Color(0xFF06B6D4);
+  static Color get accentCyanDim =>
+      _lightMode ? Color(0xFF06B6D4) : _darkAccentCyanDim;
+  static const _darkAccentCyanBg = Color(0xFF164E63);
+  static Color get accentCyanBg =>
+      _lightMode ? Color(0xFF164E63) : _darkAccentCyanBg;
 
   // Semantic
-  static const success = Color(0xFF34D399);
-  static const error = Color(0xFFF87171);
-  static const warning = Color(0xFFFBBF24);
+  static const _darkSuccess = Color(0xFF34D399);
+  static Color get success => _lightMode ? Color(0xFF34D399) : _darkSuccess;
+  static Color get error => _lightMode ? Color(0xFFDC2626) : Color(0xFFFF453A);
+  static const _darkWarning = Color(0xFFFBBF24);
+  static Color get warning => _lightMode ? Color(0xFFFBBF24) : _darkWarning;
 
   // Border / Divider
-  static const borderStrong = Color(0xFF3A414A);
-  static const borderSubtle = Color(0x1AFFFFFF); // rgba(255,255,255,0.10)
-  static const borderFaint = Color(0x0EFFFFFF); // rgba(255,255,255,0.055)
-  static const borderAccent = Color(0xFF3B82F6);
+  static const _darkBorderStrong = Color(0xFF3A414A);
+  static Color get borderStrong =>
+      _lightMode ? Color(0xFF94A3B8) : _darkBorderStrong;
+  static const _darkBorderSubtle = Color(0x1AFFFFFF);
+  static Color get borderSubtle => _lightMode
+      ? Color(0x260F172A)
+      : _darkBorderSubtle; // rgba(255,255,255,0.10)
+  static const _darkBorderFaint = Color(0x0EFFFFFF);
+  static Color get borderFaint => _lightMode
+      ? Color(0x140F172A)
+      : _darkBorderFaint; // rgba(255,255,255,0.055)
+  static const _darkBorderAccent = Color(0xFF3B82F6);
+  static Color get borderAccent =>
+      _lightMode ? Color(0xFF2563EB) : _darkBorderAccent;
 
   // Context menu (RN ContextMenu.tsx: pressed 0.09 white)
-  static const contextMenuPressed = Color(0x17FFFFFF);
+  static const _darkContextMenuPressed = Color(0x17FFFFFF);
+  static Color get contextMenuPressed =>
+      _lightMode ? Color(0x140F172A) : _darkContextMenuPressed;
 
   // Message bubbles
-  static const userBubble = Color(0xFF21437D);
-  static const userBubbleBg = Color(0xFF21437D);
-  static const assistantBubbleBg = Color(0x142563EB); // rgba(37,99,235,0.08)
-  static const assistantBubbleBorder = Color(
-    0x402563EB,
-  ); // rgba(37,99,235,0.25)
+  static const _darkUserBubble = Color(0xFF21437D);
+  static Color get userBubble =>
+      _lightMode ? Color(0xFFDBEAFE) : _darkUserBubble;
+  static const _darkUserBubbleBg = Color(0xFF21437D);
+  static Color get userBubbleBg =>
+      _lightMode ? Color(0xFFDBEAFE) : _darkUserBubbleBg;
+  static const _darkAssistantBubbleBg = Color(0x142563EB);
+  static Color get assistantBubbleBg => _lightMode
+      ? Color(0x142563EB)
+      : _darkAssistantBubbleBg; // rgba(37,99,235,0.08)
+  static const _darkAssistantBubbleBorder = Color(0x402563EB);
+  static Color get assistantBubbleBorder => _lightMode
+      ? Color(0x402563EB)
+      : _darkAssistantBubbleBorder; // rgba(37,99,235,0.25)
 
   // Thinking block
-  static const thinkingBorder = Color(0xFF2563EB);
-  static const thinkingBg = Color(0x142563EB); // rgba(37,99,235,0.08)
+  static const _darkThinkingBorder = Color(0xFF2563EB);
+  static Color get thinkingBorder =>
+      _lightMode ? Color(0xFF2563EB) : _darkThinkingBorder;
+  static const _darkThinkingBg = Color(0x142563EB);
+  static Color get thinkingBg =>
+      _lightMode ? Color(0x142563EB) : _darkThinkingBg; // rgba(37,99,235,0.08)
 
   // Other semantic surfaces
-  static const errorBubbleBg = Color(0x26F87171); // rgba(248,113,113,0.15)
-  static const ttsActiveBg = Color(0x2660A5FA); // rgba(96,165,250,0.15)
+  static const _darkErrorBubbleBg = Color(0x26F87171);
+  static Color get errorBubbleBg => _lightMode
+      ? Color(0x26DC2626)
+      : _darkErrorBubbleBg; // rgba(248,113,113,0.15)
+  static const _darkTtsActiveBg = Color(0x2660A5FA);
+  static Color get ttsActiveBg => _lightMode
+      ? Color(0x263B82F6)
+      : _darkTtsActiveBg; // rgba(96,165,250,0.15)
 
   // Data visualisation
   /// Dictation metering bars: a light grey, not pure white, so they sit calmly
   /// inside the frosted composer and match the reference recording strip.
-  static const waveformBar = Color(0xFFC5CBD3);
+  static const _darkWaveformBar = Color(0xFFC5CBD3);
+  static Color get waveformBar =>
+      _lightMode ? Color(0xFF64748B) : _darkWaveformBar;
 
   // Icons
-  static const iconMuted = Color(0xFF9AA3AD);
-  static const iconSlate = Color(0xFFC5CBD3);
+  static const _darkIconMuted = Color(0xFF9AA3AD);
+  static Color get iconMuted => _lightMode ? Color(0xFF64748B) : _darkIconMuted;
+  static const _darkIconSlate = Color(0xFFC5CBD3);
+  static Color get iconSlate => _lightMode ? Color(0xFF475569) : _darkIconSlate;
 
   // Dracula theme (code blocks)
-  static const draculaCurrentLine = Color(0xFF44475A);
-  static const draculaLine = draculaCurrentLine;
-  static const draculaForeground = Color(0xFFF8F8F2);
+  static const _darkDraculaCurrentLine = Color(0xFF44475A);
+  static Color get draculaCurrentLine =>
+      _lightMode ? Color(0xFF44475A) : _darkDraculaCurrentLine;
+  static Color get draculaLine => draculaCurrentLine;
+  static const _darkDraculaForeground = Color(0xFFF8F8F2);
+  static Color get draculaForeground =>
+      _lightMode ? Color(0xFFF8F8F2) : _darkDraculaForeground;
 
   // Syntax highlighting (Dracula palette)
-  static const syntaxKeyword = Color(0xFFFF79C6);
-  static const syntaxOperator = Color(0xFFFF79C6);
-  static const syntaxPunctuation = Color(0xFFF8F8F2);
-  static const syntaxString = Color(0xFFF1FA8C);
-  static const syntaxNumber = Color(0xFFBD93F9);
-  static const syntaxConstant = Color(0xFFBD93F9);
-  static const syntaxComment = Color(0xFF6272A4);
-  static const syntaxFunction = Color(0xFF50FA7B);
-  static const syntaxType = Color(0xFF8BE9FD);
-  static const syntaxVariable = Color(0xFFF8F8F2);
-  static const syntaxProperty = Color(0xFF50FA7B);
-  static const syntaxTag = Color(0xFFFF79C6);
-  static const syntaxAttribute = Color(0xFF50FA7B);
-  static const syntaxEmbedded = Color(0xFFF8F8F2);
+  static const _darkSyntaxKeyword = Color(0xFFFF79C6);
+  static Color get syntaxKeyword =>
+      _lightMode ? Color(0xFFFF79C6) : _darkSyntaxKeyword;
+  static const _darkSyntaxOperator = Color(0xFFFF79C6);
+  static Color get syntaxOperator =>
+      _lightMode ? Color(0xFFFF79C6) : _darkSyntaxOperator;
+  static const _darkSyntaxPunctuation = Color(0xFFF8F8F2);
+  static Color get syntaxPunctuation =>
+      _lightMode ? Color(0xFFF8F8F2) : _darkSyntaxPunctuation;
+  static const _darkSyntaxString = Color(0xFFF1FA8C);
+  static Color get syntaxString =>
+      _lightMode ? Color(0xFFF1FA8C) : _darkSyntaxString;
+  static const _darkSyntaxNumber = Color(0xFFBD93F9);
+  static Color get syntaxNumber =>
+      _lightMode ? Color(0xFFBD93F9) : _darkSyntaxNumber;
+  static const _darkSyntaxConstant = Color(0xFFBD93F9);
+  static Color get syntaxConstant =>
+      _lightMode ? Color(0xFFBD93F9) : _darkSyntaxConstant;
+  static const _darkSyntaxComment = Color(0xFF6272A4);
+  static Color get syntaxComment =>
+      _lightMode ? Color(0xFF6272A4) : _darkSyntaxComment;
+  static const _darkSyntaxFunction = Color(0xFF50FA7B);
+  static Color get syntaxFunction =>
+      _lightMode ? Color(0xFF50FA7B) : _darkSyntaxFunction;
+  static const _darkSyntaxType = Color(0xFF8BE9FD);
+  static Color get syntaxType =>
+      _lightMode ? Color(0xFF8BE9FD) : _darkSyntaxType;
+  static const _darkSyntaxVariable = Color(0xFFF8F8F2);
+  static Color get syntaxVariable =>
+      _lightMode ? Color(0xFFF8F8F2) : _darkSyntaxVariable;
+  static const _darkSyntaxProperty = Color(0xFF50FA7B);
+  static Color get syntaxProperty =>
+      _lightMode ? Color(0xFF50FA7B) : _darkSyntaxProperty;
+  static const _darkSyntaxTag = Color(0xFFFF79C6);
+  static Color get syntaxTag => _lightMode ? Color(0xFFFF79C6) : _darkSyntaxTag;
+  static const _darkSyntaxAttribute = Color(0xFF50FA7B);
+  static Color get syntaxAttribute =>
+      _lightMode ? Color(0xFF50FA7B) : _darkSyntaxAttribute;
+  static const _darkSyntaxEmbedded = Color(0xFFF8F8F2);
+  static Color get syntaxEmbedded =>
+      _lightMode ? Color(0xFFF8F8F2) : _darkSyntaxEmbedded;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,13 +268,13 @@ abstract final class KrithaText {
 
   static const message = TextStyle(fontSize: sizeBase, height: lineHeightRatio);
 
-  static const composerInput = TextStyle(
+  static TextStyle get composerInput => TextStyle(
     fontSize: sizeComposer,
     height: 24 / sizeComposer,
     color: KrithaColors.textSecondary,
   );
 
-  static const label = TextStyle(
+  static TextStyle get label => TextStyle(
     fontSize: sizeXs,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.1,
@@ -218,7 +343,7 @@ abstract final class KrithaDimensions {
   /// The header is a 17px line (1.55 line-height, ~26.4px) plus 12/8 padding,
   /// rounded to 47. The 1px border allowance is added separately by the menu
   /// estimator; keeping these in sync prevents IME/safe-area clipping.
-  static const contextMenuHeaderHeight = 47.0;
+  static const contextMenuHeaderHeight = 55.0;
   static const contextMenuScreenMargin = 12.0;
   static const contextMenuSafeTop = 16.0;
   static const contextMenuIconSize = 18.0;
@@ -248,9 +373,9 @@ abstract final class KrithaDimensions {
 
   /// Composer frost: the floating composer blurs the transcript behind it.
   static const composerBlurSigma = 18.0;
-  static const composerBackdropBlurSigma = 14.0;
+  static const composerBackdropBlurSigma = 20.0;
   static const composerBackdropLift = 28.0;
-  static const composerBackdropScrimOpacity = 0.35;
+  static const composerBackdropScrimOpacity = 0.55;
 
   /// Overlay header fade from the RN `ChatMessages.tsx` top gradient.
   static const headerFadeHeight = 100.0;
@@ -335,12 +460,21 @@ abstract final class KrithaFonts {
   static const dmSans = 'DMSans';
 }
 
+/// Keeps [KrithaColors] in sync with the active [Theme] and makes the caller
+/// depend on it. The palette is static, so without an explicit [Theme]
+/// dependency most subtrees keep their previously-built colours after a theme
+/// switch. Screens call this once at the top of their build.
+void watchKrithaPalette(BuildContext context) {
+  KrithaColors.setLightMode(Theme.of(context).brightness == Brightness.light);
+}
+
 // ---------------------------------------------------------------------------
 // ThemeData builder
 // ---------------------------------------------------------------------------
 
 ThemeData buildKrithaTheme() {
-  const scheme = ColorScheme.dark(
+  final scheme = ColorScheme(
+    brightness: KrithaColors._lightMode ? Brightness.light : Brightness.dark,
     primary: KrithaColors.accentBlue,
     onPrimary: Colors.white,
     secondary: KrithaColors.accentSky,
@@ -351,11 +485,13 @@ ThemeData buildKrithaTheme() {
     outline: KrithaColors.borderStrong,
     outlineVariant: KrithaColors.borderSubtle,
     error: KrithaColors.error,
+    onError: KrithaColors.textOnAccent,
+    surfaceTint: KrithaColors.accentBlue,
   );
 
   final base = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: scheme.brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: KrithaColors.bgBase,
     fontFamily: KrithaFonts.dmSans,
@@ -372,14 +508,14 @@ ThemeData buildKrithaTheme() {
     canvasColor: KrithaColors.bgBase,
     dividerColor: KrithaColors.borderSubtle,
     splashFactory: InkSparkle.splashFactory,
-    textSelectionTheme: const TextSelectionThemeData(
+    textSelectionTheme: TextSelectionThemeData(
       cursorColor: KrithaColors.accentLightBlue,
       selectionColor: Color(0x4D2563EB),
       selectionHandleColor: KrithaColors.accentLightBlue,
     ),
     scrollbarTheme: ScrollbarThemeData(
       thickness: WidgetStateProperty.all(3),
-      radius: const Radius.circular(KrithaRadius.full),
+      radius: Radius.circular(KrithaRadius.full),
       thumbColor: WidgetStateProperty.all(KrithaColors.bgQuaternary),
     ),
     textTheme: baseTextTheme.copyWith(
@@ -405,17 +541,17 @@ ThemeData buildKrithaTheme() {
         color: KrithaColors.textMuted,
       ),
     ),
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       foregroundColor: KrithaColors.textPrimary,
       elevation: 0,
       scrolledUnderElevation: 0,
     ),
-    drawerTheme: const DrawerThemeData(
+    drawerTheme: DrawerThemeData(
       backgroundColor: KrithaColors.bgDeepest,
       scrimColor: KrithaColors.bgScrim,
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
+    bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: KrithaColors.bgSurface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
@@ -434,10 +570,23 @@ ThemeData buildKrithaTheme() {
         borderRadius: BorderRadius.circular(KrithaRadius.base),
       ),
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
       border: InputBorder.none,
       hintStyle: TextStyle(color: KrithaColors.textDimmed),
       isDense: true,
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: KrithaColors.bgTertiary,
+        borderRadius: BorderRadius.circular(KrithaRadius.sm),
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      textStyle: TextStyle(
+        color: KrithaColors.textPrimary,
+        fontFamily: KrithaFonts.dmSans,
+        fontSize: KrithaText.sizeXs,
+      ),
+      waitDuration: Duration(milliseconds: 500),
     ),
   );
 }

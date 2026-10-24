@@ -16,25 +16,35 @@ class KrithaGlassSurface extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     this.padding = EdgeInsets.zero,
-    this.color = KrithaColors.composerGlass,
+    this.color,
     this.border,
-    this.boxShadow = const [
-      BoxShadow(color: Color(0x59000000), blurRadius: 12, offset: Offset(0, 4)),
-    ],
+    this.boxShadow,
   });
 
   final Widget child;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
-  final Color color;
+  final Color? color;
   final BoxBorder? border;
-  final List<BoxShadow> boxShadow;
+  final List<BoxShadow>? boxShadow;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(borderRadius);
     return Container(
-      decoration: BoxDecoration(borderRadius: radius, boxShadow: boxShadow),
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow:
+            boxShadow ??
+            [
+              BoxShadow(
+                color: KrithaColors.composerShadow,
+                blurRadius: 24,
+                spreadRadius: 2,
+                offset: Offset(0, 8),
+              ),
+            ],
+      ),
       child: ClipRRect(
         borderRadius: radius,
         child: BackdropFilter(
@@ -45,7 +55,7 @@ class KrithaGlassSurface extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: color,
+              color: color ?? KrithaColors.composerGlass,
               borderRadius: radius,
               border: border ?? Border.all(color: KrithaColors.borderSubtle),
             ),

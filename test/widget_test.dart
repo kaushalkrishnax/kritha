@@ -68,19 +68,22 @@ void main() {
 
     await tester.tap(find.byTooltip('Sessions'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Settings'));
+    await tester.tap(find.byTooltip('Account menu'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('Runtime & packages'), findsOneWidget);
-    expect(find.text('v1.13.8'), findsWidgets);
-    expect(find.textContaining('Kritha Flutter stack'), findsOneWidget);
+    expect(find.text('THEME'), findsOneWidget);
+    expect(find.textContaining('v1.13.8'), findsWidgets);
 
     // The back control is exactly the 44px circle, with no IconButton padding
     // shrinking the ripple inside the visible surface.
     expect(tester.getSize(find.byTooltip('Back')), const Size(44, 44));
     await tester.tap(find.byTooltip('Back'));
-    await tester.pumpAndSettle();
-    expect(find.text('Runtime & packages'), findsNothing);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(find.text('THEME'), findsNothing);
   });
 
   testWidgets('new chat stays unsaved until the first prompt', (tester) async {

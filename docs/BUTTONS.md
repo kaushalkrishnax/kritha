@@ -66,7 +66,7 @@ Rules:
 | Shape | Rounded square, `KrithaRadius.lg` (20) |
 | Fill | `KrithaColors.accentBlue` |
 | Icon | `textOnAccent`; 22 px compact, 18 px expanded |
-| States | Arrow up when draft/content, square while busy, audio-lines when empty |
+| States | `ArrowUp02` when draft/content, square while busy, audio-lines when empty |
 | Tooltip | “Send message”, “Stop response”, “Live Talk” |
 | Motion | `AnimatedContainer` over `KrithaMotion.fast` for state colour/size changes |
 | Gap from mic | `KrithaSpacing.s8` (8 px) |
@@ -241,9 +241,10 @@ the missing response menu.
 | --- | --- |
 | Size | 45 × 45 |
 | Shape | Circle |
-| Fill | `bgTertiary` |
-| Elevation | 6, shadow `bgDeepest` |
-| Icon | 24 px `textPrimary` |
+| Fill | `scrollDownSurface` (translucent `bgTertiary`, lighter white in light mode) |
+| Border | 1 px `borderSubtle` |
+| Elevation | 4, shadow `composerShadow` |
+| Icon | `ArrowDown02`, 24 px `textPrimary` |
 | Visibility | Fade over 180 ms; auto-hide after 1.5 s; ignore pointer when hidden |
 
 It floats above the composer with 24 px lift and 12 px bottom gap. Keep it

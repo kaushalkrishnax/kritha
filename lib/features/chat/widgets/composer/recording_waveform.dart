@@ -13,16 +13,18 @@ class RecordingWaveform extends StatefulWidget {
     super.key,
     required this.levels,
     required this.paused,
-    this.color = KrithaColors.waveformBar,
+    Color? color,
     this.maxBars = KrithaDimensions.waveformMaxBars,
     this.barWidth = KrithaDimensions.waveformBarWidth,
     this.barGap = KrithaDimensions.waveformBarGap,
     this.barHeight = KrithaDimensions.waveformBarHeight,
-  });
+  }) : _overrideColor = color;
 
   final List<double> levels;
   final bool paused;
-  final Color color;
+  final Color? _overrideColor;
+
+  Color get color => _overrideColor ?? KrithaColors.waveformBar;
   final int maxBars;
   final double barWidth;
   final double barGap;
@@ -36,7 +38,7 @@ class _RecordingWaveformState extends State<RecordingWaveform>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 650),
+    duration: Duration(milliseconds: 650),
     lowerBound: 0.35,
     upperBound: 1.0,
     value: 1.0,
@@ -84,9 +86,7 @@ class _RecordingWaveformState extends State<RecordingWaveform>
           final shown = bars.sublist(bars.length - fitting);
 
           return FadeTransition(
-            opacity: widget.paused
-                ? _pulse
-                : const AlwaysStoppedAnimation<double>(1),
+            opacity: widget.paused ? _pulse : AlwaysStoppedAnimation<double>(1),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,

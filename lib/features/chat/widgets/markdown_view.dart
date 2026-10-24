@@ -11,7 +11,9 @@ class MarkdownView extends StatelessWidget {
 
   final String data;
 
-  static const _styleSheet = GptMarkdownStyleSheet(
+  /// Rebuilt per frame: the palette flips with the active theme, so caching the
+  /// sheet would pin the first theme's colours for the rest of the session.
+  GptMarkdownStyleSheet get _styleSheet => GptMarkdownStyleSheet(
     heading: HeadingStyle(
       showDivider: false,
       dividerColor: KrithaColors.borderSubtle,

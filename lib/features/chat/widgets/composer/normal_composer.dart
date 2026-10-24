@@ -87,7 +87,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
   void _handleAction(bool isBusy, bool hasContent) {
     if (isBusy) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The current reply is still in flight.')),
+        SnackBar(content: Text('The current reply is still in flight.')),
       );
       return;
     }
@@ -228,18 +228,18 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                   onClose: () =>
                       ref.read(composerProvider.notifier).clearDraft(),
                 ),
-                const SizedBox(height: KrithaSpacing.s12),
+                SizedBox(height: KrithaSpacing.s12),
               ],
               KrithaGlassSurface(
                 borderRadius: isExpanded ? KrithaRadius.xl : KrithaRadius.xl2,
                 padding: isExpanded
-                    ? const EdgeInsets.fromLTRB(
+                    ? EdgeInsets.fromLTRB(
                         KrithaSpacing.s10,
                         KrithaSpacing.s12,
                         KrithaSpacing.s10,
                         KrithaSpacing.s8,
                       )
-                    : const EdgeInsets.symmetric(
+                    : EdgeInsets.symmetric(
                         horizontal: KrithaSpacing.s8,
                         vertical: KrithaSpacing.s6,
                       ),
@@ -254,7 +254,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                             .read(composerProvider.notifier)
                             .removeAttachment(attachment.id),
                       ),
-                      const SizedBox(height: KrithaSpacing.s8),
+                      SizedBox(height: KrithaSpacing.s8),
                     ],
                     SizedBox(
                       height: inputAreaHeight,
@@ -265,7 +265,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                         children: [
                           if (!isExpanded)
                             KeyedSubtree(
-                              key: const ValueKey('composer-plus'),
+                              key: ValueKey('composer-plus'),
                               child: Builder(
                                 builder: (buttonContext) => PlusButton(
                                   onTap: () =>
@@ -274,7 +274,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                               ),
                             ),
                           Expanded(
-                            key: const ValueKey('composer-input'),
+                            key: ValueKey('composer-input'),
                             child: Padding(
                               padding: EdgeInsets.symmetric(
                                 horizontal: isExpanded ? KrithaSpacing.s6 : 0,
@@ -295,7 +295,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                                     : TextAlignVertical.center,
                                 style: KrithaText.composerInput,
                                 cursorColor: KrithaColors.accentLightBlue,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Ask Kritha...',
                                   hintStyle: TextStyle(
                                     color: KrithaColors.textMuted,
@@ -309,7 +309,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                           ),
                           if (!isExpanded) ...[
                             VoiceModeButton(onTap: _startDictation),
-                            const SizedBox(width: KrithaSpacing.s8),
+                            SizedBox(width: KrithaSpacing.s8),
                             ComposerActionButton(
                               isBusy: isBusy,
                               hasContent: hasContent,
@@ -321,9 +321,9 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                       ),
                     ),
                     if (isExpanded) ...[
-                      const SizedBox(height: KrithaSpacing.s4),
+                      SizedBox(height: KrithaSpacing.s4),
                       SizedBox(
-                        key: const ValueKey('composer-bottom-row'),
+                        key: ValueKey('composer-bottom-row'),
                         height: KrithaDimensions.composerBottomRowHeight,
                         child: Row(
                           children: [
@@ -333,9 +333,9 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                                     showAttachmentMenu(buttonContext, ref),
                               ),
                             ),
-                            const Spacer(),
+                            Spacer(),
                             VoiceModeButton(onTap: _startDictation),
-                            const SizedBox(width: KrithaSpacing.s8),
+                            SizedBox(width: KrithaSpacing.s8),
                             ComposerActionButton(
                               isBusy: isBusy,
                               hasContent: hasContent,
@@ -365,8 +365,8 @@ class _EditingWarning extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      key: const ValueKey('editing-warning'),
-      padding: const EdgeInsets.symmetric(
+      key: ValueKey('editing-warning'),
+      padding: EdgeInsets.symmetric(
         horizontal: KrithaSpacing.s16,
         vertical: KrithaSpacing.s12,
       ),
@@ -374,9 +374,9 @@ class _EditingWarning extends StatelessWidget {
         color: KrithaColors.bgSecondary,
         borderRadius: BorderRadius.circular(KrithaRadius.md),
         border: Border.all(color: KrithaColors.borderSubtle),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x26000000),
+            color: KrithaColors.composerShadow,
             offset: Offset(0, 2),
             blurRadius: 8,
           ),
@@ -384,13 +384,13 @@ class _EditingWarning extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const KrithaIcon(
+          KrithaIcon(
             icon: HugeIcons.strokeRoundedInfo,
             size: KrithaIcons.sm,
             color: KrithaColors.textPrimary,
           ),
-          const SizedBox(width: KrithaSpacing.s8),
-          const Expanded(
+          SizedBox(width: KrithaSpacing.s8),
+          Expanded(
             child: Text(
               'Editing this message will restart the conversation from here.',
               style: TextStyle(
@@ -399,13 +399,13 @@ class _EditingWarning extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: KrithaSpacing.s8),
+          SizedBox(width: KrithaSpacing.s8),
           Tooltip(
             message: 'Cancel editing',
             child: InkWell(
               onTap: onClose,
               borderRadius: BorderRadius.circular(KrithaRadius.full),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(KrithaSpacing.s4),
                 child: KrithaIcon(
                   icon: HugeIcons.strokeRoundedX,

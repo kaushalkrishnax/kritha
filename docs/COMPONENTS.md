@@ -93,7 +93,7 @@ which point the session row is created with a title derived from that prompt.
 | --- | --- | --- | --- |
 | `showKrithaContextMenu`, `ContextMenuItem` | `lib/widgets/context_menu.dart` | Real | React Native geometry/motion: 200 px wide, 48 px middle rows, 24 px radius, 8 px gap, fade + scale from the nearest corner, disabled/destructive states. First/last rows are 56 px and own an 8 px outer edge inset inside their press surface, so there is no surface gutter, the content clears the rounded corners, and no separator rule is needed. Used by the composer attachment picker, header ellipsis, user-message long press and sidebar session long press. `requestFocus: false` keeps the composer keyboard open; with the keyboard up the menu stays fully above the IME (Android hides anything drawn inside the keyboard rectangle), ChatGPT-style. Auto-aligned sidebar menus accept a right boundary; message menus align right. |
 | `KrithaGlassSurface` | `lib/widgets/glass_surface.dart` | Real | Rounded translucent surface with `BackdropFilter` blur; used by the normal composer and dictation bar. The composer floats over the transcript and the message list reserves its measured height. |
-| `buildKrithaTheme` / token classes | `lib/core/theme.dart` | Real | Single source for colours, type, spacing, radii, dimensions, motion. DM Sans 400/500/600/700 is bundled and owns `ThemeData.fontFamily`; the theme text styles own `textPrimary` as the default colour. Normal component text inherits both, with local family/colour only for secondary, muted, hint, disabled, destructive or monospace exceptions. |
+| `buildKrithaTheme` / token classes | `lib/core/theme.dart` | Real | Single source for colours, type, spacing, radii, dimensions, motion. The palette has light and dark values; System/Light/Dark is persisted and applied instantly through `watchKrithaPalette`. DM Sans 400/500/600/700 is bundled and owns `ThemeData.fontFamily`; the theme text styles own `textPrimary` as the default colour. Normal component text inherits both, with local family/colour only for secondary, muted, hint, disabled, destructive or monospace exceptions. |
 | `KrithaViewport` | `lib/core/responsive.dart` | Real | Width-only breakpoints at 600 / 840. |
 
 ## Data, models and services
@@ -151,15 +151,15 @@ hand-off: the visible entry point already exists where noted.
 | 6 | Plugins | `showAttachmentMenu` `'plugins'` | Visible, disabled. | Plugin picker and attachment/tool contract. |
 | 7 | Think harder | `showAttachmentMenu` `'think'` | Visible, disabled. | Reasoning-mode flag plumbed into the engine request. |
 | 8 | Library | Sidebar `Library` | Stub snackbar. | RN Library screen and its data source. |
-| 9 | Extensions | Sidebar row | Stub snackbar. | Extension management. |
+| 9 | Plugins | Sidebar row | Stub snackbar. | Plugin management. |
 | 10 | Permissions | Sidebar row | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
 | 11 | More | Sidebar row | Stub snackbar. | Remaining RN account/menu actions. |
 | 12 | Chat search | Sidebar search icon | Stub snackbar. | SQLite FTS or in-memory filter across titles/messages. |
 | 13 | Attachment storage | `FileAttachmentPicker` / send | Stores the picker path only. | Copy into app documents and delete on session removal. |
 | 14 | Message pagination | `AppDatabase.messagesForSession` | Loads every message. | Windowed queries for long conversations. |
 | 15 | Markdown links | `MarkdownView.onTapLink` | Stub snackbar. | Route through `url_launcher` with allow-listing. |
-| 16 | Wake word | Header runtime slot | Opens runtime screen. | Wake-word service and toggle state. |
-| 17 | Account identity | Sidebar footer | Static “Your Name / YN”. | Profile source and editing. |
+| 16 | Wake word | `SettingsScreen` → Voice | Real Android foreground-service toggle. | iOS/desktop runtime and a model picker. |
+| 17 | Account identity | Sidebar footer → account menu | Static “Kaushal Krishna / KK” with Free, Personalization, Profile, Settings and Log out entries; only Settings is wired. | Profile source, plan data and real account actions. |
 | 18 | Settings depth | `SettingsScreen` | Probes + reset only. | RN toggles and model management. |
 | 19 | Backend/network | `dioProvider` | Configured, unused. | Auth, sync, remote models, request logging. |
 

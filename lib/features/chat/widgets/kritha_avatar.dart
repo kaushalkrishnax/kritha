@@ -18,7 +18,7 @@ class KrithaAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: showRing
-            ? const LinearGradient(
+            ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
@@ -29,7 +29,7 @@ class KrithaAvatar extends StatelessWidget {
               )
             : null,
         boxShadow: showRing
-            ? const [
+            ? [
                 BoxShadow(
                   color: Color(0x332563EB),
                   blurRadius: 12,

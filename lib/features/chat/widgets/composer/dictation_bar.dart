@@ -67,7 +67,7 @@ class DictationBar extends ConsumerWidget {
         label: transcribing ? 'Transcribing dictation' : 'Dictation listening',
         child: KrithaGlassSurface(
           borderRadius: KrithaRadius.xl,
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: KrithaSpacing.s8,
             vertical: KrithaSpacing.s6,
           ),
@@ -83,10 +83,10 @@ class DictationBar extends ConsumerWidget {
                   iconSize: KrithaIcons.lg,
                   onTap: cancel,
                 ),
-                const SizedBox(width: KrithaSpacing.s8),
+                SizedBox(width: KrithaSpacing.s8),
                 Expanded(
                   child: transcribing
-                      ? const Row(
+                      ? Row(
                           children: [
                             SizedBox(
                               width: 18,
@@ -108,7 +108,7 @@ class DictationBar extends ConsumerWidget {
                         )
                       : RecordingWaveform(levels: state.levels, paused: false),
                 ),
-                const SizedBox(width: KrithaSpacing.s8),
+                SizedBox(width: KrithaSpacing.s8),
                 _DictationControl(
                   icon: HugeIcons.strokeRoundedSquare,
                   tooltip: 'Stop and transcribe',
@@ -117,9 +117,9 @@ class DictationBar extends ConsumerWidget {
                   background: KrithaColors.bgTertiary,
                   onTap: transcribing ? null : () => transcribe(send: false),
                 ),
-                const SizedBox(width: KrithaSpacing.s6),
+                SizedBox(width: KrithaSpacing.s6),
                 _DictationControl(
-                  icon: HugeIcons.strokeRoundedArrowUp01,
+                  icon: HugeIcons.strokeRoundedArrowUp02,
                   tooltip: 'Send dictation',
                   iconColor: KrithaColors.textOnAccent,
                   iconSize: KrithaIcons.md,

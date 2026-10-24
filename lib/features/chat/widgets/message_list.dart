@@ -62,7 +62,7 @@ class MessageList extends StatelessWidget {
           itemBuilder: (context, index) {
             final Widget item;
             if (index == messages.length) {
-              item = const _ThinkingRow();
+              item = _ThinkingRow();
             } else {
               final message = messages[index];
               item = switch (message.role) {
@@ -75,13 +75,13 @@ class MessageList extends StatelessWidget {
             }
 
             final padded = Padding(
-              padding: const EdgeInsets.only(bottom: KrithaSpacing.messageGap),
+              padding: EdgeInsets.only(bottom: KrithaSpacing.messageGap),
               child: item,
             );
             if (!viewport.usesCenteredColumn) return padded;
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
+                constraints: BoxConstraints(
                   maxWidth: KrithaDimensions.maxContentWidth,
                 ),
                 child: padded,
@@ -108,7 +108,7 @@ class _UserMessage extends ConsumerWidget {
     await Clipboard.setData(ClipboardData(text: message.text));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Message copied')));
+        .showSnackBar(SnackBar(content: Text('Message copied')));
   }
 
   Future<void> _openMenu(BuildContext bubbleContext, WidgetRef ref) async {
@@ -118,21 +118,21 @@ class _UserMessage extends ConsumerWidget {
       align: ContextMenuAlign.right,
       header: Text(
         _formatMessageTime(message.createdAt),
-        style: const TextStyle(
+        style: TextStyle(
           color: KrithaColors.textMuted,
           fontSize: KrithaText.sizeBase,
         ),
       ),
-      items: const [
+      items: [
         ContextMenuItem(
           id: 'copy',
           label: 'Copy',
-          icon: HugeIcons.strokeRoundedCopy,
+          icon: HugeIcons.strokeRoundedCopy01,
         ),
         ContextMenuItem(
           id: 'edit',
           label: 'Edit message',
-          icon: HugeIcons.strokeRoundedPencil,
+          icon: HugeIcons.strokeRoundedEdit03,
         ),
       ],
     );
@@ -161,10 +161,12 @@ class _UserMessage extends ConsumerWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onLongPress: () => _openMenu(bubbleContext, ref),
+              onSecondaryTap: () => _openMenu(bubbleContext, ref),
+              mouseCursor: SystemMouseCursors.click,
               splashColor: KrithaColors.contextMenuPressed,
               highlightColor: KrithaColors.contextMenuPressed,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: KrithaSpacing.s20,
                   vertical: KrithaSpacing.s12,
                 ),
@@ -193,7 +195,7 @@ String _formatMessageTime(DateTime timestamp) {
       timestamp.year == now.year &&
       timestamp.month == now.month &&
       timestamp.day == now.day;
-  final yesterday = now.subtract(const Duration(days: 1));
+  final yesterday = now.subtract(Duration(days: 1));
   final isYesterday =
       timestamp.year == yesterday.year &&
       timestamp.month == yesterday.month &&
@@ -207,7 +209,7 @@ String _formatMessageTime(DateTime timestamp) {
   if (isToday) return 'Today, $time';
   if (isYesterday) return 'Yesterday, $time';
 
-  const months = [
+  final months = [
     'Jan',
     'Feb',
     'Mar',
@@ -236,7 +238,7 @@ class _AssistantMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
+      padding: EdgeInsets.symmetric(
         vertical: KrithaSpacing.s12,
         horizontal: KrithaSpacing.s2,
       ),
@@ -251,7 +253,7 @@ class _AssistantMessage extends StatelessWidget {
                 text: message.text,
                 onSpeak: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
                         'TTS models are downloaded separately and are not '
                         'bundled in this build.',
@@ -277,18 +279,18 @@ class _ThinkingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
+      padding: EdgeInsets.symmetric(
         vertical: KrithaSpacing.s6,
         horizontal: KrithaSpacing.s4,
       ),
       child: Row(
         children: [
-          const KrithaIcon(
+          KrithaIcon(
             icon: HugeIcons.strokeRoundedBrain,
             size: KrithaIcons.sm,
             color: KrithaColors.accentLightBlue,
           ),
-          const SizedBox(width: KrithaSpacing.s8),
+          SizedBox(width: KrithaSpacing.s8),
           Text(
             'Thinking…',
             style: TextStyle(
