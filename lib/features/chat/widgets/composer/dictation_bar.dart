@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/theme.dart';
 import '../../../../widgets/glass_surface.dart';
@@ -77,7 +77,7 @@ class DictationBar extends ConsumerWidget {
             child: Row(
               children: [
                 _DictationControl(
-                  icon: LucideIcons.x,
+                  icon: HugeIcons.strokeRoundedX,
                   tooltip: 'Cancel dictation',
                   iconColor: KrithaColors.textSecondary,
                   iconSize: KrithaIcons.lg,
@@ -110,7 +110,7 @@ class DictationBar extends ConsumerWidget {
                 ),
                 const SizedBox(width: KrithaSpacing.s8),
                 _DictationControl(
-                  icon: LucideIcons.square,
+                  icon: HugeIcons.strokeRoundedSquare,
                   tooltip: 'Stop and transcribe',
                   iconColor: KrithaColors.iconSlate,
                   iconSize: KrithaIcons.base,
@@ -119,7 +119,7 @@ class DictationBar extends ConsumerWidget {
                 ),
                 const SizedBox(width: KrithaSpacing.s6),
                 _DictationControl(
-                  icon: LucideIcons.arrowUp,
+                  icon: HugeIcons.strokeRoundedArrowUp01,
                   tooltip: 'Send dictation',
                   iconColor: KrithaColors.textOnAccent,
                   iconSize: KrithaIcons.md,
@@ -145,7 +145,7 @@ class _DictationControl extends StatelessWidget {
     this.background,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String tooltip;
   final Color iconColor;
   final double iconSize;
@@ -168,8 +168,8 @@ class _DictationControl extends StatelessWidget {
           child: SizedBox(
             width: KrithaDimensions.actionButtonSize,
             height: KrithaDimensions.actionButtonSize,
-            child: Icon(
-              icon,
+            child: KrithaIcon(
+              icon: icon,
               size: iconSize,
               color: enabled ? iconColor : iconColor.withValues(alpha: 0.5),
             ),

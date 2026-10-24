@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/responsive.dart';
 import '../../../core/theme.dart';
@@ -124,11 +124,15 @@ class _UserMessage extends ConsumerWidget {
         ),
       ),
       items: const [
-        ContextMenuItem(id: 'copy', label: 'Copy', icon: LucideIcons.copy),
+        ContextMenuItem(
+          id: 'copy',
+          label: 'Copy',
+          icon: HugeIcons.strokeRoundedCopy,
+        ),
         ContextMenuItem(
           id: 'edit',
           label: 'Edit message',
-          icon: LucideIcons.pencil,
+          icon: HugeIcons.strokeRoundedPencil,
         ),
       ],
     );
@@ -279,8 +283,8 @@ class _ThinkingRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            LucideIcons.brain,
+          const KrithaIcon(
+            icon: HugeIcons.strokeRoundedBrain,
             size: KrithaIcons.sm,
             color: KrithaColors.accentLightBlue,
           ),

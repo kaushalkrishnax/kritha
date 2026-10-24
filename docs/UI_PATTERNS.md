@@ -63,7 +63,7 @@ and 2 px gaps stable.
 ### Structure
 
 1. Header: brand, version, search circle.
-2. `New chat`, `Library`, `Archived Chats`, `Extensions & Runtimes`,
+2. `New chat`, `Library`, `Archived Chats`, `Extensions`,
    `Permissions`, `More`: 56 px rows, 24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
 4. Recents section and 56 px session rows.
@@ -289,7 +289,7 @@ popup menus.
   step. Do not swallow exceptions.
 - Stubs: label the action and report “not available in this build” (snackbar or
   disabled row). Visible stubs in the current build include Camera, Plugins,
-  Think harder, Library, Extensions & Runtimes, Permissions, More, chat search,
+  Think harder, Library, Extensions, Permissions, More, chat search,
   read aloud, video and screen sharing.
 - Missing local STT/TTS models should be explicit; do not fabricate a
   transcript.

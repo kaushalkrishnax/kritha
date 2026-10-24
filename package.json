@@ -9,9 +9,9 @@
     "build:app": "node scripts/build-release.js --platform app",
     "build:ios": "node scripts/build-release.js --platform ios",
     "build:macos": "node scripts/build-release.js --platform macos",
-    "release:android": "npm run build:android",
-    "release:ios": "npm run build:app",
-    "release:macos": "npm run build:macos",
+    "build:windows": "node scripts/build-release.js --platform windows",
+    "worker:registry:dev": "bunx wrangler dev --config wrangler.registry.toml",
+    "worker:registry:deploy": "bunx wrangler deploy --config wrangler.registry.toml",
     "bump:beta": "node scripts/bump.js --beta",
     "bump:release": "node scripts/bump.js --release"
   }

@@ -1,17 +1,92 @@
+<div align="center">
+
+<img src="assets/images/kritha_logo.png" alt="Kritha app icon" width="104" height="104" />
+
 # Kritha
 
-A Flutter foundation for **Kritha**, the on-device AI assistant. This project
-ports the conversation experience from the React Native app in `~/Projects/kritha`
-into a single Flutter codebase, with the design system, responsive shell,
-adaptive composer and local history all implemented against real code.
+### A Voice-First, Privacy-First On-Device Assistant Foundation
 
-The entire conversation model is now session-aware: create, switch, pin,
-rename, archive, restore and delete all persist to SQLite, and the first prompt
-in a new chat titles the session.
+**Your device. Your data. A local-first assistant, built for Android, iOS and desktop.**
 
-It still does **not** bundle a language model, a speech recogniser, a TTS voice
-or a backend; everything that appears on screen is local data, real device I/O,
-or clearly-labelled runtime tooling.
+<p>
+  <a href="https://github.com/kaushalkrishnax/kritha"><img src="https://img.shields.io/github/stars/kaushalkrishnax/kritha?label=Stars&color=FAFBFC&style=flat-square" alt="GitHub stars" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/Flutter-3.47.7-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter 3.47.7" />
+  <img src="https://img.shields.io/badge/Dart-3.13.5-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart 3.13.5" />
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/Android-arm64%20%7C%20x86__64-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android arm64 and x86_64" />
+  <img src="https://img.shields.io/badge/iOS-arm64-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS arm64" />
+  <img src="https://img.shields.io/badge/macOS-universal-000000?style=flat-square&logo=apple&logoColor=white" alt="Universal macOS" />
+  <img src="https://img.shields.io/badge/Windows-x86__64-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows x86_64" />
+</p>
+
+</div>
+
+---
+
+### Contents
+
+- [Release packages](#release-packages)
+- [Highlights](#highlights)
+- [Platform targets](#platform-targets)
+- [Quick start](#getting-started)
+- [Signed release builds](#signed-release-builds)
+- [Workers and runtime packs](#workers-and-runtime-packs)
+- [What is implemented](#what-is-implemented)
+- [Verification](#verification)
+- [Documentation](#documentation)
+- [License](#license)
+
+---
+
+## Overview
+
+Kritha is a local-first assistant foundation porting the conversation experience
+from the original React Native app into Flutter. It includes a responsive chat
+shell, adaptive composer, dictation/wake-word foundation and persistent local
+history. Chat sessions can be created, switched, pinned, renamed, archived,
+restored and deleted; the first prompt in a chat creates its title.
+
+The base app does **not** bundle LLM or speech-model weights. Android runtime
+engines are delivered separately in an installable local runtime pack. There is
+no hosted chat backend in this Flutter foundation; release/runtime Workers only
+serve metadata and signed Android runtime artifacts.
+
+## Release packages
+
+Builds are produced locally under `dist/` (not committed to Git). Android APKs
+are split per architecture; app stores receive bundles/archives appropriate to
+their platform.
+
+| Platform artifact | Architecture | Local filename pattern |
+| --- | --- | --- |
+| Android APK | `arm64-v8a` | `Kritha-<version>-arm64-v8a-RELEASE.apk` |
+| Android APK | `x86_64` | `Kritha-<version>-x86_64-RELEASE.apk` |
+| Android App Bundle | Both Android ABIs | `Kritha-<version>-universal-RELEASE.aab` |
+| iOS App Store IPA | `arm64` device | `Kritha-<version>-arm64-RELEASE.ipa` |
+| macOS app | `arm64` | `Kritha-<version>-arm64-RELEASE.app` |
+| macOS app | `x86_64` | `Kritha-<version>-x86_64-RELEASE.app` |
+| Windows archive | `x86_64` | `Kritha-<version>-x86_64-RELEASE.zip` |
+
+The iOS App Store does not accept simulator slices in its device IPA. The
+`x86_64` iOS simulator slice is for simulator testing only.
+
+## Highlights
+
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center"><br/>💬<h3>Adaptive conversation UI</h3><sub>Responsive chat shell, persistent sessions, keyboard-aware composer and shared context menus.</sub><br/><br/></td>
+      <td width="50%" align="center"><br/>🎙️<h3>Voice-ready Android</h3><sub>Wake-word foreground service and on-demand runtime pack for LiteRT-LM and sherpa ONNX.</sub><br/><br/></td>
+    </tr>
+    <tr>
+      <td width="50%" align="center"><br/>📦<h3>Optional local runtimes</h3><sub>Install both Android runtime modules together; model weights remain separately managed.</sub><br/><br/></td>
+      <td width="50%" align="center"><br/>🖥️<h3>One Flutter codebase</h3><sub>Android, iOS, separate arm64/x86_64 macOS apps and Windows x86_64 platform foundations.</sub><br/><br/></td>
+    </tr>
+  </table>
+</div>
 
 ## Requirements
 
@@ -30,9 +105,8 @@ or clearly-labelled runtime tooling.
 
 The shared Flutter UI, theme, SQLite history and composer run on every target.
 Platform folders for Android, iOS, macOS and Windows are checked in; there is no
-web or Linux target in this foundation. The verification pass builds Android,
-iOS and macOS locally. Windows x64 builds require a Windows host with the
-native toolchain installed.
+web or Linux target in this foundation. Windows x64 release builds run from a
+Windows host with Visual Studio 2022 and the Desktop development with C++ workload.
 
 Launcher icons for every target are generated from the checked-in brand sources
 with:
@@ -87,9 +161,12 @@ The `.jks` and `key.properties` are ignored by Git. Keep backups of the signing
 keystore and passwords; they are needed for every future Android update. The
 release Gradle tasks fail rather than silently signing with a debug key.
 
-For Apple targets, set your Apple Developer Team ID in the local xcconfig files
-and Xcode export plist, then make sure the matching signing certificates and
-provisioning profiles are installed in the local Xcode/keychain environment.
+For Apple distribution targets, set your Apple Developer Team ID in the local
+xcconfig files and Xcode export plist, then make sure the matching signing
+certificates and provisioning profiles are installed in the local Xcode/keychain
+environment. The checked-in local macOS configuration uses ad-hoc signing for
+build verification; replace it with `Developer ID Application` or `Apple
+Distribution` before submitting to the Mac App Store.
 For macOS, choose `Developer ID Application` for direct distribution or
 `Apple Distribution` for a Mac App Store build. These configs/certificates are
 not committed.
@@ -97,9 +174,9 @@ not committed.
 ```sh
 npm run build:android  # signed APKs, one each for arm64-v8a and x86_64
 npm run build:aab      # signed AAB containing both Android ABIs for Play
-npm run build:ios      # signed arm64 iOS device .app for local installation
+npm run build:ios      # unsigned arm64 iOS device .app for local verification
 npm run build:app      # signed arm64 IPA exported for App Store Connect
-npm run build:macos    # signed universal arm64 + x86_64 macOS .app
+npm run build:macos    # separate signed arm64 + x86_64 macOS .app bundles
 ```
 
 Artifacts are archived under `dist/`. Android APKs are split per ABI and named
@@ -107,7 +184,9 @@ Artifacts are archived under `dist/`. Android APKs are split per ABI and named
 intentionally contains both ABIs so Google Play can generate device-specific
 downloads. Apple App Store device apps use **arm64 only**—a simulator `x86_64`
 slice must not be merged into an App Store IPA. `build:app` therefore creates
-the store-ready arm64 IPA, while `build:ios` creates the signed device `.app`.
+the store-ready arm64 IPA, while `build:ios` creates an unsigned arm64 device
+`.app` for local verification. A valid Apple signing account and provisioning
+profile are required for installation and distribution.
 
 The copied Flexiyo lifecycle helpers are adapted here as
 `scripts/build-release.js` and `scripts/bump.js`. `npm run bump:beta` or
@@ -357,14 +436,7 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
 - **Message editing** — editing restarts the conversation from that turn by
   deleting the edited turn and everything after it. It does not create a branch
   or preserve attachments from the original turn.
-- **Sidebar utilities** — Library, Extensions & Runtimes, Permissions, More and
+- **Sidebar utilities** — Library, Extensions, Permissions, More and
   chat search are visible stubs.
 - **Settings depth** — runtime probes and reset are real; the remaining RN
   settings toggles are not implemented.
-
-## Size report
-
-`SIZE_REPORT.md` records the ARM64 release APK measurement for an earlier
-dependency set. It is retained as historical evidence; the current Android
-configuration also ships `x86_64`, so re-run the command in that file if you
-need a current per-ABI number.

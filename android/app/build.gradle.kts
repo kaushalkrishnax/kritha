@@ -69,13 +69,19 @@ android {
 
     defaultConfig {
         applicationId = "com.kritha.app"
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         // Flutter selects arm64-v8a and x86_64 at build time. Keep ABI
         // selection out of ndk.abiFilters because Flutter's --split-per-abi
         // uses Gradle ABI splits, which conflict with that filter.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++14"
+            }
+        }
     }
 
     signingConfigs {
@@ -102,6 +108,13 @@ android {
                 "lib/armeabi-v7a/**",
                 "lib/x86/**",
             )
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 }

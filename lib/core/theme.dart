@@ -1,3 +1,4 @@
+import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
 // ---------------------------------------------------------------------------
@@ -282,6 +283,51 @@ abstract final class KrithaIcons {
   static const md = 22.0;
   static const lg = 24.0;
   static const xl = 28.0;
+
+  /// Hugeicons ships its stroke-rounded set at 1.5 on a 24×24 viewBox, which
+  /// reads noticeably lighter than the reference UI. 2.0 matches the medium
+  /// weight used by ChatGPT-style navigation and toolbar glyphs.
+  static const stroke = 2.0;
+
+  /// Slightly lighter weight for 13–15 px inline glyphs so small counters
+  /// (dots, ticks, arrows) stay open at small sizes.
+  static const compactStroke = 1.7;
+}
+
+/// [HugeIcon] with Kritha's stroke weight applied by default.
+///
+/// Use this instead of [HugeIcon] everywhere in the app; pass [strokeWidth]
+/// only when a specific glyph needs a different weight.
+class KrithaIcon extends StatelessWidget {
+  const KrithaIcon({
+    super.key,
+    required this.icon,
+    this.size,
+    this.color,
+    this.strokeWidth,
+  });
+
+  final List<List<dynamic>> icon;
+  final double? size;
+  final Color? color;
+  final double? strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveSize = size ?? KrithaIcons.lg;
+    return UnconstrainedBox(
+      child: HugeIcon(
+        icon: icon,
+        size: effectiveSize,
+        color: color,
+        strokeWidth:
+            strokeWidth ??
+            (effectiveSize < 16
+                ? KrithaIcons.compactStroke
+                : KrithaIcons.stroke),
+      ),
+    );
+  }
 }
 
 abstract final class KrithaFonts {

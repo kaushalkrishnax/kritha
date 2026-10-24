@@ -18,7 +18,7 @@ class ContextMenuItem {
 
   final String id;
   final String label;
-  final IconData? icon;
+  final List<List<dynamic>>? icon;
   final bool destructive;
   final bool disabled;
 }
@@ -351,8 +351,8 @@ class _MenuItemRow extends StatelessWidget {
               SizedBox(
                 width: KrithaDimensions.contextMenuIconColumn,
                 child: Center(
-                  child: Icon(
-                    item.icon,
+                  child: KrithaIcon(
+                    icon: item.icon!,
                     size: KrithaDimensions.contextMenuIconSize,
                     color: textColor,
                   ),

@@ -21,6 +21,7 @@ void main() {
 
   Widget buildApp() {
     const runtime = RuntimeStatus(
+      liteRtLmReady: true,
       sherpaVersion: '1.13.8',
       onnxRuntimeVersion: '1.24.1',
       sqliteVersion: '3.51.0',

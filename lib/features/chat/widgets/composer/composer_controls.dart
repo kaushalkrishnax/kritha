@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/theme.dart';
 import '../../../../models/chat_attachment.dart';
@@ -22,21 +22,29 @@ Future<void> showAttachmentMenu(
       ContextMenuItem(
         id: 'camera',
         label: 'Camera',
-        icon: LucideIcons.camera,
+        icon: HugeIcons.strokeRoundedCamera01,
         disabled: true,
       ),
-      ContextMenuItem(id: 'photos', label: 'Photos', icon: LucideIcons.image),
-      ContextMenuItem(id: 'files', label: 'Files', icon: LucideIcons.paperclip),
+      ContextMenuItem(
+        id: 'photos',
+        label: 'Photos',
+        icon: HugeIcons.strokeRoundedImage01,
+      ),
+      ContextMenuItem(
+        id: 'files',
+        label: 'Files',
+        icon: HugeIcons.strokeRoundedPaperclip,
+      ),
       ContextMenuItem(
         id: 'plugins',
         label: 'Plugins',
-        icon: LucideIcons.puzzle,
+        icon: HugeIcons.strokeRoundedPuzzle,
         disabled: true,
       ),
       ContextMenuItem(
         id: 'think',
         label: 'Think harder',
-        icon: LucideIcons.brainCircuit,
+        icon: HugeIcons.strokeRoundedBrainCircuit,
         disabled: true,
       ),
     ],
@@ -93,8 +101,8 @@ class PlusButton extends StatelessWidget {
         onPressed: onTap,
         padding: EdgeInsets.zero,
         tooltip: 'Add attachments',
-        icon: const Icon(
-          LucideIcons.plus,
+        icon: const KrithaIcon(
+          icon: HugeIcons.strokeRoundedPlus,
           size: KrithaIcons.lg,
           color: KrithaColors.textSecondary,
         ),
@@ -117,8 +125,8 @@ class VoiceModeButton extends StatelessWidget {
         onPressed: onTap,
         padding: EdgeInsets.zero,
         tooltip: 'Start dictation',
-        icon: const Icon(
-          LucideIcons.mic,
+        icon: const KrithaIcon(
+          icon: HugeIcons.strokeRoundedMic01,
           size: KrithaIcons.lg,
           color: KrithaColors.textPrimary,
         ),
@@ -145,20 +153,20 @@ class ComposerActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final IconData icon;
+    final List<List<dynamic>> icon;
     final double iconSize;
     final String tooltip;
 
     if (isBusy) {
-      icon = LucideIcons.square;
+      icon = HugeIcons.strokeRoundedSquare;
       iconSize = 16;
       tooltip = 'Stop response';
     } else if (hasContent) {
-      icon = LucideIcons.arrowUp;
+      icon = HugeIcons.strokeRoundedArrowUp01;
       iconSize = compact ? KrithaIcons.md : KrithaIcons.sm;
       tooltip = 'Send message';
     } else {
-      icon = LucideIcons.audioLines;
+      icon = HugeIcons.strokeRoundedAudioLines;
       iconSize = compact ? KrithaIcons.md : KrithaIcons.sm;
       tooltip = 'Live Talk';
     }
@@ -178,7 +186,11 @@ class ComposerActionButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(KrithaRadius.lg),
-            child: Icon(icon, size: iconSize, color: KrithaColors.textOnAccent),
+            child: KrithaIcon(
+              icon: icon,
+              size: iconSize,
+              color: KrithaColors.textOnAccent,
+            ),
           ),
         ),
       ),
@@ -197,7 +209,7 @@ class LiveTalkCircleButton extends StatelessWidget {
     this.size = KrithaDimensions.liveTalkCircleSize,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final VoidCallback onTap;
   final String tooltip;
   final Color iconColor;
@@ -219,7 +231,11 @@ class LiveTalkCircleButton extends StatelessWidget {
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(icon, size: KrithaIcons.lg, color: iconColor),
+            child: KrithaIcon(
+              icon: icon,
+              size: KrithaIcons.lg,
+              color: iconColor,
+            ),
           ),
         ),
       ),

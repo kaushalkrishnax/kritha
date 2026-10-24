@@ -1,11 +1,17 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../services/runtime_probe.dart';
+import '../../services/wake_word_bridge.dart';
 import '../chat/chat_controller.dart';
 import '../chat/widgets/kritha_avatar.dart';
 
@@ -38,6 +44,9 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     const _HeroCard(),
                     const SizedBox(height: 22),
+                    const _SectionLabel('VOICE'),
+                    const _WakeWordControl(),
+                    const SizedBox(height: 22),
                     const _SectionLabel('RUNTIME PROBES'),
                     _Card(
                       child: runtime.when(
@@ -52,21 +61,21 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         children: [
                           _StatusRow(
-                            icon: LucideIcons.database,
+                            icon: HugeIcons.strokeRoundedDatabase,
                             label: 'SQLite messages',
                             value: '$messageCount rows',
                             ok: true,
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.hardDrive,
+                            icon: HugeIcons.strokeRoundedHardDrive,
                             label: 'Drift database',
                             value: 'kritha.sqlite',
                             ok: true,
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.lockKeyhole,
+                            icon: HugeIcons.strokeRoundedLockKeyhole,
                             label: 'Secure storage',
                             value: switch (runtime.value) {
                               final status? =>
@@ -79,7 +88,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.shieldCheck,
+                            icon: HugeIcons.strokeRoundedShieldCheck,
                             label: 'Shared preferences',
                             value: switch (runtime.value) {
                               final status? =>
@@ -99,40 +108,40 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         children: [
                           _StatusRow(
-                            icon: LucideIcons.audioLines,
-                            label: 'sherpa-onnx runtime',
+                            icon: HugeIcons.strokeRoundedCpu,
+                            label: 'LiteRT-LM',
+                            value: switch (runtime.value) {
+                              final status? =>
+                                status.liteRtLmReady
+                                    ? 'native runtime ready; model not loaded'
+                                    : 'unavailable',
+                              null => 'checking…',
+                            },
+                            ok: runtime.value?.liteRtLmReady,
+                          ),
+                          const _RowDivider(),
+                          _StatusRow(
+                            icon: HugeIcons.strokeRoundedAudioLines,
+                            label: 'sherpa ONNX',
                             value: switch (runtime.value) {
                               final status? =>
                                 status.sherpaReady
                                     ? 'v${status.sherpaVersion}'
                                     : 'unavailable',
-                              null => 'loading…',
+                              null => 'checking…',
                             },
                             ok: runtime.value?.sherpaReady,
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.cpu,
-                            label: 'ONNX Runtime',
-                            value: switch (runtime.value) {
-                              final status? =>
-                                status.onnxRuntimeVersion.isEmpty
-                                    ? 'unknown'
-                                    : 'v${status.onnxRuntimeVersion}',
-                              null => 'loading…',
-                            },
-                            ok: runtime.value?.sherpaReady,
-                          ),
-                          const _RowDivider(),
-                          _StatusRow(
-                            icon: LucideIcons.mic,
+                            icon: HugeIcons.strokeRoundedMic01,
                             label: 'Microphone permission',
                             value: runtime.value?.microphone ?? 'checking…',
                             ok: runtime.value?.microphone == 'granted',
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.activity,
+                            icon: HugeIcons.strokeRoundedActivity01,
                             label: 'Voice recorder',
                             value: switch (runtime.value) {
                               final status? =>
@@ -145,7 +154,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.play,
+                            icon: HugeIcons.strokeRoundedPlay,
                             label: 'Audio playback',
                             value: switch (runtime.value) {
                               final status? =>
@@ -165,14 +174,14 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         children: [
                           _StatusRow(
-                            icon: LucideIcons.activity,
+                            icon: HugeIcons.strokeRoundedActivity01,
                             label: 'Dio HTTP client',
                             value: runtime.value?.dioBaseUrl ?? 'configured',
                             ok: true,
                           ),
                           const _RowDivider(),
                           _StatusRow(
-                            icon: LucideIcons.hardDrive,
+                            icon: HugeIcons.strokeRoundedHardDrive,
                             label: 'Documents directory',
                             value: runtime.value?.documentsPath ?? 'checking…',
                             ok: (runtime.value?.documentsPath ?? '').isNotEmpty,
@@ -213,7 +222,10 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                      icon: const KrithaIcon(
+                        icon: HugeIcons.strokeRoundedRotateCcw,
+                        size: 16,
+                      ),
                       label: const Text('Reset local history'),
                     ),
                     const SizedBox(height: 16),
@@ -232,6 +244,148 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WakeWordControl extends StatefulWidget {
+  const _WakeWordControl();
+
+  @override
+  State<_WakeWordControl> createState() => _WakeWordControlState();
+}
+
+class _WakeWordControlState extends State<_WakeWordControl> {
+  static const _preferenceKey = 'kritha.wake_word.enabled';
+
+  bool _available = false;
+  bool _enabled = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restore());
+  }
+
+  Future<void> _restore() async {
+    final preferences = await SharedPreferences.getInstance();
+    final wanted = preferences.getBool(_preferenceKey) ?? false;
+    final available = await WakeWordBridge.isAvailable();
+    var running = await WakeWordBridge.isRunning();
+
+    if (wanted && available && !running) {
+      final microphone = await Permission.microphone.status;
+      final notifications = await Permission.notification.status;
+      if (microphone.isGranted && notifications.isGranted) {
+        try {
+          await WakeWordBridge.start();
+          running = true;
+        } on Object {
+          running = false;
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _available = available;
+      _enabled = running && wanted;
+      _loading = false;
+    });
+    if (wanted && !running) {
+      await preferences.setBool(_preferenceKey, false);
+    }
+  }
+
+  Future<void> _toggle(bool enabled) async {
+    setState(() => _loading = true);
+    final preferences = await SharedPreferences.getInstance();
+    try {
+      if (enabled) {
+        if (!await WakeWordBridge.isAvailable()) {
+          throw PlatformException(
+            code: 'WAKEWORD_MODEL_UNAVAILABLE',
+            message:
+                'Wake-word detection is not available in this Android build.',
+          );
+        }
+        final microphone = await Permission.microphone.request();
+        if (!microphone.isGranted) {
+          throw PlatformException(
+            code: 'MIC_PERMISSION_REQUIRED',
+            message: 'Allow microphone access to enable wake-word detection.',
+          );
+        }
+        final notifications = await Permission.notification.request();
+        if (!notifications.isGranted) {
+          throw PlatformException(
+            code: 'NOTIFICATION_PERMISSION_REQUIRED',
+            message:
+                'Allow notifications for the persistent listening control.',
+          );
+        }
+        await WakeWordBridge.start();
+      } else {
+        await WakeWordBridge.stop();
+      }
+      await preferences.setBool(_preferenceKey, enabled);
+      if (!mounted) return;
+      setState(() {
+        _enabled = enabled;
+        _available = true;
+        _loading = false;
+      });
+    } on Object catch (error) {
+      await preferences.setBool(_preferenceKey, false);
+      if (!mounted) return;
+      setState(() {
+        _enabled = false;
+        _loading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not change wake-word setting: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Row(
+        children: [
+          const KrithaIcon(
+            icon: HugeIcons.strokeRoundedAudioLines,
+            size: KrithaIcons.lg,
+            color: KrithaColors.accentLightBlue,
+          ),
+          const SizedBox(width: KrithaSpacing.s12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Hey Kritha wake word'),
+                SizedBox(height: 3),
+                Text(
+                  'Listens in the background while the service is enabled.',
+                  style: TextStyle(
+                    color: KrithaColors.textMuted,
+                    fontSize: KrithaText.sizeXs,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_loading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Switch(value: _enabled, onChanged: _available ? _toggle : null),
+        ],
       ),
     );
   }
@@ -263,8 +417,8 @@ class _SettingsHeader extends StatelessWidget {
                 child: const SizedBox(
                   width: 44,
                   height: 44,
-                  child: Icon(
-                    LucideIcons.chevronLeft,
+                  child: KrithaIcon(
+                    icon: HugeIcons.strokeRoundedChevronLeft,
                     size: 20,
                     color: KrithaColors.textSecondary,
                   ),
@@ -447,25 +601,23 @@ class _RuntimeRows extends StatelessWidget {
     return Column(
       children: [
         _StatusRow(
-          icon: LucideIcons.audioLines,
-          label: 'sherpa-onnx',
+          icon: HugeIcons.strokeRoundedCpu,
+          label: 'LiteRT-LM',
+          value: status.liteRtLmReady ? 'native runtime ready' : 'unavailable',
+          ok: status.liteRtLmReady,
+        ),
+        const _RowDivider(),
+        _StatusRow(
+          icon: HugeIcons.strokeRoundedAudioLines,
+          label: 'sherpa ONNX',
           value: status.sherpaReady
-              ? 'v${status.sherpaVersion}'
+              ? 'v${status.sherpaVersion} / ONNX v${status.onnxRuntimeVersion}'
               : 'unavailable',
           ok: status.sherpaReady,
         ),
         const _RowDivider(),
         _StatusRow(
-          icon: LucideIcons.cpu,
-          label: 'ONNX Runtime',
-          value: status.onnxRuntimeVersion.isEmpty
-              ? 'unknown'
-              : 'v${status.onnxRuntimeVersion}',
-          ok: status.onnxRuntimeVersion.isNotEmpty,
-        ),
-        const _RowDivider(),
-        _StatusRow(
-          icon: LucideIcons.database,
+          icon: HugeIcons.strokeRoundedDatabase,
           label: 'SQLite',
           value: status.sqliteVersion.isEmpty
               ? 'unavailable'
@@ -534,7 +686,7 @@ class _StatusRow extends StatelessWidget {
     this.mono = false,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final String value;
   final bool? ok;
@@ -560,7 +712,11 @@ class _StatusRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(KrithaRadius.sm),
               border: Border.all(color: KrithaColors.borderFaint),
             ),
-            child: Icon(icon, size: 15, color: KrithaColors.textMuted),
+            child: KrithaIcon(
+              icon: icon,
+              size: 15,
+              color: KrithaColors.textMuted,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -632,7 +788,8 @@ class _PackageChips extends StatelessWidget {
     'path_provider 2.1.6',
     'freezed 4.0.3',
     'json_serializable 6.15.2',
-    'lucide_icons_flutter 4.0.1',
+    'hugeicons 1.2.0',
+    'litertlm 0.0.14',
     'sherpa_onnx 1.13.8',
     'record 7.1.2',
     'just_audio 0.10.6',
@@ -709,12 +866,17 @@ class _MeasurementNote extends StatelessWidget {
         const SizedBox(height: 10),
         const Row(
           children: [
-            Icon(LucideIcons.info, size: 13, color: KrithaColors.warning),
+            KrithaIcon(
+              icon: HugeIcons.strokeRoundedInfo,
+              size: 13,
+              color: KrithaColors.warning,
+            ),
             SizedBox(width: 6),
             Expanded(
               child: Text(
-                'LiteRT-LM and all AI model weights are delivered outside '
-                'this base APK.',
+                'Wake-word inference ships in the base APK. LiteRT-LM and '
+                'sherpa ONNX are delivered together as an on-demand split; '
+                'model weights are separate.',
                 style: TextStyle(
                   fontSize: KrithaText.size2xs,
                   color: KrithaColors.textDimmed,

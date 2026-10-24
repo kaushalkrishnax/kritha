@@ -2,7 +2,7 @@ import 'package:drift/native.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'package:kritha/app.dart';
 import 'package:kritha/core/providers.dart';
@@ -29,6 +29,7 @@ class _FakeDictationNotifier extends DictationNotifier {
 }
 
 const _runtime = RuntimeStatus(
+  liteRtLmReady: true,
   sherpaVersion: '1.13.8',
   onnxRuntimeVersion: '1.24.1',
   sqliteVersion: '3.51.0',
@@ -203,7 +204,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byTooltip('Chat options'),
-          matching: find.byIcon(LucideIcons.ellipsisVertical),
+          matching: find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedEllipsisVertical),
         ),
         findsOneWidget,
       );
@@ -343,10 +344,10 @@ void main() {
       expect(copyText.style!.fontWeight, FontWeight.w700);
       expect(
         tester
-            .widget<Icon>(
+            .widget<HugeIcon>(
               find.descendant(
                 of: surface,
-                matching: find.byIcon(LucideIcons.copy),
+                matching: find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedCopy),
               ),
             )
             .size,
@@ -447,7 +448,7 @@ void main() {
         expect(find.byTooltip('Read aloud'), findsWidgets);
         expect(find.byTooltip('Share reply'), findsWidgets);
         expect(find.byTooltip('More actions'), findsWidgets);
-        expect(find.byIcon(LucideIcons.share2), findsWidgets);
+        expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedShare01), findsWidgets);
         expect(
           find.descendant(
             of: find.byTooltip('More actions').first,
@@ -634,8 +635,8 @@ void main() {
     ) async {
       await pumpComposer(tester);
 
-      expect(find.byIcon(LucideIcons.audioLines), findsOneWidget);
-      expect(find.byIcon(LucideIcons.arrowUp), findsNothing);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsNothing);
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsNothing);
 
       // The mic and the primary blue action keep a deliberate 8px gap.
@@ -662,7 +663,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Short line');
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsNothing);
-      expect(find.byIcon(LucideIcons.arrowUp), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsOneWidget);
 
       await tester.enterText(
         find.byType(TextField),
@@ -789,7 +790,7 @@ void main() {
       await pumpComposer(tester, size: const Size(1280, 800));
 
       expect(find.byKey(const ValueKey('composer-bottom-row')), findsOneWidget);
-      expect(find.byIcon(LucideIcons.audioLines), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
     });
 
     testWidgets('attachment-only messages can be sent and are persisted', (
@@ -828,21 +829,21 @@ void main() {
     ) async {
       await pumpComposer(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.audioLines));
+      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
-      expect(find.byIcon(LucideIcons.video), findsOneWidget);
-      expect(find.byIcon(LucideIcons.screenShare), findsOneWidget);
-      expect(find.byIcon(LucideIcons.x), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedScreenShare), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
-      await tester.tap(find.byIcon(LucideIcons.x));
+      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedX));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.byIcon(LucideIcons.audioLines), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines), findsOneWidget);
     });
 
     testWidgets('attachment picker is the shared context menu', (tester) async {
@@ -952,12 +953,12 @@ void main() {
     testWidgets('live talk fits a narrow viewport', (tester) async {
       await pumpComposer(tester, size: const Size(320, 640));
 
-      await tester.tap(find.byIcon(LucideIcons.audioLines));
+      await tester.tap(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedAudioLines));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(tester.takeException(), isNull);
-      expect(find.byIcon(LucideIcons.video), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedVideo01), findsOneWidget);
 
       // The glowing pill must remain visible and centred even when the four
       // round controls leave very little horizontal room.
@@ -1003,8 +1004,8 @@ void main() {
       expect(find.byTooltip('Cancel dictation'), findsOneWidget);
       expect(find.byTooltip('Stop and transcribe'), findsOneWidget);
       expect(find.byTooltip('Send dictation'), findsOneWidget);
-      expect(find.byIcon(LucideIcons.square), findsOneWidget);
-      expect(find.byIcon(LucideIcons.arrowUp), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedSquare), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is HugeIcon && w.icon == HugeIcons.strokeRoundedArrowUp01), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

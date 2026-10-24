@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/responsive.dart';
 import '../../../../core/theme.dart';
@@ -384,8 +384,8 @@ class _EditingWarning extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            LucideIcons.info,
+          const KrithaIcon(
+            icon: HugeIcons.strokeRoundedInfo,
             size: KrithaIcons.sm,
             color: KrithaColors.textPrimary,
           ),
@@ -407,8 +407,8 @@ class _EditingWarning extends StatelessWidget {
               borderRadius: BorderRadius.circular(KrithaRadius.full),
               child: const Padding(
                 padding: EdgeInsets.all(KrithaSpacing.s4),
-                child: Icon(
-                  LucideIcons.x,
+                child: KrithaIcon(
+                  icon: HugeIcons.strokeRoundedX,
                   size: KrithaIcons.sm,
                   color: KrithaColors.textSecondary,
                 ),

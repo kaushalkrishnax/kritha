@@ -151,7 +151,7 @@ hand-off: the visible entry point already exists where noted.
 | 6 | Plugins | `showAttachmentMenu` `'plugins'` | Visible, disabled. | Plugin picker and attachment/tool contract. |
 | 7 | Think harder | `showAttachmentMenu` `'think'` | Visible, disabled. | Reasoning-mode flag plumbed into the engine request. |
 | 8 | Library | Sidebar `Library` | Stub snackbar. | RN Library screen and its data source. |
-| 9 | Extensions & Runtimes | Sidebar row | Stub snackbar. | Model/runtime manager; local install/remove; permission state. |
+| 9 | Extensions | Sidebar row | Stub snackbar. | Extension management. |
 | 10 | Permissions | Sidebar row | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
 | 11 | More | Sidebar row | Stub snackbar. | Remaining RN account/menu actions. |
 | 12 | Chat search | Sidebar search icon | Stub snackbar. | SQLite FTS or in-memory filter across titles/messages. |

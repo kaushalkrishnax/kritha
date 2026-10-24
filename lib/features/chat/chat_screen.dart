@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/responsive.dart';
@@ -94,36 +94,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ContextMenuItem(
           id: 'share',
           label: 'Share',
-          icon: LucideIcons.share2,
+          icon: HugeIcons.strokeRoundedShare01,
           disabled: !hasSession && state.messages.isEmpty,
         ),
         ContextMenuItem(
           id: 'pin',
           label: session?.pinned == true ? 'Unpin' : 'Pin',
-          icon: session?.pinned == true ? LucideIcons.pinOff : LucideIcons.pin,
+          icon: session?.pinned == true
+              ? HugeIcons.strokeRoundedPinOff
+              : HugeIcons.strokeRoundedPin,
           disabled: !hasSession,
         ),
         const ContextMenuItem(
           id: 'files',
           label: 'Uploaded files',
-          icon: LucideIcons.paperclip,
+          icon: HugeIcons.strokeRoundedPaperclip,
         ),
         ContextMenuItem(
           id: 'find',
           label: 'Find in chat',
-          icon: LucideIcons.search,
+          icon: HugeIcons.strokeRoundedSearch01,
           disabled: state.messages.isEmpty,
         ),
         ContextMenuItem(
           id: 'archive',
           label: 'Archive',
-          icon: LucideIcons.archive,
+          icon: HugeIcons.strokeRoundedArchive,
           disabled: !hasSession,
         ),
         ContextMenuItem(
           id: 'delete',
           label: 'Delete',
-          icon: LucideIcons.trash2,
+          icon: HugeIcons.strokeRoundedTrash,
           destructive: true,
           disabled: !hasSession,
         ),
@@ -204,10 +206,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       final file = files[index];
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          file.isImage
-                              ? LucideIcons.image
-                              : LucideIcons.fileText,
+                        leading: KrithaIcon(
+                          icon: file.isImage
+                              ? HugeIcons.strokeRoundedImage01
+                              : HugeIcons.strokeRoundedFileText,
+                          size: KrithaIcons.md,
                           color: KrithaColors.iconMuted,
                         ),
                         title: Text(
@@ -758,8 +761,8 @@ class _ScrollDownButtonState extends State<_ScrollDownButton>
               child: SizedBox(
                 width: KrithaDimensions.scrollDownButtonSize,
                 height: KrithaDimensions.scrollDownButtonSize,
-                child: const Icon(
-                  LucideIcons.arrowDown,
+                child: const KrithaIcon(
+                  icon: HugeIcons.strokeRoundedArrowDown01,
                   size: KrithaIcons.lg,
                   color: KrithaColors.textPrimary,
                 ),
@@ -792,8 +795,8 @@ class _EmptyChat extends StatelessWidget {
                 borderRadius: BorderRadius.circular(KrithaRadius.md),
                 border: Border.all(color: KrithaColors.borderSubtle),
               ),
-              child: const Icon(
-                LucideIcons.sparkles,
+              child: const KrithaIcon(
+                icon: HugeIcons.strokeRoundedSparkles,
                 size: KrithaIcons.lg,
                 color: KrithaColors.accentLightBlue,
               ),
@@ -874,8 +877,8 @@ class _ChatError extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                LucideIcons.database,
+              const KrithaIcon(
+                icon: HugeIcons.strokeRoundedDatabase,
                 color: KrithaColors.error,
                 size: KrithaIcons.lg,
               ),

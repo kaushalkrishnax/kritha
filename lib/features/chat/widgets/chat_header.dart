@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
 
@@ -38,7 +38,7 @@ class ChatHeader extends StatelessWidget {
             _HeaderPill(
               children: [
                 _HeaderIcon(
-                  icon: LucideIcons.menu,
+                  icon: HugeIcons.strokeRoundedMenu,
                   tooltip: menuTooltip,
                   onTap: onMenu,
                 ),
@@ -47,12 +47,12 @@ class ChatHeader extends StatelessWidget {
             _HeaderPill(
               children: [
                 _HeaderIcon(
-                  icon: LucideIcons.squarePen,
+                  icon: HugeIcons.strokeRoundedSquarePen,
                   tooltip: 'New chat',
                   onTap: onNewChat,
                 ),
                 _HeaderIcon(
-                  icon: LucideIcons.ellipsisVertical,
+                  icon: HugeIcons.strokeRoundedEllipsisVertical,
                   tooltip: 'Chat options',
                   onTapWithContext: onChatMenu,
                 ),
@@ -99,7 +99,7 @@ class _HeaderIcon extends StatelessWidget {
     this.onTapWithContext,
   }) : assert(onTap != null || onTapWithContext != null);
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback? onTap;
   final void Function(BuildContext buttonContext)? onTapWithContext;
@@ -122,8 +122,8 @@ class _HeaderIcon extends StatelessWidget {
             // 12px all round makes a 48px ink surface: the former 4px pill
             // padding now lives inside the button instead of outside its ink.
             padding: const EdgeInsets.all(KrithaSpacing.s12),
-            child: Icon(
-              icon,
+            child: KrithaIcon(
+              icon: icon,
               size: KrithaIcons.lg,
               color: KrithaColors.textSecondary,
             ),

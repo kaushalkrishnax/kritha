@@ -6,7 +6,8 @@
 //   node scripts/build-release.js --platform aab       # one store bundle
 //   node scripts/build-release.js --platform ios       # signed arm64 device .app
 //   node scripts/build-release.js --platform app        # App Store Connect IPA
-//   node scripts/build-release.js --platform macos     # universal signed .app
+//   node scripts/build-release.js --platform macos     # separate arm64 + x86_64 .apps
+//   node scripts/build-release.js --platform windows   # x86_64 signed release zip
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -15,24 +16,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const platforms = new Set(['android', 'aab', 'app', 'ios', 'macos']);
+const platforms = new Set(['android', 'aab', 'app', 'ios', 'macos', 'windows']);
 const platform = process.argv[3];
 
 if (process.argv[2] !== '--platform' || !platforms.has(platform)) {
   console.error(
-    'Usage: node scripts/build-release.js --platform <android|aab|app|ios|macos>',
+    'Usage: node scripts/build-release.js --platform <android|aab|app|ios|macos|windows>',
   );
   process.exit(2);
 }
 
 const flutter = process.platform === 'win32' ? 'flutter.bat' : 'flutter';
 
-function run(command, args) {
+function run(command, args, { shell = process.platform === 'win32' } = {}) {
   const result = spawnSync(command, args, {
     cwd: ROOT,
     env: process.env,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
+    shell,
   });
   if (result.error) throw new Error(`Could not start ${command}: ${result.error.message}`);
   if (result.status !== 0) {
@@ -42,6 +43,28 @@ function run(command, args) {
 
 function flutterBuild(args) {
   run(flutter, ['build', ...args]);
+}
+
+function buildMacosArchitecture(arch) {
+  flutterBuild(['macos', '--release', '--config-only']);
+  const buildDirectory = path.join(ROOT, 'build', 'macos');
+  run('xcodebuild', [
+    '-workspace',
+    'macos/Runner.xcworkspace',
+    '-scheme',
+    'Runner',
+    '-configuration',
+    'Release',
+    '-derivedDataPath',
+    buildDirectory,
+    '-destination',
+    'platform=macOS',
+    `ARCHS=${arch}`,
+    'ONLY_ACTIVE_ARCH=NO',
+    `OBJROOT=${path.join(buildDirectory, 'Build', 'Intermediates.noindex')}`,
+    `SYMROOT=${path.join(buildDirectory, 'Build', 'Products')}`,
+    'COMPILER_INDEX_STORE_ENABLE=NO',
+  ], { shell: false });
 }
 
 function readVersion() {
@@ -96,14 +119,17 @@ function verifyArchitectures(binary, expected) {
   }
 }
 
-function verifySignedBundle(bundle) {
+function verifySignedBundle(bundle, { allowAdHoc = false } = {}) {
   run('codesign', ['--verify', '--deep', '--strict', bundle]);
   const result = spawnSync('codesign', ['-dv', '--verbose=2', bundle], {
     encoding: 'utf8',
   });
   const details = `${result.stdout}\n${result.stderr}`;
-  if (result.status !== 0 || !details.includes('Authority=')) {
+  if (result.status !== 0 || (!allowAdHoc && !details.includes('Authority='))) {
     throw new Error(`Expected a Developer ID/Distribution signature on ${bundle}; ad-hoc signing is not a release signature.`);
+  }
+  if (allowAdHoc && !details.includes('Authority=')) {
+    console.log(`Verified local ad-hoc signature on ${path.relative(ROOT, bundle)}; distribution signing is still required.`);
   }
 }
 
@@ -157,7 +183,7 @@ function buildAndroidBundle(version) {
   ]);
   copyFile(
     path.join(ROOT, 'build', 'app', 'outputs', 'bundle', 'release', 'app-release.aab'),
-    path.join(ROOT, 'dist', 'android', `Kritha-${version}-universal.aab`),
+    path.join(ROOT, 'dist', 'android', `Kritha-${version}-universal-RELEASE.aab`),
   );
 }
 
@@ -185,35 +211,105 @@ function buildIosApp(version, ipa) {
       ROOT,
       'dist',
       'ios',
-      `Kritha-${version}-app-store.ipa`,
+      `Kritha-${version}-arm64-RELEASE.ipa`,
     );
     verifyIosIpa(candidates[0]);
     copyFile(candidates[0], destination);
     return;
   }
 
-  flutterBuild(['ios', '--release']);
+  flutterBuild(['ios', '--release', '--no-codesign']);
   const app = path.join(ROOT, 'build', 'ios', 'iphoneos', 'Runner.app');
   verifyArchitectures(path.join(app, 'Runner'), ['arm64']);
-  verifySignedBundle(app);
-  copyBundle(app, path.join(ROOT, 'dist', 'ios', `Kritha-${version}-arm64.app`));
+  console.log('Verified unsigned local iOS device build; distribution signing is still required.');
+  copyBundle(
+    app,
+    path.join(ROOT, 'dist', 'ios', `Kritha-${version}-arm64-RELEASE.app`),
+  );
 }
 
-function buildMacos(version) {
-  requireLocalSigningFile(
+function buildMacos(version, archs) {
+  const signingFile = requireLocalSigningFile(
     'macos/Runner/Configs/Signing.xcconfig',
     'Apple team and macOS signing identity',
   );
-  flutterBuild(['macos', '--release']);
+  const signingConfig = fs.readFileSync(signingFile, 'utf8');
+  const allowAdHoc = /KRITHA_MACOS_SIGNING_IDENTITY\s*=\s*["']?-\s*["']?/m.test(signingConfig);
+  const targets = archs ?? ['macos-arm64', 'macos-x64'];
+  const apps = [];
+  for (const target of targets) {
+    const arch = target === 'macos-arm64' ? 'arm64' : 'x86_64';
+    buildMacosArchitecture(arch);
+    const app = path.join(
+      ROOT,
+      'build',
+      'macos',
+      'Build',
+      'Products',
+      'Release',
+      'Kritha.app',
+    );
+    const binary = path.join(app, 'Contents', 'MacOS', 'Kritha');
+    verifyArchitectures(binary, [arch]);
+    verifySignedBundle(app, { allowAdHoc });
+    const distApp = path.join(
+      ROOT,
+      'dist',
+      'macos',
+      `Kritha-${version}-${arch}-RELEASE.app`,
+    );
+    copyBundle(app, distApp);
+    apps.push(distApp);
+  }
+  return apps;
+}
 
-  const app = path.join(ROOT, 'build', 'macos', 'Build', 'Products', 'Release', 'Kritha.app');
-  const binary = path.join(app, 'Contents', 'MacOS', 'Kritha');
-  verifyArchitectures(binary, ['arm64', 'x86_64']);
-  verifySignedBundle(app);
-  copyBundle(
-    app,
-    path.join(ROOT, 'dist', 'macos', `Kritha-${version}-universal.app`),
+function buildWindows(version) {
+  if (process.platform !== 'win32') {
+    throw new Error('Windows release builds must run on a Windows x64 host with Visual Studio installed.');
+  }
+  flutterBuild(['windows', '--release']);
+
+  const releaseDirectory = path.join(
+    ROOT,
+    'build',
+    'windows',
+    'x64',
+    'runner',
+    'Release',
   );
+  const executable = path.join(releaseDirectory, 'kritha.exe');
+  if (!fs.existsSync(executable)) {
+    throw new Error(`Expected Windows x64 executable not found: ${executable}`);
+  }
+
+  const destination = path.join(
+    ROOT,
+    'dist',
+    'windows',
+    `Kritha-${version}-x86_64-RELEASE.zip`,
+  );
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  run(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      path.join(ROOT, 'scripts', 'archive-windows.ps1'),
+      '-SourceDirectory',
+      releaseDirectory,
+      '-DestinationZip',
+      destination,
+    ],
+    { shell: false },
+  );
+  if (!fs.existsSync(destination)) {
+    throw new Error(`Windows release archive was not created: ${destination}`);
+  }
+  console.log(`Created ${path.relative(ROOT, destination)}`);
 }
 
 try {
@@ -233,6 +329,9 @@ try {
       break;
     case 'macos':
       buildMacos(version);
+      break;
+    case 'windows':
+      buildWindows(version);
       break;
   }
 } catch (error) {

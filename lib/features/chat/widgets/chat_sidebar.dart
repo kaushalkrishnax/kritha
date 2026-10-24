@@ -2,8 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:lucide_icons_flutter/lucide_icons_600.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/responsive.dart';
 import '../../../core/theme.dart';
@@ -62,22 +61,24 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
         ContextMenuItem(
           id: 'pin',
           label: session.pinned ? 'Unpin' : 'Pin',
-          icon: session.pinned ? LucideIcons.pinOff : LucideIcons.pin,
+          icon: session.pinned
+              ? HugeIcons.strokeRoundedPinOff
+              : HugeIcons.strokeRoundedPin,
         ),
         const ContextMenuItem(
           id: 'rename',
           label: 'Rename',
-          icon: LucideIcons.pencil,
+          icon: HugeIcons.strokeRoundedPencil,
         ),
         const ContextMenuItem(
           id: 'archive',
           label: 'Archive',
-          icon: LucideIcons.archive,
+          icon: HugeIcons.strokeRoundedArchive,
         ),
         const ContextMenuItem(
           id: 'delete',
           label: 'Delete',
-          icon: LucideIcons.trash2,
+          icon: HugeIcons.strokeRoundedTrash,
           destructive: true,
         ),
       ],
@@ -160,32 +161,32 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   children: [
                     const SizedBox(height: KrithaSpacing.s4),
                     _ActionRow(
-                      icon: LucideIcons600.squarePen,
+                      icon: HugeIcons.strokeRoundedSquarePen,
                       label: 'New chat',
                       onTap: widget.onNewChat,
                     ),
                     _ActionRow(
-                      icon: LucideIcons600.library,
+                      icon: HugeIcons.strokeRoundedLibrary,
                       label: 'Library',
                       onTap: () => _stub(context, 'Library'),
                     ),
                     _ActionRow(
-                      icon: LucideIcons600.archive,
+                      icon: HugeIcons.strokeRoundedArchive,
                       label: 'Archived Chats',
                       onTap: _openArchived,
                     ),
                     _ActionRow(
-                      icon: LucideIcons600.puzzle,
-                      label: 'Extensions & Runtimes',
-                      onTap: () => _stub(context, 'Extensions & Runtimes'),
+                      icon: HugeIcons.strokeRoundedPuzzle,
+                      label: 'Extensions',
+                      onTap: () => _stub(context, 'Extensions'),
                     ),
                     _ActionRow(
-                      icon: LucideIcons600.shieldCheck,
+                      icon: HugeIcons.strokeRoundedShieldCheck,
                       label: 'Permissions',
                       onTap: () => _stub(context, 'Permissions'),
                     ),
                     _ActionRow(
-                      icon: LucideIcons600.ellipsis,
+                      icon: HugeIcons.strokeRoundedEllipsis,
                       label: 'More',
                       onTap: () => _stub(context, 'More'),
                     ),
@@ -284,8 +285,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                   IconButton(
                     onPressed: widget.onSettings,
                     tooltip: 'Settings',
-                    icon: const Icon(
-                      LucideIcons.settings,
+                    icon: const KrithaIcon(
+                      icon: HugeIcons.strokeRoundedSettings01,
                       size: KrithaIcons.md,
                       color: KrithaColors.iconMuted,
                     ),
@@ -349,15 +350,19 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
                             onPressed: () => ref
                                 .read(chatControllerProvider.notifier)
                                 .restoreSession(session.id),
-                            icon: const Icon(LucideIcons.archiveRestore),
+                            icon: const KrithaIcon(
+                              icon: HugeIcons.strokeRoundedArchiveRestore,
+                              size: KrithaIcons.md,
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Delete',
                             onPressed: () => ref
                                 .read(chatControllerProvider.notifier)
                                 .deleteSession(session.id),
-                            icon: const Icon(
-                              LucideIcons.trash2,
+                            icon: const KrithaIcon(
+                              icon: HugeIcons.strokeRoundedTrash,
+                              size: KrithaIcons.md,
                               color: KrithaColors.error,
                             ),
                           ),
@@ -445,7 +450,7 @@ class _SidebarHeader extends StatelessWidget {
           ),
           const Spacer(),
           _CircleIconButton(
-            icon: LucideIcons.search,
+            icon: HugeIcons.strokeRoundedSearch01,
             tooltip: 'Search chats',
             onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
           ),
@@ -462,7 +467,7 @@ class _CircleIconButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback onTap;
 
@@ -481,8 +486,8 @@ class _CircleIconButton extends StatelessWidget {
           child: SizedBox(
             width: 44,
             height: 44,
-            child: Icon(
-              icon,
+            child: KrithaIcon(
+              icon: icon,
               size: KrithaIcons.md,
               color: KrithaColors.textPrimary,
             ),
@@ -500,7 +505,7 @@ class _ActionRow extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final VoidCallback? onTap;
 
@@ -514,7 +519,11 @@ class _ActionRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
           child: Row(
             children: [
-              Icon(icon, size: KrithaIcons.lg, color: KrithaColors.textPrimary),
+              KrithaIcon(
+                icon: icon,
+                size: KrithaIcons.lg,
+                color: KrithaColors.textPrimary,
+              ),
               const SizedBox(width: KrithaSpacing.s14),
               Expanded(
                 child: Text(
@@ -607,8 +616,8 @@ class _SessionRowState extends State<_SessionRow> {
               child: Row(
                 children: [
                   if (widget.session.pinned) ...[
-                    Icon(
-                      LucideIcons.messageCircle,
+                    KrithaIcon(
+                      icon: HugeIcons.strokeRoundedMessageCircle,
                       size: KrithaIcons.base,
                       color: widget.selected
                           ? KrithaColors.textPrimary

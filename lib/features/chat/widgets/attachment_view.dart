@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
 import '../../../models/chat_attachment.dart';
@@ -79,8 +79,8 @@ class _AttachmentTile extends StatelessWidget {
                   onTap: onRemove,
                   child: const Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(
-                      LucideIcons.x,
+                    child: KrithaIcon(
+                      icon: HugeIcons.strokeRoundedX,
                       size: 12,
                       color: KrithaColors.textPrimary,
                     ),
@@ -118,8 +118,8 @@ class _ImageTile extends StatelessWidget {
         height: size,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => const Center(
-          child: Icon(
-            LucideIcons.image,
+          child: KrithaIcon(
+            icon: HugeIcons.strokeRoundedImage01,
             size: KrithaIcons.md,
             color: KrithaColors.textMuted,
           ),
@@ -149,8 +149,8 @@ class _FileTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            LucideIcons.fileText,
+          const KrithaIcon(
+            icon: HugeIcons.strokeRoundedFileText,
             size: KrithaIcons.md,
             color: KrithaColors.accentLightBlue,
           ),

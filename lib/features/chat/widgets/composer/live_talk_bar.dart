@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/theme.dart';
 import 'composer_controller.dart';
@@ -58,14 +58,14 @@ class LiveTalkBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 LiveTalkCircleButton(
-                  icon: LucideIcons.video,
+                  icon: HugeIcons.strokeRoundedVideo01,
                   size: circleSize,
                   tooltip: 'Video',
                   onTap: () => _unavailable(context, 'Video'),
                 ),
                 SizedBox(width: gap),
                 LiveTalkCircleButton(
-                  icon: LucideIcons.screenShare,
+                  icon: HugeIcons.strokeRoundedScreenShare,
                   size: circleSize,
                   tooltip: 'Share screen',
                   onTap: () => _unavailable(context, 'Screen sharing'),
@@ -80,7 +80,9 @@ class LiveTalkBar extends StatelessWidget {
                 ),
                 SizedBox(width: gap),
                 LiveTalkCircleButton(
-                  icon: isListening ? LucideIcons.mic : LucideIcons.micOff,
+                  icon: isListening
+                      ? HugeIcons.strokeRoundedMic01
+                      : HugeIcons.strokeRoundedMicOff01,
                   iconColor: isListening
                       ? KrithaColors.textPrimary
                       : KrithaColors.textMuted,
@@ -90,7 +92,7 @@ class LiveTalkBar extends StatelessWidget {
                 ),
                 SizedBox(width: gap),
                 LiveTalkCircleButton(
-                  icon: LucideIcons.x,
+                  icon: HugeIcons.strokeRoundedX,
                   tooltip: 'End Live Talk',
                   size: circleSize,
                   onTap: onStop,

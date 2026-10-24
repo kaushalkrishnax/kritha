@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme.dart';
@@ -77,26 +77,28 @@ class _ResponseActionsState extends State<ResponseActions> {
       child: Row(
         children: [
           _ActionIcon(
-            icon: _copied ? LucideIcons.check : LucideIcons.copy,
+            icon: _copied
+                ? HugeIcons.strokeRoundedCheck
+                : HugeIcons.strokeRoundedCopy,
             color: _copied ? KrithaColors.success : KrithaColors.iconMuted,
             tooltip: _copied ? 'Copied' : 'Copy reply',
             onTap: _copy,
           ),
           const SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
-            icon: LucideIcons.volume2,
+            icon: HugeIcons.strokeRoundedVolumeHigh,
             tooltip: 'Read aloud',
             onTap: widget.onSpeak,
           ),
           const SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
-            icon: LucideIcons.share2,
+            icon: HugeIcons.strokeRoundedShare01,
             tooltip: 'Share reply',
             onTap: () => _share(context),
           ),
           const SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
-            icon: LucideIcons.ellipsisVertical,
+            icon: HugeIcons.strokeRoundedEllipsisVertical,
             tooltip: 'More actions',
             onTap: () => _more(context),
           ),
@@ -114,7 +116,7 @@ class _ActionIcon extends StatelessWidget {
     this.color = KrithaColors.iconMuted,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback onTap;
   final Color color;
@@ -141,7 +143,11 @@ class _ActionIcon extends StatelessWidget {
             hoverColor: KrithaColors.contextMenuPressed,
             child: Padding(
               padding: const EdgeInsets.all(KrithaSpacing.s8),
-              child: Icon(icon, size: KrithaIcons.base, color: color),
+              child: KrithaIcon(
+                icon: icon,
+                size: KrithaIcons.base,
+                color: color,
+              ),
             ),
           ),
         ),
