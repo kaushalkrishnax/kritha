@@ -356,9 +356,9 @@ class _SidebarHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s24,
         KrithaSpacing.s4,
-        // The drawer keeps only one trailing control, so the full 24px gutter
-        // leaves a dead band to its right.
-        docked ? KrithaSpacing.s16 : KrithaSpacing.s8,
+        // With no collapse control after it, the drawer's search button is the
+        // last thing in the row and sits flush with the panel edge.
+        docked ? KrithaSpacing.s16 : 0,
         KrithaSpacing.s12,
       ),
       child: Row(

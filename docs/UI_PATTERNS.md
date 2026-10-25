@@ -64,8 +64,8 @@ and 2 px gaps stable.
 
 1. Header: brand, search control and desktop collapse control. On the docked
    desktop sidebar both trailing controls are borderless (hover fill only); the
-   overlay drawer keeps the search circle and tightens its trailing gutter when
-   no collapse control follows.
+   overlay drawer keeps the search circle and sits it flush with the panel edge
+   when no collapse control follows.
 2. `New chat`, `Library`, `Archived Chats`, `Plugins`,
    `Permissions`, `More`: 56 px rows, 24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
@@ -243,7 +243,7 @@ popup menus.
 | Separators | **None** — no horizontal rules or divider lines |
 | Header (optional) | 55 px high, 20/20/20/8 padding: the 8 px top edge inset belongs to the header, so the first action row stays 48 px |
 | Anchor gap | 8 px |
-| Screen margin | 12 px; safe top 16 px |
+| Screen margin | 12 px on all sides; safe top 16 px |
 | Surface width | 200 px default; panel-bound menus may fill the panel minus the 12 px margin |
 
 ### Behaviour
@@ -251,9 +251,10 @@ popup menus.
 - Fade + scale from the corner nearest the anchor over 180 ms.
 - Clamp inside the screen and sidebar bounds; with the keyboard visible, clamp
   fully above the IME.
-- The menu owns its margins. Panel bounds keep it inside a sidebar without
-  inheriting the row's padding, and right-aligned menus meet their anchor's
-  right edge instead of the viewport's.
+- The menu owns a 12 px inset on every side, for screen- and panel-bound menus
+  alike. Panel bounds keep it inside a sidebar without inheriting the row's
+  padding, and right-aligned menus meet their anchor's right edge instead of
+  the viewport's.
 - `requestFocus: false` so the composer keyboard stays up.
 - `NoSplash` with a `contextMenuPressed` overlay for menu rows; no ripple leaks
   past the rounded surface. `ContextMenuItem.focusColor` overrides the overlay

@@ -213,7 +213,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
           // Right-aligned menus meet their own anchor (the bubble or button)
           // instead of the viewport, so parent padding stays outside.
           left = (anchor.position.dx + anchor.size.width - menuWidth)
-              .clamp(insets.left, math.max(insets.left, maxLeft))
+              .clamp(minLeft, math.max(minLeft, maxLeft))
               .toDouble();
         case ContextMenuAlign.auto:
           left = anchor.position.dx
@@ -225,30 +225,37 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     var top =
         anchor.position.dy + target + KrithaDimensions.contextMenuVerticalGap;
     var flippedAbove = false;
-    final topLimit = insets.top + KrithaDimensions.contextMenuSafeTop;
     // The IME is a separate window above the app on Android, so a menu drawn
     // into the keyboard's rectangle would be hidden behind it. Keep the whole
     // menu above the keyboard (ChatGPT-style) instead of clamping halfway into
     // it, while still not stealing composer focus.
     final keyboard = media.viewInsets.bottom;
-    final bottomLimit =
-        screen.height -
-        keyboard -
-        insets.bottom -
-        KrithaDimensions.contextMenuScreenMargin;
+    final topLimit = bounds == null
+        ? insets.top + KrithaDimensions.contextMenuSafeTop
+        : math.max(
+            insets.top + KrithaDimensions.contextMenuSafeTop,
+            bounds.top + margin,
+          );
+    final bottomLimit = bounds == null
+        ? screen.height - keyboard - insets.bottom - margin
+        : math.min(
+            screen.height - keyboard - insets.bottom - margin,
+            bounds.bottom - margin,
+          );
     if (top + estimatedHeight > bottomLimit) {
       if (keyboard > 0) {
         top = bottomLimit - estimatedHeight;
-        if (top < topLimit) top = topLimit;
       } else {
         flippedAbove = true;
         top =
             anchor.position.dy -
             estimatedHeight -
             KrithaDimensions.contextMenuVerticalGap;
-        if (top < topLimit) top = topLimit;
       }
     }
+    top = top
+        .clamp(topLimit, math.max(topLimit, bottomLimit - estimatedHeight))
+        .toDouble();
 
     // Grow out of the corner nearest the press point instead of the centre, so
     // the menu reads as coming from the bubble/row that opened it.
