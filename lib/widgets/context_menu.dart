@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../core/theme.dart';
@@ -67,6 +69,10 @@ class ContextMenuAnchor {
 ///
 /// [rightBoundary] optionally keeps an auto-aligned menu inside a panel (for
 /// example the sidebar) instead of letting it spill into the chat column.
+///
+/// [width] and [left] replace the default 200px surface and horizontal
+/// clamping. They position the menu independently of the opening widget's
+/// padding, which the sidebar account menu uses to span the whole panel.
 Future<String?> showKrithaContextMenu({
   required BuildContext context,
   required ContextMenuAnchor anchor,
@@ -75,6 +81,8 @@ Future<String?> showKrithaContextMenu({
   ContextMenuAlign align = ContextMenuAlign.auto,
   double? targetHeight,
   double? rightBoundary,
+  double? width,
+  double? left,
 }) {
   if (items.isEmpty) return Future.value();
   return showGeneralDialog<String>(
@@ -94,6 +102,8 @@ Future<String?> showKrithaContextMenu({
         align: align,
         targetHeight: targetHeight,
         rightBoundary: rightBoundary,
+        width: width,
+        left: left,
       );
     },
   );
@@ -107,6 +117,8 @@ class _ContextMenuOverlay extends StatefulWidget {
     this.header,
     this.targetHeight,
     this.rightBoundary,
+    this.width,
+    this.left,
   });
 
   final ContextMenuAnchor anchor;
@@ -115,6 +127,8 @@ class _ContextMenuOverlay extends StatefulWidget {
   final ContextMenuAlign align;
   final double? targetHeight;
   final double? rightBoundary;
+  final double? width;
+  final double? left;
 
   @override
   State<_ContextMenuOverlay> createState() => _ContextMenuOverlayState();
@@ -165,35 +179,47 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         headerHeight +
         2;
 
+    final menuWidth = widget.width ?? KrithaDimensions.contextMenuWidth;
+    final minLeft = insets.left + KrithaDimensions.contextMenuScreenMargin;
+    final maxLeft =
+        screen.width -
+        insets.right -
+        menuWidth -
+        KrithaDimensions.contextMenuScreenMargin;
+
     double left;
-    switch (widget.align) {
-      case ContextMenuAlign.left:
-        left = insets.left + KrithaDimensions.contextMenuScreenMargin;
-      case ContextMenuAlign.right:
-        final rightEdge = widget.rightBoundary ?? (screen.width - insets.right);
-        left =
-            rightEdge -
-            KrithaDimensions.contextMenuWidth -
-            KrithaDimensions.contextMenuScreenMargin;
-        final minLeft = insets.left + KrithaDimensions.contextMenuScreenMargin;
-        if (left < minLeft) left = minLeft;
-      case ContextMenuAlign.auto:
-        final minLeft = insets.left + KrithaDimensions.contextMenuScreenMargin;
-        var maxLeft =
-            screen.width -
-            insets.right -
-            KrithaDimensions.contextMenuWidth -
-            KrithaDimensions.contextMenuScreenMargin;
-        if (widget.rightBoundary != null) {
-          final boundaryLeft =
-              widget.rightBoundary! -
-              KrithaDimensions.contextMenuWidth -
-              KrithaDimensions.contextMenuScreenMargin;
-          if (boundaryLeft < maxLeft) maxLeft = boundaryLeft;
-        }
-        left = anchor.position.dx;
-        if (left > maxLeft) left = maxLeft;
-        if (left < minLeft) left = minLeft;
+    if (widget.left != null) {
+      left = widget.left!
+          .clamp(
+            insets.left,
+            math.max(insets.left, screen.width - insets.right - menuWidth),
+          )
+          .toDouble();
+    } else {
+      switch (widget.align) {
+        case ContextMenuAlign.left:
+          left = minLeft;
+        case ContextMenuAlign.right:
+          final rightEdge = widget.rightBoundary;
+          left = rightEdge == null
+              ? screen.width -
+                    insets.right -
+                    menuWidth -
+                    KrithaDimensions.contextMenuScreenMargin
+              // A caller-provided boundary already sits inside the target's
+              // padding, so do not add the screen gutter on top of it.
+              : rightEdge - menuWidth;
+          if (left < minLeft) left = minLeft;
+        case ContextMenuAlign.auto:
+          var autoMaxLeft = maxLeft;
+          if (widget.rightBoundary != null) {
+            final boundaryLeft = widget.rightBoundary! - menuWidth;
+            if (boundaryLeft < autoMaxLeft) autoMaxLeft = boundaryLeft;
+          }
+          left = anchor.position.dx;
+          if (left > autoMaxLeft) left = autoMaxLeft;
+          if (left < minLeft) left = minLeft;
+      }
     }
 
     var top =
@@ -227,9 +253,10 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     // Grow out of the corner nearest the press point instead of the centre, so
     // the menu reads as coming from the bubble/row that opened it.
     final openToRight =
-        widget.align == ContextMenuAlign.right ||
-        (widget.align == ContextMenuAlign.auto &&
-            left + KrithaDimensions.contextMenuWidth / 2 > anchor.position.dx);
+        widget.left == null &&
+        (widget.align == ContextMenuAlign.right ||
+            (widget.align == ContextMenuAlign.auto &&
+                left + menuWidth / 2 > anchor.position.dx));
     final horizontal = openToRight ? Alignment.topRight : Alignment.topLeft;
     final scaleOrigin = flippedAbove
         ? (openToRight ? Alignment.bottomRight : Alignment.bottomLeft)
@@ -246,7 +273,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         Positioned(
           left: left,
           top: top,
-          width: KrithaDimensions.contextMenuWidth,
+          width: menuWidth,
           child: FadeTransition(
             opacity: _opacity,
             child: ScaleTransition(

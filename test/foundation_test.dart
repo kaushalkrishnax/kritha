@@ -14,6 +14,7 @@ import 'package:kritha/features/chat/widgets/composer/dictation_bar.dart';
 import 'package:kritha/features/chat/widgets/composer/normal_composer.dart';
 import 'package:kritha/features/chat/widgets/composer/recording_waveform.dart';
 import 'package:kritha/features/chat/dictation_controller.dart';
+import 'package:kritha/features/chat/widgets/chat_sidebar.dart';
 import 'package:kritha/features/chat/widgets/kritha_avatar.dart';
 import 'package:kritha/features/chat/widgets/message_list.dart';
 import 'package:kritha/models/chat_attachment.dart';
@@ -221,6 +222,11 @@ void main() {
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('Log out'), findsOneWidget);
         final accountMenu = find.byKey(const ValueKey('context-menu-surface'));
+        expect(tester.getTopLeft(accountMenu).dx, 0);
+        expect(
+          tester.getSize(accountMenu).width,
+          ChatSidebar.drawerWidthFor(375),
+        );
         expect(
           find.descendant(
             of: accountMenu,
@@ -332,6 +338,14 @@ void main() {
         findsWidgets,
       );
 
+      await tester.tap(find.byTooltip('Account menu'));
+      await tester.pumpAndSettle();
+      final accountMenu = find.byKey(const ValueKey('context-menu-surface'));
+      expect(tester.getTopLeft(accountMenu).dx, 0);
+      expect(tester.getSize(accountMenu).width, KrithaDimensions.sidebarWidth);
+      await tester.tapAt(const Offset(900, 300));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byTooltip('Collapse sidebar'));
       await tester.pumpAndSettle();
 
@@ -419,12 +433,12 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Edit message'), findsOneWidget);
 
-      // User-message menus follow the bubble's column, not the viewport edge.
+      // User-message menus align flush to the bubble's column, not the
+      // viewport edge, without adding another gutter.
       expect(
         tester.getTopRight(surface).dx,
         closeTo(
-          tester.getTopRight(find.byKey(const ValueKey('message-seed-2'))).dx -
-              KrithaDimensions.contextMenuScreenMargin,
+          tester.getTopRight(find.byKey(const ValueKey('message-seed-2'))).dx,
           0.1,
         ),
       );
@@ -656,14 +670,10 @@ void main() {
         tester.getBottomRight(deleteRow).dy,
         tester.getBottomRight(surface).dy,
       );
-      // The menu is anchored to the press point but kept inside the sidebar.
+      // The menu is anchored to the press point and may reach the sidebar edge.
       expect(
         tester.getTopRight(surface).dx,
-        lessThanOrEqualTo(
-          tester.getTopRight(recentRow).dx -
-              KrithaDimensions.contextMenuScreenMargin +
-              0.1,
-        ),
+        lessThanOrEqualTo(tester.getTopRight(recentRow).dx + 0.1),
       );
 
       // Pinning is persisted through SQLite and moves the row into Pinned.

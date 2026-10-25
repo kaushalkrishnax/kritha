@@ -41,6 +41,8 @@ class ChatSidebar extends ConsumerStatefulWidget {
 }
 
 class _ChatSidebarState extends ConsumerState<ChatSidebar> {
+  final GlobalKey _sidebarKey = GlobalKey();
+
   ChatController get _controller => ref.read(chatControllerProvider.notifier);
 
   Future<void> _selectSession(ChatSession session, String? currentId) async {
@@ -149,6 +151,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     return Material(
+      key: _sidebarKey,
       color: KrithaColors.bgDeepest,
       child: SafeArea(
         right: false,
@@ -257,6 +260,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
               child: _AccountControl(
                 compact: false,
                 onSettings: widget.onSettings,
+                sidebarKey: _sidebarKey,
               ),
             ),
           ],
@@ -474,27 +478,28 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
-class _AccountControl extends StatefulWidget {
-  const _AccountControl({required this.compact, required this.onSettings});
+class _AccountControl extends StatelessWidget {
+  const _AccountControl({
+    required this.compact,
+    required this.onSettings,
+    this.sidebarKey,
+  });
 
   final bool compact;
   final VoidCallback onSettings;
 
-  @override
-  State<_AccountControl> createState() => _AccountControlState();
-}
-
-class _AccountControlState extends State<_AccountControl> {
-  Offset? _pressPosition;
+  /// Root of the expanded sidebar; its bounds become the menu's bounds so the
+  /// menu spans the panel instead of inheriting the footer's padding.
+  final GlobalKey? sidebarKey;
 
   Future<void> _openMenu(BuildContext context) async {
+    final sidebarBox =
+        sidebarKey?.currentContext?.findRenderObject() as RenderBox?;
     final selection = await showKrithaContextMenu(
       context: context,
-      // Anchor at the press point so the menu grows from where the user
-      // clicked instead of being pinned to the row's leading edge.
-      anchor: _pressPosition == null
-          ? ContextMenuAnchor.fromContext(context)
-          : ContextMenuAnchor(position: _pressPosition!, size: Size.zero),
+      anchor: ContextMenuAnchor.fromContext(context),
+      width: sidebarBox?.size.width,
+      left: sidebarBox?.localToGlobal(Offset.zero).dx,
       items: [
         ContextMenuItem(
           id: 'free',
@@ -526,7 +531,7 @@ class _AccountControlState extends State<_AccountControl> {
     );
     if (!context.mounted || selection == null) return;
     if (selection == 'settings') {
-      widget.onSettings();
+      onSettings();
       return;
     }
     final message = switch (selection) {
@@ -548,13 +553,12 @@ class _AccountControlState extends State<_AccountControl> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTapDown: (details) => _pressPosition = details.globalPosition,
           onTap: () => _openMenu(context),
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(KrithaRadius.base),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s6),
-            child: widget.compact
+            child: compact
                 ? Center(child: _AccountAvatar(size: 32))
                 : Row(
                     children: [
