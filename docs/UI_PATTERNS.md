@@ -244,16 +244,16 @@ popup menus.
 | Header (optional) | 55 px high, 20/20/20/8 padding: the 8 px top edge inset belongs to the header, so the first action row stays 48 px |
 | Anchor gap | 8 px |
 | Screen margin | 12 px; safe top 16 px |
-| Surface width | 200 px default; callers may pass an explicit width |
+| Surface width | 200 px default; panel-bound menus may fill the panel minus the 12 px margin |
 
 ### Behaviour
 
 - Fade + scale from the corner nearest the anchor over 180 ms.
 - Clamp inside the screen and sidebar bounds; with the keyboard visible, clamp
   fully above the IME.
-- Menus position from their own width. An explicit width/left bypasses the
-  opening widget's padding, so panel-bound menus can sit flush with the panel;
-  a right boundary is used as-is instead of adding another screen gutter.
+- The menu owns its margins. Panel bounds keep it inside a sidebar without
+  inheriting the row's padding, and right-aligned menus meet their anchor's
+  right edge instead of the viewport's.
 - `requestFocus: false` so the composer keyboard stays up.
 - `NoSplash` with a `contextMenuPressed` overlay for menu rows; no ripple leaks
   past the rounded surface. `ContextMenuItem.focusColor` overrides the overlay
@@ -278,7 +278,7 @@ popup menus.
 | Header ellipsis | Ellipsis button | Right-aligned |
 | User message | Long-press or right-click point/bubble | Right edge flush with the bubble, not the viewport |
 | Sidebar session | Long-press or right-click point | Clamped inside sidebar |
-| Sidebar account | Footer avatar/name row, fixed | Spans the sidebar's full width, flips above near the bottom edge |
+| Sidebar account | Footer avatar/name row, fixed | Sized to the sidebar with its own 12 px inset, flips above near the bottom edge |
 
 ## 8. Dialogs, sheets and snackbars
 

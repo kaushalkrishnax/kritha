@@ -222,10 +222,10 @@ void main() {
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('Log out'), findsOneWidget);
         final accountMenu = find.byKey(const ValueKey('context-menu-surface'));
-        expect(tester.getTopLeft(accountMenu).dx, 0);
+        expect(tester.getTopLeft(accountMenu).dx, KrithaSpacing.s12);
         expect(
           tester.getSize(accountMenu).width,
-          ChatSidebar.drawerWidthFor(375),
+          ChatSidebar.drawerWidthFor(375) - KrithaSpacing.s12 * 2,
         );
         expect(
           find.descendant(
@@ -341,8 +341,11 @@ void main() {
       await tester.tap(find.byTooltip('Account menu'));
       await tester.pumpAndSettle();
       final accountMenu = find.byKey(const ValueKey('context-menu-surface'));
-      expect(tester.getTopLeft(accountMenu).dx, 0);
-      expect(tester.getSize(accountMenu).width, KrithaDimensions.sidebarWidth);
+      expect(tester.getTopLeft(accountMenu).dx, KrithaSpacing.s12);
+      expect(
+        tester.getSize(accountMenu).width,
+        KrithaDimensions.sidebarWidth - KrithaSpacing.s12 * 2,
+      );
       await tester.tapAt(const Offset(900, 300));
       await tester.pumpAndSettle();
 

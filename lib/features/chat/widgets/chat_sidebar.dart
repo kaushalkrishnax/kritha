@@ -51,16 +51,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   Future<void> _openSessionMenu(
-    BuildContext rowContext,
     Offset pressPosition,
     ChatSession session,
   ) async {
-    final box = rowContext.findRenderObject() as RenderBox?;
-    final boundaryWidth = box?.size.width;
     final selected = await showKrithaContextMenu(
-      context: rowContext,
+      context: context,
       anchor: ContextMenuAnchor(position: pressPosition, size: Size.zero),
-      rightBoundary: boundaryWidth,
+      bounds: contextMenuBoundsOf(_sidebarKey.currentContext),
       items: [
         ContextMenuItem(
           id: 'pin',
@@ -205,12 +202,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                           session: session,
                           selected: session.id == currentId,
                           onTap: () => _selectSession(session, currentId),
-                          onLongPress: (rowContext, pressPosition) =>
-                              _openSessionMenu(
-                                rowContext,
-                                pressPosition,
-                                session,
-                              ),
+                          onLongPress: (pressPosition) =>
+                              _openSessionMenu(pressPosition, session),
                         ),
                     ],
                     _SectionTitle('Recents'),
@@ -237,12 +230,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         session: session,
                         selected: session.id == currentId,
                         onTap: () => _selectSession(session, currentId),
-                        onLongPress: (rowContext, pressPosition) =>
-                            _openSessionMenu(
-                              rowContext,
-                              pressPosition,
-                              session,
-                            ),
+                        onLongPress: (pressPosition) =>
+                            _openSessionMenu(pressPosition, session),
                       ),
                     SizedBox(height: KrithaSpacing.s4),
                   ],
@@ -493,13 +482,11 @@ class _AccountControl extends StatelessWidget {
   final GlobalKey? sidebarKey;
 
   Future<void> _openMenu(BuildContext context) async {
-    final sidebarBox =
-        sidebarKey?.currentContext?.findRenderObject() as RenderBox?;
     final selection = await showKrithaContextMenu(
       context: context,
       anchor: ContextMenuAnchor.fromContext(context),
-      width: sidebarBox?.size.width,
-      left: sidebarBox?.localToGlobal(Offset.zero).dx,
+      bounds: contextMenuBoundsOf(sidebarKey?.currentContext),
+      fillBounds: true,
       items: [
         ContextMenuItem(
           id: 'free',
@@ -847,10 +834,8 @@ class _SessionRow extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  /// Receives the row context (for its width) and the global press point so the
-  /// menu opens where the finger landed and stays inside the sidebar.
-  final void Function(BuildContext rowContext, Offset pressPosition)
-  onLongPress;
+  /// Global press point, so the menu opens where the finger landed.
+  final void Function(Offset pressPosition) onLongPress;
 
   @override
   State<_SessionRow> createState() => _SessionRowState();
@@ -871,11 +856,11 @@ class _SessionRowState extends State<_SessionRow> {
           mouseCursor: SystemMouseCursors.click,
           onLongPress: () {
             final position = _pressPosition;
-            if (position != null) widget.onLongPress(context, position);
+            if (position != null) widget.onLongPress(position);
           },
           onSecondaryTap: () {
             final position = _pressPosition;
-            if (position != null) widget.onLongPress(context, position);
+            if (position != null) widget.onLongPress(position);
           },
           child: SizedBox(
             height: KrithaDimensions.sidebarSessionRowHeight,
