@@ -186,12 +186,42 @@ for (name, size) in iosIcons {
 }
 
 // ---------------------------------------------------------------------------
-// macOS (alpha retained; the asset catalogue masks the icon itself)
+// macOS (824x824 icon grid with Apple HIG drop shadow)
 // ---------------------------------------------------------------------------
+
+func renderMacOS(_ image: CGImage, size: Int) -> CGImage {
+    let context = CGContext(
+        data: nil,
+        width: size,
+        height: size,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    context.interpolationQuality = .high
+
+    let scale = 0.805
+    let iconSize = Double(size) * scale
+    let xOffset = (Double(size) - iconSize) / 2.0
+    let yOffset = Double(size) * 0.10
+    let iconRect = CGRect(x: xOffset, y: yOffset, width: iconSize, height: iconSize)
+
+    context.saveGState()
+    let shadowColor = CGColor(red: 0, green: 0, blue: 0, alpha: 0.25)
+    let shadowBlur = Double(size) * 0.04
+    let shadowOffset = CGSize(width: 0, height: -Double(size) * 0.018)
+    context.setShadow(offset: shadowOffset, blur: shadowBlur, color: shadowColor)
+    context.draw(image, in: iconRect)
+    context.restoreGState()
+
+    context.draw(image, in: iconRect)
+    return context.makeImage()!
+}
 
 for size in [16, 32, 64, 128, 256, 512, 1024] {
     writePNG(
-        render(fullIcon, size: size),
+        renderMacOS(fullIcon, size: size),
         to: "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_\(size).png"
     )
 }
