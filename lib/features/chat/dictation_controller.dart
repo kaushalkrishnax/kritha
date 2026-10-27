@@ -55,17 +55,7 @@ class DictationException implements Exception {
   String toString() => message;
 }
 
-/// Real microphone capture for the dictation bar.
-///
-/// The controls and state flow match the React Native `TextComposer` dictation
-/// row: cancel (X), stop-and-transcribe (square) and stop-transcribe-and-send
-/// (arrow). The waveform itself is the Flexiyo pattern.
-///
-/// Transcription is the one deliberate gap: no offline STT model is bundled, so
-/// [transcribe] stops the take, deletes the temporary audio file and raises a
-/// clear [DictationException] instead of pretending to produce text or attaching
-/// the recording as a file. Replace the marked TODO with the sherpa-onnx
-/// recogniser when a model is available.
+/// Microphone capture and audio metering for dictation.
 class DictationNotifier extends Notifier<DictationState> {
   static const int maxBars = 42;
 
@@ -136,7 +126,7 @@ class DictationNotifier extends Notifier<DictationState> {
     var level = 0.18 + _random.nextDouble() * 0.4;
     try {
       final amplitude = await _engine.getAmplitude();
-      // dBFS ≈ -50 (silence) .. 0 (max) → 0..1, matching the reference UI.
+      // dBFS ≈ -50 (silence) .. 0 (max) → 0..1.
       if (amplitude.current < 0) {
         level = ((amplitude.current + 50) / 50).clamp(0.12, 1.0);
       }

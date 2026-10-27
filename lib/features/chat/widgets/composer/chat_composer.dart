@@ -9,8 +9,6 @@ import 'dictation_bar.dart';
 import 'live_talk_bar.dart';
 import 'normal_composer.dart';
 
-/// Chooses between the normal composer and the Live Talk capsule and keeps the
-/// readable column centred on wide windows.
 class ChatComposer extends ConsumerWidget {
   const ChatComposer({super.key});
 
@@ -36,26 +34,31 @@ class ChatComposer extends ConsumerWidget {
             viewport: viewport,
           );
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: KrithaDimensions.maxContentWidth,
-        ),
-        child: AnimatedSwitcher(
-          duration: KrithaMotion.normal,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: SizeTransition(
-                sizeFactor: animation,
-                alignment: Alignment.bottomCenter,
-                child: child,
-              ),
-            );
-          },
-          child: content,
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: viewport.isWide ? KrithaSpacing.s12 : 0,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: KrithaDimensions.maxContentWidth,
+          ),
+          child: AnimatedSwitcher(
+            duration: KrithaMotion.normal,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  alignment: Alignment.bottomCenter,
+                  child: child,
+                ),
+              );
+            },
+            child: content,
+          ),
         ),
       ),
     );

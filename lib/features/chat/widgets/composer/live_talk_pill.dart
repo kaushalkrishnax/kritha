@@ -4,14 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme.dart';
 
-/// The glowing centre of the Live Talk bar.
-///
-/// The React Native source draws a rounded SVG rectangle filled with a
-/// blue-to-transparent gradient and pulses its opacity. This Flutter version
-/// keeps those colours and the dark capsule, then adds a slow fluid motion and
-/// a thin level wave so the pill reads as a live, listening surface rather than
-/// a static gradient. The motion is visual only; the native Live Talk runtime
-/// (and therefore real microphone levels) is still stubbed.
+/// Glowing visual indicator for the active Live Talk session.
 class LiveTalkPill extends StatefulWidget {
   const LiveTalkPill({super.key, required this.active});
 

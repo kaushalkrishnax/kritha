@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../models/chat_attachment.dart';
 
-/// Live Talk phases mirror the React Native `LiveTalkPhase` enum. `paused` is
-/// the resting state the bar resumes from.
 enum LiveTalkPhase {
   listening,
   userSpeaking,
@@ -28,8 +26,7 @@ extension LiveTalkPhaseX on LiveTalkPhase {
   bool get isPaused => this == LiveTalkPhase.paused;
 }
 
-/// Everything the composer needs to decide its layout. Deliberately free of
-/// widget code so it can be unit tested and reused by both modes.
+/// Everything the composer needs to decide its layout.
 class ComposerState {
   const ComposerState({
     this.draftText = '',
@@ -43,18 +40,10 @@ class ComposerState {
 
   final String draftText;
   final int measuredLines;
-
-  /// Latched compact/medium expansion. Once the draft wraps at the compact
-  /// width this stays true until it fits on one line again. Latching avoids the
-  /// feedback loop where expanding widens the field, the text re-fits on one
-  /// line, the composer collapses and the cycle repeats (visible as flicker).
   final bool isExpanded;
   final List<ChatAttachment> attachments;
   final bool isLiveTalkActive;
   final LiveTalkPhase liveTalkPhase;
-
-  /// Set while a user prompt is being edited. The composer shows the persistent
-  /// restart warning and the next send truncates the conversation from there.
   final String? editingMessageId;
 
   bool get isEditing => editingMessageId != null;
@@ -62,10 +51,6 @@ class ComposerState {
   bool get hasText => draftText.trim().isNotEmpty;
   bool get hasAttachments => attachments.isNotEmpty;
   bool get hasContent => hasText || hasAttachments;
-
-  /// Compact/medium expansion rule: any attachment, or a draft that has
-  /// wrapped at the compact width. Wide layouts add their own "always
-  /// expanded" default on top of this.
   bool get expandsFromContent => hasAttachments || isExpanded;
 
   ComposerState copyWith({
@@ -107,8 +92,6 @@ class ComposerNotifier extends Notifier<ComposerState> {
     }
   }
 
-  /// Applies a height/expansion measurement in one state update so the
-  /// composer never paints an intermediate frame.
   void setMeasurement({required int lines, required bool expanded}) {
     final clamped = lines.clamp(1, 9);
     if (clamped == state.measuredLines && expanded == state.isExpanded) return;

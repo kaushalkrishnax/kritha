@@ -1,9 +1,7 @@
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
-// ---------------------------------------------------------------------------
-// Core Palette — ported from src/theme/index.ts
-// ---------------------------------------------------------------------------
+// Core Palette
 
 abstract final class KrithaColors {
   static bool _lightMode = false;
@@ -116,7 +114,7 @@ abstract final class KrithaColors {
   static Color get borderAccent =>
       _lightMode ? Color(0xFF2563EB) : _darkBorderAccent;
 
-  // Context menu (RN ContextMenu.tsx: pressed 0.09 white)
+  // Context menu pressed overlay
   static const _darkContextMenuPressed = Color(0x17FFFFFF);
   static Color get contextMenuPressed =>
       _lightMode ? Color(0x140F172A) : _darkContextMenuPressed;
@@ -156,8 +154,6 @@ abstract final class KrithaColors {
       : _darkTtsActiveBg; // rgba(96,165,250,0.15)
 
   // Data visualisation
-  /// Dictation metering bars: a light grey, not pure white, so they sit calmly
-  /// inside the frosted composer and match the reference recording strip.
   static const _darkWaveformBar = Color(0xFFC5CBD3);
   static Color get waveformBar =>
       _lightMode ? Color(0xFF64748B) : _darkWaveformBar;
@@ -221,9 +217,7 @@ abstract final class KrithaColors {
       _lightMode ? Color(0xFFF8F8F2) : _darkSyntaxEmbedded;
 }
 
-// ---------------------------------------------------------------------------
 // Border Radii
-// ---------------------------------------------------------------------------
 
 abstract final class KrithaRadius {
   static const xs = 4.0;
@@ -232,18 +226,13 @@ abstract final class KrithaRadius {
   static const md = 16.0;
   static const lg = 20.0;
   static const xl = 24.0;
-  static const xl2 = 28.0; // RADIUS_2XL in RN source
+  static const xl2 = 28.0;
   static const full = 100.0;
 }
 
-// ---------------------------------------------------------------------------
 // Typography
-// ---------------------------------------------------------------------------
 
 abstract final class KrithaText {
-  // Font sizes. The reference screenshot's body copy is noticeably larger than
-  // the RN 15.5 px baseline, so the shared scale is raised once here and every
-  // message, menu and sidebar style inherits it.
   static const size2xs = 12.0;
   static const sizeXs = 13.0;
   static const sizeSm = 15.0;
@@ -282,12 +271,8 @@ abstract final class KrithaText {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Spacing scale — values taken from the React Native screen styles
-// ---------------------------------------------------------------------------
+// Spacing scale
 
-/// The spacing steps used across the React Native source. Components should
-/// prefer these over raw numbers so padding stays consistent.
 abstract final class KrithaSpacing {
   static const s2 = 2.0;
   static const s4 = 4.0;
@@ -311,14 +296,11 @@ abstract final class KrithaSpacing {
   static const composerPadding = s12;
 }
 
-// ---------------------------------------------------------------------------
 // Shared component dimensions
-// ---------------------------------------------------------------------------
 
 abstract final class KrithaDimensions {
   static const headerHeight = 60.0;
 
-  /// TextComposer values from the React Native source.
   static const composerLineHeight = 24.0;
   static const composerMaxLines = 8;
   static const composerCompactHeight = 58.0;
@@ -328,21 +310,10 @@ abstract final class KrithaDimensions {
   static const composerMaxHeight =
       composerLineHeight * composerMaxLines + composerBottomRowHeight + 24.0;
 
-  /// Shared context menu geometry from the RN `ContextMenu.tsx`, widened a
-  /// little so the larger reference font size still fits long rows such as
-  /// “Uploaded files”.
   static const contextMenuWidth = 200.0;
   static const contextMenuItemHeight = 48.0;
-
-  /// Extra top/bottom breathing room owned by the first and last rows. The
-  /// full inset stays inside each row's press surface, so there is still no
-  /// menu-level gutter.
   static const contextMenuEdgeInset = 8.0;
   static const contextMenuVerticalGap = 8.0;
-
-  /// The header is a 17px line (1.55 line-height, ~26.4px) plus 12/8 padding,
-  /// rounded to 47. The 1px border allowance is added separately by the menu
-  /// estimator; keeping these in sync prevents IME/safe-area clipping.
   static const contextMenuHeaderHeight = 55.0;
   static const contextMenuScreenMargin = 12.0;
   static const contextMenuSafeTop = 16.0;
@@ -357,7 +328,6 @@ abstract final class KrithaDimensions {
   static const liveTalkPillHeight = 50.0;
   static const liveTalkPillMaxWidth = 120.0;
 
-  /// Dictation meter geometry, taken from the RN recording row.
   static const waveformBarWidth = 3.0;
   static const waveformBarGap = 4.0;
   static const waveformBarHeight = 26.0;
@@ -371,18 +341,15 @@ abstract final class KrithaDimensions {
   static const attachmentPreviewHeight = 72.0;
   static const attachmentImageSize = 64.0;
 
-  /// Composer frost: the floating composer blurs the transcript behind it.
   static const composerBlurSigma = 18.0;
   static const composerBackdropBlurSigma = 20.0;
   static const composerBackdropLift = 28.0;
   static const composerBackdropScrimOpacity = 0.55;
 
-  /// Overlay header fade from the RN `ChatMessages.tsx` top gradient.
   static const headerFadeHeight = 100.0;
   static const headerBackdropBlurSigma = 14.0;
   static const headerContentTopPadding = 80.0;
 
-  /// Scroll-to-bottom affordance from the RN `ChatMessages.tsx`.
   static const scrollDownButtonSize = 45.0;
   static const scrollDownBottomGap = 12.0;
   static const scrollDownButtonLift = 24.0;
@@ -397,9 +364,7 @@ abstract final class KrithaMotion {
   static const contextMenu = Duration(milliseconds: 180);
 }
 
-// ---------------------------------------------------------------------------
 // Icon Sizes
-// ---------------------------------------------------------------------------
 
 abstract final class KrithaIcons {
   static const xs = 14.0;
@@ -456,7 +421,6 @@ class KrithaIcon extends StatelessWidget {
 }
 
 abstract final class KrithaFonts {
-  /// Bundled DM Sans (Google Fonts), declared in `pubspec.yaml`.
   static const dmSans = 'DMSans';
 }
 
@@ -468,9 +432,7 @@ void watchKrithaPalette(BuildContext context) {
   KrithaColors.setLightMode(Theme.of(context).brightness == Brightness.light);
 }
 
-// ---------------------------------------------------------------------------
 // ThemeData builder
-// ---------------------------------------------------------------------------
 
 ThemeData buildKrithaTheme() {
   final scheme = ColorScheme(
@@ -496,9 +458,7 @@ ThemeData buildKrithaTheme() {
     scaffoldBackgroundColor: KrithaColors.bgBase,
     fontFamily: KrithaFonts.dmSans,
   );
-  // ThemeData owns the family; applying the primary colour here makes it the
-  // default for every normal text style. Component styles intentionally carry
-  // neither property so they inherit these values.
+  
   final baseTextTheme = base.textTheme.apply(
     bodyColor: KrithaColors.textPrimary,
     displayColor: KrithaColors.textPrimary,
@@ -508,6 +468,10 @@ ThemeData buildKrithaTheme() {
     canvasColor: KrithaColors.bgBase,
     dividerColor: KrithaColors.borderSubtle,
     splashFactory: InkSparkle.splashFactory,
+    hoverColor: KrithaColors.contextMenuPressed,
+    focusColor: KrithaColors.contextMenuPressed,
+    highlightColor: KrithaColors.contextMenuPressed,
+    splashColor: KrithaColors.contextMenuPressed,
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: KrithaColors.accentLightBlue,
       selectionColor: Color(0x4D2563EB),

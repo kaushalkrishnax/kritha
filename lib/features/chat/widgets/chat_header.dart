@@ -3,12 +3,6 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
 
-/// Chat header ported from the React Native `ChatHeader`.
-///
-/// The original has two pill clusters: navigation on the left, new-chat and the
-/// wake-word toggle on the right. The wake-word runtime is not part of this
-/// foundation, so the right slot is now the per-chat options menu (the runtime
-/// controls live in Settings and the sidebar).
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
@@ -22,7 +16,6 @@ class ChatHeader extends StatelessWidget {
   final VoidCallback onMenu;
   final VoidCallback onNewChat;
 
-  /// Opens the chat options menu at the ellipsis button's global position.
   final void Function(BuildContext buttonContext) onChatMenu;
   final bool showMenuButton;
 
@@ -30,10 +23,14 @@ class ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: KrithaDimensions.headerHeight,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: KrithaDimensions.headerHeight),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s16),
+        padding: EdgeInsets.only(
+          left: KrithaSpacing.s12,
+          top: KrithaSpacing.s12,
+          right: KrithaSpacing.s12,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -84,12 +81,8 @@ class _HeaderPill extends StatelessWidget {
         side: BorderSide(color: KrithaColors.borderSubtle),
       ),
       clipBehavior: Clip.antiAlias,
-      // The pill owns no outer padding. Each icon's ink surface fills the full
-      // 48px pill height, so focus and press feedback never leave a dead ring
-      // between the highlight and the capsule edge.
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: KrithaSpacing.s4,
         children: children,
       ),
     );
@@ -125,8 +118,6 @@ class _HeaderIcon extends StatelessWidget {
           hoverColor: KrithaColors.contextMenuPressed,
           mouseCursor: SystemMouseCursors.click,
           child: Padding(
-            // 12px all round makes a 48px ink surface: the former 4px pill
-            // padding now lives inside the button instead of outside its ink.
             padding: EdgeInsets.all(KrithaSpacing.s12),
             child: KrithaIcon(
               icon: icon,

@@ -94,10 +94,6 @@ class MessageList extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// User message — one fully rounded bubble on every corner
-// ---------------------------------------------------------------------------
-
 class _UserMessage extends ConsumerWidget {
   const _UserMessage({required this.message, required this.maxWidth});
 
@@ -226,10 +222,6 @@ String _formatMessageTime(DateTime timestamp) {
   return '${months[timestamp.month - 1]} ${timestamp.day}, $time';
 }
 
-// ---------------------------------------------------------------------------
-// Assistant response — no avatar, no label, no bubble; Markdown fills the row
-// ---------------------------------------------------------------------------
-
 class _AssistantMessage extends StatelessWidget {
   const _AssistantMessage({required this.message});
 
@@ -268,10 +260,6 @@ class _AssistantMessage extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Thinking indicator
-// ---------------------------------------------------------------------------
 
 class _ThinkingRow extends StatelessWidget {
   const _ThinkingRow();

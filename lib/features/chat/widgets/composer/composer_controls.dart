@@ -8,9 +8,7 @@ import '../../../../widgets/context_menu.dart';
 import 'attachment_picker.dart';
 import 'composer_controller.dart';
 
-/// Opens the attachment actions in the shared context menu. Camera, Plugins and
-/// Think harder are visible to match the reference menu but disabled because
-/// those integrations do not exist in this build.
+/// Opens the attachment actions in the shared context menu.
 Future<void> showAttachmentMenu(
   BuildContext anchorContext,
   WidgetRef ref,

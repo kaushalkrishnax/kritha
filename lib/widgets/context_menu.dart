@@ -55,24 +55,7 @@ class ContextMenuAnchor {
   }
 }
 
-/// Shows the shared Kritha context menu and resolves to the selected item id,
-/// or `null` when dismissed.
-///
-/// This is a direct Flutter port of `src/components/ui/ContextMenu.tsx`:
-/// 200px wide, 48px rows with an 8px edge inset on the first/last row, 24px
-/// corners, the same safe-area clamping, the same 8px gap and flip-above
-/// behaviour when there is room, and the same fade + spring-in animation. With
-/// the software keyboard open the menu stays fully
-/// above the IME (the IME is a separate window on Android, so anything drawn
-/// inside its rectangle would be hidden) and the route does not request focus,
-/// so the composer keyboard stays up.
-///
-/// [bounds] keeps the menu inside a panel (for example the sidebar) instead of
-/// letting it spill into the chat column. The menu always owns its screen
-/// margin, so the panel's internal padding never moves the surface.
-///
-/// [fillBounds] makes the surface span the bounds width minus that margin; the
-/// sidebar account menu uses it to match the panel without manual arithmetic.
+/// Shows the shared Kritha context menu and resolves to the selected item id.
 Future<String?> showKrithaContextMenu({
   required BuildContext context,
   required ContextMenuAnchor anchor,

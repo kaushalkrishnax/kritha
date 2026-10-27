@@ -9,16 +9,7 @@ import '../../dictation_controller.dart';
 import '../composer/composer_controller.dart';
 import 'recording_waveform.dart';
 
-/// Kritha's dictation strip.
-///
-/// The controls and flow are ported from the React Native `TextComposer`
-/// dictation row: cancel (X), the live waveform, stop-and-transcribe (square)
-/// and stop-transcribe-and-send (arrow). The waveform itself is the Flexiyo
-/// pattern requested for this build.
-///
-/// No offline STT model is bundled, so [DictationNotifier.transcribe] raises a
-/// clear error after stopping the take. The recording is never attached to the
-/// message as a file.
+/// In-composer audio dictation bar.
 class DictationBar extends ConsumerWidget {
   const DictationBar({super.key});
 

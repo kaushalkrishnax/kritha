@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/theme.dart';
 
-/// The Kritha mark, reused from the existing app's `assets/images/logo.png`.
+/// The Kritha avatar mark.
 class KrithaAvatar extends StatelessWidget {
   const KrithaAvatar({super.key, this.size = 32, this.showRing = true});
 

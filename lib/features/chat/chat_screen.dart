@@ -408,8 +408,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ? KrithaDimensions.sidebarWidth
                         : 56,
                     child: ClipRect(
-                      // The panel lays out at full width while the outer box
-                      // shrinks, so the sidebar is revealed rather than squeezed.
                       child: OverflowBox(
                         alignment: Alignment.centerLeft,
                         minWidth: KrithaDimensions.sidebarWidth,
@@ -464,9 +462,6 @@ class _KeyboardBackGuard extends StatelessWidget {
       canPop: !keyboardVisible,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        // Android's back button should dismiss the IME before it can close the
-        // app. Some keyboards/embeddings do not consume it themselves, so do it
-        // explicitly whenever the system asks us to pop with the IME open.
         FocusManager.instance.primaryFocus?.unfocus();
         SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
       },
@@ -515,10 +510,6 @@ class _ChatAreaState extends State<_ChatArea> {
     });
   }
 
-  /// The transcript is opened at the latest turn. Wait two frames so the
-  /// measured composer padding and the first message layout are both applied
-  /// before jumping; otherwise the scroll extent can grow after the jump and
-  /// leave the "scroll to bottom" affordance visible on a fresh chat.
   void _scheduleInitialScroll() {
     if (_didInitialScroll) return;
     final messages = widget.chat.asData?.value.messages;
@@ -622,8 +613,6 @@ class _ChatAreaState extends State<_ChatArea> {
   }
 }
 
-/// Blurred, darkened top band behind the transparent header, matching the RN
-/// chat's top fade while keeping the pills and transcript legible.
 class _HeaderBackdrop extends StatelessWidget {
   const _HeaderBackdrop();
 
@@ -658,9 +647,6 @@ class _HeaderBackdrop extends StatelessWidget {
   }
 }
 
-/// Soft blurred band behind the floating composer. The transcript dissolves
-/// into the page colour instead of ending on a hard edge, and the gradient is
-/// tinted with the active theme so light mode frosts white rather than grey.
 class _ComposerBackdrop extends StatelessWidget {
   const _ComposerBackdrop();
 
@@ -703,11 +689,6 @@ class _ComposerBackdrop extends StatelessWidget {
   }
 }
 
-/// Scroll-to-bottom affordance ported from `ChatMessages.tsx`.
-///
-/// It appears whenever the transcript is more than 80px from the bottom,
-/// auto-hides after 1.5s of inactivity, fades over 180ms and jumps to the end
-/// when pressed.
 class _ScrollDownButton extends StatefulWidget {
   const _ScrollDownButton({required this.controller});
 

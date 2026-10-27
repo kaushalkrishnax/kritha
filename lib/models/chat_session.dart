@@ -1,7 +1,4 @@
-/// A persisted conversation in the sidebar.
-///
-/// Mirrors the React Native `Session` shape: a title, timestamps, and the two
-/// sidebar flags. Messages reference [id] through `ChatEntries.sessionId`.
+/// A persisted conversation session.
 class ChatSession {
   const ChatSession({
     required this.id,

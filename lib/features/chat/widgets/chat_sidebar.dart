@@ -12,11 +12,6 @@ import '../chat_controller.dart';
 
 /// Shared sidebar body used both as an overlay drawer on compact/medium
 /// viewports and as a docked panel on wide ones.
-///
-/// Sessions, pinning, renaming, archiving and deleting are backed by SQLite
-/// through [ChatController]. Layout values follow the React Native
-/// `ChatSidebar`: 24px gutters, a 30px logo, 56px top actions with no gaps
-/// between them, 56px history rows and the account strip pinned to the bottom.
 class ChatSidebar extends ConsumerStatefulWidget {
   const ChatSidebar({
     super.key,
@@ -150,12 +145,16 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     return Material(
       key: _sidebarKey,
       color: KrithaColors.bgDeepest,
-      child: SafeArea(
-        right: false,
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: KrithaColors.borderSubtle),
+        ),
+        child: SafeArea(
+          right: false,
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             _SidebarHeader(onCollapse: widget.onCollapse),
             Expanded(
               child: SingleChildScrollView(
@@ -238,13 +237,13 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                 ),
               ),
             ),
-            Divider(height: 1, color: KrithaColors.borderFaint),
+            Divider(height: 1, color: KrithaColors.borderSubtle),
             Padding(
               padding: EdgeInsets.fromLTRB(
-                KrithaSpacing.s24,
-                KrithaSpacing.s12,
-                KrithaSpacing.s24,
-                math.max(bottomInset, KrithaSpacing.s16),
+                KrithaSpacing.s8,
+                KrithaSpacing.s8,
+                KrithaSpacing.s8,
+                math.max(bottomInset, KrithaSpacing.s8),
               ),
               child: _AccountControl(
                 compact: false,
@@ -255,8 +254,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   static void _stub(BuildContext context, String label) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -355,11 +355,9 @@ class _SidebarHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s24,
-        KrithaSpacing.s4,
-        // With no collapse control after it, the drawer's search button is the
-        // last thing in the row and sits flush with the panel edge.
-        docked ? KrithaSpacing.s16 : 0,
         KrithaSpacing.s12,
+        docked ? KrithaSpacing.s16 : 0,
+        KrithaSpacing.s8,
       ),
       child: Row(
         children: [
@@ -428,8 +426,6 @@ class _SidebarHeader extends StatelessWidget {
   }
 }
 
-/// Borderless header action used on the docked desktop sidebar, where the
-/// persistent circular fill of [_CircleIconButton] reads as unnecessary chrome.
 class _HeaderIconButton extends StatelessWidget {
   const _HeaderIconButton({
     required this.icon,
@@ -476,9 +472,6 @@ class _AccountControl extends StatelessWidget {
 
   final bool compact;
   final VoidCallback onSettings;
-
-  /// Root of the expanded sidebar; its bounds become the menu's bounds so the
-  /// menu spans the panel instead of inheriting the footer's padding.
   final GlobalKey? sidebarKey;
 
   Future<void> _openMenu(BuildContext context) async {
@@ -493,11 +486,6 @@ class _AccountControl extends StatelessWidget {
           label: 'Free',
           disabled: true,
           icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-        ),
-        ContextMenuItem(
-          id: 'personalization',
-          label: 'Personalization',
-          icon: HugeIcons.strokeRoundedSettings02,
         ),
         ContextMenuItem(
           id: 'profile',
@@ -543,8 +531,15 @@ class _AccountControl extends StatelessWidget {
           onTap: () => _openMenu(context),
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(KrithaRadius.base),
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          splashColor: KrithaColors.contextMenuPressed,
+          highlightColor: KrithaColors.contextMenuPressed,
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s6),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 0 : KrithaSpacing.s8,
+              vertical: KrithaSpacing.s6,
+            ),
             child: compact
                 ? Center(child: _AccountAvatar(size: 32))
                 : Row(
@@ -703,6 +698,9 @@ class _RailButton extends StatelessWidget {
         child: IconButton(
           onPressed: onTap,
           tooltip: '',
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          highlightColor: KrithaColors.contextMenuPressed,
           icon: KrithaIcon(
             icon: icon,
             size: KrithaIcons.md,
@@ -735,6 +733,10 @@ class _CircleIconButton extends StatelessWidget {
         child: InkWell(
           customBorder: CircleBorder(),
           onTap: onTap,
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          splashColor: KrithaColors.contextMenuPressed,
+          highlightColor: KrithaColors.contextMenuPressed,
           child: SizedBox(
             width: 44,
             height: 44,
@@ -765,6 +767,10 @@ class _ActionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      hoverColor: KrithaColors.contextMenuPressed,
+      focusColor: KrithaColors.contextMenuPressed,
+      splashColor: KrithaColors.contextMenuPressed,
+      highlightColor: KrithaColors.contextMenuPressed,
       child: SizedBox(
         height: KrithaDimensions.sidebarActionRowHeight,
         child: Padding(
@@ -854,6 +860,10 @@ class _SessionRowState extends State<_SessionRow> {
         child: InkWell(
           onTap: widget.onTap,
           mouseCursor: SystemMouseCursors.click,
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          splashColor: KrithaColors.contextMenuPressed,
+          highlightColor: KrithaColors.contextMenuPressed,
           onLongPress: () {
             final position = _pressPosition;
             if (position != null) widget.onLongPress(position);

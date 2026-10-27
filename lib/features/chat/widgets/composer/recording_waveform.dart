@@ -2,12 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme.dart';
 
-/// Live recording waveform.
-///
-/// The bar construction is copied from Flexiyo's `voice_recorder_bar.dart`:
-/// newest amplitudes on the right, older slots held at 0.12, 3px bars with a
-/// 4px gap, 26px tall and fading in place while paused. The light-grey colour
-/// matches the RN recording strip; only the surrounding chrome is Kritha's.
+/// Live audio recording waveform visualizer.
 class RecordingWaveform extends StatefulWidget {
   const RecordingWaveform({
     super.key,

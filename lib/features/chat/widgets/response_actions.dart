@@ -7,10 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme.dart';
 
-/// Reply actions under an assistant response, matching the React Native
-/// `ResponseActions` row: 20px icons, an 8px ink surface, 2px between items and
-/// a 12px gap above the row. Each icon owns a transparent Material so focus,
-/// hover and press feedback are visible on the dark transcript.
+/// Actions under an assistant response (copy, speak, share).
 class ResponseActions extends StatefulWidget {
   const ResponseActions({super.key, required this.text, required this.onSpeak});
 

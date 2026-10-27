@@ -4,12 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../core/theme.dart';
 
-/// A frosted surface used by the floating composer.
-///
-/// The composer sits over the transcript instead of taking layout space, so its
-/// translucent fill and [BackdropFilter] produce the dimmed/blurred content
-/// behind it seen in the reference design. Geometry and colours come from the
-/// shared tokens; callers only supply their radius, padding and border.
+/// Frosted glass surface using backdrop blur.
 class KrithaGlassSurface extends StatelessWidget {
   const KrithaGlassSurface({
     super.key,
