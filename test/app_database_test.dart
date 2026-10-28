@@ -45,6 +45,57 @@ void main() {
     expect(stored.last.role, ChatRole.user);
   });
 
+  test('same-second messages load in a deterministic order', () async {
+    final at = DateTime(2026, 10, 22, 10);
+    await database.saveSession(
+      ChatSession(id: 'tie', title: 'Tie', createdAt: at, updatedAt: at),
+    );
+    await database.saveMessage(
+      ChatMessage(
+        id: 'tie-b',
+        role: ChatRole.assistant,
+        text: 'second',
+        createdAt: at,
+      ),
+      sessionId: 'tie',
+    );
+    await database.saveMessage(
+      ChatMessage(
+        id: 'tie-a',
+        role: ChatRole.user,
+        text: 'first',
+        createdAt: at,
+      ),
+      sessionId: 'tie',
+    );
+
+    final stored = await database.messagesForSession('tie');
+    expect(stored.map((message) => message.id), ['tie-a', 'tie-b']);
+  });
+
+  test('deleting from a turn id keeps earlier same-second turns', () async {
+    final at = DateTime(2026, 10, 22, 10);
+    await database.saveSession(
+      ChatSession(id: 's', title: 'S', createdAt: at, updatedAt: at),
+    );
+    for (final (id, role) in [
+      ('s-000000-a', ChatRole.assistant),
+      ('s-000001-u', ChatRole.user),
+      ('s-000002-a', ChatRole.assistant),
+      ('s-000003-u', ChatRole.user),
+    ]) {
+      await database.saveMessage(
+        ChatMessage(id: id, role: role, text: id, createdAt: at),
+        sessionId: 's',
+      );
+    }
+
+    await database.deleteMessagesFromId('s', 's-000001-u');
+
+    final remaining = await database.messagesForSession('s');
+    expect(remaining.map((message) => message.id), ['s-000000-a']);
+  });
+
   test('clearHistory removes every row', () async {
     await database.seedIfEmpty(demoMessages());
     await database.clearHistory();

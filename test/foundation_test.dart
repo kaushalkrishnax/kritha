@@ -17,8 +17,12 @@ import 'package:kritha/features/chat/dictation_controller.dart';
 import 'package:kritha/features/chat/widgets/chat_sidebar.dart';
 import 'package:kritha/features/chat/widgets/kritha_avatar.dart';
 import 'package:kritha/features/chat/widgets/message_list.dart';
+import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/services/runtime_probe.dart';
+
+import 'support/fake_inference.dart';
 
 class _FakeDictationNotifier extends DictationNotifier {
   @override
@@ -147,6 +151,14 @@ void main() {
             overrides: [
               databaseProvider.overrideWithValue(database),
               runtimeStatusProvider.overrideWith((ref) async => _runtime),
+              modelConfigStoreProvider.overrideWithValue(
+                InMemoryModelConfigStore('/models/test.litertlm'),
+              ),
+              inferenceProvidersProvider.overrideWithValue([
+                FakeInferenceProvider(
+                  chunks: const ['Streamed fixture reply.'],
+                ),
+              ]),
             ],
             child: const KrithaApp(),
           ),
@@ -217,7 +229,6 @@ void main() {
         await tester.tap(find.byTooltip('Account menu'));
         await tester.pumpAndSettle();
         expect(find.text('Free'), findsWidgets);
-        expect(find.text('Personalization'), findsOneWidget);
         expect(find.text('Profile'), findsOneWidget);
         expect(find.text('Settings'), findsOneWidget);
         expect(find.text('Log out'), findsOneWidget);
@@ -318,12 +329,26 @@ void main() {
       );
     });
 
-    testWidgets('medium shell still uses the overlay drawer', (tester) async {
+    testWidgets('overlay drawer shells hide the header branding', (
+      tester,
+    ) async {
       await pumpApp(tester, size: const Size(768, 1024));
 
       expect(find.byTooltip('Sessions'), findsOneWidget);
       expect(find.byTooltip('Hide sidebar'), findsNothing);
       expect(find.text('Recents').hitTestable(), findsNothing);
+      expect(find.text('New chat').hitTestable(), findsNothing);
+
+      // The header no longer repeats the Kritha avatar/name over the chat.
+      expect(find.text('Kritha').hitTestable(), findsNothing);
+      expect(find.byType(KrithaAvatar), findsNothing);
+
+      await tester.tap(find.byTooltip('Sessions'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New chat').hitTestable(), findsOneWidget);
+      expect(find.text('Recents').hitTestable(), findsOneWidget);
+      expect(find.text('Kaushal Krishna').hitTestable(), findsOneWidget);
     });
 
     testWidgets('wide shell docks the sidebar and can hide it', (tester) async {
@@ -725,6 +750,14 @@ void main() {
             overrides: [
               databaseProvider.overrideWithValue(database),
               runtimeStatusProvider.overrideWith((ref) async => _runtime),
+              modelConfigStoreProvider.overrideWithValue(
+                InMemoryModelConfigStore('/models/test.litertlm'),
+              ),
+              inferenceProvidersProvider.overrideWithValue([
+                FakeInferenceProvider(
+                  chunks: const ['Streamed fixture reply.'],
+                ),
+              ]),
             ],
             child: const KrithaApp(),
           ),

@@ -35,6 +35,12 @@ ChatComposer
   └─ dictationProvider (microphone phase, elapsed time, amplitude levels)
        └─ DictationBar → recording_waveform.dart → transcribe seam
             (no audio attachment; the temp file is deleted)
+
+Intelligence (wired to chat; no model bundled)
+  intelligenceEngineProvider → RequestRouter → LiteRtLmProvider
+    └─ NativeLiteRtLmEngine → litertlm Engine/Conversation
+         (configuredModelProvider comes from the validated Settings selection;
+          nothing loads until the first request)
 ```
 
 Session operations are written immediately; messages are loaded per session.
@@ -52,7 +58,7 @@ which point the session row is created with a title derived from that prompt.
 | `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer; **wake-word runtime is a stub**. |
 | `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. |
 | `_ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. |
-| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes and reset history are real. The back control is a 44 px circular ink target with zero internal padding, so its focus/ripple fills the circle. RN settings toggles are not ported (**gap**). |
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and reset history are real. The model card validates the file and reports it separately from the loaded engine. The back control is a 44 px circular ink target with zero internal padding, so its focus/ripple fills the circle. RN settings toggles are not ported (**gap**). |
 | `_EmptyChat` | `chat_screen.dart` | Real | Shown for a new, unsaved chat. |
 | `_LoadingMessages`, `_ChatError` | `chat_screen.dart` | Real | Async loading/retry states. |
 
@@ -60,12 +66,12 @@ which point the session row is created with a title derived from that prompt.
 
 | Component | File | Status | Notes / stub work |
 | --- | --- | --- | --- |
-| `ChatController` / `ChatState` | `lib/features/chat/chat_controller.dart` | Real | Session CRUD, per-session messages, send/save/reply, pin, rename, archive/restore, delete, reset. Editing a prompt deletes that turn and every later turn before saving the replacement. Reply text is a stub. |
-| `MessageList` | `lib/features/chat/widgets/message_list.dart` | Real | RN spacing, user bubble, no assistant bubble, thinking row, auto-scroll hooks. |
+| `ChatController` / `ChatState` | `lib/features/chat/chat_controller.dart` | Real | Session CRUD, per-session messages, streaming send, cancellation, typed reply failures and retry, pin, rename, archive/restore, delete, reset. History is mapped to `AiRequest`; the assistant turn is persisted only after a successful stream. Editing a prompt deletes that turn and every later turn before saving the replacement. Retry regenerates without re-saving the user turn. |
+| `MessageList` | `lib/features/chat/widgets/message_list.dart` | Real | RN spacing, user bubble, no assistant bubble, thinking row, streamed partial assistant output, reply-failure row with retry, auto-scroll hooks. |
 | `_UserMessage` | same file | Real | Rounded bubble painted by `Material`, with a full-bubble `InkWell` press/focus ripple. Long-press menu has a message-time header, Copy, Edit message. Edit enters a persistent edit mode and shows the restart warning above the composer. |
 | `_AssistantMessage` | same file | Real | Markdown plus response actions. |
 | `ResponseActions` | `lib/features/chat/widgets/response_actions.dart` | Real / Stub | Copy is real with a 2 s confirmation; Share opens the native share sheet through `share_plus`. Each icon has a transparent Material ink surface with focus/hover/press feedback. Read-aloud is a stub (no TTS model); More reports the missing response menu. |
-| `_ThinkingRow` | `message_list.dart` | Real | Animated pending-reply affordance. |
+| `_ThinkingRow`, `_StreamingMessage`, `_ReplyFailureRow` | `message_list.dart` | Real | Pending-reply affordance, streamed markdown, and a user-safe failure with a retry action when retryable. |
 | `MarkdownView` | `lib/features/chat/widgets/markdown_view.dart` | Real | GFM, tables, code highlighting, LaTeX. Links open a stub snackbar instead of a browser. |
 | `MessageAttachmentList` | `lib/features/chat/widgets/attachment_view.dart` | Real | Renders persisted sent attachments. |
 | `KrithaAvatar` | `lib/features/chat/widgets/kritha_avatar.dart` | Real | Logo avatar used outside the chat transcript. |
@@ -104,9 +110,29 @@ which point the session row is created with a title derived from that prompt.
 | `ChatSession` | `lib/models/chat_session.dart` | Real | Plain model for a sidebar session. |
 | `ChatMessage` | `lib/models/chat_message.dart` | Real | Freezed + JSON; role, text, timestamp, attachments. |
 | `ChatAttachment` | `lib/models/chat_attachment.dart` | Real | Image/file kind, path, size, MIME, readable size. |
-| `demoMessages`, `demoReplyFor` | `lib/data/seed_messages.dart` | Stub | Fixture turns and canned reply. Replace with the real engine. |
+| `demoMessages` | `lib/data/seed_messages.dart` | Fixture | Markdown fixture turns seeded once; no canned replies. |
 | `RuntimeProbe` | `lib/services/runtime_probe.dart` | Real | Best-effort probes for sherpa-onnx, ONNX Runtime, SQLite, secure storage, prefs, mic, recorder, player, documents. |
 | `databaseProvider`, `runtimeStatusProvider`, `dioProvider` | `lib/core/providers.dart` | Real | `dioProvider` is configured but unused by design. |
+
+## Intelligence (Phase 2 wiring)
+
+Chat sends through the engine when a validated model file is configured. No
+model ships with the app, nothing loads at startup, and no real generation has
+been verified in this workspace.
+
+| Component | File | Status | Notes |
+| --- | --- | --- | --- |
+| `AiMessage`, `AiRole`, `AiGenerationOptions`, `AiRequest` | `lib/features/intelligence/models/ai_request.dart` | Real (contract) | Freezed + JSON. Text turns, sampler options, optional response schema, optional `modelId`, string metadata. `requiredCapabilities` derives text + structured output. |
+| `AiResponse` | `lib/features/intelligence/models/ai_response.dart` | Real (contract) | Text, model id, measured latency, string metadata. Streaming events carry cumulative text, not deltas. No runtime types, no invented token counts. |
+| `ModelCapabilities` | `lib/features/intelligence/models/model_capabilities.dart` | Real (contract) | Declared, not probed. Empty by default; `textOnly` is the only shipped declaration. LiteRT-LM 0.0.14 cannot introspect modality support. |
+| `ModelDescriptor` | `lib/features/intelligence/models/model_descriptor.dart` | Real (contract) | Identity, display name, runtime id, capabilities and optional path. No handles, engine or download state. |
+| `IntelligenceException` hierarchy | `lib/features/intelligence/intelligence_exception.dart` | Real | Sealed `Exception` types: unavailable provider, unsupported capability, invalid request, failed inference. |
+| `InferenceProvider` | `lib/features/intelligence/inference_provider.dart` | Real (contract) | `id`, `descriptor`, `isInitialized`, `initialize/generate/stream/dispose`. Stream events carry cumulative text; cancelling the subscription stops generation. |
+| `RequestRouter` | `lib/features/intelligence/request_router.dart` | Real | Empty list → unavailable; optional `modelId` match; first provider declaring every required capability wins. No fallback or retry. |
+| `IntelligenceEngine`, `IntelligenceStatus` | `lib/features/intelligence/intelligence_engine.dart` | Real (contract) | Validates request invariants, delegates unary and streaming calls to the router. Status reports configured/loaded only, never successful inference. |
+| `ModelConfiguration`, `ModelConfigurationController`, `ModelConfigStore` | `lib/features/intelligence/model_configuration.dart` | Real | Persists the picked path in SharedPreferences; distinguishes not configured, missing, invalid, unavailable and ready. Validates extension, file type and non-empty size before the runtime sees it. No download or marketplace. |
+| `LiteRtLmProvider`, `NativeLiteRtLmEngine` | `lib/features/intelligence/runtimes/litertlm_provider.dart` | Adapter, unverified with weights | All `litertlm` imports live here. Lazy engine init, one conversation per request, sampler/role mapping, cumulative streaming, immediate cancellation through explicit stream controllers, typed error translation, engine discarded after failure. Never exercised with a real model. |
+| `modelConfigStoreProvider`, `modelConfigurationProvider`, `configuredModelProvider`, `liteRtLmEngineFactoryProvider`, `inferenceProvidersProvider`, `requestRouterProvider`, `intelligenceEngineProvider`, `intelligenceStatusProvider` | `lib/features/intelligence/providers.dart` | Real | Model is validated before it reaches the router; engine factory is overridable so tests never load native code. |
 
 ## Working interactions (manual checklist)
 
@@ -143,7 +169,7 @@ hand-off: the visible entry point already exists where noted.
 
 | # | Feature | Entry point / function | Current behaviour | Needed |
 | --- | --- | --- | --- | --- |
-| 1 | Real assistant reply | `ChatController.send` → `demoReplyFor` | Canned Markdown reply after 450 ms. | Local LLM or backend call; streaming; error/retry. |
+| 1 | Assistant inference with a real model | `ChatController.send` → `intelligenceEngineProvider` | Wired: validated model selection, persisted history mapping, streaming, cancel, retry and user-safe failures. No model ships and no real generation has been verified. | Pick and validate an actual `.litertlm` file on a device, confirm native streaming/cancel semantics and tune prompts/samplers. Per-request conversations replay history; conversation reuse is deferred. |
 | 2 | Dictation transcription | `DictationNotifier.transcribe` | Stops and deletes the take, then raises a missing-model error; never attaches audio. | Pass the stopped file through sherpa-onnx/STT, return text so the square inserts it and the arrow sends it, keep the error surface. |
 | 3 | Live Talk runtime | `LiveTalkBar`, `ComposerNotifier` phases | Visual pulse and pause/resume only. | Mic session, VAD, STT, LLM turn taking, TTS playback, real phase transitions. |
 | 4 | Read aloud | `_AssistantMessage` → `ResponseActions.onSpeak` | Snackbar says TTS is unbundled. | Downloadable voice models + `just_audio` playback controls. |
@@ -159,9 +185,10 @@ hand-off: the visible entry point already exists where noted.
 | 14 | Message pagination | `AppDatabase.messagesForSession` | Loads every message. | Windowed queries for long conversations. |
 | 15 | Markdown links | `MarkdownView.onTapLink` | Stub snackbar. | Route through `url_launcher` with allow-listing. |
 | 16 | Wake word | `SettingsScreen` → Voice | Real Android foreground-service toggle. | iOS/desktop runtime and a model picker. |
-| 17 | Account identity | Sidebar footer → account menu | Static “Kaushal Krishna / KK” with Free, Personalization, Profile, Settings and Log out entries; only Settings is wired. | Profile source, plan data and real account actions. |
-| 18 | Settings depth | `SettingsScreen` | Probes + reset only. | RN toggles and model management. |
+| 17 | Account identity | Sidebar footer → account menu | Static “Kaushal Krishna / KK” with Free, Profile, Settings and Log out entries; only Settings is wired. | Profile source, plan data and real account actions. |
+| 18 | Settings depth | `SettingsScreen` | Probes, local model selection/removal and reset. | Remaining RN toggles and richer model metadata. |
 | 19 | Backend/network | `dioProvider` | Configured, unused. | Auth, sync, remote models, request logging. |
+| 20 | Multimodal prompts | `AiRequest` / composer attachments | Attachments persist and render, but only text is sent; attachment-only prompts fail with a clear message. | Image/audio content parts, capability checks and runtime support. |
 
 ## Component docs checklist
 

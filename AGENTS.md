@@ -39,5 +39,7 @@ Only `--no-codesign` is acceptable as an extra flag (iOS/local unsigned builds).
 - **Plugins sidebar**: `lib/features/chat/widgets/chat_sidebar.dart` row is `Plugins`; runtime-delivery-only UI was removed.
 - **Edge Impulse SDK**: kept as the committed zip under `edge-impulse-exports/kritha-cpp-android-v5-impulse-#1.zip`; extracted at CMake configure time from `android/app/src/main/cpp/CMakeLists.txt`. Do not commit raw extracted SDK files.
 - **iOS unsigned builds**: macOS/iOS Release configs use `CODE_SIGN_STYLE = Manual` with `CODE_SIGN_IDENTITY = "-"` and empty `DEVELOPMENT_TEAM` for local unsigned builds (see `macos/Runner/Configs/Signing.xcconfig`). Distribution still requires a valid signing identity — do not claim a signed build without one.
-- **litertlm**: local patched copy at `packages/litertlm` with `-std=c++17` in `hook/build.dart`; referenced via `path:` in `pubspec.yaml`. Do not edit `.pub-cache` directly.
+- **litertlm**: resolved from pub.dev (`^0.0.14`); there is no local
+  `packages/litertlm` copy in this repo. Keep LiteRT-LM types inside
+  `lib/features/intelligence/runtimes/litertlm_provider.dart`.
 - **Flutter version**: 3.47.7 / Dart 3.13.5 (verified against).

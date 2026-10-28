@@ -9,6 +9,7 @@ import '../../../core/responsive.dart';
 import '../../../core/theme.dart';
 import '../../../models/chat_message.dart';
 import '../../../widgets/context_menu.dart';
+import '../chat_controller.dart';
 import 'attachment_view.dart';
 import 'composer/composer_controller.dart';
 import 'markdown_view.dart';
@@ -19,6 +20,9 @@ class MessageList extends StatelessWidget {
     super.key,
     required this.messages,
     required this.sending,
+    required this.streamingText,
+    required this.failure,
+    required this.onRetry,
     required this.scrollController,
     this.topPadding = 0,
     this.bottomPadding = KrithaSpacing.s16,
@@ -26,6 +30,14 @@ class MessageList extends StatelessWidget {
 
   final List<ChatMessage> messages;
   final bool sending;
+
+  /// Partial assistant text for the in-flight reply, if any.
+  final String? streamingText;
+
+  /// Failure for the last reply, when one was not produced.
+  final ChatFailure? failure;
+
+  final VoidCallback onRetry;
   final ScrollController scrollController;
 
   /// Space reserved for the floating header so the first turn can scroll clear
@@ -58,12 +70,13 @@ class MessageList extends StatelessWidget {
             KrithaSpacing.screenPadding,
             bottomPadding,
           ),
-          itemCount: messages.length + (sending ? 1 : 0),
+          itemCount:
+              messages.length +
+              (sending ? 1 : 0) +
+              (failure != null && !sending ? 1 : 0),
           itemBuilder: (context, index) {
             final Widget item;
-            if (index == messages.length) {
-              item = _ThinkingRow();
-            } else {
+            if (index < messages.length) {
               final message = messages[index];
               item = switch (message.role) {
                 ChatRole.user => _UserMessage(
@@ -72,6 +85,13 @@ class MessageList extends StatelessWidget {
                 ),
                 ChatRole.assistant => _AssistantMessage(message: message),
               };
+            } else if (sending) {
+              final partial = streamingText;
+              item = partial == null || partial.isEmpty
+                  ? _ThinkingRow()
+                  : _StreamingMessage(text: partial);
+            } else {
+              item = _ReplyFailureRow(failure: failure!, onRetry: onRetry);
             }
 
             final padded = Padding(
@@ -288,6 +308,68 @@ class _ThinkingRow extends StatelessWidget {
               color: KrithaColors.accentLightBlue,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StreamingMessage extends StatelessWidget {
+  const _StreamingMessage({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: KrithaSpacing.s12,
+        horizontal: KrithaSpacing.s2,
+      ),
+      child: MarkdownView(data: text),
+    );
+  }
+}
+
+class _ReplyFailureRow extends StatelessWidget {
+  const _ReplyFailureRow({required this.failure, required this.onRetry});
+
+  final ChatFailure failure;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('reply-failure'),
+      padding: EdgeInsets.all(KrithaSpacing.s12),
+      decoration: BoxDecoration(
+        color: KrithaColors.bgSurface,
+        borderRadius: BorderRadius.circular(KrithaRadius.md),
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          KrithaIcon(
+            icon: HugeIcons.strokeRoundedAlert02,
+            size: KrithaIcons.md,
+            color: KrithaColors.error,
+          ),
+          SizedBox(width: KrithaSpacing.s10),
+          Expanded(
+            child: Text(
+              failure.message,
+              style: TextStyle(
+                fontSize: KrithaText.sizeSm,
+                height: 1.4,
+                color: KrithaColors.textSecondary,
+              ),
+            ),
+          ),
+          if (failure.retryable) ...[
+            SizedBox(width: KrithaSpacing.s8),
+            TextButton(onPressed: onRetry, child: Text('Retry')),
+          ],
         ],
       ),
     );

@@ -48,6 +48,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+  /// Keeps streamed output in view without fighting a user who scrolled away.
+  void _followStreaming() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (position.maxScrollExtent - position.pixels > 120) return;
+      position.jumpTo(position.maxScrollExtent);
+    });
+  }
+
   void _newChat() {
     _scaffoldKey.currentState?.closeDrawer();
     ref.read(chatControllerProvider.notifier).newChat();
@@ -338,16 +348,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     watchKrithaPalette(context);
     ref.listen(chatControllerProvider, (previous, next) {
-      final previousCount = previous?.value?.messages.length ?? 0;
-      final nextCount = next.value?.messages.length ?? 0;
+      final previousState = previous?.value;
+      final nextState = next.value;
+      final previousCount = previousState?.messages.length ?? 0;
+      final nextCount = nextState?.messages.length ?? 0;
       final sessionChanged =
-          previous?.value?.currentSessionId != next.value?.currentSessionId;
+          previousState?.currentSessionId != nextState?.currentSessionId;
+      final streamingChanged =
+          previousState?.streamingText != nextState?.streamingText;
+      final failureAppeared =
+          previousState?.failure == null && nextState?.failure != null;
       if (sessionChanged) {
         ref.read(composerProvider.notifier).cancelEditing();
         _scaffoldKey.currentState?.closeDrawer();
         _scrollToBottom();
-      } else if (previousCount != nextCount) {
+      } else if (previousCount != nextCount || failureAppeared) {
         _scrollToBottom();
+      } else if (streamingChanged && nextState?.sending == true) {
+        _followStreaming();
       }
     });
 
@@ -371,6 +389,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onNewChat: _newChat,
             onChatMenu: _openChatMenu,
             onRetry: () => ref.invalidate(chatControllerProvider),
+            onReplyRetry: () =>
+                ref.read(chatControllerProvider.notifier).retryReply(),
             sidebarOpen: isDocked ? _dockedSidebarOpen : null,
           );
 
@@ -479,6 +499,7 @@ class _ChatArea extends StatefulWidget {
     required this.onNewChat,
     required this.onChatMenu,
     required this.onRetry,
+    required this.onReplyRetry,
     this.sidebarOpen,
   });
 
@@ -489,6 +510,7 @@ class _ChatArea extends StatefulWidget {
   final VoidCallback onNewChat;
   final void Function(BuildContext buttonContext) onChatMenu;
   final VoidCallback onRetry;
+  final VoidCallback onReplyRetry;
   final bool? sidebarOpen;
 
   @override
@@ -548,6 +570,9 @@ class _ChatAreaState extends State<_ChatArea> {
                     : MessageList(
                         messages: state.messages,
                         sending: state.sending,
+                        streamingText: state.streamingText,
+                        failure: state.failure,
+                        onRetry: widget.onReplyRetry,
                         scrollController: widget.scrollController,
                         topPadding: KrithaDimensions.headerContentTopPadding,
                         bottomPadding: _composerHeight + KrithaSpacing.s12,

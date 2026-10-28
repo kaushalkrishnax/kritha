@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -86,13 +87,11 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
 
   void _handleAction(bool isBusy, bool hasContent) {
     if (isBusy) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('The current reply is still in flight.')),
-      );
+      unawaited(ref.read(chatControllerProvider.notifier).cancelReply());
       return;
     }
     if (hasContent) {
-      _send();
+      unawaited(_send());
       return;
     }
     ref.read(composerProvider.notifier).setLiveTalkActive(true);

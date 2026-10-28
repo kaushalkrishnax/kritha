@@ -379,6 +379,26 @@ inventory:
 - [`docs/COMPONENTS.md`](docs/COMPONENTS.md) — component inventory and every
   remaining stub with hand-off notes
 
+### Intelligence
+
+`lib/features/intelligence/` defines the inference request/response contracts,
+a minimal request router, the application-facing engine, a LiteRT-LM adapter
+and the persisted model selection. Nothing is bundled or downloaded:
+
+- Settings stores a validated `.litertlm` path (present, regular file,
+  non-empty) and reports the file separately from the loaded engine. Selecting
+  a file does not load weights. On mobile, the platform picker may hand back a
+  cached copy; the saved path is revalidated before every request.
+- `ChatController.send` maps persisted history into an `AiRequest`, streams the
+  reply through the engine and only saves the assistant turn after a successful
+  completion. Cancelling stops native generation and discards the partial text;
+  retrying regenerates for the existing user turn without saving it again.
+- Model loading still happens on the first request. No real model has been run
+  in this workspace, so neither loading nor generation is claimed as verified.
+- Attachments are persisted but not sent to the model; a text prompt is required.
+  LiteRT-LM conversations are created per request because reuse across turns
+  has no verified reset/cancel lifecycle.
+
 ## Project layout
 
 ```
@@ -394,16 +414,18 @@ lib/
     router.dart                go_router routes
   data/
     app_database.dart          Drift tables, session/message queries, v3 migration
-    seed_messages.dart         Fixture conversation and canned replies
+    seed_messages.dart         Markdown fixture conversation
   features/
     chat/
-      chat_controller.dart     Sessions, per-session history, send, CRUD
+      chat_controller.dart     Sessions, history, streaming send, cancel, retry
       chat_screen.dart         Adaptive shell, floating frosted composer,
                                scroll-to-bottom arrow, keyboard back guard
       dictation_controller.dart  Microphone capture, amplitude levels, STT seam
       widgets/                 Header, sidebar, message list, Markdown,
                                attachments, response actions, composer/
-    settings/                  Runtime probes and history controls
+    settings/                  Runtime probes, model selection and history controls
+    intelligence/              Inference contracts, router, engine, LiteRT-LM
+                               adapter and model configuration
   models/                      Message, attachment and session models
   services/runtime_probe.dart  Startup probes for native packages
   widgets/                     Shared context menu and frosted glass surface
@@ -429,8 +451,13 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
   Files, Plugins and Think harder to match the reference; only Photos and Files
   are enabled. Camera, Plugins and Think harder are disabled rather than shown
   as dead actions. Read-aloud is a visible TTS stub.
-- **Real assistant engine** — replies come from `demoReplyFor`; there is no
-  backend or local LLM. LiteRT-LM is not in the dependency set.
+- **Real assistant engine** — the chat flow is wired to the intelligence layer
+  and a persisted `.litertlm` path, but no model ships with the app and no real
+  generation has been verified in this workspace. Text-only prompts are
+  supported; attachment contents are not sent to the model.
+- **Conversation reuse** — each request creates a fresh LiteRT-LM conversation
+  and replays the persisted history. Reusing one native conversation per chat is
+  deferred until reset/cancel lifecycle behaviour is verified on a device.
 - **Attachment file lifecycle** — picker paths are stored but not copied into
   app documents yet, so a picker cache cleanup can invalidate an old preview.
 - **Message editing** — editing restarts the conversation from that turn by

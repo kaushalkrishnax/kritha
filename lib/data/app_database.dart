@@ -68,9 +68,12 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Future<List<ChatMessage>> allMessages() async {
-    final rows = await (select(
-      chatEntries,
-    )..orderBy([(row) => OrderingTerm.asc(row.createdAt)])).get();
+    final rows =
+        await (select(chatEntries)..orderBy([
+              (row) => OrderingTerm.asc(row.createdAt),
+              (row) => OrderingTerm.asc(row.id),
+            ]))
+            .get();
     return [for (final row in rows) _mapMessage(row)];
   }
 
@@ -78,7 +81,10 @@ class AppDatabase extends _$AppDatabase {
     final rows =
         await (select(chatEntries)
               ..where((row) => row.sessionId.equals(sessionId))
-              ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
+              ..orderBy([
+                (row) => OrderingTerm.asc(row.createdAt),
+                (row) => OrderingTerm.asc(row.id),
+              ]))
             .get();
     return [for (final row in rows) _mapMessage(row)];
   }
@@ -177,8 +183,8 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Removes a message and every later turn in the same session. Used when a
-  /// prompt is edited: the conversation restarts from that point.
+  /// Removes turns at or after [from]. Timestamp precision is second-level, so
+  /// prompt editing uses [deleteMessagesFromId] instead.
   Future<void> deleteMessagesFrom(String sessionId, DateTime from) {
     return (delete(chatEntries)..where(
           (row) =>
@@ -186,6 +192,23 @@ class AppDatabase extends _$AppDatabase {
               row.createdAt.isBiggerOrEqualValue(from),
         ))
         .go();
+  }
+
+  /// Deletes [messageId] and every later turn without relying on timestamp
+  /// uniqueness: Drift stores date times with second precision.
+  Future<void> deleteMessagesFromId(String sessionId, String messageId) async {
+    await transaction(() async {
+      final messages = await messagesForSession(sessionId);
+      final index = messages.indexWhere((message) => message.id == messageId);
+      if (index < 0) return;
+      final ids = [
+        for (var i = index; i < messages.length; i++) messages[i].id,
+      ];
+      await (delete(
+            chatEntries,
+          )..where((row) => row.sessionId.equals(sessionId) & row.id.isIn(ids)))
+          .go();
+    });
   }
 
   Future<int> countMessages() async {

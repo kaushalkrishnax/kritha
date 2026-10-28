@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,8 @@ import '../../core/theme.dart';
 import '../../services/runtime_probe.dart';
 import '../../services/wake_word_bridge.dart';
 import '../chat/chat_controller.dart';
+import '../intelligence/model_configuration.dart';
+import '../intelligence/providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -21,6 +24,17 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     watchKrithaPalette(context);
     final runtime = ref.watch(runtimeStatusProvider);
+    // Read the live status so returning here after a reply shows the loaded
+    // engine; the cached provider value would still say "not loaded".
+    final intelligence = ref.watch(intelligenceEngineProvider).status;
+    final (String inferenceLabel, bool? inferenceOk) = switch ((
+      intelligence.hasProvider,
+      intelligence.hasLoadedModel,
+    )) {
+      (false, _) => ('no model file', false),
+      (true, true) => ('engine loaded', true),
+      (true, false) => ('model file ready; not loaded', null),
+    };
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -48,12 +62,25 @@ class SettingsScreen extends ConsumerWidget {
                     _SectionLabel('THEME'),
                     _ThemeControl(),
                     SizedBox(height: 22),
+                    _SectionLabel('MODEL'),
+                    _ModelControl(),
+                    SizedBox(height: 22),
                     _SectionLabel('RUNTIME PROBES'),
                     _Card(
                       child: runtime.when(
                         data: (status) => _RuntimeRows(status: status),
                         loading: () => _LoadingProbe(),
                         error: (error, stackTrace) => _ProbeError(error: error),
+                      ),
+                    ),
+                    SizedBox(height: 22),
+                    _SectionLabel('INTELLIGENCE'),
+                    _Card(
+                      child: _StatusRow(
+                        icon: HugeIcons.strokeRoundedCpu,
+                        label: 'Local inference',
+                        value: inferenceLabel,
+                        ok: inferenceOk,
                       ),
                     ),
                     SizedBox(height: 22),
@@ -107,7 +134,7 @@ class SettingsScreen extends ConsumerWidget {
                             value: switch (runtime.value) {
                               final status? =>
                                 status.liteRtLmReady
-                                    ? 'native runtime ready; model not loaded'
+                                    ? 'runtime linked; no model loaded'
                                     : 'unavailable',
                               null => 'checking…',
                             },
@@ -284,6 +311,144 @@ class _ThemeControl extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModelControl extends ConsumerWidget {
+  const _ModelControl();
+
+  Future<void> _pick(BuildContext context, WidgetRef ref) async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['litertlm'],
+      );
+      if (files.isEmpty) return;
+      final path = files.first.path;
+      if (path == null || path.isEmpty) return;
+
+      await ref.read(modelConfigurationProvider.notifier).setPath(path);
+      if (!context.mounted) return;
+      final config = ref.read(modelConfigurationProvider).value;
+      if (config != null && !config.isReady) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(config.message ?? 'That model file cannot be used.'),
+          ),
+        );
+      }
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The model picker could not open.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final configuration = ref.watch(modelConfigurationProvider);
+    return _Card(
+      child: configuration.when(
+        loading: () => Text(
+          'Reading model settings…',
+          style: TextStyle(
+            fontSize: KrithaText.sizeXs,
+            color: KrithaColors.textMuted,
+          ),
+        ),
+        error: (error, stackTrace) => Text(
+          'Model settings could not load.',
+          style: TextStyle(
+            fontSize: KrithaText.sizeXs,
+            color: KrithaColors.error,
+          ),
+        ),
+        data: (value) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _StatusRow(
+              icon: HugeIcons.strokeRoundedCpu,
+              label: 'Model file',
+              value: value.statusLabel,
+              ok: switch (value.status) {
+                ModelConfigurationStatus.ready => true,
+                ModelConfigurationStatus.notConfigured => null,
+                _ => false,
+              },
+            ),
+            if (value.fileName != null) ...[
+              _RowDivider(),
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 7, horizontal: 40),
+                child: Text(
+                  value.fileName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontFamily: 'monospace',
+                    color: KrithaColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
+            if (value.message != null &&
+                value.status != ModelConfigurationStatus.notConfigured) ...[
+              SizedBox(height: 4),
+              Text(
+                value.message!,
+                style: TextStyle(
+                  fontSize: KrithaText.sizeXs,
+                  color: KrithaColors.warning,
+                ),
+              ),
+            ],
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pick(context, ref),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: KrithaColors.textSecondary,
+                      side: BorderSide(color: KrithaColors.borderStrong),
+                      minimumSize: Size.fromHeight(40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(KrithaRadius.base),
+                      ),
+                    ),
+                    icon: KrithaIcon(
+                      icon: HugeIcons.strokeRoundedFolderOpen,
+                      size: 16,
+                    ),
+                    label: Text(
+                      value.isReady ? 'Change model…' : 'Choose model…',
+                    ),
+                  ),
+                ),
+                if (value.path != null) ...[
+                  SizedBox(width: KrithaSpacing.s8),
+                  TextButton(
+                    onPressed: () =>
+                        ref.read(modelConfigurationProvider.notifier).clear(),
+                    child: Text('Remove'),
+                  ),
+                ],
+              ],
+            ),
+            SizedBox(height: KrithaSpacing.s8),
+            Text(
+              'Text-only LiteRT-LM files. Nothing is downloaded.',
+              style: TextStyle(
+                fontSize: KrithaText.sizeXs,
+                color: KrithaColors.textDimmed,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -525,7 +690,9 @@ class _RuntimeRows extends StatelessWidget {
         _StatusRow(
           icon: HugeIcons.strokeRoundedCpu,
           label: 'LiteRT-LM',
-          value: status.liteRtLmReady ? 'native runtime ready' : 'unavailable',
+          value: status.liteRtLmReady
+              ? 'runtime linked; no model loaded'
+              : 'unavailable',
           ok: status.liteRtLmReady,
         ),
         _RowDivider(),

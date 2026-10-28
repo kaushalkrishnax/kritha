@@ -87,37 +87,3 @@ Tap **Runtime** in the header to inspect the packages doing the work.''',
     ),
   ];
 }
-
-/// A short canned response so the composer exercises Riverpod and Drift without
-/// pretending to be an AI engine.
-String demoReplyFor(String prompt) {
-  final lower = prompt.toLowerCase();
-  if (prompt.trim().isEmpty) {
-    return 'I received your attachment. Multimodal understanding is wired up '
-        'later; this build only stores and displays the file locally.';
-  }
-  if (lower.contains('sherpa') || lower.contains('speech')) {
-    return r'''**Sherpa-ONNX** is linked into this APK, including its ONNX Runtime.
-
-The demo calls `initBindingsAsync()` and reads the native version at startup.
-No recogniser, TTS model or wake-word model is bundled — only the runtime. On
-a real device the model files would arrive separately, for example:
-
-```dart
-final recognizer = OfflineRecognizer(
-  OfflineRecognizerConfig(model: model),
-);
-```''';
-  }
-  if (lower.contains('size') || lower.contains('apk')) {
-    return r'''This screen is a **size probe**, not a product build.
-
-- `flutter build apk --release --target-platform=android-arm64 --analyze-size`
-- Every listed package is referenced by real code
-- No model weights, no LiteRT-LM runtime, no backend
-
-The measured result is reported from the actual APK, not estimated.''';
-  }
-  return 'Noted — **$prompt** is stored in local SQLite history. '
-      'This demo replies with fixtures; the real conversation engine is out of scope.';
-}

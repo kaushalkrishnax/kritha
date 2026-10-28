@@ -6,7 +6,12 @@ import 'package:kritha/app.dart';
 import 'package:kritha/core/providers.dart';
 import 'package:kritha/data/app_database.dart';
 import 'package:kritha/features/chat/widgets/message_list.dart';
+import 'package:kritha/features/intelligence/inference_provider.dart';
+import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/services/runtime_probe.dart';
+
+import 'support/fake_inference.dart';
 
 void main() {
   late AppDatabase database;
@@ -19,7 +24,7 @@ void main() {
     await database.close();
   });
 
-  Widget buildApp() {
+  Widget buildApp({InferenceProvider? inference}) {
     const runtime = RuntimeStatus(
       liteRtLmReady: true,
       sherpaVersion: '1.13.8',
@@ -38,6 +43,12 @@ void main() {
       overrides: [
         databaseProvider.overrideWithValue(database),
         runtimeStatusProvider.overrideWith((ref) async => runtime),
+        modelConfigStoreProvider.overrideWithValue(
+          InMemoryModelConfigStore('/models/test.litertlm'),
+        ),
+        inferenceProvidersProvider.overrideWithValue([
+          inference ?? FakeInferenceProvider(),
+        ]),
       ],
       child: const KrithaApp(),
     );
@@ -75,6 +86,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('THEME'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('v1.13.8'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     expect(find.textContaining('v1.13.8'), findsWidgets);
 
     // The back control is exactly the 44px circle, with no IconButton padding
@@ -141,5 +158,39 @@ void main() {
     final messages = await database.allMessages();
     expect(messages[5].text, 'How big is the APK?');
     expect(messages[6].role.name, 'assistant');
+  });
+
+  testWidgets('streamed output is shown and can be stopped', (tester) async {
+    final manual = ManualInferenceProvider();
+    await tester.pumpWidget(buildApp(inference: manual));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Stream a reply');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Send message'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Thinking…'), findsOneWidget);
+    expect(find.byTooltip('Stop response'), findsOneWidget);
+
+    manual.emit('Partial answer');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.textContaining('Partial answer'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Stop response'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byTooltip('Stop response'), findsNothing);
+    expect(find.textContaining('Partial answer'), findsNothing);
+    expect(manual.cancelled, isTrue);
+    expect(await database.countMessages(), 6);
+    final messages = await database.allMessages();
+    expect(messages.last.role.name, 'user');
   });
 }

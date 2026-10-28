@@ -510,7 +510,6 @@ class _AccountControl extends StatelessWidget {
       return;
     }
     final message = switch (selection) {
-      'personalization' => 'Personalization is not available yet.',
       'profile' => 'Profile management is not available yet.',
       'logout' => 'Sign out is not available yet.',
       _ => null,
