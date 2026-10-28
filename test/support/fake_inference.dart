@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:kritha/features/intelligence/inference_provider.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
@@ -50,28 +51,46 @@ class FakeInferenceProvider implements InferenceProvider {
   int streamCalls = 0;
   int generateCalls = 0;
   int disposeCalls = 0;
-  bool _initialized = false;
+  final ValueNotifier<EngineLifecycle> _lifecycle = ValueNotifier(
+    const EngineLifecycle.fileReady(),
+  );
 
   @override
   String get id => descriptor.runtimeId;
 
   @override
-  bool get isInitialized => _initialized;
+  ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;
+
+  @override
+  bool get isInitialized => _lifecycle.value.isInitialized;
 
   @override
   Future<void> initialize() async {
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.initializing);
     final failure = initializeError;
-    if (failure != null) throw failure;
-    _initialized = true;
+    if (failure != null) {
+      _lifecycle.value = const EngineLifecycle(
+        EngineLifecycleStage.initializationFailed,
+        message: 'The fake engine could not initialize.',
+      );
+      throw failure;
+    }
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.initialized);
   }
 
   @override
   Future<AiResponse> generate(AiRequest request) async {
     generateCalls += 1;
     lastRequest = request;
-    _initialized = true;
-    final failure = error ?? initializeError;
-    if (failure != null) throw failure;
+    await initialize();
+    final failure = error;
+    if (failure != null) {
+      _lifecycle.value = const EngineLifecycle(
+        EngineLifecycleStage.unavailable,
+        message: 'The fake engine stopped.',
+      );
+      throw failure;
+    }
     return AiResponse(
       text: chunks.join(),
       modelId: descriptor.id,
@@ -83,12 +102,18 @@ class FakeInferenceProvider implements InferenceProvider {
   Stream<AiResponse> stream(AiRequest request) async* {
     streamCalls += 1;
     lastRequest = request;
-    _initialized = true;
+    await initialize();
 
     final buffer = StringBuffer();
     for (final chunk in chunks) {
-      final failure = error ?? initializeError;
-      if (failure != null) throw failure;
+      final failure = error;
+      if (failure != null) {
+        _lifecycle.value = const EngineLifecycle(
+          EngineLifecycleStage.unavailable,
+          message: 'The fake engine stopped.',
+        );
+        throw failure;
+      }
       buffer.write(chunk);
       yield AiResponse(
         text: buffer.toString(),
@@ -101,7 +126,7 @@ class FakeInferenceProvider implements InferenceProvider {
   @override
   Future<void> dispose() async {
     disposeCalls += 1;
-    _initialized = false;
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.disposed);
   }
 }
 
@@ -116,7 +141,9 @@ class ManualInferenceProvider implements InferenceProvider {
   bool cancelled = false;
   bool throwOnCancel = false;
   int streamCalls = 0;
-  bool _initialized = false;
+  final ValueNotifier<EngineLifecycle> _lifecycle = ValueNotifier(
+    const EngineLifecycle.fileReady(),
+  );
   StreamController<AiResponse>? _controller;
 
   bool get isListening => _controller?.hasListener ?? false;
@@ -125,11 +152,14 @@ class ManualInferenceProvider implements InferenceProvider {
   String get id => descriptor.runtimeId;
 
   @override
-  bool get isInitialized => _initialized;
+  ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;
+
+  @override
+  bool get isInitialized => _lifecycle.value.isInitialized;
 
   @override
   Future<void> initialize() async {
-    _initialized = true;
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.initialized);
   }
 
   @override
@@ -141,7 +171,7 @@ class ManualInferenceProvider implements InferenceProvider {
   Stream<AiResponse> stream(AiRequest request) {
     streamCalls += 1;
     lastRequest = request;
-    _initialized = true;
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.initialized);
     cancelled = false;
     final controller = StreamController<AiResponse>(
       onCancel: () async {
@@ -172,6 +202,7 @@ class ManualInferenceProvider implements InferenceProvider {
 
   @override
   Future<void> dispose() async {
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.disposed);
     await _controller?.close();
   }
 }

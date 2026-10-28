@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,38 +167,112 @@ class ModelConfigurationController extends AsyncNotifier<ModelConfiguration> {
   /// Guards against a slow read from overwriting a newer selection or removal.
   int _revision = 0;
 
+  /// Serializes writes so two selections cannot land out of order.
+  Future<void> _writes = Future<void>.value();
+
+  /// Completes after the most recently started mutation or revalidation.
+  Future<void> _latest = Future<void>.value();
+
   @override
   Future<ModelConfiguration> build() async {
     final revision = _revision;
     final store = ref.watch(modelConfigStoreProvider);
+    await _writes;
     final next = ModelConfiguration.validate(await store.readPath());
     // A selection or removal can finish while the startup read is pending.
-    if (revision != _revision) return state.value ?? next;
+    if (revision != _revision) {
+      await _settle();
+      final current = state;
+      if (current.hasError) {
+        Error.throwWithStackTrace(current.error!, current.stackTrace!);
+      }
+      if (current.hasValue) return current.requireValue;
+    }
     return next;
   }
 
-  Future<void> setPath(String path) async {
+  Future<void> setPath(String path) {
     final revision = ++_revision;
-    final next = ModelConfiguration.validate(path);
-    await ref.read(modelConfigStoreProvider).writePath(path);
-    if (ref.mounted && revision == _revision) state = AsyncData(next);
+    return _track(
+      _enqueueWrite(() async {
+        try {
+          final next = ModelConfiguration.validate(path);
+          await ref.read(modelConfigStoreProvider).writePath(path);
+          if (ref.mounted && revision == _revision) state = AsyncData(next);
+        } on Object catch (error, stackTrace) {
+          _publishError(revision, error, stackTrace);
+          rethrow;
+        }
+      }),
+    );
   }
 
-  Future<void> clear() async {
+  Future<void> clear() {
     final revision = ++_revision;
-    await ref.read(modelConfigStoreProvider).writePath(null);
-    if (ref.mounted && revision == _revision) {
-      state = const AsyncData(ModelConfiguration.notConfigured());
-    }
+    return _track(
+      _enqueueWrite(() async {
+        try {
+          await ref.read(modelConfigStoreProvider).writePath(null);
+          if (ref.mounted && revision == _revision) {
+            state = const AsyncData(ModelConfiguration.notConfigured());
+          }
+        } on Object catch (error, stackTrace) {
+          _publishError(revision, error, stackTrace);
+          rethrow;
+        }
+      }),
+    );
   }
 
   /// Re-checks the saved path so a file removed after selection is reported
-  /// before the runtime sees it.
-  Future<void> revalidate() async {
+  /// before the runtime sees it. It waits for writes already in flight, but a
+  /// newer write can still invalidate this read.
+  Future<void> revalidate() {
     final revision = ++_revision;
-    final path = await ref.read(modelConfigStoreProvider).readPath();
-    final next = ModelConfiguration.validate(path);
-    if (ref.mounted && revision == _revision) state = AsyncData(next);
+    return _track(() async {
+      try {
+        await _writes;
+        final path = await ref.read(modelConfigStoreProvider).readPath();
+        final next = ModelConfiguration.validate(path);
+        if (ref.mounted && revision == _revision) state = AsyncData(next);
+      } on Object catch (error, stackTrace) {
+        _publishError(revision, error, stackTrace);
+        rethrow;
+      }
+    }());
+  }
+
+  Future<void> _track(Future<void> operation) {
+    _latest = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _settle() async {
+    while (true) {
+      final latest = _latest;
+      await latest;
+      if (identical(latest, _latest)) return;
+    }
+  }
+
+  Future<void> _enqueueWrite(Future<void> Function() action) {
+    final previous = _writes;
+    final done = Completer<void>();
+    _writes = done.future;
+    return () async {
+      try {
+        await previous;
+        await action();
+      } finally {
+        done.complete();
+      }
+    }();
+  }
+
+  void _publishError(int revision, Object error, StackTrace stackTrace) {
+    if (ref.mounted && revision == _revision) {
+      state = AsyncError(error, stackTrace);
+    }
   }
 }
 

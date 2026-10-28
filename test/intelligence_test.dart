@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/inference_provider.dart';
 import 'package:kritha/features/intelligence/intelligence_engine.dart';
 import 'package:kritha/features/intelligence/intelligence_exception.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/model_lifecycle.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
 import 'package:kritha/features/intelligence/models/ai_response.dart';
 import 'package:kritha/features/intelligence/models/model_capabilities.dart';
@@ -111,22 +113,28 @@ class _FakeInferenceProvider implements InferenceProvider {
 
   final String result;
   AiRequest? lastRequest;
-  bool _initialized = false;
+  final ValueNotifier<EngineLifecycle> _lifecycle = ValueNotifier(
+    const EngineLifecycle.fileReady(),
+  );
 
   @override
   String get id => descriptor.runtimeId;
 
   @override
-  bool get isInitialized => _initialized;
+  ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;
+
+  @override
+  bool get isInitialized => _lifecycle.value.isInitialized;
 
   @override
   Future<void> initialize() async {
-    _initialized = true;
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.initialized);
   }
 
   @override
   Future<AiResponse> generate(AiRequest request) async {
     lastRequest = request;
+    await initialize();
     return AiResponse(
       text: result,
       modelId: descriptor.id,
@@ -142,7 +150,7 @@ class _FakeInferenceProvider implements InferenceProvider {
 
   @override
   Future<void> dispose() async {
-    _initialized = false;
+    _lifecycle.value = const EngineLifecycle(EngineLifecycleStage.disposed);
   }
 }
 
@@ -514,7 +522,29 @@ void main() {
         ),
       );
       expect(provider.isInitialized, isFalse);
+      expect(provider.lifecycle.value.stage, EngineLifecycleStage.unavailable);
     });
+
+    test(
+      'a stream initialization failure stays an initialization failure',
+      () async {
+        final engine = _FakeLiteRtLmEngine()
+          ..initializeError = UnsupportedError('No native runtime');
+        final provider = LiteRtLmProvider(
+          descriptor: _descriptor,
+          createEngine: () => engine,
+        );
+
+        await expectLater(
+          provider.stream(_prompt('Hello')),
+          emitsError(isA<ProviderUnavailableException>()),
+        );
+        expect(
+          provider.lifecycle.value.stage,
+          EngineLifecycleStage.initializationFailed,
+        );
+      },
+    );
 
     test('rejects structured output without touching the engine', () async {
       final engine = _FakeLiteRtLmEngine();
@@ -531,6 +561,70 @@ void main() {
           ),
         ),
         throwsA(isA<UnsupportedCapabilityException>()),
+      );
+      expect(engine.initializeCalls, 0);
+    });
+
+    test(
+      'rejects structured output even when a descriptor over-declares it',
+      () async {
+        const overDeclared = ModelDescriptor(
+          id: 'json-model',
+          displayName: 'JSON model',
+          runtimeId: LiteRtLmProvider.providerId,
+          capabilities: ModelCapabilities(
+            supported: {
+              InferenceCapability.textGeneration,
+              InferenceCapability.structuredOutput,
+            },
+          ),
+        );
+        final engine = _FakeLiteRtLmEngine();
+        final provider = LiteRtLmProvider(
+          descriptor: overDeclared,
+          createEngine: () => engine,
+        );
+
+        await expectLater(
+          provider.generate(
+            AiRequest(
+              messages: [AiMessage.user('Return JSON')],
+              responseSchema: {'type': 'object'},
+            ),
+          ),
+          throwsA(isA<UnsupportedCapabilityException>()),
+        );
+        expect(engine.initializeCalls, 0);
+      },
+    );
+
+    test('rejects a request for another model before initialization', () async {
+      final engine = _FakeLiteRtLmEngine();
+      final provider = LiteRtLmProvider(
+        descriptor: _descriptor,
+        createEngine: () => engine,
+      );
+
+      await expectLater(
+        provider.generate(_prompt('Hello').copyWith(modelId: 'other')),
+        throwsA(isA<ProviderUnavailableException>()),
+      );
+      expect(engine.initializeCalls, 0);
+    });
+
+    test('rejects invalid options before initialization', () async {
+      final engine = _FakeLiteRtLmEngine();
+      final provider = LiteRtLmProvider(
+        descriptor: _descriptor,
+        createEngine: () => engine,
+      );
+
+      await expectLater(
+        provider.generate(
+          _prompt('Hello')
+              .copyWith(options: const AiGenerationOptions(temperature: -1)),
+        ),
+        throwsA(isA<InvalidRequestException>()),
       );
       expect(engine.initializeCalls, 0);
     });
@@ -649,6 +743,7 @@ void main() {
         );
         await disposal;
         expect(provider.isInitialized, isFalse);
+        expect(provider.lifecycle.value.stage, EngineLifecycleStage.disposed);
         expect(engine.disposeCalls, 1);
       },
     );
@@ -670,6 +765,251 @@ void main() {
         () => provider.stream(_prompt('Hello')),
         throwsA(isA<ProviderUnavailableException>()),
       );
+    });
+  });
+
+  group('model lifecycle', () {
+    late Directory directory;
+
+    setUp(() {
+      directory = Directory.systemTemp.createTempSync('kritha-lifecycle-');
+    });
+
+    tearDown(() {
+      directory.deleteSync(recursive: true);
+    });
+
+    File writeModel(String name) {
+      final file = File('${directory.path}/$name');
+      file.writeAsBytesSync([1, 2, 3]);
+      return file;
+    }
+
+    ProviderContainer containerFor({
+      required String? path,
+      required LiteRtLmEngine Function(ModelDescriptor) factory,
+    }) {
+      final container = ProviderContainer(
+        overrides: [
+          modelConfigStoreProvider.overrideWithValue(
+            InMemoryModelConfigStore(path),
+          ),
+          liteRtLmEngineFactoryProvider.overrideWithValue(factory),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'inspection reports file readiness without loading the engine',
+      () async {
+        final file = writeModel('lifecycle.litertlm');
+        final engine = _FakeLiteRtLmEngine();
+        final container = containerFor(
+          path: file.path,
+          factory: (model) => engine,
+        );
+
+        await container.read(modelConfigurationProvider.future);
+
+        expect(
+          container.read(modelLifecycleProvider).stage,
+          ModelLifecycleStage.fileReady,
+        );
+        expect(
+          container.read(intelligenceStatusProvider).hasLoadedModel,
+          isFalse,
+        );
+        expect(engine.initializeCalls, 0);
+      },
+    );
+
+    test('initialization moves through loading to loaded', () async {
+      final file = writeModel('lifecycle.litertlm');
+      final gate = Completer<void>();
+      final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
+      final container = containerFor(
+        path: file.path,
+        factory: (model) => engine,
+      );
+      await container.read(modelConfigurationProvider.future);
+      final provider = container.read(inferenceProvidersProvider).single;
+
+      final initialization = provider.initialize();
+      await pumpEventQueue();
+
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.initializing,
+      );
+      expect(
+        container.read(intelligenceStatusProvider).hasLoadedModel,
+        isFalse,
+      );
+
+      gate.complete();
+      await initialization;
+
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.initialized,
+      );
+      expect(container.read(intelligenceStatusProvider).hasLoadedModel, isTrue);
+      expect(engine.initializeCalls, 1);
+    });
+
+    test('an initialization failure is explicit and recoverable', () async {
+      final file = writeModel('lifecycle.litertlm');
+      final engine = _FakeLiteRtLmEngine()
+        ..initializeError = UnsupportedError('No native runtime');
+      final container = containerFor(
+        path: file.path,
+        factory: (model) => engine,
+      );
+      await container.read(modelConfigurationProvider.future);
+      final provider = container.read(inferenceProvidersProvider).single;
+
+      await expectLater(
+        provider.generate(_prompt('Hello')),
+        throwsA(isA<ProviderUnavailableException>()),
+      );
+
+      final failed = container.read(modelLifecycleProvider);
+      expect(failed.stage, ModelLifecycleStage.initializationFailed);
+      expect(failed.message, isNot(contains('No native runtime')));
+      expect(provider.isInitialized, isFalse);
+
+      engine.initializeError = null;
+      final response = await provider.generate(_prompt('Hello'));
+
+      expect(response.text, 'Local answer.');
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.initialized,
+      );
+      expect(engine.initializeCalls, 2);
+    });
+
+    test('clearing during initialization disposes the old engine', () async {
+      final file = writeModel('lifecycle.litertlm');
+      final gate = Completer<void>();
+      final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
+      final container = containerFor(
+        path: file.path,
+        factory: (model) => engine,
+      );
+      await container.read(modelConfigurationProvider.future);
+      final provider = container.read(inferenceProvidersProvider).single;
+
+      final initialization = provider.initialize();
+      await pumpEventQueue();
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.initializing,
+      );
+
+      await container.read(modelConfigurationProvider.notifier).clear();
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        isNot(ModelLifecycleStage.initializing),
+      );
+      await pumpEventQueue();
+      gate.complete();
+
+      await expectLater(
+        initialization,
+        throwsA(isA<ProviderUnavailableException>()),
+      );
+      expect(provider.lifecycle.value.stage, EngineLifecycleStage.disposed);
+      expect(engine.disposeCalls, 1);
+      expect(container.read(inferenceProvidersProvider), isEmpty);
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.notConfigured,
+      );
+    });
+
+    test(
+      'a factory failure does not leave a permanent loading state',
+      () async {
+        final file = writeModel('lifecycle.litertlm');
+        final container = containerFor(
+          path: file.path,
+          factory: (model) => throw StateError('secret native detail'),
+        );
+        await container.read(modelConfigurationProvider.future);
+        final provider = container.read(inferenceProvidersProvider).single;
+
+        await expectLater(provider.initialize(), throwsA(isA<StateError>()));
+
+        final failed = container.read(modelLifecycleProvider);
+        expect(failed.stage, ModelLifecycleStage.initializationFailed);
+        expect(failed.message, isNot(contains('secret native detail')));
+      },
+    );
+
+    test(
+      'a generation failure releases the engine and reports unavailable',
+      () async {
+        final file = writeModel('lifecycle.litertlm');
+        final engine = _FakeLiteRtLmEngine()
+          ..completeError = const lite.LiteRtLmException('boom');
+        final container = containerFor(
+          path: file.path,
+          factory: (model) => engine,
+        );
+        await container.read(modelConfigurationProvider.future);
+        final provider = container.read(inferenceProvidersProvider).single;
+
+        await expectLater(
+          provider.generate(_prompt('Hello')),
+          throwsA(isA<InferenceFailedException>()),
+        );
+
+        expect(
+          container.read(modelLifecycleProvider).stage,
+          ModelLifecycleStage.unavailable,
+        );
+        expect(provider.isInitialized, isFalse);
+        expect(engine.disposeCalls, greaterThanOrEqualTo(1));
+
+        engine.completeError = null;
+        await provider.generate(_prompt('Hello'));
+
+        expect(
+          container.read(modelLifecycleProvider).stage,
+          ModelLifecycleStage.initialized,
+        );
+      },
+    );
+
+    test('invalid configuration never creates an engine', () async {
+      final container = containerFor(
+        path: '${directory.path}/missing.litertlm',
+        factory: (model) => _FakeLiteRtLmEngine(),
+      );
+      await container.read(modelConfigurationProvider.future);
+
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.configurationUnavailable,
+      );
+      expect(container.read(inferenceProvidersProvider), isEmpty);
+    });
+
+    test('no selection is distinct from an unavailable file', () async {
+      final container = containerFor(
+        path: null,
+        factory: (model) => _FakeLiteRtLmEngine(),
+      );
+      await container.read(modelConfigurationProvider.future);
+
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.notConfigured,
+      );
+      expect(container.read(inferenceProvidersProvider), isEmpty);
     });
   });
 
@@ -739,6 +1079,10 @@ void main() {
       expect(configuration.isReady, isTrue);
       await container.read(inferenceProvidersProvider).single.initialize();
       expect(container.read(intelligenceStatusProvider).hasLoadedModel, isTrue);
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.initialized,
+      );
 
       await container.read(modelConfigurationProvider.notifier).clear();
 
@@ -746,6 +1090,10 @@ void main() {
       final status = container.read(intelligenceStatusProvider);
       expect(status.hasProvider, isFalse);
       expect(status.hasLoadedModel, isFalse);
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.notConfigured,
+      );
       expect(engine.disposeCalls, 1);
     });
 
@@ -775,6 +1123,10 @@ void main() {
         container.read(intelligenceStatusProvider).hasLoadedModel,
         isFalse,
       );
+      expect(
+        container.read(modelLifecycleProvider).stage,
+        ModelLifecycleStage.configurationUnavailable,
+      );
       expect(engine.disposeCalls, 1);
     });
 
@@ -793,7 +1145,11 @@ void main() {
       expect(response.text, 'Overridden answer.');
       expect(provider.lastRequest?.messages.single.text, 'Hello');
       expect(engine.status.hasConfiguredModel, isTrue);
-      expect(engine.status.hasLoadedModel, isFalse);
+      expect(engine.status.hasLoadedModel, isTrue);
+      expect(
+        engine.status.providers.single.lifecycle.stage,
+        EngineLifecycleStage.initialized,
+      );
     });
   });
 }

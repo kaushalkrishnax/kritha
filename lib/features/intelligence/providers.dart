@@ -4,6 +4,7 @@ import 'inference_provider.dart';
 import 'intelligence_engine.dart';
 import 'intelligence_exception.dart';
 import 'model_configuration.dart';
+import 'model_lifecycle.dart';
 import 'models/model_descriptor.dart';
 import 'request_router.dart';
 import 'runtimes/litertlm_provider.dart';
@@ -13,7 +14,9 @@ import 'runtimes/litertlm_provider.dart';
 /// Null until a file is selected in Settings and passes validation. Nothing
 /// loads at startup; the runtime is only initialized by a request.
 final configuredModelProvider = Provider<ModelDescriptor?>((ref) {
-  return ref.watch(modelConfigurationProvider).value?.descriptor;
+  final configuration = ref.watch(modelConfigurationProvider);
+  if (configuration.hasError) return null;
+  return configuration.value?.descriptor;
 });
 
 /// Builds the native engine for a descriptor. Tests override this with a fake
@@ -54,6 +57,57 @@ final intelligenceEngineProvider = Provider<IntelligenceEngine>(
   (ref) => IntelligenceEngine(router: ref.watch(requestRouterProvider)),
 );
 
-final intelligenceStatusProvider = Provider<IntelligenceStatus>(
-  (ref) => ref.watch(intelligenceEngineProvider).status,
-);
+/// Observable diagnostics for Settings.
+///
+/// Watching this provider never initializes a native engine; it only combines
+/// configuration validation with the lifecycle the provider has reported.
+final modelLifecycleProvider =
+    NotifierProvider<ModelLifecycleNotifier, ModelLifecycle>(
+      ModelLifecycleNotifier.new,
+    );
+
+class ModelLifecycleNotifier extends Notifier<ModelLifecycle> {
+  final List<void Function()> _detach = [];
+  int _revision = 0;
+
+  @override
+  ModelLifecycle build() {
+    final revision = ++_revision;
+    final configuration = ref.watch(modelConfigurationProvider);
+    final providers = ref.watch(inferenceProvidersProvider);
+    ref.onDispose(_detachListeners);
+    _detachListeners();
+
+    ModelLifecycle snapshot() => ModelLifecycle.evaluate(
+      configuration: configuration.value,
+      configurationLoading: configuration.isLoading,
+      configurationFailed: configuration.hasError,
+      providers: providers,
+    );
+
+    for (final provider in providers) {
+      void onChange() {
+        if (ref.mounted && revision == _revision) state = snapshot();
+      }
+
+      provider.lifecycle.addListener(onChange);
+      _detach.add(() => provider.lifecycle.removeListener(onChange));
+    }
+
+    return snapshot();
+  }
+
+  void _detachListeners() {
+    for (final detach in _detach) {
+      detach();
+    }
+    _detach.clear();
+  }
+}
+
+final intelligenceStatusProvider = Provider<IntelligenceStatus>((ref) {
+  // Rebuild when the engine lifecycle changes, not only when configuration
+  // changes.
+  ref.watch(modelLifecycleProvider);
+  return ref.watch(intelligenceEngineProvider).status;
+});

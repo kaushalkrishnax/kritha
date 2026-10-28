@@ -505,6 +505,39 @@ void main() {
     );
   });
 
+  test('partial output is committed only after the stream completes', () async {
+    final manual = ManualInferenceProvider();
+    activeProvider = manual;
+    await container.read(chatControllerProvider.future);
+    controller().newChat();
+
+    final pending = controller().send('Stream this');
+    await pumpEventQueue();
+    manual.emit('Partial');
+    await pumpEventQueue();
+
+    var state = container.read(chatControllerProvider).value!;
+    expect(state.streamingText, 'Partial');
+    expect(state.messages, hasLength(1));
+    expect(
+      await database.messagesForSession(state.currentSessionId!),
+      hasLength(1),
+    );
+
+    manual.emit('Partial and final');
+    await pumpEventQueue();
+    await manual.finish();
+    await pending;
+
+    state = container.read(chatControllerProvider).value!;
+    expect(state.streamingText, isNull);
+    expect(state.messages.last.text, 'Partial and final');
+    expect(
+      await database.messagesForSession(state.currentSessionId!),
+      hasLength(2),
+    );
+  });
+
   test('history is isolated and omits empty turns', () async {
     await container.read(chatControllerProvider.future);
     await database.saveMessage(

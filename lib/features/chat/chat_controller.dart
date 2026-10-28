@@ -10,9 +10,9 @@ import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
 import '../intelligence/intelligence_exception.dart';
 import '../intelligence/model_configuration.dart';
-import '../intelligence/models/ai_request.dart';
 import '../intelligence/models/ai_response.dart';
 import '../intelligence/providers.dart';
+import 'conversation_context.dart';
 
 /// A reply that could not be produced, scoped to the chat that asked for it.
 class ChatFailure {
@@ -99,6 +99,7 @@ final chatControllerProvider = AsyncNotifierProvider<ChatController, ChatState>(
 
 class ChatController extends AsyncNotifier<ChatState> {
   static final RegExp _messageSequence = RegExp(r'-(\d{6})-[ua]$');
+  static const _contextBuilder = ConversationContextBuilder();
 
   StreamIterator<AiResponse>? _activeIterator;
   Future<void>? _activeRequest;
@@ -551,7 +552,7 @@ class ChatController extends AsyncNotifier<ChatState> {
 
       final stream = ref
           .read(intelligenceEngineProvider)
-          .stream(_requestFor(messages));
+          .stream(_contextBuilder.build(messages));
       iterator = StreamIterator(stream);
       _activeIterator = iterator;
 
@@ -605,28 +606,6 @@ class ChatController extends AsyncNotifier<ChatState> {
       await _cancelIterator(iterator);
       if (generation == _generation) _finishStreaming();
     }
-  }
-
-  /// History policy: only the active chat's persisted user/assistant turns are
-  /// replayed, in stored order. Empty text (attachment-only) turns are omitted
-  /// because the runtime has no attachment input; failed and partial assistant
-  /// output never enters [ChatState.messages], so it cannot leak here. Chat has
-  /// no system role, so no synthetic system instruction is injected.
-  AiRequest _requestFor(List<ChatMessage> messages) {
-    final turns = <AiMessage>[
-      for (final message in messages)
-        if (message.text.trim().isNotEmpty)
-          switch (message.role) {
-            ChatRole.user => AiMessage.user(message.text),
-            ChatRole.assistant => AiMessage.assistant(message.text),
-          },
-    ];
-    if (turns.isEmpty || turns.last.role != AiRole.user) {
-      throw const InvalidRequestException(
-        'A chat request must end with a user turn.',
-      );
-    }
-    return AiRequest(messages: turns);
   }
 
   Future<void> _commitReply(

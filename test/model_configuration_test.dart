@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/model_lifecycle.dart';
 import 'package:kritha/features/intelligence/models/model_capabilities.dart';
 import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/features/intelligence/runtimes/litertlm_provider.dart';
@@ -78,6 +80,24 @@ void main() {
         InferenceCapability.textGeneration,
       ),
       isTrue,
+    );
+    expect(
+      configuration.descriptor!.capabilities.supports(
+        InferenceCapability.imageInput,
+      ),
+      isFalse,
+    );
+    expect(
+      configuration.descriptor!.capabilities.supports(
+        InferenceCapability.audioInput,
+      ),
+      isFalse,
+    );
+    expect(
+      configuration.descriptor!.capabilities.supports(
+        InferenceCapability.structuredOutput,
+      ),
+      isFalse,
     );
   });
 
@@ -182,6 +202,152 @@ void main() {
     );
     expect(container.read(configuredModelProvider), isNull);
   });
+
+  test('a slow revalidation cannot overwrite a newer selection', () async {
+    final oldFile = writeModel('old.litertlm');
+    final newFile = writeModel('new.litertlm');
+    final store = _DelayedModelConfigStore(oldFile.path);
+    final container = ProviderContainer(
+      overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(modelConfigurationProvider.future);
+    store.readGate = Completer<String?>();
+    final revalidate = container
+        .read(modelConfigurationProvider.notifier)
+        .revalidate();
+    await pumpEventQueue();
+
+    await container
+        .read(modelConfigurationProvider.notifier)
+        .setPath(newFile.path);
+    store.readGate!.complete(oldFile.path);
+    await revalidate;
+
+    expect(
+      container.read(modelConfigurationProvider).value!.path,
+      newFile.path,
+    );
+    expect(container.read(configuredModelProvider)?.modelPath, newFile.path);
+  });
+
+  test('two selections are written in call order', () async {
+    final first = writeModel('first.litertlm');
+    final second = writeModel('second.litertlm');
+    final store = _DelayedModelConfigStore(null);
+    final container = ProviderContainer(
+      overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(container.dispose);
+    await container.read(modelConfigurationProvider.future);
+
+    store.writeGate = Completer<void>();
+    final firstWrite = container
+        .read(modelConfigurationProvider.notifier)
+        .setPath(first.path);
+    final secondWrite = container
+        .read(modelConfigurationProvider.notifier)
+        .setPath(second.path);
+
+    store.writeGate!.complete();
+    await Future.wait([firstWrite, secondWrite]);
+
+    expect(store.path, second.path);
+    expect(container.read(modelConfigurationProvider).value!.path, second.path);
+  });
+
+  test(
+    'a failed selection during startup cannot restore old readiness',
+    () async {
+      final oldFile = writeModel('old.litertlm');
+      final newFile = writeModel('new.litertlm');
+      final store = _DelayedModelConfigStore(oldFile.path);
+      store.readGate = Completer<String?>();
+      final container = ProviderContainer(
+        overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+      );
+      addTearDown(container.dispose);
+
+      final startup = container.read(modelConfigurationProvider.future);
+      await pumpEventQueue();
+      store.failWrites = true;
+      await expectLater(
+        container
+            .read(modelConfigurationProvider.notifier)
+            .setPath(newFile.path),
+        throwsA(isA<StateError>()),
+      );
+
+      store.readGate!.complete(oldFile.path);
+      await expectLater(startup, throwsA(isA<StateError>()));
+      expect(container.read(modelConfigurationProvider).hasError, isTrue);
+      expect(container.read(configuredModelProvider), isNull);
+    },
+  );
+
+  test('a persistence failure invalidates readiness', () async {
+    final file = writeModel('ready.litertlm');
+    final store = _DelayedModelConfigStore(file.path);
+    final container = ProviderContainer(
+      overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(container.dispose);
+    await container.read(modelConfigurationProvider.future);
+    expect(container.read(configuredModelProvider), isNotNull);
+
+    store.failWrites = true;
+    await expectLater(
+      container
+          .read(modelConfigurationProvider.notifier)
+          .setPath('${directory.path}/next.litertlm'),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(container.read(modelConfigurationProvider).hasError, isTrue);
+    expect(container.read(configuredModelProvider), isNull);
+    expect(
+      container.read(modelLifecycleProvider).stage,
+      ModelLifecycleStage.configurationUnavailable,
+    );
+  });
+
+  test('a selection survives a fresh controller instance', () async {
+    final file = writeModel('persisted.litertlm');
+    final store = InMemoryModelConfigStore();
+    final first = ProviderContainer(
+      overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(first.dispose);
+    await first.read(modelConfigurationProvider.future);
+    await first.read(modelConfigurationProvider.notifier).setPath(file.path);
+    first.dispose();
+
+    final second = ProviderContainer(
+      overrides: [modelConfigStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(second.dispose);
+    final restored = await second.read(modelConfigurationProvider.future);
+
+    expect(restored.isReady, isTrue);
+    expect(restored.path, file.path);
+  });
+
+  test('the SharedPreferences store removes missing and blank paths', () async {
+    SharedPreferences.setMockInitialValues({});
+    const store = SharedPreferencesModelConfigStore();
+
+    expect(await store.readPath(), isNull);
+
+    await store.writePath('  /models/model.litertlm  ');
+    expect(await store.readPath(), '/models/model.litertlm');
+
+    await store.writePath(null);
+    expect(await store.readPath(), isNull);
+
+    await store.writePath('   ');
+    expect(await store.readPath(), isNull);
+  });
 }
 
 class _DelayedModelConfigStore implements ModelConfigStore {
@@ -189,6 +355,8 @@ class _DelayedModelConfigStore implements ModelConfigStore {
 
   String? path;
   Completer<String?>? readGate;
+  Completer<void>? writeGate;
+  bool failWrites = false;
 
   @override
   Future<String?> readPath() async {
@@ -199,6 +367,12 @@ class _DelayedModelConfigStore implements ModelConfigStore {
 
   @override
   Future<void> writePath(String? path) async {
+    final gate = writeGate;
+    if (gate != null) {
+      writeGate = null;
+      await gate.future;
+    }
+    if (failWrites) throw StateError('write failed');
     this.path = path?.trim();
   }
 }

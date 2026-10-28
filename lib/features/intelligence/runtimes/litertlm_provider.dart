@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:litertlm/litertlm.dart' as lite;
 
 import '../inference_provider.dart';
 import '../intelligence_exception.dart';
 import '../models/ai_request.dart';
 import '../models/ai_response.dart';
+import '../models/model_capabilities.dart';
 import '../models/model_descriptor.dart';
+import '../request_validation.dart';
 
 /// Engine-level seam over the `litertlm` package (verified against 0.0.14).
 ///
@@ -184,27 +187,39 @@ class LiteRtLmProvider implements InferenceProvider {
   final ModelDescriptor descriptor;
   final LiteRtLmEngine Function() createEngine;
 
+  final ValueNotifier<EngineLifecycle> _lifecycle = ValueNotifier(
+    const EngineLifecycle.fileReady(),
+  );
+
   LiteRtLmEngine? _engine;
   Future<void>? _initialization;
   Future<void>? _disposal;
-  bool _initialized = false;
   bool _disposed = false;
 
   @override
   String get id => providerId;
 
   @override
-  bool get isInitialized => _initialized;
+  ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;
+
+  @override
+  bool get isInitialized => _lifecycle.value.isInitialized;
 
   @override
   Future<void> initialize() async {
     _ensureNotDisposed();
-    if (_initialized) return;
+    if (isInitialized) return;
     final pending = _initialization;
     if (pending != null) return pending;
 
     final path = descriptor.modelPath;
     if (path == null || path.trim().isEmpty) {
+      _publish(
+        const EngineLifecycle(
+          EngineLifecycleStage.initializationFailed,
+          message: 'No model file is configured.',
+        ),
+      );
       throw ProviderUnavailableException(
         'No model file is configured for ${descriptor.id}.',
         providerId: id,
@@ -216,26 +231,29 @@ class LiteRtLmProvider implements InferenceProvider {
     try {
       await future;
     } finally {
-      _initialization = null;
+      if (identical(_initialization, future)) _initialization = null;
     }
   }
 
   Future<void> _start() async {
     _ensureNotDisposed();
-    final engine = createEngine();
-    _engine = engine;
+    _publish(const EngineLifecycle(EngineLifecycleStage.initializing));
     try {
+      final engine = createEngine();
+      _engine = engine;
       await engine.initialize();
       if (_disposed) {
-        await _discardEngine();
         throw ProviderUnavailableException(
           'The LiteRT-LM provider was disposed while loading.',
           providerId: id,
         );
       }
-      _initialized = true;
-    } on Object {
-      await _discardEngine();
+      _publish(const EngineLifecycle(EngineLifecycleStage.initialized));
+    } on Object catch (error) {
+      await _discardEngine(
+        stage: EngineLifecycleStage.initializationFailed,
+        message: _initializationFailureFor(error),
+      );
       rethrow;
     }
   }
@@ -270,7 +288,7 @@ class LiteRtLmProvider implements InferenceProvider {
       );
     } on Object catch (error, stackTrace) {
       stopwatch.stop();
-      await _discardEngine();
+      await _discardAfterGenerationFailure();
       Error.throwWithStackTrace(_mapError(error), stackTrace);
     }
   }
@@ -333,7 +351,8 @@ class LiteRtLmProvider implements InferenceProvider {
                 },
                 onError: (Object error, StackTrace stackTrace) async {
                   stopwatch.stop();
-                  await _discardEngine();
+                  if (cancelled) return;
+                  await _discardAfterGenerationFailure();
                   if (controller.isClosed) return;
                   controller.addError(_mapError(error), stackTrace);
                   await controller.close();
@@ -346,8 +365,9 @@ class LiteRtLmProvider implements InferenceProvider {
                 cancelOnError: true,
               );
         } on Object catch (error, stackTrace) {
-          await _discardEngine();
-          if (controller.isClosed || cancelled) return;
+          if (cancelled) return;
+          await _discardAfterGenerationFailure();
+          if (controller.isClosed) return;
           controller.addError(_mapError(error), stackTrace);
           await controller.close();
         }
@@ -364,11 +384,13 @@ class LiteRtLmProvider implements InferenceProvider {
 
   @override
   Future<void> dispose() {
-    return _disposal ??= _disposeOnce();
+    if (_disposal != null) return _disposal!;
+    _disposed = true;
+    _publish(const EngineLifecycle(EngineLifecycleStage.disposed));
+    return _disposal = _disposeOnce();
   }
 
   Future<void> _disposeOnce() async {
-    _disposed = true;
     final pending = _initialization;
     if (pending != null) {
       try {
@@ -378,6 +400,11 @@ class LiteRtLmProvider implements InferenceProvider {
       }
     }
     await _discardEngine();
+  }
+
+  void _publish(EngineLifecycle lifecycle) {
+    if (_disposed && lifecycle.stage != EngineLifecycleStage.disposed) return;
+    _lifecycle.value = lifecycle;
   }
 
   void _ensureNotDisposed() {
@@ -390,14 +417,13 @@ class LiteRtLmProvider implements InferenceProvider {
   }
 
   void _ensureSupported(AiRequest request) {
-    if (request.messages.isEmpty || request.messages.last.role != AiRole.user) {
-      throw const InvalidRequestException(
-        'An inference request must end with a user message.',
-      );
-    }
-    if (request.messages.last.text.trim().isEmpty) {
-      throw const InvalidRequestException(
-        'The final user message must not be empty.',
+    const AiRequestValidator().validate(request);
+
+    final requestedModel = request.modelId;
+    if (requestedModel != null && requestedModel != descriptor.id) {
+      throw ProviderUnavailableException(
+        'This provider serves ${descriptor.id}, not "$requestedModel".',
+        providerId: id,
       );
     }
 
@@ -406,6 +432,14 @@ class LiteRtLmProvider implements InferenceProvider {
         .toSet();
     if (missing.isNotEmpty) {
       throw UnsupportedCapabilityException(providerId: id, missing: missing);
+    }
+
+    // Reject structured generation explicitly even if a descriptor over-declares it.
+    if (request.responseSchema != null) {
+      throw UnsupportedCapabilityException(
+        providerId: id,
+        missing: const {InferenceCapability.structuredOutput},
+      );
     }
   }
 
@@ -458,7 +492,7 @@ class LiteRtLmProvider implements InferenceProvider {
     if (error is IntelligenceException) return error;
     if (error is lite.LiteRtLmException) {
       return InferenceFailedException(
-        'LiteRT-LM failed: ${error.message}',
+        'LiteRT-LM could not complete the request.',
         providerId: id,
         cause: error,
       );
@@ -477,15 +511,36 @@ class LiteRtLmProvider implements InferenceProvider {
     );
   }
 
-  Future<void> _discardEngine() async {
-    _initialized = false;
+  String _initializationFailureFor(Object error) {
+    if (error is UnsupportedError) {
+      return 'This platform cannot run LiteRT-LM.';
+    }
+    if (error is ProviderUnavailableException) return error.message;
+    return 'The local model could not be initialized.';
+  }
+
+  Future<void> _discardAfterGenerationFailure() async {
+    // Initialization failures are recorded by _start; do not replace them with
+    // a generation-failure message.
+    if (!_lifecycle.value.isInitialized) return;
+    await _discardEngine(
+      message: 'The local engine stopped after a generation failure.',
+    );
+  }
+
+  Future<void> _discardEngine({
+    EngineLifecycleStage stage = EngineLifecycleStage.unavailable,
+    String? message,
+  }) async {
     final engine = _engine;
     _engine = null;
-    if (engine == null) return;
-    try {
-      await engine.dispose();
-    } on Object {
-      // A failing native teardown must not mask the original failure.
+    if (engine != null) {
+      try {
+        await engine.dispose();
+      } on Object {
+        // A failing native teardown must not mask the original failure.
+      }
     }
+    if (!_disposed) _publish(EngineLifecycle(stage, message: message));
   }
 }

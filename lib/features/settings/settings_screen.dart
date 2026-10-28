@@ -24,17 +24,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     watchKrithaPalette(context);
     final runtime = ref.watch(runtimeStatusProvider);
-    // Read the live status so returning here after a reply shows the loaded
-    // engine; the cached provider value would still say "not loaded".
-    final intelligence = ref.watch(intelligenceEngineProvider).status;
-    final (String inferenceLabel, bool? inferenceOk) = switch ((
-      intelligence.hasProvider,
-      intelligence.hasLoadedModel,
-    )) {
-      (false, _) => ('no model file', false),
-      (true, true) => ('engine loaded', true),
-      (true, false) => ('model file ready; not loaded', null),
-    };
+    final lifecycle = ref.watch(modelLifecycleProvider);
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -76,11 +66,28 @@ class SettingsScreen extends ConsumerWidget {
                     SizedBox(height: 22),
                     _SectionLabel('INTELLIGENCE'),
                     _Card(
-                      child: _StatusRow(
-                        icon: HugeIcons.strokeRoundedCpu,
-                        label: 'Local inference',
-                        value: inferenceLabel,
-                        ok: inferenceOk,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _StatusRow(
+                            icon: HugeIcons.strokeRoundedCpu,
+                            label: 'Local inference',
+                            value: lifecycle.label,
+                            ok: lifecycle.ok,
+                          ),
+                          if (lifecycle.message != null) ...[
+                            SizedBox(height: 4),
+                            Text(
+                              lifecycle.message!,
+                              style: TextStyle(
+                                fontSize: KrithaText.sizeXs,
+                                color: lifecycle.ok == false
+                                    ? KrithaColors.warning
+                                    : KrithaColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     SizedBox(height: 22),
@@ -134,7 +141,7 @@ class SettingsScreen extends ConsumerWidget {
                             value: switch (runtime.value) {
                               final status? =>
                                 status.liteRtLmReady
-                                    ? 'runtime linked; no model loaded'
+                                    ? 'runtime linked'
                                     : 'unavailable',
                               null => 'checking…',
                             },
@@ -320,29 +327,54 @@ class _ModelControl extends ConsumerWidget {
   const _ModelControl();
 
   Future<void> _pick(BuildContext context, WidgetRef ref) async {
+    late final List<PlatformFile> files;
     try {
-      final files = await FilePicker.pickFiles(
+      files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['litertlm'],
       );
-      if (files.isEmpty) return;
-      final path = files.first.path;
-      if (path == null || path.isEmpty) return;
-
-      await ref.read(modelConfigurationProvider.notifier).setPath(path);
-      if (!context.mounted) return;
-      final config = ref.read(modelConfigurationProvider).value;
-      if (config != null && !config.isReady) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(config.message ?? 'That model file cannot be used.'),
-          ),
-        );
-      }
     } on Object {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The model picker could not open.')),
+      );
+      return;
+    }
+    if (files.isEmpty) return;
+    final path = files.first.path;
+    if (path == null || path.isEmpty) return;
+
+    try {
+      await ref.read(modelConfigurationProvider.notifier).setPath(path);
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The model selection could not be saved.'),
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    final config = ref.read(modelConfigurationProvider).value;
+    if (config != null && !config.isReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(config.message ?? 'That model file cannot be used.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(modelConfigurationProvider.notifier).clear();
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The model selection could not be removed.'),
+        ),
       );
     }
   }
@@ -432,8 +464,7 @@ class _ModelControl extends ConsumerWidget {
                 if (value.path != null) ...[
                   SizedBox(width: KrithaSpacing.s8),
                   TextButton(
-                    onPressed: () =>
-                        ref.read(modelConfigurationProvider.notifier).clear(),
+                    onPressed: () => _remove(context, ref),
                     child: Text('Remove'),
                   ),
                 ],
@@ -690,9 +721,7 @@ class _RuntimeRows extends StatelessWidget {
         _StatusRow(
           icon: HugeIcons.strokeRoundedCpu,
           label: 'LiteRT-LM',
-          value: status.liteRtLmReady
-              ? 'runtime linked; no model loaded'
-              : 'unavailable',
+          value: status.liteRtLmReady ? 'runtime linked' : 'unavailable',
           ok: status.liteRtLmReady,
         ),
         _RowDivider(),

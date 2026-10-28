@@ -389,12 +389,16 @@ and the persisted model selection. Nothing is bundled or downloaded:
   non-empty) and reports the file separately from the loaded engine. Selecting
   a file does not load weights. On mobile, the platform picker may hand back a
   cached copy; the saved path is revalidated before every request.
-- `ChatController.send` maps persisted history into an `AiRequest`, streams the
-  reply through the engine and only saves the assistant turn after a successful
-  completion. Cancelling stops native generation and discards the partial text;
-  retrying regenerates for the existing user turn without saving it again.
-- Model loading still happens on the first request. No real model has been run
-  in this workspace, so neither loading nor generation is claimed as verified.
+- `ChatController.send` delegates persisted-history mapping to
+  `ConversationContextBuilder`, streams the reply through the engine and only
+  saves the assistant turn after a successful completion. Cancelling stops
+  native generation and discards the partial text; retrying regenerates for the
+  existing user turn without saving it again.
+- Model loading still happens on the first request. Settings combines file
+  validation with an explicit engine lifecycle (file ready, loading, loaded,
+  failed, released) and never initializes the runtime just to render
+  diagnostics. No real model has been run in this workspace, so neither loading
+  nor generation is claimed as verified.
 - Attachments are persisted but not sent to the model; a text prompt is required.
   LiteRT-LM conversations are created per request because reuse across turns
   has no verified reset/cancel lifecycle.
