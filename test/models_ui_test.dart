@@ -68,6 +68,7 @@ void main() {
     InMemoryRecentModelStore? recentStore,
     InMemoryProviderSettingsStore? providerSettings,
     InMemoryProviderCredentialStore? providerCredentials,
+    InMemoryProviderUsageStore? providerUsage,
     ProviderConnectionTester? tester,
   }) {
     return ProviderScope(
@@ -93,6 +94,9 @@ void main() {
         ),
         providerCredentialStoreProvider.overrideWithValue(
           providerCredentials ?? InMemoryProviderCredentialStore(),
+        ),
+        providerUsageStoreProvider.overrideWithValue(
+          providerUsage ?? InMemoryProviderUsageStore(),
         ),
         providerConnectionTesterProvider.overrideWithValue(
           tester ?? FakeProviderConnectionTester(),
@@ -761,22 +765,24 @@ void main() {
       expect(find.text('OpenAI'), findsOneWidget);
       expect(find.text('Anthropic'), findsOneWidget);
       expect(find.text('Google Gemini'), findsOneWidget);
+      expect(find.text('Groq'), findsOneWidget);
       expect(find.text('Mistral AI'), findsOneWidget);
       expect(find.text('Local models'), findsNothing);
       expect(find.text('Available models'), findsNothing);
       expect(find.byTooltip('Provider actions'), findsNothing);
-      expect(find.text('Test connection'), findsNWidgets(4));
-      expect(find.text('Connect'), findsNWidgets(4));
+      expect(find.text('Test'), findsNothing);
+      expect(find.text('Usage'), findsNothing);
+      expect(find.text('Connect'), findsNWidgets(10));
       expect(find.text('Configure'), findsNothing);
       expect(find.byTooltip('Configured'), findsNothing);
-      expect(find.byType(OutlinedButton), findsNWidgets(8));
+      expect(find.byType(OutlinedButton), findsNWidgets(10));
       expect(
         find.byWidgetPredicate(
           (widget) =>
               widget is KrithaIcon &&
               widget.icon == HugeIcons.strokeRoundedPlus,
         ),
-        findsNWidgets(4),
+        findsNWidgets(10),
       );
 
       await tester.tap(find.text('Connect').first);
@@ -789,8 +795,10 @@ void main() {
       expect(credentials.credentials['openai'], 'sk-secret');
       expect(find.text('Provider settings saved'), findsOneWidget);
       expect(find.text('sk-secret'), findsNothing);
+      expect(find.text('Test'), findsOneWidget);
+      expect(find.text('Usage'), findsOneWidget);
       expect(find.text('Configure'), findsOneWidget);
-      expect(find.text('Connect'), findsNWidgets(3));
+      expect(find.text('Connect'), findsNWidgets(9));
       expect(find.byTooltip('Configured'), findsOneWidget);
       final tick = find.descendant(
         of: find.byTooltip('Configured'),
@@ -808,11 +816,11 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Test connection').first);
+      await tester.tap(find.text('Test').first);
       await tester.pumpAndSettle();
       expect(connectionTester.testedProviderIds, ['openai']);
       expect(find.textContaining('Endpoint reachable'), findsOneWidget);
-      expect(find.text('Test connection'), findsNWidgets(4));
+      expect(find.text('Test'), findsOneWidget);
 
       await tester.tap(find.text('Configure').first);
       await tester.pumpAndSettle();
@@ -824,8 +832,10 @@ void main() {
 
       expect(find.text('OpenAI'), findsOneWidget);
       expect(find.byTooltip('Configured'), findsNothing);
+      expect(find.text('Test'), findsNothing);
+      expect(find.text('Usage'), findsNothing);
       expect(find.text('Configure'), findsNothing);
-      expect(find.text('Connect'), findsNWidgets(4));
+      expect(find.text('Connect'), findsNWidgets(10));
     },
   );
 
@@ -851,13 +861,79 @@ void main() {
       expect(top('Mistral AI'), lessThan(top('Anthropic')));
       expect(top('Anthropic'), lessThan(top('Google Gemini')));
       expect(find.byTooltip('Configured'), findsNWidgets(2));
+      expect(find.text('Usage'), findsNWidgets(2));
       expect(find.text('Configure'), findsNWidgets(2));
-      expect(find.text('Connect'), findsNWidgets(2));
-      expect(find.text('Test connection'), findsNWidgets(4));
+      expect(find.text('Connect'), findsNWidgets(8));
+      expect(find.text('Test'), findsNWidgets(2));
       expect(find.text('Configured'), findsNothing);
       expect(find.text('Not configured'), findsNothing);
     },
   );
+
+  testWidgets('Usage shows locally tracked counts without fabricating values', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: InMemoryProviderSettingsStore({
+          'openai': const StoredProviderSettings(
+            baseUrl: 'https://api.openai.com/v1',
+          ),
+        }),
+        providerCredentials: InMemoryProviderCredentialStore({
+          'openai': 'sk-openai',
+        }),
+        providerUsage: InMemoryProviderUsageStore({
+          'openai': const ProviderUsage(requests: 7, successes: 5, failures: 2),
+        }),
+      ),
+    );
+    await openSidebarEntry(tester, 'Providers');
+
+    await tester.tap(find.text('Usage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('OpenAI usage'), findsOneWidget);
+    expect(find.text('Total API requests'), findsOneWidget);
+    expect(find.text('Successful responses'), findsOneWidget);
+    expect(find.text('Failed requests'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.textContaining('No usage has been recorded'), findsNothing);
+  });
+
+  testWidgets('Usage starts at zero when no requests have been recorded', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: InMemoryProviderSettingsStore({
+          'openai': const StoredProviderSettings(
+            baseUrl: 'https://api.openai.com/v1',
+          ),
+        }),
+        providerCredentials: InMemoryProviderCredentialStore({
+          'openai': 'sk-openai',
+        }),
+      ),
+    );
+    await openSidebarEntry(tester, 'Providers');
+
+    await tester.tap(find.text('Usage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('OpenAI usage'), findsOneWidget);
+    expect(find.text('0'), findsNWidgets(3));
+    expect(
+      find.textContaining('No usage has been recorded yet'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('custom providers respect optional credentials in sorting', (
     tester,
@@ -892,12 +968,13 @@ void main() {
     expect(top('my-api'), lessThan(top('Anthropic')));
     expect(top('Anthropic'), lessThan(top('Google Gemini')));
     expect(find.byTooltip('Configured'), findsNWidgets(2));
+    expect(find.text('Test'), findsNWidgets(2));
+    expect(find.text('Usage'), findsNWidgets(2));
     expect(find.text('Configure'), findsNWidgets(2));
-    expect(find.text('Connect'), findsNWidgets(3));
-    expect(find.text('Test connection'), findsNWidgets(5));
+    expect(find.text('Connect'), findsNWidgets(9));
   });
 
-  testWidgets('connection tests stay available without saved credentials', (
+  testWidgets('provider actions stay hidden until credentials are configured', (
     tester,
   ) async {
     final connectionTester = FakeProviderConnectionTester();
@@ -907,12 +984,11 @@ void main() {
     );
     await openSidebarEntry(tester, 'Providers');
 
-    await tester.tap(find.text('Test connection').first);
-    await tester.pumpAndSettle();
-
+    expect(find.text('Connect'), findsNWidgets(10));
+    expect(find.text('Test'), findsNothing);
+    expect(find.text('Usage'), findsNothing);
+    expect(find.text('Configure'), findsNothing);
     expect(connectionTester.testedProviderIds, isEmpty);
-    expect(find.textContaining('before testing'), findsOneWidget);
-    expect(find.text('Test connection'), findsNWidgets(4));
   });
 
   testWidgets('removing a custom credential keeps the provider', (
@@ -958,7 +1034,7 @@ void main() {
     expect(settings.settings.containsKey('custom-remove'), isTrue);
     expect(find.byTooltip('Configured'), findsOneWidget);
     expect(find.text('Configure'), findsOneWidget);
-    expect(find.text('Connect'), findsNWidgets(4));
+    expect(find.text('Connect'), findsNWidgets(10));
   });
 
   testWidgets(

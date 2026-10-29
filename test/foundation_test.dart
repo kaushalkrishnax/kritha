@@ -70,6 +70,7 @@ void main() {
       expect(theme.textTheme.bodyLarge!.fontFamily, KrithaFonts.dmSans);
       expect(theme.textTheme.bodyMedium!.color, KrithaColors.textPrimary);
       expect(theme.textTheme.bodyLarge!.color, KrithaColors.textPrimary);
+      expect(theme.colorScheme.primary, const Color(0xFF3566F0));
       // Component styles stay free of redundant family/colour declarations.
       expect(KrithaText.body.fontFamily, isNull);
       expect(KrithaText.body.color, isNull);
@@ -92,7 +93,7 @@ void main() {
       expect(KrithaColors.textMuted, const Color(0xFF9299A3));
       expect(KrithaColors.textDimmed, const Color(0xFF68717D));
 
-      expect(KrithaColors.accentBlue, const Color(0xFF3B82F6));
+      expect(KrithaColors.accentBlue, const Color(0xFF3566F0));
       expect(KrithaColors.accentLightBlue, const Color(0xFF60A5FA));
       expect(KrithaColors.accentCyan, const Color(0xFF22D3EE));
       expect(KrithaColors.accentCyanBg, const Color(0xFF164E63));

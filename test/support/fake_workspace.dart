@@ -187,6 +187,21 @@ class InMemoryProviderCredentialStore implements ProviderCredentialStore {
   }
 }
 
+class InMemoryProviderUsageStore implements ProviderUsageStore {
+  InMemoryProviderUsageStore([Map<String, ProviderUsage>? usage])
+    : usage = usage ?? {};
+
+  Map<String, ProviderUsage> usage;
+
+  @override
+  Future<Map<String, ProviderUsage>> read() async => Map.unmodifiable(usage);
+
+  @override
+  Future<void> write(Map<String, ProviderUsage> value) async {
+    usage = Map.of(value);
+  }
+}
+
 class FakeProviderConnectionTester implements ProviderConnectionTester {
   FakeProviderConnectionTester({
     this.result = const ProviderConnectionResult(

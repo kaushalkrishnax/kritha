@@ -9,6 +9,8 @@ import '../models/widgets/workspace_header.dart';
 import 'provider_alias.dart';
 import 'provider_connection_tester.dart';
 import 'provider_definition.dart';
+import 'provider_stores.dart';
+import 'provider_usage.dart';
 import 'providers_controller.dart';
 
 class ProvidersScreen extends ConsumerWidget {
@@ -232,6 +234,16 @@ class _ProviderCard extends ConsumerWidget {
     );
   }
 
+  Future<void> _openUsage(BuildContext context) async {
+    await createPopup<void>(
+      context: context,
+      builder: (_) => _ProviderUsagePopup(
+        providerId: configuration.providerId,
+        providerName: definition.name,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final message = testing ? 'Testing connection…' : result?.message;
@@ -326,25 +338,33 @@ class _ProviderCard extends ConsumerWidget {
             spacing: KrithaSpacing.s8,
             runSpacing: KrithaSpacing.s8,
             children: [
-              WorkspaceOutlinedAction(
-                label: 'Test connection',
-                icon: HugeIcons.strokeRoundedActivity01,
-                busy: testing,
-                onPressed: testing
-                    ? null
-                    : () => ref
-                          .read(providersControllerProvider.notifier)
-                          .testConnection(configuration.providerId),
-              ),
-              WorkspaceOutlinedAction(
-                label: configuration.hasRequiredCredentials
-                    ? 'Configure'
-                    : 'Connect',
-                icon: configuration.hasRequiredCredentials
-                    ? HugeIcons.strokeRoundedSettings01
-                    : HugeIcons.strokeRoundedPlus,
-                onPressed: () => _configure(context),
-              ),
+              if (configuration.hasRequiredCredentials) ...[
+                WorkspaceOutlinedAction(
+                  label: 'Test',
+                  icon: HugeIcons.strokeRoundedActivity01,
+                  busy: testing,
+                  onPressed: testing
+                      ? null
+                      : () => ref
+                            .read(providersControllerProvider.notifier)
+                            .testConnection(configuration.providerId),
+                ),
+                WorkspaceOutlinedAction(
+                  label: 'Usage',
+                  icon: HugeIcons.strokeRoundedAnalytics01,
+                  onPressed: () => _openUsage(context),
+                ),
+                WorkspaceOutlinedAction(
+                  label: 'Configure',
+                  icon: HugeIcons.strokeRoundedSettings01,
+                  onPressed: () => _configure(context),
+                ),
+              ] else
+                WorkspaceOutlinedAction(
+                  label: 'Connect',
+                  icon: HugeIcons.strokeRoundedPlus,
+                  onPressed: () => _configure(context),
+                ),
             ],
           ),
         ],
@@ -360,6 +380,7 @@ class _ProviderCard extends ConsumerWidget {
       'anthropic' => HugeIcons.strokeRoundedClaude,
       'google' => HugeIcons.strokeRoundedGoogleGemini,
       'xai' => HugeIcons.strokeRoundedGrok02,
+      'groq' => HugeIcons.strokeRoundedEnergy,
       'deepseek' => HugeIcons.strokeRoundedDeepseek,
       'perplexity' => HugeIcons.strokeRoundedPerplexityAi,
       'qwen' => HugeIcons.strokeRoundedQwen,
@@ -367,6 +388,125 @@ class _ProviderCard extends ConsumerWidget {
       'mistral' => HugeIcons.strokeRoundedMistral,
       _ => HugeIcons.strokeRoundedAiChip,
     };
+  }
+}
+
+class _ProviderUsagePopup extends ConsumerWidget {
+  const _ProviderUsagePopup({
+    required this.providerId,
+    required this.providerName,
+  });
+
+  final String providerId;
+  final String providerName;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usage =
+        ref.watch(providerUsageProvider).value?[providerId] ??
+        const ProviderUsage();
+    return CreatePopup(
+      title: '$providerName usage',
+      subtitle: 'Tracked locally on this device',
+      actions: [
+        PopupSecondaryButton(
+          label: 'Close',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          KrithaSpacing.s20,
+          0,
+          KrithaSpacing.s20,
+          KrithaSpacing.s20,
+        ),
+        child: SizedBox(
+          width: 320,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: EdgeInsets.all(KrithaSpacing.s14),
+                decoration: BoxDecoration(
+                  color: KrithaColors.bgPrimary,
+                  borderRadius: BorderRadius.circular(KrithaRadius.base),
+                  border: Border.all(color: KrithaColors.borderSubtle),
+                ),
+                child: Column(
+                  children: [
+                    _UsageRow(
+                      label: 'Total API requests',
+                      value: usage.requests,
+                    ),
+                    SizedBox(height: KrithaSpacing.s10),
+                    _UsageRow(
+                      label: 'Successful responses',
+                      value: usage.successes,
+                      valueColor: KrithaColors.success,
+                    ),
+                    SizedBox(height: KrithaSpacing.s10),
+                    _UsageRow(
+                      label: 'Failed requests',
+                      value: usage.failures,
+                      valueColor: KrithaColors.error,
+                    ),
+                  ],
+                ),
+              ),
+              if (usage.isEmpty) ...[
+                SizedBox(height: KrithaSpacing.s12),
+                Text(
+                  'No usage has been recorded yet. Counts appear after this '
+                  'provider completes an API request.',
+                  style: TextStyle(
+                    fontSize: KrithaText.sizeXs,
+                    color: KrithaColors.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UsageRow extends StatelessWidget {
+  const _UsageRow({required this.label, required this.value, this.valueColor});
+
+  final String label;
+  final int value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: KrithaText.sizeXs,
+              color: KrithaColors.textSecondary,
+            ),
+          ),
+        ),
+        SizedBox(width: KrithaSpacing.s12),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: KrithaText.sizeSm,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? KrithaColors.textPrimary,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
   }
 }
 

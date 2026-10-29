@@ -227,7 +227,7 @@ function buildIosApp(version, ipa) {
     path.join(ROOT, 'dist', 'ios', `Kritha-${version}-arm64-RELEASE.app`),
   );
 
-  flutterBuild(['ios', '--release', '--no-codesign', '--simulator']);
+  flutterBuild(['ios', '--simulator']);
   const simulatorArch = process.arch === 'arm64' ? 'arm64' : 'x86_64';
   const simApp = path.join(ROOT, 'build', 'ios', 'iphonesimulator', 'Runner.app');
   if (!fs.existsSync(simApp)) {

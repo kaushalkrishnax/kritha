@@ -6,11 +6,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/models/ai_request.dart';
 import 'package:kritha/features/intelligence/runtime_ids.dart';
+import 'package:kritha/features/intelligence/usage_tracking_provider.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/providers/provider_connection_tester.dart';
 import 'package:kritha/features/providers/provider_definition.dart';
 import 'package:kritha/features/providers/provider_stores.dart';
+import 'package:kritha/features/providers/provider_usage.dart';
 import 'package:kritha/features/providers/providers_controller.dart';
 
 import 'support/fake_inference.dart';
@@ -20,6 +23,7 @@ void main() {
   ProviderContainer buildContainer({
     InMemoryProviderSettingsStore? settings,
     InMemoryProviderCredentialStore? credentials,
+    InMemoryProviderUsageStore? usage,
     FakeProviderConnectionTester? tester,
     String? modelPath,
   }) {
@@ -30,6 +34,9 @@ void main() {
         ),
         providerCredentialStoreProvider.overrideWithValue(
           credentials ?? InMemoryProviderCredentialStore(),
+        ),
+        providerUsageStoreProvider.overrideWithValue(
+          usage ?? InMemoryProviderUsageStore(),
         ),
         providerConnectionTesterProvider.overrideWithValue(
           tester ?? FakeProviderConnectionTester(),
@@ -62,6 +69,18 @@ void main() {
         );
       },
     );
+
+    test('registers Groq after xAI as an OpenAI-compatible provider', () {
+      final ids = [
+        for (final definition in builtInInferenceProviders) definition.id,
+      ];
+      expect(ids.indexOf('groq'), ids.indexOf('xai') + 1);
+      final groq = providerDefinitionFor('groq')!;
+      expect(groq.name, 'Groq');
+      expect(groq.runtimeId, openAiRuntimeId);
+      expect(groq.defaultBaseUrl, 'https://api.groq.com/openai/v1');
+      expect(groq.requiresCredential, isTrue);
+    });
 
     test('persists endpoint changes without credentials', () async {
       final settings = InMemoryProviderSettingsStore();
@@ -233,6 +252,50 @@ void main() {
 
       expect(result.ok, isFalse);
       expect(result.message, contains('No local model is selected'));
+    });
+  });
+
+  group('provider usage', () {
+    test('starts empty and records successes and failures locally', () async {
+      final store = InMemoryProviderUsageStore();
+      final container = buildContainer(usage: store);
+      addTearDown(container.dispose);
+
+      expect(await container.read(providerUsageProvider.future), isEmpty);
+
+      final controller = container.read(providerUsageProvider.notifier);
+      await controller.record('openai', ok: true);
+      await controller.record('openai', ok: true);
+      await controller.record('openai', ok: false);
+      await controller.record('anthropic', ok: true);
+
+      final usage = container.read(providerUsageProvider).value!;
+      expect(usage['openai']!.requests, 3);
+      expect(usage['openai']!.successes, 2);
+      expect(usage['openai']!.failures, 1);
+      expect(usage['anthropic']!.requests, 1);
+      expect(usage['anthropic']!.successes, 1);
+      expect(usage['anthropic']!.failures, 0);
+      expect(store.usage['openai']!.requests, 3);
+    });
+
+    test('tracks settled generate and stream requests', () async {
+      final inner = FakeInferenceProvider();
+      final results = <bool>[];
+      final tracked = UsageTrackingInferenceProvider(
+        inner: inner,
+        onRequestSettled: results.add,
+      );
+      final request = AiRequest(messages: [AiMessage.user('Hello')]);
+
+      await tracked.generate(request);
+      await tracked.stream(request).toList();
+      expect(results, [true, true]);
+
+      inner.error = StateError('provider failed');
+      await expectLater(tracked.generate(request), throwsStateError);
+      await expectLater(tracked.stream(request).toList(), throwsStateError);
+      expect(results, [true, true, false, false]);
     });
   });
 

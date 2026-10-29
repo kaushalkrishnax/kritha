@@ -115,6 +115,17 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
     requiresCredential: true,
   ),
   InferenceProviderDefinition(
+    id: 'groq',
+    runtimeId: openAiRuntimeId,
+    name: 'Groq',
+    description:
+        'Fast hosted inference through the Groq OpenAI-compatible API.',
+    kind: ProviderKind.cloud,
+    authStyle: ProviderAuthStyle.bearer,
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+    requiresCredential: true,
+  ),
+  InferenceProviderDefinition(
     id: 'deepseek',
     runtimeId: openAiRuntimeId,
     name: 'DeepSeek',

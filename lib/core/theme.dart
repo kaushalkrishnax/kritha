@@ -73,9 +73,9 @@ abstract final class KrithaColors {
       _lightMode ? Color(0xFFFFFFFF) : _darkTextOnAccent;
 
   // Brand / Accent
-  static const _darkAccentBlue = Color(0xFF3B82F6);
+  static const _darkAccentBlue = Color(0xFF3566F0);
   static Color get accentBlue =>
-      _lightMode ? Color(0xFF3B82F6) : _darkAccentBlue;
+      _lightMode ? Color(0xFF3566F0) : _darkAccentBlue;
   static const _darkAccentLightBlue = Color(0xFF60A5FA);
   static Color get accentLightBlue =>
       _lightMode ? Color(0xFF60A5FA) : _darkAccentLightBlue;
@@ -110,9 +110,9 @@ abstract final class KrithaColors {
   static Color get borderFaint => _lightMode
       ? Color(0x140F172A)
       : _darkBorderFaint; // rgba(255,255,255,0.055)
-  static const _darkBorderAccent = Color(0xFF3B82F6);
+  static const _darkBorderAccent = Color(0xFF3566F0);
   static Color get borderAccent =>
-      _lightMode ? Color(0xFF3B82F6) : _darkBorderAccent;
+      _lightMode ? Color(0xFF3566F0) : _darkBorderAccent;
 
   // Context menu pressed overlay
   static const _darkContextMenuPressed = Color(0x17FFFFFF);
@@ -474,7 +474,7 @@ ThemeData buildKrithaTheme() {
     splashColor: KrithaColors.contextMenuPressed,
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: KrithaColors.accentLightBlue,
-      selectionColor: Color(0x4D3B82F6),
+      selectionColor: KrithaColors.accentBlue.withValues(alpha: 0.30),
       selectionHandleColor: KrithaColors.accentLightBlue,
     ),
     scrollbarTheme: ScrollbarThemeData(

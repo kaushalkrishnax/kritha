@@ -36,7 +36,7 @@ dependencies:
   # <3.0.0, so it cannot resolve on Dart 3.13. `hugeicons` provides the icon set.
   hugeicons: ^1.2.0
   litertlm: ^0.0.14
-  sherpa_onnx: ^1.13.8
+  sherpa_onnx: ^2.0.1
   record: ^7.1.2
   just_audio: ^0.10.6
   permission_handler: ^13.0.2

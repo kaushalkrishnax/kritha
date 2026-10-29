@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/active/active_models.dart';
 import '../models/catalogue/catalogue_model.dart';
 import '../providers/provider_stores.dart';
+import '../providers/provider_usage.dart';
 import '../providers/providers_controller.dart';
 import 'capability_mapping.dart';
 import 'inference_provider.dart';
@@ -20,6 +21,7 @@ import 'request_router.dart';
 import 'runtime_ids.dart';
 import 'runtimes/litertlm_provider.dart';
 import 'runtimes/unavailable_provider.dart';
+import 'usage_tracking_provider.dart';
 
 /// The validated local model, retained for Settings and migration.
 ///
@@ -211,7 +213,7 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
       capabilities: capabilities,
     );
     Future<String?> readCredential() => credentials.read(assignment.sourceId);
-    final provider = switch (definition.runtimeId) {
+    final adapter = switch (definition.runtimeId) {
       anthropicRuntimeId => AnthropicProvider(
         sourceId: assignment.sourceId,
         descriptor: descriptor,
@@ -237,6 +239,15 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
         clientFactory: clientFactory,
       ),
     };
+    final provider = UsageTrackingInferenceProvider(
+      inner: adapter,
+      onRequestSettled: (ok) {
+        if (!ref.mounted) return;
+        ref
+            .read(providerUsageProvider.notifier)
+            .record(assignment.sourceId, ok: ok);
+      },
+    );
     ref.onDispose(provider.dispose);
     providers.add(provider);
   }
