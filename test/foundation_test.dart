@@ -23,6 +23,7 @@ import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
 import 'support/fake_inference.dart';
+import 'support/seed_fixture.dart';
 
 class _FakeDictationNotifier extends DictationNotifier {
   @override
@@ -131,7 +132,10 @@ void main() {
   group('chat shell', () {
     late AppDatabase database;
 
-    setUp(() => database = AppDatabase(NativeDatabase.memory()));
+    setUp(() async {
+      database = AppDatabase(NativeDatabase.memory());
+      await database.seedIfEmpty(demoMessages());
+    });
     tearDown(() => database.close());
 
     Future<void> pumpApp(
@@ -726,7 +730,10 @@ void main() {
   group('adaptive composer', () {
     late AppDatabase database;
 
-    setUp(() => database = AppDatabase(NativeDatabase.memory()));
+    setUp(() async {
+      database = AppDatabase(NativeDatabase.memory());
+      await database.seedIfEmpty(demoMessages());
+    });
     tearDown(() => database.close());
 
     Future<void> pumpComposer(

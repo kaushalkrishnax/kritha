@@ -147,10 +147,12 @@ Used for the sidebar search control. Settings uses the same circle with an
 | Row gap | **None** — top actions stack contiguously |
 | Ripple | Full-row `InkWell`; no separate inner padding surface |
 
-Icons for these six actions must use the 600-weight Lucide set and 24 px so they
-match the visual weight of the labels. Do not reintroduce 2–4 px vertical gaps
-between rows; the 56 px row is the rhythm, matching the relaxed reference
-sidebar rather than the earlier tighter 44 px list.
+Icons for these eight actions must use the 600-weight Lucide set and 24 px so
+they match the visual weight of the labels. `Models` and `Providers` use the
+same row geometry in the full sidebar and icon buttons in the compact rail. Do
+not reintroduce 2–4 px vertical gaps between rows; the 56 px row is the rhythm,
+matching the relaxed reference sidebar rather than the earlier tighter 44 px
+list.
 
 ### 3.7 Sidebar session rows — `_SessionRow`
 

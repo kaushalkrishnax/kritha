@@ -1,8 +1,6 @@
-import '../models/chat_message.dart';
+import 'package:kritha/models/chat_message.dart';
 
-/// Fixture conversation. It deliberately exercises every Markdown feature the
-/// demo measures: headings, lists, tables, task lists, block quotes, fenced
-/// Dart code and LaTeX.
+/// Test-only conversation fixture. Production starts with an empty history.
 List<ChatMessage> demoMessages() {
   return [
     ChatMessage(

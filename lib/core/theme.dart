@@ -458,7 +458,7 @@ ThemeData buildKrithaTheme() {
     scaffoldBackgroundColor: KrithaColors.bgBase,
     fontFamily: KrithaFonts.dmSans,
   );
-  
+
   final baseTextTheme = base.textTheme.apply(
     bodyColor: KrithaColors.textPrimary,
     displayColor: KrithaColors.textPrimary,

@@ -28,16 +28,17 @@
 
 ### Contents
 
+- [Overview](#overview)
 - [Release packages](#release-packages)
 - [Highlights](#highlights)
+- [Requirements](#requirements)
 - [Platform targets](#platform-targets)
-- [Quick start](#getting-started)
+- [Getting started](#getting-started)
 - [Signed release builds](#signed-release-builds)
-- [Workers and runtime packs](#workers-and-runtime-packs)
-- [What is implemented](#what-is-implemented)
 - [Verification](#verification)
-- [Documentation](#documentation)
-- [License](#license)
+- [What is implemented](#what-is-implemented)
+- [Project layout](#project-layout)
+- [Known gaps versus the React Native app](#known-gaps-versus-the-react-native-app)
 
 ---
 
@@ -49,10 +50,12 @@ shell, adaptive composer, dictation/wake-word foundation and persistent local
 history. Chat sessions can be created, switched, pinned, renamed, archived,
 restored and deleted; the first prompt in a chat creates its title.
 
-The base app does **not** bundle LLM or speech-model weights. Android runtime
-engines are delivered separately in an installable local runtime pack. There is
-no hosted chat backend in this Flutter foundation; release/runtime Workers only
-serve metadata and signed Android runtime artifacts.
+The base app does **not** bundle LLM or speech-model weights. LiteRT-LM and
+sherpa ONNX native engines are bundled in the base app; model files are selected
+and validated locally. The Models workspace uses the Hugging Face Hub API for
+repository discovery, and the Providers workspace configures inference
+connections separately. There is no hosted chat backend in this Flutter
+foundation.
 
 ## Release packages
 
@@ -79,10 +82,10 @@ The iOS App Store does not accept simulator slices in its device IPA. The
   <table>
     <tr>
       <td width="50%" align="center"><br/>💬<h3>Adaptive conversation UI</h3><sub>Responsive chat shell, persistent sessions, keyboard-aware composer and shared context menus.</sub><br/><br/></td>
-      <td width="50%" align="center"><br/>🎙️<h3>Voice-ready Android</h3><sub>Wake-word foreground service and on-demand runtime pack for LiteRT-LM and sherpa ONNX.</sub><br/><br/></td>
+      <td width="50%" align="center"><br/>🎙️<h3>Voice-ready Android</h3><sub>Wake-word foreground service plus bundled LiteRT-LM and sherpa ONNX runtimes; model weights stay separately managed.</sub><br/><br/></td>
     </tr>
     <tr>
-      <td width="50%" align="center"><br/>📦<h3>Optional local runtimes</h3><sub>Install both Android runtime modules together; model weights remain separately managed.</sub><br/><br/></td>
+      <td width="50%" align="center"><br/>📦<h3>Optional local runtimes</h3><sub>LiteRT-LM and sherpa ONNX are bundled in the base app; model files are selected and validated locally.</sub><br/><br/></td>
       <td width="50%" align="center"><br/>🖥️<h3>One Flutter codebase</h3><sub>Android, iOS, separate arm64/x86_64 macOS apps and Windows x86_64 platform foundations.</sub><br/><br/></td>
     </tr>
   </table>
@@ -199,11 +202,12 @@ after reviewing it.
 ```sh
 dart format lib test
 flutter analyze        # No issues found
-flutter test           # 45 tests
-flutter build apk --debug
-flutter build ios --no-codesign
-flutter build macos --release
-flutter build windows --release   # from a Windows x64 host
+flutter test           # 193 tests
+npm run build:android  # signed release APKs
+npm run build:aab      # signed release bundle
+npm run build:ios      # unsigned local arm64 device build
+npm run build:macos    # signed arm64/x86_64 apps
+npm run build:windows  # from a Windows x64 host
 ```
 
 `pubspec.yaml` pins `shared_preferences_foundation` 2.5.7 because its 2.6.0
@@ -351,7 +355,9 @@ Sessions are first-class SQLite rows, not temporary UI state:
   archived sessions with restore and delete.
 - **Delete** — deletes the session and its messages in one transaction; if it
   was open, the newest remaining session is selected.
-- **Reset** — settings clears every session/message and re-seeds the fixture.
+- **Clear history** — settings clears every session and message after
+  confirmation. Fresh installs start with an empty history; no demo fixture is
+  seeded.
 
 Schema v3 adds `chat_sessions` and `chat_entries.sessionId`. Messages written by
 schema v1/v2 are adopted into an “Earlier conversation” session on first open,
@@ -360,12 +366,13 @@ so upgrades do not lose history.
 ### Persistence and settings
 
 - Drift/SQLite stores sessions and messages; sessions have pin/archive flags
-  and timestamps, and the fixture is seeded once
-- `attachmentsJson` is decoded through `ChatAttachment.fromJson`
+  and timestamps. New installs start empty, and clearing history does not
+  recreate a fixture.
+- `attachmentsJson` is decoded through `ChatAttachment.fromJson`.
 - The settings screen reports runtime probes (sherpa-onnx, ONNX Runtime,
   SQLite, secure storage, microphone, recorder, audio player, API base URL) and
-  can reset local history. Runtime information lives here, not in the chat
-  header.
+  can clear local history after confirmation. Runtime information lives here,
+  not in the chat header.
 
 The design rules and interaction patterns live alongside the component
 inventory:
@@ -403,6 +410,43 @@ and the persisted model selection. Nothing is bundled or downloaded:
   LiteRT-LM conversations are created per request because reuse across turns
   has no verified reset/cancel lifecycle.
 
+### Models workspace
+
+`lib/features/models/` adds a Hub-backed discovery workspace and a separate
+Active Models surface:
+
+- The default Explore view searches `https://huggingface.co/api/models` with
+  capability filters, sort order and `Link`-header cursor pagination. Public
+  browsing works without a token.
+- Model details load the full repository record, file tree and `README.md`.
+  They distinguish repository discovery from runtime compatibility: a Hub entry
+  is never described as downloaded, verified or runnable.
+- A dedicated Dio client sends an optional Hugging Face token as a Bearer header.
+  It has no request logging, and the token is stored in platform secure storage,
+  never shown after saving, and can be replaced or removed.
+- Hub and inference-provider secrets share `SecureStorageService`; their keys,
+  validation and feature-specific behavior remain isolated.
+- Active Models persists capability assignments in SharedPreferences. Only the
+  validated local LiteRT-LM text path can be activated in this build; vision,
+  image generation, speech, audio, video and embeddings remain unavailable
+  until a real execution path exists.
+- Custom catalogue is a gated Pro explanation screen only. It does not configure
+  or contact an endpoint.
+
+### Providers workspace
+
+`lib/features/providers/` configures inference connections independently of the
+Hub catalogue:
+
+- Supported entries cover the local LiteRT-LM runtime, hosted OpenAI,
+  Anthropic, Google Gemini, Mistral and OpenRouter connections, plus Ollama,
+  LM Studio and a custom OpenAI-compatible endpoint.
+- Credentials live in secure storage under provider-specific keys; the Hub token
+  is a separate secret. Saved keys are never rendered back into the UI.
+- Connection tests perform real HTTP requests to each provider's models
+  endpoint and report the actual status. They do not route chat through the
+  provider or claim inference success.
+
 ## Project layout
 
 ```
@@ -416,9 +460,10 @@ lib/
     theme.dart                 Design tokens, DM Sans and ThemeData
     providers.dart             Riverpod providers (database, runtime)
     router.dart                go_router routes
+    network/                   Shared Dio transport classification
+    storage/                   Shared platform secure-storage service
   data/
     app_database.dart          Drift tables, session/message queries, v3 migration
-    seed_messages.dart         Markdown fixture conversation
   features/
     chat/
       chat_controller.dart     Sessions, history, streaming send, cancel, retry
@@ -427,6 +472,8 @@ lib/
       dictation_controller.dart  Microphone capture, amplitude levels, STT seam
       widgets/                 Header, sidebar, message list, Markdown,
                                attachments, response actions, composer/
+    models/                    Hub catalogue, token, details, Active Models
+    providers/                 Inference connections, credentials, tests
     settings/                  Runtime probes, model selection and history controls
     intelligence/              Inference contracts, router, engine, LiteRT-LM
                                adapter and model configuration
@@ -469,5 +516,17 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
   or preserve attachments from the original turn.
 - **Sidebar utilities** — Library, Plugins, Permissions, More and
   chat search are visible stubs.
-- **Settings depth** — runtime probes and reset are real; the remaining RN
-  settings toggles are not implemented.
+- **Settings depth** — runtime probes, local model selection/removal and
+  confirmed history clearing are real; the remaining RN settings toggles are
+  not implemented.
+- **Hub model download and activation** — Explore, search, filters, details,
+  files and model cards use the real Hub API. A Hub repository is never treated
+  as downloaded or runtime-compatible; only an already validated local
+  `.litertlm` file can be assigned to the text capability.
+- **Hosted provider routing** — providers can be enabled, configured and tested
+  with real HTTP requests, but chat still uses the local intelligence engine.
+- **Active model routing** — capability assignments are persisted and shown with
+  honest status, but the single local text model is still selected in Settings.
+  Multi-model routing and non-text execution paths are not implemented.
+- **Custom catalogue** — the entry is a gated Pro explanation screen; endpoint
+  configuration, response schemas and billing are not implemented.

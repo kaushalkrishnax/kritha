@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/app.dart';
 import 'package:kritha/core/providers.dart';
 import 'package:kritha/data/app_database.dart';
-import 'package:kritha/features/chat/widgets/message_list.dart';
+import 'package:kritha/features/chat/widgets/chat_sidebar.dart';
 import 'package:kritha/features/intelligence/inference_provider.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/providers.dart';
@@ -54,31 +54,21 @@ void main() {
     );
   }
 
-  testWidgets('renders the seeded conversation and navigates', (tester) async {
+  testWidgets('a fresh install starts with an empty history', (tester) async {
     await tester.pumpWidget(buildApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
 
-    // History opens at the newest turn; scroll back to the seeded opener.
-    await tester.scrollUntilVisible(
-      find.textContaining('Good morning, Kaushal'),
-      -300,
-      scrollable: find
-          .descendant(
-            of: find.byType(MessageList),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('Good morning, Kaushal'), findsOneWidget);
+    expect(find.text('Start a new chat'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    expect(await database.countMessages(), 5);
+    expect(await database.countMessages(), 0);
+    expect(await database.countSessions(), 0);
 
     await tester.tap(find.byTooltip('Sessions'));
     await tester.pumpAndSettle();
+    expect(find.text('No conversations yet'), findsOneWidget);
+
     await tester.tap(find.byTooltip('Account menu'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
@@ -115,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Start a new chat'), findsOneWidget);
-    expect(await database.countSessions(), 1);
+    expect(await database.countSessions(), 0);
 
     await tester.enterText(find.byType(TextField), 'Plan a small Flutter demo');
     await tester.pump();
@@ -125,7 +115,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final sessions = await database.allSessions();
-    expect(sessions, hasLength(2));
+    expect(sessions, hasLength(1));
     expect(
       sessions.any((session) => session.title == 'Plan a small Flutter demo'),
       isTrue,
@@ -133,10 +123,22 @@ void main() {
 
     await tester.tap(find.byTooltip('Sessions'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Plan a small Flutter demo').hitTestable(),
-      findsOneWidget,
+    final sidebarTitle = find.descendant(
+      of: find.byType(ChatSidebar),
+      matching: find.text('Plan a small Flutter demo'),
     );
+    await tester.scrollUntilVisible(
+      sidebarTitle,
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byType(ChatSidebar),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(sidebarTitle.hitTestable(), findsOneWidget);
   });
 
   testWidgets('sending a message persists the user turn and a reply', (
@@ -154,10 +156,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    expect(await database.countMessages(), 7);
+    expect(await database.countMessages(), 2);
     final messages = await database.allMessages();
-    expect(messages[5].text, 'How big is the APK?');
-    expect(messages[6].role.name, 'assistant');
+    expect(messages[0].text, 'How big is the APK?');
+    expect(messages[1].role.name, 'assistant');
   });
 
   testWidgets('streamed output is shown and can be stopped', (tester) async {
@@ -189,7 +191,7 @@ void main() {
     expect(find.byTooltip('Stop response'), findsNothing);
     expect(find.textContaining('Partial answer'), findsNothing);
     expect(manual.cancelled, isTrue);
-    expect(await database.countMessages(), 6);
+    expect(await database.countMessages(), 1);
     final messages = await database.allMessages();
     expect(messages.last.role.name, 'user');
   });

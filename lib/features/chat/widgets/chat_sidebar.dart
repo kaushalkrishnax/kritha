@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/responsive.dart';
 import '../../../core/theme.dart';
+import '../../../widgets/create_popup.dart';
 import '../../../models/chat_session.dart';
 import '../../../widgets/context_menu.dart';
 import '../chat_controller.dart';
@@ -96,28 +98,30 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
 
   Future<void> _renameSession(ChatSession session) async {
     final controller = TextEditingController(text: session.title);
-    final next = await showDialog<String>(
+    final next = await createPopup<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: KrithaColors.bgSurface,
-        title: Text('Rename chat'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-          decoration: InputDecoration(hintText: 'Chat title'),
-        ),
+      builder: (_) => CreatePopup(
+        title: 'Rename chat',
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Cancel'),
+          PopupSecondaryButton(
+            label: 'Cancel',
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: Text('Save'),
+          PopupPrimaryButton(
+            label: 'Save',
+            onPressed: () => Navigator.of(context).pop(controller.text),
           ),
         ],
+        child: Padding(
+          padding: EdgeInsets.all(KrithaSpacing.s20),
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+            decoration: const InputDecoration(hintText: 'Chat title'),
+          ),
+        ),
       ),
     );
     controller.dispose();
@@ -127,7 +131,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   Future<void> _openArchived() async {
-    await showDialog<void>(
+    await createPopup<void>(
       context: context,
       builder: (_) => _ArchivedSessionsDialog(),
     );
@@ -155,47 +159,85 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            _SidebarHeader(onCollapse: widget.onCollapse),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(height: KrithaSpacing.s4),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedSquarePen,
-                      label: 'New chat',
-                      onTap: widget.onNewChat,
-                    ),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedLibraryBig,
-                      label: 'Library',
-                      onTap: () => _stub(context, 'Library'),
-                    ),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedArchive,
-                      label: 'Archived Chats',
-                      onTap: _openArchived,
-                    ),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedPlug02,
-                      label: 'Plugins',
-                      onTap: () => _stub(context, 'Plugins'),
-                    ),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedShieldCheck,
-                      label: 'Permissions',
-                      onTap: () => _stub(context, 'Permissions'),
-                    ),
-                    _ActionRow(
-                      icon: HugeIcons.strokeRoundedEllipsis,
-                      label: 'More',
-                      onTap: () => _stub(context, 'More'),
-                    ),
-                    SizedBox(height: KrithaSpacing.s8),
-                    if (pinned.isNotEmpty) ...[
-                      _SectionTitle('Pinned'),
-                      for (final session in pinned)
+              _SidebarHeader(onCollapse: widget.onCollapse),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(height: KrithaSpacing.s4),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedSquarePen,
+                        label: 'New chat',
+                        onTap: widget.onNewChat,
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedBrainCircuit,
+                        label: 'Models',
+                        onTap: () => context.go('/models'),
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedPlug02,
+                        label: 'Providers',
+                        onTap: () => context.go('/providers'),
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedLibraryBig,
+                        label: 'Library',
+                        onTap: () => _stub(context, 'Library'),
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedArchive,
+                        label: 'Archived Chats',
+                        onTap: _openArchived,
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedPlug02,
+                        label: 'Plugins',
+                        onTap: () => _stub(context, 'Plugins'),
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedShieldCheck,
+                        label: 'Permissions',
+                        onTap: () => _stub(context, 'Permissions'),
+                      ),
+                      _ActionRow(
+                        icon: HugeIcons.strokeRoundedEllipsis,
+                        label: 'More',
+                        onTap: () => _stub(context, 'More'),
+                      ),
+                      SizedBox(height: KrithaSpacing.s8),
+                      if (pinned.isNotEmpty) ...[
+                        _SectionTitle('Pinned'),
+                        for (final session in pinned)
+                          _SessionRow(
+                            key: ValueKey('session-${session.id}'),
+                            session: session,
+                            selected: session.id == currentId,
+                            onTap: () => _selectSession(session, currentId),
+                            onLongPress: (pressPosition) =>
+                                _openSessionMenu(pressPosition, session),
+                          ),
+                      ],
+                      _SectionTitle('Recents'),
+                      if (recents.isEmpty)
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            KrithaSpacing.s24,
+                            KrithaSpacing.s8,
+                            KrithaSpacing.s24,
+                            KrithaSpacing.s16,
+                          ),
+                          child: Text(
+                            'No conversations yet',
+                            style: TextStyle(
+                              color: KrithaColors.textMuted,
+                              fontSize: KrithaText.sizeSm,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      for (final session in recents)
                         _SessionRow(
                           key: ValueKey('session-${session.id}'),
                           session: session,
@@ -204,59 +246,31 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                           onLongPress: (pressPosition) =>
                               _openSessionMenu(pressPosition, session),
                         ),
+                      SizedBox(height: KrithaSpacing.s4),
                     ],
-                    _SectionTitle('Recents'),
-                    if (recents.isEmpty)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          KrithaSpacing.s24,
-                          KrithaSpacing.s8,
-                          KrithaSpacing.s24,
-                          KrithaSpacing.s16,
-                        ),
-                        child: Text(
-                          'No conversations yet',
-                          style: TextStyle(
-                            color: KrithaColors.textMuted,
-                            fontSize: KrithaText.sizeSm,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    for (final session in recents)
-                      _SessionRow(
-                        key: ValueKey('session-${session.id}'),
-                        session: session,
-                        selected: session.id == currentId,
-                        onTap: () => _selectSession(session, currentId),
-                        onLongPress: (pressPosition) =>
-                            _openSessionMenu(pressPosition, session),
-                      ),
-                    SizedBox(height: KrithaSpacing.s4),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Divider(height: 1, color: KrithaColors.borderSubtle),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                KrithaSpacing.s8,
-                KrithaSpacing.s8,
-                KrithaSpacing.s8,
-                math.max(bottomInset, KrithaSpacing.s8),
+              Divider(height: 1, color: KrithaColors.borderSubtle),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  KrithaSpacing.s8,
+                  KrithaSpacing.s8,
+                  KrithaSpacing.s8,
+                  math.max(bottomInset, KrithaSpacing.s8),
+                ),
+                child: _AccountControl(
+                  compact: false,
+                  onSettings: widget.onSettings,
+                  sidebarKey: _sidebarKey,
+                ),
               ),
-              child: _AccountControl(
-                compact: false,
-                onSettings: widget.onSettings,
-                sidebarKey: _sidebarKey,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   static void _stub(BuildContext context, String label) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -274,11 +288,16 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
         ref.watch(chatControllerProvider).value?.archivedSessions ??
         <ChatSession>[];
 
-    return AlertDialog(
-      backgroundColor: KrithaColors.bgSurface,
-      title: Text('Archived chats'),
-      content: SizedBox(
-        width: 360,
+    return CreatePopup(
+      title: 'Archived chats',
+      actions: [
+        PopupSecondaryButton(
+          label: 'Close',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+      child: Padding(
+        padding: EdgeInsets.all(KrithaSpacing.s16),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: 360),
           child: archived.isEmpty
@@ -334,12 +353,6 @@ class _ArchivedSessionsDialog extends ConsumerWidget {
                 ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Close'),
-        ),
-      ],
     );
   }
 }
@@ -630,43 +643,64 @@ class CompactSidebarRail extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedLayoutAlignLeft,
-            tooltip: 'Expand sidebar',
-            onTap: onExpand,
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedLayoutAlignLeft,
+                    tooltip: 'Expand sidebar',
+                    onTap: onExpand,
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedSquarePen,
+                    tooltip: 'New chat',
+                    onTap: onNewChat,
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedSearch01,
+                    tooltip: 'Search chats',
+                    onTap: () =>
+                        _ChatSidebarState._stub(context, 'Chat search'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedPin,
+                    tooltip: 'Pinned chats',
+                    onTap: () =>
+                        _ChatSidebarState._stub(context, 'Pinned chats'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedMessageCircle,
+                    tooltip: 'Chats',
+                    onTap: () => _ChatSidebarState._stub(context, 'Chats'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedLibraryBig,
+                    tooltip: 'Library',
+                    onTap: () => _ChatSidebarState._stub(context, 'Library'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedBrainCircuit,
+                    tooltip: 'Models',
+                    onTap: () => context.go('/models'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedPlug02,
+                    tooltip: 'Providers',
+                    onTap: () => context.go('/providers'),
+                  ),
+                ],
+              ),
+            ),
           ),
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedSquarePen,
-            tooltip: 'New chat',
-            onTap: onNewChat,
-          ),
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedSearch01,
-            tooltip: 'Search chats',
-            onTap: () => _ChatSidebarState._stub(context, 'Chat search'),
-          ),
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedPin,
-            tooltip: 'Pinned chats',
-            onTap: () => _ChatSidebarState._stub(context, 'Pinned chats'),
-          ),
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedMessageCircle,
-            tooltip: 'Chats',
-            onTap: () => _ChatSidebarState._stub(context, 'Chats'),
-          ),
-          SizedBox(height: KrithaSpacing.s8),
-          _RailButton(
-            icon: HugeIcons.strokeRoundedLibraryBig,
-            tooltip: 'Library',
-            onTap: () => _ChatSidebarState._stub(context, 'Library'),
-          ),
-          Spacer(),
           Padding(
             padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
             child: _AccountControl(compact: true, onSettings: onSettings),

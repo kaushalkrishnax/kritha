@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../data/app_database.dart';
-import '../../data/seed_messages.dart';
 import '../../models/chat_attachment.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
@@ -114,7 +113,6 @@ class ChatController extends AsyncNotifier<ChatState> {
   Future<ChatState> build() async {
     ref.onDispose(_cancelActiveGeneration);
     final database = ref.watch(databaseProvider);
-    await database.seedIfEmpty(demoMessages());
     await database.adoptOrphanMessages();
     return _load(selectMostRecent: true);
   }
@@ -847,7 +845,7 @@ class ChatController extends AsyncNotifier<ChatState> {
           when cause is UnsupportedError =>
         'This device cannot run the selected local model.',
       ProviderUnavailableException() =>
-        'The local model is not available. Check the model in Settings, '
+        'The local model is not available. Check the model in Models, '
             'then retry.',
       UnsupportedCapabilityException() =>
         'The selected model cannot handle this request.',
@@ -969,13 +967,13 @@ class ChatController extends AsyncNotifier<ChatState> {
     );
   }
 
-  /// Settings action: wipe every row and re-seed the fixture.
-  Future<void> restart() async {
+  /// Settings action: wipe every conversation. A fresh install stays empty;
+  /// no fixture is re-created here.
+  Future<void> clearHistory() async {
     final epoch = ++_sessionEpoch;
     _abortGeneration();
     final database = ref.read(databaseProvider);
     await database.resetAll();
-    await database.seedIfEmpty(demoMessages());
     final loaded = await _load(selectMostRecent: true);
     if (!ref.mounted || epoch != _sessionEpoch) return;
     state = AsyncData(loaded);

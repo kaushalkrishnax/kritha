@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/app_database.dart';
 import '../services/runtime_probe.dart';
+import 'storage/secure_storage_service.dart';
 
 enum KrithaThemePreference { system, light, dark }
 
@@ -74,5 +75,10 @@ final dioProvider = Provider<Dio>((ref) {
 final runtimeStatusProvider = FutureProvider<RuntimeStatus>((ref) {
   final database = ref.watch(databaseProvider);
   final dio = ref.watch(dioProvider);
-  return RuntimeProbe(database: database, dio: dio).run();
+  final secureStorage = ref.watch(secureStorageServiceProvider);
+  return RuntimeProbe(
+    database: database,
+    dio: dio,
+    secureStorage: secureStorage,
+  ).run();
 });

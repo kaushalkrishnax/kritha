@@ -12,6 +12,7 @@ import '../../core/responsive.dart';
 import '../../core/theme.dart';
 import '../../models/chat_message.dart';
 import '../../widgets/context_menu.dart';
+import '../../widgets/create_popup.dart';
 import 'chat_controller.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/chat_sidebar.dart';
@@ -194,13 +195,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final files = state.messages
         .expand((message) => message.attachments)
         .toList();
-    await showDialog<void>(
+    await createPopup<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: KrithaColors.bgSurface,
-        title: Text('Uploaded files'),
-        content: SizedBox(
-          width: 360,
+      builder: (_) => CreatePopup(
+        title: 'Uploaded files',
+        actions: [
+          PopupSecondaryButton(
+            label: 'Close',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+        child: SizedBox(
           child: files.isEmpty
               ? Text(
                   'No uploaded files in this chat.',
@@ -238,19 +243,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                 ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Close'),
-          ),
-        ],
       ),
     );
   }
 
   Future<void> _showFindInChat(ChatState state) async {
     final queryController = TextEditingController();
-    await showDialog<void>(
+    await createPopup<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
@@ -262,42 +261,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       (message) => message.text.toLowerCase().contains(query),
                     )
                     .toList();
-          return AlertDialog(
-            backgroundColor: KrithaColors.bgSurface,
-            title: Text('Find in chat'),
-            content: SizedBox(
-              width: 380,
+          return CreatePopup(
+            title: 'Find in chat',
+            actions: [
+              PopupSecondaryButton(
+                label: 'Close',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+            ],
+            child: SizedBox(
               height: 360,
-              child: Column(
-                children: [
-                  TextField(
-                    controller: queryController,
-                    autofocus: true,
-                    onChanged: (_) => setDialogState(() {}),
-                    decoration: InputDecoration(hintText: 'Search messages'),
-                  ),
-                  SizedBox(height: KrithaSpacing.s12),
-                  Expanded(
-                    child: matches.isEmpty
-                        ? Center(
-                            child: Text(
-                              query.isEmpty
-                                  ? 'Type to search this chat.'
-                                  : 'No matches.',
-                              style: TextStyle(color: KrithaColors.textMuted),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: matches.length,
-                            separatorBuilder: (_, _) => Divider(
-                              height: 1,
-                              color: KrithaColors.borderFaint,
-                            ),
-                            itemBuilder: (context, index) {
-                              final message = matches[index];
-                              return Material(
-                                color: Colors.transparent,
-                                child: ListTile(
+              child: Padding(
+                padding: EdgeInsets.all(KrithaSpacing.s16),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: queryController,
+                      autofocus: true,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Search messages',
+                      ),
+                    ),
+                    SizedBox(height: KrithaSpacing.s12),
+                    Expanded(
+                      child: matches.isEmpty
+                          ? Center(
+                              child: Text(
+                                query.isEmpty
+                                    ? 'Type to search this chat.'
+                                    : 'No matches.',
+                                style: TextStyle(color: KrithaColors.textMuted),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: matches.length,
+                              separatorBuilder: (_, _) => Divider(
+                                height: 1,
+                                color: KrithaColors.borderFaint,
+                              ),
+                              itemBuilder: (context, index) {
+                                final message = matches[index];
+                                return ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(
                                     message.text,
@@ -309,20 +314,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         ? 'You'
                                         : 'Kritha',
                                   ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Close'),
-              ),
-            ],
           );
         },
       ),

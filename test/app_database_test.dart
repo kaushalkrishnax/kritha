@@ -1,10 +1,11 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/data/app_database.dart';
-import 'package:kritha/data/seed_messages.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
+
+import 'support/seed_fixture.dart';
 
 void main() {
   late AppDatabase database;

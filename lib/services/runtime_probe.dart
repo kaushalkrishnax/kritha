@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +9,7 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../data/app_database.dart';
+import '../core/storage/secure_storage_service.dart';
 
 /// Result of touching each platform package once at startup.
 class RuntimeStatus {
@@ -46,10 +46,15 @@ class RuntimeStatus {
 /// missing permission or unavailable plugin is reported in the UI instead of
 /// crashing the demo.
 class RuntimeProbe {
-  RuntimeProbe({required this.database, required this.dio});
+  RuntimeProbe({
+    required this.database,
+    required this.dio,
+    required this.secureStorage,
+  });
 
   final AppDatabase database;
   final Dio dio;
+  final SecureStorageService secureStorage;
 
   Future<RuntimeStatus> run() async {
     var liteRtLmReady = false;
@@ -84,10 +89,10 @@ class RuntimeProbe {
 
     var secureStorageReady = false;
     try {
-      const storage = FlutterSecureStorage();
-      await storage.write(key: 'kritha_demo_probe', value: 'ok');
-      secureStorageReady = await storage.read(key: 'kritha_demo_probe') == 'ok';
-      await storage.delete(key: 'kritha_demo_probe');
+      const probeKey = 'kritha_demo_probe';
+      await secureStorage.write(probeKey, 'ok');
+      secureStorageReady = await secureStorage.read(probeKey) == 'ok';
+      await secureStorage.delete(probeKey);
     } on Object {
       secureStorageReady = false;
     }

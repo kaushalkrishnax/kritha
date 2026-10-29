@@ -41,6 +41,22 @@ Intelligence (wired to chat; no model bundled)
     └─ NativeLiteRtLmEngine → litertlm Engine/Conversation
          (configuredModelProvider comes from the validated Settings selection;
           nothing loads until the first request)
+
+Models (Hub discovery, no runtime claim)
+  ModelsScreen → catalogueProvider → ModelCatalogue → HuggingFaceHubClient
+    ├─ featuredCatalogueProvider (popular / recommended)
+    ├─ modelDetailsProvider (record, file tree, README)
+    └─ huggingFaceTokenProvider → SecureStorageService
+         (Bearer only to the Hub; separate Hugging Face key)
+
+Active Models
+  activeModelsProvider → ActiveModelStore (SharedPreferences)
+    └─ status is derived from the validated local model; only text is assignable
+
+Providers (configuration, not routing)
+  providersControllerProvider → ProviderSettingsStore (SharedPreferences)
+    ├─ ProviderCredentialStore → SecureStorageService (per-provider keys)
+    └─ ProviderConnectionTester → real models-endpoint HTTP request
 ```
 
 Session operations are written immediately; messages are loaded per session.
@@ -56,9 +72,9 @@ which point the session row is created with a title derived from that prompt.
 | `KrithaApp` | `lib/app.dart` | Real | Theme, router wiring. |
 | `ChatScreen` | `lib/features/chat/chat_screen.dart` | Real | Responsive shell, drawer/docked sidebar, session-change scroll, empty-chat state, loading/error screens, floating frosted composer and scroll-to-bottom arrow. `_KeyboardBackGuard` dismisses the IME before allowing a route pop. |
 | `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer; **wake-word runtime is a stub**. |
-| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. |
+| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, eight contiguous 56 px top action rows (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the compact rail exposes both as icon buttons. |
 | `_ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. |
-| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and reset history are real. The model card validates the file and reports it separately from the loaded engine. The back control is a 44 px circular ink target with zero internal padding, so its focus/ripple fills the circle. RN settings toggles are not ported (**gap**). |
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and confirmed history clearing are real. The model card validates the file and reports it separately from the loaded engine. Clearing history leaves an empty install empty. The back control is a 44 px circular ink target with zero internal padding, so its focus/ripple fills the circle. RN settings toggles are not ported (**gap**). |
 | `_EmptyChat` | `chat_screen.dart` | Real | Shown for a new, unsaved chat. |
 | `_LoadingMessages`, `_ChatError` | `chat_screen.dart` | Real | Async loading/retry states. |
 
@@ -98,6 +114,8 @@ which point the session row is created with a title derived from that prompt.
 
 | Component | File | Status | Notes |
 | --- | --- | --- | --- |
+| `isNetworkUnavailable` | `lib/core/network/dio_error_utils.dart` | Real | Shared classification for Dio connection/time-out failures; catalogue and provider layers keep their own domain-specific status/error messages. |
+| `SecureStorageService`, `PlatformSecureStorageService` | `lib/core/storage/secure_storage_service.dart` | Real | One platform secure-storage mechanism shared by the Hub token, provider credentials and runtime probe. Feature stores retain separate keys and behavior. |
 | `showKrithaContextMenu`, `ContextMenuItem` | `lib/widgets/context_menu.dart` | Real | React Native geometry/motion: 200 px wide, 48 px middle rows, 24 px radius, 8 px gap, fade + scale from the nearest corner, disabled/destructive states. First/last rows are 56 px and own an 8 px outer edge inset inside their press surface, so there is no surface gutter, the content clears the rounded corners, and no separator rule is needed. Used by the composer attachment picker, header ellipsis, user-message long press and sidebar session long press. `requestFocus: false` keeps the composer keyboard open; with the keyboard up the menu stays fully above the IME (Android hides anything drawn inside the keyboard rectangle), ChatGPT-style. Auto-aligned sidebar menus accept a right boundary; message menus align right. |
 | `KrithaGlassSurface` | `lib/widgets/glass_surface.dart` | Real | Rounded translucent surface with `BackdropFilter` blur; used by the normal composer and dictation bar. The composer floats over the transcript and the message list reserves its measured height. |
 | `buildKrithaTheme` / token classes | `lib/core/theme.dart` | Real | Single source for colours, type, spacing, radii, dimensions, motion. The palette has light and dark values; System/Light/Dark is persisted and applied instantly through `watchKrithaPalette`. DM Sans 400/500/600/700 is bundled and owns `ThemeData.fontFamily`; the theme text styles own `textPrimary` as the default colour. Normal component text inherits both, with local family/colour only for secondary, muted, hint, disabled, destructive or monospace exceptions. |
@@ -111,7 +129,6 @@ which point the session row is created with a title derived from that prompt.
 | `ChatSession` | `lib/models/chat_session.dart` | Real | Plain model for a sidebar session. |
 | `ChatMessage` | `lib/models/chat_message.dart` | Real | Freezed + JSON; role, text, timestamp, attachments. |
 | `ChatAttachment` | `lib/models/chat_attachment.dart` | Real | Image/file kind, path, size, MIME, readable size. |
-| `demoMessages` | `lib/data/seed_messages.dart` | Fixture | Markdown fixture turns seeded once; no canned replies. |
 | `RuntimeProbe` | `lib/services/runtime_probe.dart` | Real | Best-effort probes for sherpa-onnx, ONNX Runtime, SQLite, secure storage, prefs, mic, recorder, player, documents. |
 | `databaseProvider`, `runtimeStatusProvider`, `dioProvider` | `lib/core/providers.dart` | Real | `dioProvider` is configured but unused by design. |
 
@@ -136,6 +153,34 @@ been verified in this workspace.
 | `ModelConfiguration`, `ModelConfigurationController`, `ModelConfigStore` | `lib/features/intelligence/model_configuration.dart` | Real | Persists the picked path in SharedPreferences; distinguishes not configured, missing, invalid, unavailable and ready. Validates extension, file type and non-empty size before the runtime sees it. Serializes writes and revision-guards slow reads. No download or marketplace. |
 | `LiteRtLmProvider`, `NativeLiteRtLmEngine` | `lib/features/intelligence/runtimes/litertlm_provider.dart` | Adapter, unverified with weights | All `litertlm` imports live here. Validates request invariants, model selection and declared capabilities before native work; rejects structured output explicitly. Lazy engine init, explicit lifecycle, one conversation per request, sampler/role mapping, cumulative streaming, immediate cancellation through explicit stream controllers, typed error translation, engine discarded after failure. Never exercised with a real model. |
 | `modelConfigStoreProvider`, `modelConfigurationProvider`, `configuredModelProvider`, `liteRtLmEngineFactoryProvider`, `inferenceProvidersProvider`, `requestRouterProvider`, `intelligenceEngineProvider`, `modelLifecycleProvider`, `intelligenceStatusProvider` | `lib/features/intelligence/providers.dart` | Real | Model is validated before it reaches the router; engine factory is overridable so tests never load native code. Diagnostics observe provider lifecycles without initializing a runtime. |
+
+## Models and Providers
+
+The Models workspace is Hub discovery plus an honest local assignment layer. It
+does not download, load or verify a Hub repository.
+
+| Component | File | Status | Notes |
+| --- | --- | --- | --- |
+| `CatalogueModel`, `ModelDetails`, `ModelFile`, `ModelCapability`, `CatalogueSort` | `lib/features/models/catalogue/catalogue_model.dart` | Real (parsing) | Maps `/api/models`, `?full=true`, the recursive tree and README metadata. Capabilities are derived from `pipeline_tag`/tags; they are Hub declarations, not runtime probes. |
+| `HuggingFaceHubClient`, `parseNextCursor` | `lib/features/models/catalogue/hugging_face_hub_client.dart` | Real | Dedicated Dio transport with no request logging. Public requests omit auth; a saved token is sent as `Authorization: Bearer` only to `huggingface.co`. Search/filter/sort/limit/cursor, model record, file tree, README and `whoami-v2` validation. |
+| `ModelCatalogue`, `ModelCatalogueRepository` | `lib/features/models/catalogue/model_catalogue_repository.dart` | Real | UI-facing search/details/validation surface, separate from widgets and inference providers. |
+| `CatalogueController`, `FeaturedCatalogueController`, `modelDetailsProvider` | `lib/features/models/catalogue/catalogue_controller.dart` | Real | Search state, append pagination, retry, cancellation and stale-response revision guards. Featured loads most-downloaded and most-liked lists. |
+| `HuggingFaceTokenStore`, `HuggingFaceTokenController` | `lib/features/models/token/` | Real | Uses the shared platform secure-storage service. Saves only after validation; a rejected token is not stored, an offline validation saves with an explicit unverified notice. State never contains the token. |
+| `ActiveModelAssignment`, `ActiveModelsController` | `lib/features/models/active/active_models.dart` | Real | SharedPreferences assignments keyed by capability. Only the validated local LiteRT-LM text path can activate; other capabilities report no execution path. Stale assignments remain visible with remove/use-current actions. Chat still uses the Settings selection; multi-model routing is not implemented. |
+| `ModelsScreen` | `lib/features/models/models_screen.dart` | Real | Explore default, search debounce, capability chips, sort menu, featured sections, model cards, pagination and offline/rate-limit/unauthorized/empty states. Top-right two-line panel opens Active Models; ellipsis menu opens the token dialog and the disabled Pro custom-catalogue entry. |
+| `ModelDetailsScreen` | `lib/features/models/model_details_screen.dart` | Real | Metadata, capabilities, requirements, file tree and README/model card. Explicitly separates discovery from verified runtime compatibility; activation remains unavailable until a file is local and validated. |
+| `ActiveModelsScreen` | `lib/features/models/active_models_screen.dart` | Real | Per-capability slots with active/ready/stale/no-model/unavailable status, assignment actions and a clear no-download/no-load notice. |
+| `CustomCatalogueScreen` | `lib/features/models/custom_catalogue_screen.dart` | Stub (gated) | Pro explanation only; no endpoint, schema or billing logic. |
+
+Providers configure inference connections separately from Hub discovery.
+
+| Component | File | Status | Notes |
+| --- | --- | --- | --- |
+| `InferenceProviderDefinition`, `supportedInferenceProviders` | `lib/features/providers/provider_definition.dart` | Real (registry) | Local LiteRT-LM, OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, Ollama, LM Studio and a custom OpenAI-compatible endpoint. |
+| `ProviderSettingsStore`, `ProviderCredentialStore` | `lib/features/providers/provider_stores.dart` | Real | Enablement/endpoints in SharedPreferences; credentials use the shared secure-storage service under provider-specific keys. Hub tokens retain a different store and key. |
+| `HttpProviderConnectionTester` | `lib/features/providers/provider_connection_tester.dart` | Real | Performs a real GET to the provider's models endpoint and reports status, model count or a user-safe failure. No response body or credential is echoed. |
+| `ProvidersController`, `ProvidersState` | `lib/features/providers/providers_controller.dart` | Real | Enable/disable, endpoint edits, credential save/remove, local model check and connection-test results. Provider routing into chat is not implemented. |
+| `ProvidersScreen` | `lib/features/providers/providers_screen.dart` | Real | Grouped provider cards, switches, configure dialogs, credential removal and test results. Saved secrets are never repopulated into fields. |
 
 ## Working interactions (manual checklist)
 
@@ -162,8 +207,9 @@ been verified in this workspace.
 - Edit a prompt: Edit message loads the text and shows a persistent warning above
   the composer. Sending deletes that turn and every later turn, then appends the
   replacement and a new reply. The X cancels the edit and clears the draft.
-- Reset: Settings → Reset local history clears sessions and messages, then
-  re-seeds the fixture.
+- Clear local history: Settings → Clear local history asks for confirmation,
+  then clears sessions and messages. Fresh installs and cleared installs stay
+  empty; no demo fixture is seeded.
 
 ## Left functions / stubs
 
@@ -189,9 +235,12 @@ hand-off: the visible entry point already exists where noted.
 | 15 | Markdown links | `MarkdownView.onTapLink` | Stub snackbar. | Route through `url_launcher` with allow-listing. |
 | 16 | Wake word | `SettingsScreen` → Voice | Real Android foreground-service toggle. | iOS/desktop runtime and a model picker. |
 | 17 | Account identity | Sidebar footer → account menu | Static “Kaushal Krishna / KK” with Free, Profile, Settings and Log out entries; only Settings is wired. | Profile source, plan data and real account actions. |
-| 18 | Settings depth | `SettingsScreen` | Probes, local model selection/removal and reset. | Remaining RN toggles and richer model metadata. |
+| 18 | Settings depth | `SettingsScreen` | Probes, local model selection/removal and confirmed history clearing. | Remaining RN toggles and richer model metadata. |
 | 19 | Backend/network | `dioProvider` | Configured, unused. | Auth, sync, remote models, request logging. |
 | 20 | Multimodal prompts | `AiRequest` / composer attachments | Attachments persist and render, but only text is sent; attachment-only prompts fail with a clear message. | Image/audio content parts, capability checks and runtime support. |
+| 21 | Custom catalogue | Models ellipsis menu → Custom catalogue (Pro) | Gated explanation screen; no endpoint or schema work. | Plan/billing gate, endpoint configuration and a response-schema adapter. |
+| 22 | Hosted provider routing | Providers workspace | Providers can be enabled, configured and tested, but chat still uses the local engine. | Route `intelligenceEngineProvider` through the enabled provider, map streaming/cancel/errors and add capability checks. |
+| 23 | Hub model download and activation | Model details → Active Models | Details and assignments are real; activation is limited to an already validated local `.litertlm` file. | Verified download with progress, checksum, storage policy, runtime compatibility probes and per-capability engines. |
 
 ## Component docs checklist
 
@@ -203,4 +252,7 @@ When a stub above is implemented, update:
 4. The matching rule in `docs/DESIGN_CONVENTIONS.md`, `docs/BUTTONS.md` or
    `docs/UI_PATTERNS.md` if the component's geometry, states or pattern changed.
 5. A regression test (`test/chat_controller_test.dart`,
-   `test/foundation_test.dart`, or a new focused test).
+   `test/foundation_test.dart`, `test/models_catalogue_test.dart`,
+   `test/models_token_test.dart`, `test/active_models_test.dart`,
+   `test/providers_test.dart`, `test/models_ui_test.dart`, or a new focused
+   test).

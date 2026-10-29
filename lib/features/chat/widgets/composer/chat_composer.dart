@@ -35,9 +35,7 @@ class ChatComposer extends ConsumerWidget {
           );
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: viewport.isWide ? KrithaSpacing.s12 : 0,
-      ),
+      padding: EdgeInsets.only(bottom: viewport.isWide ? KrithaSpacing.s12 : 0),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

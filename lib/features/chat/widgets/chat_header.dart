@@ -81,10 +81,7 @@ class _HeaderPill extends StatelessWidget {
         side: BorderSide(color: KrithaColors.borderSubtle),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 }

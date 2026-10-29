@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../widgets/create_popup.dart';
 import '../../services/runtime_probe.dart';
 import '../../services/wake_word_bridge.dart';
 import '../chat/chat_controller.dart';
-import '../intelligence/model_configuration.dart';
 import '../intelligence/providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -51,9 +50,6 @@ class SettingsScreen extends ConsumerWidget {
                     SizedBox(height: 22),
                     _SectionLabel('THEME'),
                     _ThemeControl(),
-                    SizedBox(height: 22),
-                    _SectionLabel('MODEL'),
-                    _ModelControl(),
                     SizedBox(height: 22),
                     _SectionLabel('RUNTIME PROBES'),
                     _Card(
@@ -221,19 +217,48 @@ class SettingsScreen extends ConsumerWidget {
                     SizedBox(height: 18),
                     OutlinedButton.icon(
                       onPressed: () async {
+                        final confirmed = await createPopup<bool>(
+                          context: context,
+                          builder: (_) => CreatePopup(
+                            title: 'Clear local history?',
+                            actions: [
+                              PopupSecondaryButton(
+                                label: 'Cancel',
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                              ),
+                              PopupPrimaryButton(
+                                label: 'Clear history',
+                                destructive: true,
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                              ),
+                            ],
+                            child: Padding(
+                              padding: EdgeInsets.all(KrithaSpacing.s20),
+                              child: const Text(
+                                'This permanently deletes every local conversation '
+                                'and message on this device. It cannot be undone.',
+                              ),
+                            ),
+                          ),
+                        );
+                        if (confirmed != true || !context.mounted) return;
                         await ref
                             .read(chatControllerProvider.notifier)
-                            .restart();
+                            .clearHistory();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Local history re-seeded')),
+                            const SnackBar(
+                              content: Text('Local history cleared'),
+                            ),
                           );
                         }
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: KrithaColors.textSecondary,
                         side: BorderSide(color: KrithaColors.borderStrong),
-                        minimumSize: Size.fromHeight(44),
+                        minimumSize: const Size.fromHeight(44),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
                             KrithaRadius.base,
@@ -244,7 +269,7 @@ class SettingsScreen extends ConsumerWidget {
                         icon: HugeIcons.strokeRoundedRotateCcw,
                         size: 16,
                       ),
-                      label: Text('Reset local history'),
+                      label: const Text('Clear local history'),
                     ),
                     SizedBox(height: 16),
                     Center(
@@ -318,168 +343,6 @@ class _ThemeControl extends ConsumerWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _ModelControl extends ConsumerWidget {
-  const _ModelControl();
-
-  Future<void> _pick(BuildContext context, WidgetRef ref) async {
-    late final List<PlatformFile> files;
-    try {
-      files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['litertlm'],
-      );
-    } on Object {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The model picker could not open.')),
-      );
-      return;
-    }
-    if (files.isEmpty) return;
-    final path = files.first.path;
-    if (path == null || path.isEmpty) return;
-
-    try {
-      await ref.read(modelConfigurationProvider.notifier).setPath(path);
-    } on Object {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('The model selection could not be saved.'),
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    final config = ref.read(modelConfigurationProvider).value;
-    if (config != null && !config.isReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(config.message ?? 'That model file cannot be used.'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    try {
-      await ref.read(modelConfigurationProvider.notifier).clear();
-    } on Object {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('The model selection could not be removed.'),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final configuration = ref.watch(modelConfigurationProvider);
-    return _Card(
-      child: configuration.when(
-        loading: () => Text(
-          'Reading model settings…',
-          style: TextStyle(
-            fontSize: KrithaText.sizeXs,
-            color: KrithaColors.textMuted,
-          ),
-        ),
-        error: (error, stackTrace) => Text(
-          'Model settings could not load.',
-          style: TextStyle(
-            fontSize: KrithaText.sizeXs,
-            color: KrithaColors.error,
-          ),
-        ),
-        data: (value) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _StatusRow(
-              icon: HugeIcons.strokeRoundedCpu,
-              label: 'Model file',
-              value: value.statusLabel,
-              ok: switch (value.status) {
-                ModelConfigurationStatus.ready => true,
-                ModelConfigurationStatus.notConfigured => null,
-                _ => false,
-              },
-            ),
-            if (value.fileName != null) ...[
-              _RowDivider(),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 7, horizontal: 40),
-                child: Text(
-                  value.fileName!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'monospace',
-                    color: KrithaColors.textMuted,
-                  ),
-                ),
-              ),
-            ],
-            if (value.message != null &&
-                value.status != ModelConfigurationStatus.notConfigured) ...[
-              SizedBox(height: 4),
-              Text(
-                value.message!,
-                style: TextStyle(
-                  fontSize: KrithaText.sizeXs,
-                  color: KrithaColors.warning,
-                ),
-              ),
-            ],
-            SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _pick(context, ref),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: KrithaColors.textSecondary,
-                      side: BorderSide(color: KrithaColors.borderStrong),
-                      minimumSize: Size.fromHeight(40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(KrithaRadius.base),
-                      ),
-                    ),
-                    icon: KrithaIcon(
-                      icon: HugeIcons.strokeRoundedFolderOpen,
-                      size: 16,
-                    ),
-                    label: Text(
-                      value.isReady ? 'Change model…' : 'Choose model…',
-                    ),
-                  ),
-                ),
-                if (value.path != null) ...[
-                  SizedBox(width: KrithaSpacing.s8),
-                  TextButton(
-                    onPressed: () => _remove(context, ref),
-                    child: Text('Remove'),
-                  ),
-                ],
-              ],
-            ),
-            SizedBox(height: KrithaSpacing.s8),
-            Text(
-              'Text-only LiteRT-LM files. Nothing is downloaded.',
-              style: TextStyle(
-                fontSize: KrithaText.sizeXs,
-                color: KrithaColors.textDimmed,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

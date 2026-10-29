@@ -30,7 +30,6 @@ dependencies:
 
   # Models and code generation.
   freezed_annotation: ^3.1.0
-  json_annotation: ^4.12.0
 
   # Icons and the proposed on-device audio stack.
   # NOTE: pub.dev's `lucide_icons` stops at 0.257.0 and caps the Dart SDK at

@@ -16,6 +16,7 @@ import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
 
 import 'support/fake_inference.dart';
+import 'support/seed_fixture.dart';
 
 void main() {
   late AppDatabase database;
@@ -36,9 +37,10 @@ void main() {
     );
   }
 
-  setUp(() {
+  setUp(() async {
     containerDisposed = false;
     database = AppDatabase(NativeDatabase.memory());
+    await database.seedIfEmpty(demoMessages());
     provider = FakeInferenceProvider(chunks: const ['Local ', 'answer.']);
     activeProvider = provider;
     container = buildContainer();
@@ -870,6 +872,7 @@ void main() {
     await database.close();
     final delayed = _DelayedDatabase(NativeDatabase.memory());
     database = delayed;
+    await database.seedIfEmpty(demoMessages());
     final manual = ManualInferenceProvider();
     activeProvider = manual;
     container = buildContainer();
