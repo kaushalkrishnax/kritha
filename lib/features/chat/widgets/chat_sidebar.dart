@@ -130,13 +130,6 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
     await _controller.renameSession(session.id, title);
   }
 
-  Future<void> _openArchived() async {
-    await createPopup<void>(
-      context: context,
-      builder: (_) => _ArchivedSessionsDialog(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(chatControllerProvider).value;
@@ -172,6 +165,11 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         onTap: widget.onNewChat,
                       ),
                       _ActionRow(
+                        icon: HugeIcons.strokeRoundedLibraryBig,
+                        label: 'Library',
+                        onTap: () => _stub(context, 'Library'),
+                      ),
+                      _ActionRow(
                         icon: HugeIcons.strokeRoundedBrainCircuit,
                         label: 'Models',
                         onTap: () => context.go('/models'),
@@ -182,24 +180,9 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         onTap: () => context.go('/providers'),
                       ),
                       _ActionRow(
-                        icon: HugeIcons.strokeRoundedLibraryBig,
-                        label: 'Library',
-                        onTap: () => _stub(context, 'Library'),
-                      ),
-                      _ActionRow(
-                        icon: HugeIcons.strokeRoundedArchive,
-                        label: 'Archived Chats',
-                        onTap: _openArchived,
-                      ),
-                      _ActionRow(
                         icon: HugeIcons.strokeRoundedPlug02,
                         label: 'Plugins',
                         onTap: () => _stub(context, 'Plugins'),
-                      ),
-                      _ActionRow(
-                        icon: HugeIcons.strokeRoundedShieldCheck,
-                        label: 'Permissions',
-                        onTap: () => _stub(context, 'Permissions'),
                       ),
                       _ActionRow(
                         icon: HugeIcons.strokeRoundedEllipsis,
@@ -279,8 +262,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 }
 
-class _ArchivedSessionsDialog extends ConsumerWidget {
-  const _ArchivedSessionsDialog();
+class ArchivedSessionsDialog extends ConsumerWidget {
+  const ArchivedSessionsDialog({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -661,26 +644,6 @@ class CompactSidebarRail extends StatelessWidget {
                   ),
                   SizedBox(height: KrithaSpacing.s8),
                   _RailButton(
-                    icon: HugeIcons.strokeRoundedSearch01,
-                    tooltip: 'Search chats',
-                    onTap: () =>
-                        _ChatSidebarState._stub(context, 'Chat search'),
-                  ),
-                  SizedBox(height: KrithaSpacing.s8),
-                  _RailButton(
-                    icon: HugeIcons.strokeRoundedPin,
-                    tooltip: 'Pinned chats',
-                    onTap: () =>
-                        _ChatSidebarState._stub(context, 'Pinned chats'),
-                  ),
-                  SizedBox(height: KrithaSpacing.s8),
-                  _RailButton(
-                    icon: HugeIcons.strokeRoundedMessageCircle,
-                    tooltip: 'Chats',
-                    onTap: () => _ChatSidebarState._stub(context, 'Chats'),
-                  ),
-                  SizedBox(height: KrithaSpacing.s8),
-                  _RailButton(
                     icon: HugeIcons.strokeRoundedLibraryBig,
                     tooltip: 'Library',
                     onTap: () => _ChatSidebarState._stub(context, 'Library'),
@@ -696,6 +659,18 @@ class CompactSidebarRail extends StatelessWidget {
                     icon: HugeIcons.strokeRoundedPlug02,
                     tooltip: 'Providers',
                     onTap: () => context.go('/providers'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedPlug02,
+                    tooltip: 'Plugins',
+                    onTap: () => _ChatSidebarState._stub(context, 'Plugins'),
+                  ),
+                  SizedBox(height: KrithaSpacing.s8),
+                  _RailButton(
+                    icon: HugeIcons.strokeRoundedEllipsis,
+                    tooltip: 'More',
+                    onTap: () => _ChatSidebarState._stub(context, 'More'),
                   ),
                 ],
               ),

@@ -51,7 +51,7 @@ Models (Hub discovery, no runtime claim)
 
 Active Models
   activeModelsProvider → ActiveModelStore (SharedPreferences)
-    └─ status is derived from the validated local model; only text is assignable
+    └─ status is derived from local inventory and connected providers
 
 Providers (configuration, not routing)
   providersControllerProvider → ProviderSettingsStore (SharedPreferences)
@@ -72,9 +72,9 @@ which point the session row is created with a title derived from that prompt.
 | `KrithaApp` | `lib/app.dart` | Real | Theme, router wiring. |
 | `ChatScreen` | `lib/features/chat/chat_screen.dart` | Real | Responsive shell, drawer/docked sidebar, session-change scroll, empty-chat state, loading/error screens, floating frosted composer and scroll-to-bottom arrow. `_KeyboardBackGuard` dismisses the IME before allowing a route pop. |
 | `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer; **wake-word runtime is a stub**. |
-| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, eight contiguous 56 px top action rows (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the compact rail exposes both as icon buttons. |
-| `_ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. |
-| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and confirmed history clearing are real. The model card validates the file and reports it separately from the loaded engine. Clearing history leaves an empty install empty. The back control is a 44 px circular ink target with zero internal padding, so its focus/ripple fills the circle. RN settings toggles are not ported (**gap**). |
+| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows in the order New chat, Library, Models, Providers, Plugins, More (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the compact rail repeats the same order as icon buttons. |
+| `ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. Also opened from Settings → Privacy. |
+| `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and confirmed history clearing are real. The model card validates the file and reports it separately from the loaded engine. Clearing history leaves an empty install empty. Privacy groups Archived chats and the Permissions stub. The back control is the shared borderless `WorkspaceBackButton`. RN settings toggles are not ported (**gap**). |
 | `_EmptyChat` | `chat_screen.dart` | Real | Shown for a new, unsaved chat. |
 | `_LoadingMessages`, `_ChatError` | `chat_screen.dart` | Real | Async loading/retry states. |
 
@@ -166,21 +166,21 @@ does not download, load or verify a Hub repository.
 | `ModelCatalogue`, `ModelCatalogueRepository` | `lib/features/models/catalogue/model_catalogue_repository.dart` | Real | UI-facing search/details/validation surface, separate from widgets and inference providers. |
 | `CatalogueController`, `FeaturedCatalogueController`, `modelDetailsProvider` | `lib/features/models/catalogue/catalogue_controller.dart` | Real | Search state, append pagination, retry, cancellation and stale-response revision guards. Featured loads most-downloaded and most-liked lists. |
 | `HuggingFaceTokenStore`, `HuggingFaceTokenController` | `lib/features/models/token/` | Real | Uses the shared platform secure-storage service. Saves only after validation; a rejected token is not stored, an offline validation saves with an explicit unverified notice. State never contains the token. |
-| `ActiveModelAssignment`, `ActiveModelsController` | `lib/features/models/active/active_models.dart` | Real | SharedPreferences assignments keyed by capability. Only the validated local LiteRT-LM text path can activate; other capabilities report no execution path. Stale assignments remain visible with remove/use-current actions. Chat still uses the Settings selection; multi-model routing is not implemented. |
-| `ModelsScreen` | `lib/features/models/models_screen.dart` | Real | Explore default, search debounce, capability chips, sort menu, featured sections, model cards, pagination and offline/rate-limit/unauthorized/empty states. Top-right two-line panel opens Active Models; ellipsis menu opens the token dialog and the disabled Pro custom-catalogue entry. |
+| `ActiveModelAssignment`, `ActiveModelsController` | `lib/features/models/active/active_models.dart` | Real | SharedPreferences assignments keyed by capability, sourced from local inventory or a connected provider. Only the validated local LiteRT-LM text path has an execution path; provider-hosted assignments are saved without claiming chat routing. Stale assignments remain visible with remove/choose actions. Chat still uses the Settings selection; multi-model routing is not implemented. |
+| `ModelsScreen` | `lib/features/models/models_screen.dart` | Real | Explore default, search debounce, capability chips, an anchored sort menu in the search field, featured sections, model cards, pagination and offline/rate-limit/unauthorized/empty states. The header filter action opens Active Models; the ellipsis menu opens the token dialog and the disabled Pro custom-catalogue entry. |
 | `ModelDetailsScreen` | `lib/features/models/model_details_screen.dart` | Real | Metadata, capabilities, requirements, file tree and README/model card. Explicitly separates discovery from verified runtime compatibility; activation remains unavailable until a file is local and validated. |
-| `ActiveModelsScreen` | `lib/features/models/active_models_screen.dart` | Real | Per-capability slots with active/ready/stale/no-model/unavailable status, assignment actions and a clear no-download/no-load notice. |
+| `ActiveModelsScreen` | `lib/features/models/active_models_screen.dart` | Real | Per-capability slots with assigned/ready/stale/not-assigned status, assignment actions and a clear no-download/no-load notice. |
 | `CustomCatalogueScreen` | `lib/features/models/custom_catalogue_screen.dart` | Stub (gated) | Pro explanation only; no endpoint, schema or billing logic. |
 
 Providers configure inference connections separately from Hub discovery.
 
 | Component | File | Status | Notes |
 | --- | --- | --- | --- |
-| `InferenceProviderDefinition`, `supportedInferenceProviders` | `lib/features/providers/provider_definition.dart` | Real (registry) | Local LiteRT-LM, OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, Ollama, LM Studio and a custom OpenAI-compatible endpoint. |
-| `ProviderSettingsStore`, `ProviderCredentialStore` | `lib/features/providers/provider_stores.dart` | Real | Enablement/endpoints in SharedPreferences; credentials use the shared secure-storage service under provider-specific keys. Hub tokens retain a different store and key. |
+| `InferenceProviderDefinition`, `supportedInferenceProviders` | `lib/features/providers/provider_definition.dart` | Real (registry) | Local LiteRT-LM, OpenAI, Anthropic, Google Gemini, Mistral and a custom OpenAI-compatible endpoint. |
+| `ProviderSettingsStore`, `ProviderCredentialStore` | `lib/features/providers/provider_stores.dart` | Real | Endpoints and a configured flag in SharedPreferences; credentials use the shared secure-storage service under provider-specific keys. Hub tokens retain a different store and key. |
 | `HttpProviderConnectionTester` | `lib/features/providers/provider_connection_tester.dart` | Real | Performs a real GET to the provider's models endpoint and reports status, model count or a user-safe failure. No response body or credential is echoed. |
-| `ProvidersController`, `ProvidersState` | `lib/features/providers/providers_controller.dart` | Real | Enable/disable, endpoint edits, credential save/remove, local model check and connection-test results. Provider routing into chat is not implemented. |
-| `ProvidersScreen` | `lib/features/providers/providers_screen.dart` | Real | Grouped provider cards, switches, configure dialogs, credential removal and test results. Saved secrets are never repopulated into fields. |
+| `ProvidersController`, `ProvidersState` | `lib/features/providers/providers_controller.dart` | Real | Derived connection state, endpoint edits, credential save/remove, local model check and connection-test results. Provider routing into chat is not implemented. |
+| `ProvidersScreen` | `lib/features/providers/providers_screen.dart` | Real | Compact provider cards with Connect dialogs, an overflow menu for test/remove, a header action for the custom endpoint and test results. Saved secrets are never repopulated into fields. |
 
 ## Working interactions (manual checklist)
 
@@ -191,7 +191,7 @@ Providers configure inference connections separately from Hub discovery.
 - Pin/unpin: long-press a session → Pin/Unpin; the row moves between sections.
 - Rename: long-press → Rename → dialog; title persists.
 - Archive: long-press → Archive; chat leaves Recents and appears in Archived
-  Chats. Open Archived Chats from the sidebar to restore or delete.
+  chats. Open Archived chats from Settings → Privacy to restore or delete.
 - Delete: long-press → Delete; the session and its messages are deleted. If it
   was open, the newest remaining session is selected.
 - Attachments: plus → Photos/Files; previews can be removed; attachments
@@ -227,7 +227,7 @@ hand-off: the visible entry point already exists where noted.
 | 7 | Think harder | `showAttachmentMenu` `'think'` | Visible, disabled. | Reasoning-mode flag plumbed into the engine request. |
 | 8 | Library | Sidebar `Library` | Stub snackbar. | RN Library screen and its data source. |
 | 9 | Plugins | Sidebar row | Stub snackbar. | Plugin management. |
-| 10 | Permissions | Sidebar row | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
+| 10 | Permissions | Settings → Privacy | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
 | 11 | More | Sidebar row | Stub snackbar. | Remaining RN account/menu actions. |
 | 12 | Chat search | Sidebar search icon | Stub snackbar. | SQLite FTS or in-memory filter across titles/messages. |
 | 13 | Attachment storage | `FileAttachmentPicker` / send | Stores the picker path only. | Copy into app documents and delete on session removal. |
@@ -239,7 +239,7 @@ hand-off: the visible entry point already exists where noted.
 | 19 | Backend/network | `dioProvider` | Configured, unused. | Auth, sync, remote models, request logging. |
 | 20 | Multimodal prompts | `AiRequest` / composer attachments | Attachments persist and render, but only text is sent; attachment-only prompts fail with a clear message. | Image/audio content parts, capability checks and runtime support. |
 | 21 | Custom catalogue | Models ellipsis menu → Custom catalogue (Pro) | Gated explanation screen; no endpoint or schema work. | Plan/billing gate, endpoint configuration and a response-schema adapter. |
-| 22 | Hosted provider routing | Providers workspace | Providers can be enabled, configured and tested, but chat still uses the local engine. | Route `intelligenceEngineProvider` through the enabled provider, map streaming/cancel/errors and add capability checks. |
+| 22 | Hosted provider routing | Providers workspace | Providers can be connected, configured and tested, but chat still uses the local engine. | Route `intelligenceEngineProvider` through the connected provider, map streaming/cancel/errors and add capability checks. |
 | 23 | Hub model download and activation | Model details → Active Models | Details and assignments are real; activation is limited to an already validated local `.litertlm` file. | Verified download with progress, checksum, storage policy, runtime compatibility probes and per-capability engines. |
 
 ## Component docs checklist

@@ -42,53 +42,49 @@ void main() {
 
   group('provider configuration', () {
     test(
-      'starts with the local runtime enabled and hosted providers off',
+      'starts with the local runtime configured and hosted providers off',
       () async {
         final container = buildContainer();
         addTearDown(container.dispose);
 
         final state = await container.read(providersControllerProvider.future);
 
-        expect(state.configurationFor('local-litertlm')!.enabled, isTrue);
-        expect(state.configurationFor('openai')!.enabled, isFalse);
+        expect(state.configurationFor('local-litertlm')!.configured, isTrue);
+        expect(state.configurationFor('openai')!.configured, isFalse);
         expect(
           state.configurationFor('openai')!.baseUrl,
           'https://api.openai.com/v1',
         );
         expect(
-          state.configurationFor('ollama')!.baseUrl,
-          'http://localhost:11434',
+          state.configurationFor('mistral')!.baseUrl,
+          'https://api.mistral.ai/v1',
         );
       },
     );
 
-    test(
-      'persists enablement and endpoint changes without credentials',
-      () async {
-        final settings = InMemoryProviderSettingsStore();
-        final container = buildContainer(settings: settings);
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-        final controller = container.read(providersControllerProvider.notifier);
+    test('persists endpoint changes without credentials', () async {
+      final settings = InMemoryProviderSettingsStore();
+      final container = buildContainer(settings: settings);
+      addTearDown(container.dispose);
+      await container.read(providersControllerProvider.future);
+      final controller = container.read(providersControllerProvider.notifier);
 
-        await controller.setEnabled('openai', true);
-        await controller.setBaseUrl('ollama', 'http://192.168.1.10:11434');
+      await controller.setBaseUrl('mistral', 'https://proxy.example.com/v1');
 
-        expect(settings.settings['openai']!.enabled, isTrue);
-        expect(
-          settings.settings['ollama']!.baseUrl,
-          'http://192.168.1.10:11434',
-        );
-        expect(
-          container
-              .read(providersControllerProvider)
-              .value!
-              .configurationFor('openai')!
-              .enabled,
-          isTrue,
-        );
-      },
-    );
+      expect(
+        settings.settings['mistral']!.baseUrl,
+        'https://proxy.example.com/v1',
+      );
+      expect(settings.settings['mistral']!.configured, isFalse);
+      expect(
+        container
+            .read(providersControllerProvider)
+            .value!
+            .configurationFor('mistral')!
+            .baseUrl,
+        'https://proxy.example.com/v1',
+      );
+    });
 
     test(
       'stores credentials in the credential store, never in settings',
@@ -106,9 +102,10 @@ void main() {
         await controller.saveCredential('openai', '  sk-test  ');
 
         expect(credentials.credentials['openai'], 'sk-test');
-        expect(settings.settings.values, isEmpty);
+        expect(settings.settings['openai']!.configured, isTrue);
         final state = container.read(providersControllerProvider).value!;
         expect(state.configurationFor('openai')!.hasCredential, isTrue);
+        expect(state.configurationFor('openai')!.configured, isTrue);
         expect(state.toString(), isNot(contains('sk-test')));
 
         await controller.removeCredential('openai');
@@ -174,7 +171,6 @@ void main() {
           ];
         final settings = InMemoryProviderSettingsStore({
           'openai': const StoredProviderSettings(
-            enabled: true,
             baseUrl: 'https://api.openai.com/v1',
             configured: true,
           ),
@@ -348,8 +344,9 @@ void main() {
       final tester = HttpProviderConnectionTester(_dio(adapter));
 
       final result = await tester.test(
-        providerDefinitionFor('ollama')!,
-        baseUrl: 'http://localhost:11434',
+        providerDefinitionFor('mistral')!,
+        baseUrl: 'https://api.mistral.ai/v1',
+        credential: 'key',
       );
 
       expect(result.ok, isFalse);

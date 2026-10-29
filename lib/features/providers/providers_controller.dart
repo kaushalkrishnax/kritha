@@ -8,27 +8,23 @@ import 'provider_stores.dart';
 class ProviderConfiguration {
   const ProviderConfiguration({
     required this.providerId,
-    required this.enabled,
     required this.baseUrl,
     required this.hasCredential,
     this.configured = false,
   });
 
   final String providerId;
-  final bool enabled;
   final String baseUrl;
   final bool hasCredential;
   final bool configured;
 
   ProviderConfiguration copyWith({
-    bool? enabled,
     String? baseUrl,
     bool? hasCredential,
     bool? configured,
   }) {
     return ProviderConfiguration(
       providerId: providerId,
-      enabled: enabled ?? this.enabled,
       baseUrl: baseUrl ?? this.baseUrl,
       hasCredential: hasCredential ?? this.hasCredential,
       configured: configured ?? this.configured,
@@ -77,63 +73,44 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     for (final definition in supportedInferenceProviders) {
       final saved = stored[definition.id];
       final credential = await credentialStore.read(definition.id);
+      final baseUrl = saved?.baseUrl ?? definition.defaultBaseUrl;
+      final hasCredential = credential != null;
       configurations[definition.id] = ProviderConfiguration(
         providerId: definition.id,
-        enabled: saved?.enabled ?? definition.isLocal,
-        baseUrl: saved?.baseUrl ?? definition.defaultBaseUrl,
-        hasCredential: credential != null,
-        configured: saved?.configured ?? false,
+        baseUrl: baseUrl,
+        hasCredential: hasCredential,
+        configured:
+            (saved?.configured == true || definition.isLocal) &&
+            _isConfigured(definition, baseUrl, hasCredential),
       );
     }
     return ProvidersState(configurations: Map.unmodifiable(configurations));
   }
 
-  Future<void> setEnabled(String providerId, bool enabled) async {
-    final current = state.value;
-    final configuration = current?.configurationFor(providerId);
-    if (current == null || configuration == null) return;
-    final next = Map<String, ProviderConfiguration>.from(current.configurations)
-      ..[providerId] = configuration.copyWith(
-        enabled: enabled,
-        configured: true,
-      );
-    state = AsyncData(current.copyWith(configurations: Map.unmodifiable(next)));
-    await _persist(next);
-  }
-
-  Future<void> addProvider(String providerId) async {
+  Future<void> setBaseUrl(String providerId, String baseUrl) async {
     final definition = providerDefinitionFor(providerId);
     final current = state.value;
     final configuration = current?.configurationFor(providerId);
-    if (definition == null ||
-        definition.isLocal ||
-        current == null ||
-        configuration == null) {
-      return;
-    }
-    final next = Map<String, ProviderConfiguration>.from(current.configurations)
-      ..[providerId] = configuration.copyWith(enabled: true, configured: true);
-    state = AsyncData(current.copyWith(configurations: Map.unmodifiable(next)));
-    await _persist(next);
-  }
-
-  Future<void> setBaseUrl(String providerId, String baseUrl) async {
-    final current = state.value;
-    final configuration = current?.configurationFor(providerId);
-    if (current == null || configuration == null) return;
+    if (definition == null || current == null || configuration == null) return;
+    final trimmed = baseUrl.trim();
     final next = Map<String, ProviderConfiguration>.from(current.configurations)
       ..[providerId] = configuration.copyWith(
-        baseUrl: baseUrl.trim(),
-        configured: true,
+        baseUrl: trimmed,
+        configured: _isConfigured(
+          definition,
+          trimmed,
+          configuration.hasCredential,
+        ),
       );
     state = AsyncData(current.copyWith(configurations: Map.unmodifiable(next)));
     await _persist(next);
   }
 
   Future<void> saveCredential(String providerId, String credential) async {
+    final definition = providerDefinitionFor(providerId);
     final current = state.value;
     final configuration = current?.configurationFor(providerId);
-    if (current == null || configuration == null) return;
+    if (definition == null || current == null || configuration == null) return;
     final store = ref.read(providerCredentialStoreProvider);
     final trimmed = credential.trim();
     if (trimmed.isEmpty) {
@@ -145,22 +122,34 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     final latest = state.value ?? current;
     final latestConfiguration = latest.configurationFor(providerId);
     if (latestConfiguration == null) return;
+    final hasCredential = trimmed.isNotEmpty;
     final next = Map<String, ProviderConfiguration>.from(latest.configurations)
       ..[providerId] = latestConfiguration.copyWith(
-        hasCredential: trimmed.isNotEmpty,
-        configured: true,
+        hasCredential: hasCredential,
+        configured: _isConfigured(
+          definition,
+          latestConfiguration.baseUrl,
+          hasCredential,
+        ),
       );
     state = AsyncData(latest.copyWith(configurations: Map.unmodifiable(next)));
+    await _persist(next);
   }
 
   Future<void> removeCredential(String providerId) async {
+    final definition = providerDefinitionFor(providerId);
     await ref.read(providerCredentialStoreProvider).delete(providerId);
     final current = state.value;
     final configuration = current?.configurationFor(providerId);
-    if (!ref.mounted || current == null || configuration == null) return;
+    if (!ref.mounted || definition == null || current == null) return;
+    if (configuration == null) return;
     final next = Map<String, ProviderConfiguration>.from(current.configurations)
-      ..[providerId] = configuration.copyWith(hasCredential: false);
+      ..[providerId] = configuration.copyWith(
+        hasCredential: false,
+        configured: _isConfigured(definition, configuration.baseUrl, false),
+      );
     state = AsyncData(current.copyWith(configurations: Map.unmodifiable(next)));
+    await _persist(next);
   }
 
   Future<void> removeProvider(String providerId) async {
@@ -172,7 +161,6 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     final next = Map<String, ProviderConfiguration>.from(current.configurations)
       ..[providerId] = ProviderConfiguration(
         providerId: providerId,
-        enabled: false,
         baseUrl: definition.defaultBaseUrl,
         hasCredential: false,
       );
@@ -266,7 +254,6 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     final stored = {
       for (final entry in configurations.entries)
         entry.key: StoredProviderSettings(
-          enabled: entry.value.enabled,
           baseUrl: entry.value.baseUrl,
           configured: entry.value.configured,
         ),
@@ -279,6 +266,22 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     _writes = done.catchError((Object _) {});
     return done;
   }
+}
+
+bool _isConfigured(
+  InferenceProviderDefinition definition,
+  String baseUrl,
+  bool hasCredential,
+) {
+  if (definition.isLocal) return true;
+  final uri = Uri.tryParse(baseUrl.trim());
+  if (uri == null ||
+      !(uri.scheme == 'http' || uri.scheme == 'https') ||
+      uri.host.isEmpty) {
+    return false;
+  }
+  if (definition.requiresCredential && !hasCredential) return false;
+  return true;
 }
 
 final providersControllerProvider =
@@ -297,8 +300,7 @@ final providerModelsProvider =
       if (definition == null ||
           definition.isLocal ||
           configuration == null ||
-          !configuration.configured ||
-          !configuration.enabled) {
+          !configuration.configured) {
         return const [];
       }
       final credential = await ref

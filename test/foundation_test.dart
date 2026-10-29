@@ -385,9 +385,11 @@ void main() {
       expect(find.byTooltip('Expand sidebar'), findsOneWidget);
       // The rail repeats New chat, which also lives in the chat header, so use
       // the rail-only labels.
-      expect(find.byTooltip('Pinned chats'), findsOneWidget);
-      expect(find.byTooltip('Chats'), findsOneWidget);
       expect(find.byTooltip('Library'), findsOneWidget);
+      expect(find.byTooltip('Models'), findsOneWidget);
+      expect(find.byTooltip('Providers'), findsOneWidget);
+      expect(find.byTooltip('Plugins'), findsOneWidget);
+      expect(find.byTooltip('More'), findsOneWidget);
     });
 
     testWidgets('assistant replies have no avatar, bubble or label', (

@@ -149,16 +149,24 @@ const _knownTasks = {
 
 /// Hub list ordering. Direction is always newest/most first (`-1`).
 enum CatalogueSort {
-  downloads(label: 'Most downloaded', apiValue: 'downloads'),
-  likes(label: 'Most liked', apiValue: 'likes'),
   trending(label: 'Trending', apiValue: 'trendingScore'),
+  likes(label: 'Most likes', apiValue: 'likes'),
+  downloads(label: 'Most downloads', apiValue: 'downloads'),
+  recentlyCreated(label: 'Recently created', apiValue: 'createdAt'),
   recentlyUpdated(label: 'Recently updated', apiValue: 'lastModified'),
-  newest(label: 'Newest', apiValue: 'createdAt');
+  mostParameters(label: 'Most parameters', apiValue: 'downloads'),
+  leastParameters(label: 'Least parameters', apiValue: 'downloads');
 
   const CatalogueSort({required this.label, required this.apiValue});
 
   final String label;
   final String apiValue;
+
+  /// The Hub has no parameter-count ordering, so these sorts order the fetched
+  /// page locally instead of asking the API for a field it does not expose.
+  bool get sortsByParameters =>
+      this == CatalogueSort.mostParameters ||
+      this == CatalogueSort.leastParameters;
 }
 
 /// One repository in a Hub list response.
@@ -225,9 +233,11 @@ class CatalogueModel {
 
   String get publisherLabel => _displayPublisher(author ?? namespace);
 
-  String? get avatarUrl => namespace.isEmpty
-      ? null
-      : 'https://huggingface.co/avatars/${Uri.encodeComponent(namespace)}.png';
+  String? get avatarUrl {
+    final publisher = author ?? namespace;
+    if (publisher.isEmpty) return null;
+    return 'https://huggingface.co/avatars/${Uri.encodeComponent(publisher)}.png';
+  }
 
   String? get taskLabel {
     final task = declaredTask;
@@ -403,6 +413,21 @@ String formatCount(int value) {
   }
   final millions = value / 1000000;
   return '${millions.toStringAsFixed(millions >= 100 ? 0 : 1)}M';
+}
+
+String formatParameterCount(int value) {
+  final (divisor, suffix) = switch (value) {
+    >= 1000000000 => (1000000000.0, 'B'),
+    >= 1000000 => (1000000.0, 'M'),
+    >= 1000 => (1000.0, 'K'),
+    _ => (1.0, ''),
+  };
+  final scaled = value / divisor;
+  final text = scaled.toStringAsFixed(scaled >= 100 ? 0 : 1);
+  final trimmed = text.endsWith('.0')
+      ? text.substring(0, text.length - 2)
+      : text;
+  return '$trimmed$suffix';
 }
 
 String? _string(Object? value) {

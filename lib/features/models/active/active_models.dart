@@ -8,14 +8,7 @@ import '../../intelligence/models/model_descriptor.dart';
 import '../../providers/providers_controller.dart';
 import '../catalogue/catalogue_model.dart';
 
-enum ActiveAssignmentStatus {
-  noRuntime,
-  noModel,
-  ready,
-  active,
-  assigned,
-  stale,
-}
+enum ActiveAssignmentStatus { noModel, ready, active, assigned, stale }
 
 class ActiveModelAssignment {
   const ActiveModelAssignment({
@@ -206,21 +199,18 @@ class ActiveModelsState {
 
   ActiveAssignmentStatus statusFor(ModelCapability capability) {
     final assignment = assignments[capability];
-    if (assignment != null && assignment.sourceId != 'local-litertlm') {
+    if (assignment == null) {
+      return capability == ModelCapability.text && configuredModel != null
+          ? ActiveAssignmentStatus.ready
+          : ActiveAssignmentStatus.noModel;
+    }
+    if (assignment.sourceId != 'local-litertlm') {
       return ActiveAssignmentStatus.assigned;
     }
-    if (capability != ModelCapability.text) {
-      return assignment == null
-          ? ActiveAssignmentStatus.noRuntime
-          : ActiveAssignmentStatus.stale;
-    }
     final model = configuredModel;
-    if (model == null) {
-      return assignment == null
-          ? ActiveAssignmentStatus.noModel
-          : ActiveAssignmentStatus.stale;
+    if (capability != ModelCapability.text || model == null) {
+      return ActiveAssignmentStatus.stale;
     }
-    if (assignment == null) return ActiveAssignmentStatus.ready;
     if (assignment.modelId == model.id &&
         assignment.runtimeId == model.runtimeId) {
       return ActiveAssignmentStatus.active;
@@ -302,12 +292,12 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     required String displayName,
     required String runtimeId,
   }) async {
-    if (capability != ModelCapability.text) {
-      throw ActiveModelException(
-        '${capability.label} does not have a usable execution path yet.',
-      );
-    }
     if (sourceId == 'local-litertlm') {
+      if (capability != ModelCapability.text) {
+        throw ActiveModelException(
+          'The local LiteRT-LM runtime does not expose ${capability.label.toLowerCase()} in this build.',
+        );
+      }
       final model = (await ref.read(modelConfigurationProvider.future))
           .descriptor;
       if (model == null || model.id != modelId) {
@@ -318,17 +308,16 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     } else {
       final provider = await ref.read(providersControllerProvider.future);
       final configuration = provider.configurationFor(sourceId);
-      if (configuration == null ||
-          !configuration.enabled ||
-          !configuration.configured) {
+      if (configuration == null || !configuration.configured) {
         throw const ActiveModelException(
-          'Configure and enable this provider before assigning its model.',
+          'Connect this provider before assigning its model.',
         );
       }
       final models = await ref.read(providerModelsProvider(sourceId).future);
-      if (!models.any((model) => model.id == modelId)) {
+      final model = models.where((model) => model.id == modelId);
+      if (model.isEmpty || !model.first.supports(capability)) {
         throw const ActiveModelException(
-          'This model is no longer available from the provider.',
+          'This model is no longer available for that capability.',
         );
       }
     }

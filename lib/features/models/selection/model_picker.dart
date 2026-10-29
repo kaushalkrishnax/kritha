@@ -54,6 +54,28 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
         item.sourceId.toLowerCase().contains(query);
   }
 
+  bool _isAvailable(
+    ActiveModelAssignment item,
+    ModelConfiguration? configuration,
+    ProvidersState? providers,
+  ) {
+    if (item.sourceId == 'local-litertlm') {
+      return item.capability == ModelCapability.text &&
+          configuration?.descriptor?.id == item.modelId;
+    }
+    final provider = providers?.configurationFor(item.sourceId);
+    if (provider == null || !provider.configured) return false;
+    final models = ref
+        .watch(providerModelsProvider(item.sourceId))
+        .asData
+        ?.value;
+    return models?.any(
+          (model) =>
+              model.id == item.modelId && model.supports(item.capability),
+        ) ==
+        true;
+  }
+
   Widget _section(String title, List<ActiveModelAssignment> models) {
     if (models.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -73,7 +95,10 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     final providersValue = ref.watch(providersControllerProvider).value;
     final recent = (activeValue?.recents ?? const <ActiveModelAssignment>[])
         .where(
-          (model) => model.capability == widget.capability && _matches(model),
+          (model) =>
+              model.capability == widget.capability &&
+              _matches(model) &&
+              _isAvailable(model, configValue, providersValue),
         )
         .toList();
     final recentKeys = recent.map(_key).toSet();
@@ -104,14 +129,12 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
             AsyncValue<List<ProviderModelInfo>>,
           )
         >[];
-    if (widget.capability == ModelCapability.text && providersValue != null) {
+    if (providersValue != null) {
       for (final definition in supportedInferenceProviders.where(
         (definition) => !definition.isLocal,
       )) {
         final configuration = providersValue.configurationFor(definition.id);
-        if (configuration == null ||
-            !configuration.configured ||
-            !configuration.enabled) {
+        if (configuration == null || !configuration.configured) {
           continue;
         }
         final models = ref.watch(providerModelsProvider(definition.id));
@@ -209,37 +232,35 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 if (activeValue == null || providersValue == null)
                   const CatalogueLoading(label: 'Loading available models…'),
                 _section('Recent models', recent),
-                if (widget.capability == ModelCapability.text) ...[
-                  _section('Local models', local),
-                  for (final group in providerGroups) ...[
-                    if (group.$3.isNotEmpty) _section(group.$1, group.$3),
-                    if (group.$4.isLoading) ...[
-                      WorkspaceSectionTitle(group.$1),
-                      const CatalogueLoading(label: 'Loading provider models…'),
-                    ],
-                    if (group.$4.hasError) ...[
-                      WorkspaceSectionTitle(group.$1),
-                      Padding(
-                        padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: KrithaSpacing.s8,
-                          children: [
-                            Text(
-                              'Could not load models. Check the provider configuration.',
-                              style: TextStyle(
-                                fontSize: KrithaText.sizeXs,
-                                color: KrithaColors.textMuted,
-                              ),
+                _section('Local models', local),
+                for (final group in providerGroups) ...[
+                  if (group.$3.isNotEmpty) _section(group.$1, group.$3),
+                  if (group.$4.isLoading) ...[
+                    WorkspaceSectionTitle(group.$1),
+                    const CatalogueLoading(label: 'Loading provider models…'),
+                  ],
+                  if (group.$4.hasError) ...[
+                    WorkspaceSectionTitle(group.$1),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: KrithaSpacing.s8,
+                        children: [
+                          Text(
+                            'Could not load models. Check the provider configuration.',
+                            style: TextStyle(
+                              fontSize: KrithaText.sizeXs,
+                              color: KrithaColors.textMuted,
                             ),
-                            TextButton(
-                              onPressed: () => context.go('/providers'),
-                              child: const Text('Manage provider'),
-                            ),
-                          ],
-                        ),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/providers'),
+                            child: const Text('Manage provider'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
                 ],
                 if (activeValue != null &&
@@ -255,44 +276,19 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                   Column(
                     children: [
                       CatalogueEmpty(
-                        title: 'No available models',
+                        title: 'No matching models',
                         message: widget.capability == ModelCapability.text
-                            ? 'Choose a local model in Models or add an inference provider.'
-                            : 'No execution path is available for this capability.',
+                            ? 'Connect a provider or use a validated local model.'
+                            : 'No connected provider declares ${widget.capability.label.toLowerCase()} support.',
                       ),
-                      if (widget.capability == ModelCapability.text)
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: KrithaSpacing.s8,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                context.go('/models');
-                              },
-                              child: const Text('Explore local models'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                                context.go('/providers');
-                              },
-                              child: const Text('Configure provider'),
-                            ),
-                          ],
-                        ),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          context.go('/providers');
+                        },
+                        child: const Text('Manage providers'),
+                      ),
                     ],
-                  ),
-                if (providerGroups.any((group) => group.$3.isNotEmpty))
-                  Padding(
-                    padding: EdgeInsets.only(top: KrithaSpacing.s8),
-                    child: Text(
-                      'Provider models can be assigned, but provider chat routing is not available yet.',
-                      style: TextStyle(
-                        fontSize: KrithaText.size2xs,
-                        color: KrithaColors.textMuted,
-                      ),
-                    ),
                   ),
               ],
             ),
@@ -303,45 +299,18 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
   }
 }
 
-class _ModelChoiceRow extends ConsumerWidget {
+class _ModelChoiceRow extends StatelessWidget {
   const _ModelChoiceRow({required this.model});
 
   final ActiveModelAssignment model;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isLocal = model.sourceId == 'local-litertlm';
-    final localModel = ref.watch(modelConfigurationProvider).value?.descriptor;
-    final providers = ref.watch(providersControllerProvider).value;
-    final providerConfiguration = providers?.configurationFor(model.sourceId);
-    final providerModels = isLocal
-        ? null
-        : ref.watch(providerModelsProvider(model.sourceId)).asData?.value;
-    final available = isLocal
-        ? localModel?.id == model.modelId
-        : providerConfiguration?.configured == true &&
-              providerConfiguration?.enabled == true &&
-              providerModels?.any((item) => item.id == model.modelId) == true;
-    final status = isLocal
-        ? available
-              ? 'Installed · validated'
-              : 'No longer installed'
-        : providerConfiguration?.configured != true
-        ? 'Provider needs setup'
-        : providerConfiguration?.enabled != true
-        ? 'Provider disabled'
-        : available
-        ? 'Listed · chat routing unavailable'
-        : 'Not currently listed';
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          Navigator.of(context).pop(available ? model : null);
-          if (!available) {
-            context.go(isLocal ? '/models' : '/providers');
-          }
-        },
+        onTap: () => Navigator.of(context).pop(model),
         borderRadius: BorderRadius.circular(KrithaRadius.base),
         child: Padding(
           padding: EdgeInsets.symmetric(
@@ -381,26 +350,16 @@ class _ModelChoiceRow extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      isLocal ? 'Local LiteRT-LM' : model.sourceId,
+                      isLocal
+                          ? 'Local LiteRT-LM'
+                          : providerDefinitionFor(model.sourceId)?.name ??
+                                model.sourceId,
                       style: TextStyle(
                         fontSize: KrithaText.size2xs,
                         color: KrithaColors.textMuted,
                       ),
                     ),
                   ],
-                ),
-              ),
-              SizedBox(width: KrithaSpacing.s8),
-              Text(
-                status,
-                textAlign: TextAlign.end,
-                style: TextStyle(
-                  fontSize: KrithaText.size2xs,
-                  color: available
-                      ? isLocal
-                            ? KrithaColors.success
-                            : KrithaColors.warning
-                      : KrithaColors.error,
                 ),
               ),
             ],

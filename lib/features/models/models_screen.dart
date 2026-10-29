@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,12 +7,10 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
 import '../../widgets/context_menu.dart';
-import '../../widgets/create_popup.dart';
 import 'providers.dart';
 import 'widgets/catalogue_widgets.dart';
 import 'widgets/hugging_face_token_dialog.dart';
 import 'widgets/workspace_header.dart';
-import '../intelligence/model_configuration.dart';
 
 class ModelsScreen extends ConsumerStatefulWidget {
   const ModelsScreen({super.key});
@@ -44,7 +41,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
       final current = ref.read(catalogueProvider);
       if (query.isEmpty &&
           current.capability == null &&
-          current.sort == CatalogueSort.downloads) {
+          current.sort == CatalogueSort.trending) {
         _catalogue.reset();
         return;
       }
@@ -57,7 +54,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     _searchController.clear();
     setState(() {});
     final current = ref.read(catalogueProvider);
-    if (current.capability == null && current.sort == CatalogueSort.downloads) {
+    if (current.capability == null && current.sort == CatalogueSort.trending) {
       _catalogue.reset();
     } else {
       _catalogue.search(query: '');
@@ -68,9 +65,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     _debounce?.cancel();
     final query = _searchController.text.trim();
     final sort = ref.read(catalogueProvider).sort;
-    if (capability == null &&
-        query.isEmpty &&
-        sort == CatalogueSort.downloads) {
+    if (capability == null && query.isEmpty && sort == CatalogueSort.trending) {
       _catalogue.reset();
       return;
     }
@@ -148,7 +143,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                   onBack: () => context.go('/chat'),
                   actions: [
                     WorkspaceIconButton(
-                      icon: HugeIcons.strokeRoundedMenuTwoLine,
+                      icon: HugeIcons.strokeRoundedFilterHorizontal,
                       tooltip: 'Active models',
                       onTap: () => context.push('/models/active'),
                     ),
@@ -185,33 +180,16 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                                   controller: _searchController,
                                   onChanged: _onQueryChanged,
                                   onClear: _clearQuery,
+                                  sort: catalogue.sort,
+                                  onSortSelected: _selectSort,
                                 ),
                                 SizedBox(height: KrithaSpacing.s12),
                                 CapabilityFilterChips(
                                   selected: catalogue.capability,
                                   onSelected: _selectCapability,
                                 ),
-                                SizedBox(height: KrithaSpacing.s8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _SortButton(
-                                    sort: catalogue.sort,
-                                    onSelected: _selectSort,
-                                  ),
-                                ),
                               ],
                             ),
-                          ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              KrithaSpacing.s16,
-                              0,
-                              KrithaSpacing.s16,
-                              KrithaSpacing.s12,
-                            ),
-                            child: const _LocalModelSection(),
                           ),
                         ),
                         ..._contentSlivers(catalogue, featured),
@@ -382,116 +360,20 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   }
 }
 
-class _LocalModelSection extends ConsumerWidget {
-  const _LocalModelSection();
-
-  Future<void> _choose(BuildContext context, WidgetRef ref) async {
-    try {
-      final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['litertlm'],
-      );
-      if (files.isEmpty || files.first.path == null) return;
-      await ref
-          .read(modelConfigurationProvider.notifier)
-          .setPath(files.first.path!);
-    } on Object {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The local model could not be selected.')),
-      );
-    }
-  }
-
-  Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    try {
-      await ref.read(modelConfigurationProvider.notifier).clear();
-    } on Object {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('The local model could not be removed.')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final configuration = ref.watch(modelConfigurationProvider);
-    return configuration.when(
-      loading: () => const LinearProgressIndicator(minHeight: 2),
-      error: (error, stackTrace) => WorkspaceCard(
-        padding: EdgeInsets.all(KrithaSpacing.s12),
-        child: const Text('Local model configuration is unavailable.'),
-      ),
-      data: (value) => WorkspaceCard(
-        padding: EdgeInsets.symmetric(
-          horizontal: KrithaSpacing.s12,
-          vertical: KrithaSpacing.s10,
-        ),
-        child: Row(
-          children: [
-            KrithaIcon(
-              icon: HugeIcons.strokeRoundedCpu,
-              size: KrithaIcons.md,
-              color: KrithaColors.textMuted,
-            ),
-            SizedBox(width: KrithaSpacing.s10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value.fileName ?? 'No local model selected',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: KrithaText.sizeSm,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    value.isReady ? 'LiteRT-LM · validated' : value.statusLabel,
-                    style: TextStyle(
-                      fontSize: KrithaText.size2xs,
-                      color: value.isReady
-                          ? KrithaColors.success
-                          : KrithaColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(
-              onPressed: () => _choose(context, ref),
-              child: Text(value.isReady ? 'Change' : 'Choose file'),
-            ),
-            if (value.path != null)
-              IconButton(
-                tooltip: 'Remove local model',
-                onPressed: () => _remove(context, ref),
-                icon: KrithaIcon(
-                  icon: HugeIcons.strokeRoundedDelete02,
-                  size: KrithaIcons.sm,
-                  color: KrithaColors.textMuted,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchRow extends StatelessWidget {
   const _SearchRow({
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    required this.sort,
+    required this.onSortSelected,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final CatalogueSort sort;
+  final ValueChanged<CatalogueSort> onSortSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -536,6 +418,18 @@ class _SearchRow extends StatelessWidget {
                       color: KrithaColors.textMuted,
                     ),
                   ),
+                Builder(
+                  builder: (buttonContext) => IconButton(
+                    tooltip: 'Sort models',
+                    onPressed: () => _showSortMenu(buttonContext),
+                    icon: KrithaIcon(
+                      icon: HugeIcons.strokeRoundedArrowUpDown,
+                      size: KrithaIcons.sm,
+                      color: KrithaColors.textMuted,
+                    ),
+                  ),
+                ),
+                SizedBox(width: KrithaSpacing.s4),
               ],
             ),
           ),
@@ -543,68 +437,28 @@ class _SearchRow extends StatelessWidget {
       ],
     );
   }
-}
 
-class _SortButton extends StatelessWidget {
-  const _SortButton({required this.sort, required this.onSelected});
-
-  final CatalogueSort sort;
-  final ValueChanged<CatalogueSort> onSelected;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: 'Sort models',
-    child: InkWell(
-      borderRadius: BorderRadius.circular(KrithaRadius.base),
-      onTap: () async {
-        final selected = await createPopup<CatalogueSort>(
-          context: context,
-          builder: (_) => CreatePopup(
-            title: 'Sort models',
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final item in CatalogueSort.values)
-                  ListTile(
-                    title: Text(item.label),
-                    trailing: item == sort
-                        ? KrithaIcon(
-                            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                            size: KrithaIcons.sm,
-                            color: KrithaColors.textSecondary,
-                          )
-                        : null,
-                    onTap: () => Navigator.of(context).pop(item),
-                  ),
-              ],
-            ),
+  Future<void> _showSortMenu(BuildContext buttonContext) async {
+    final selected = await showKrithaContextMenu(
+      context: buttonContext,
+      anchor: ContextMenuAnchor.fromContext(buttonContext),
+      align: ContextMenuAlign.right,
+      items: [
+        for (final item in CatalogueSort.values)
+          ContextMenuItem(
+            id: item.name,
+            label: item.label,
+            icon: item == sort
+                ? HugeIcons.strokeRoundedCheckmarkCircle02
+                : null,
           ),
-        );
-        if (selected != null) onSelected(selected);
-      },
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KrithaIcon(
-              icon: HugeIcons.strokeRoundedArrowDown02,
-              size: KrithaIcons.sm,
-              color: KrithaColors.textMuted,
-            ),
-            SizedBox(width: KrithaSpacing.s6),
-            Text(
-              'Sort: ${sort.label}',
-              style: TextStyle(
-                fontSize: KrithaText.sizeXs,
-                color: KrithaColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+      ],
+    );
+    if (selected == null) return;
+    onSortSelected(
+      CatalogueSort.values.firstWhere((item) => item.name == selected),
+    );
+  }
 }
 
 class _ModelGrid extends StatelessWidget {

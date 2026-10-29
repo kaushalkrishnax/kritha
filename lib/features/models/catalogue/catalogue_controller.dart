@@ -9,7 +9,7 @@ class CatalogueState {
   const CatalogueState({
     this.query = '',
     this.capability,
-    this.sort = CatalogueSort.downloads,
+    this.sort = CatalogueSort.trending,
     this.models = const [],
     this.nextCursor,
     this.loading = false,
@@ -33,7 +33,7 @@ class CatalogueState {
   bool get isIdle =>
       query.trim().isEmpty &&
       capability == null &&
-      sort == CatalogueSort.downloads;
+      sort == CatalogueSort.trending;
   bool get hasMore => nextCursor != null;
 
   CatalogueState copyWith({
@@ -122,13 +122,13 @@ class CatalogueController extends Notifier<CatalogueState> {
             query: nextQuery,
             capability: nextCapability,
             sort: nextSort,
-            limit: _pageSize,
+            limit: nextSort.sortsByParameters ? 100 : _pageSize,
             cancelToken: cancel,
           );
       if (!ref.mounted || revision != _revision) return;
       state = state.copyWith(
-        models: filterDiscoverableModels(page.models),
-        nextCursor: page.nextCursor,
+        models: _orderModels(filterDiscoverableModels(page.models), nextSort),
+        nextCursor: nextSort.sortsByParameters ? null : page.nextCursor,
         loading: false,
         hasLoaded: true,
         clearFailure: true,
@@ -207,7 +207,7 @@ class CatalogueController extends Notifier<CatalogueState> {
           if (seen.add(model.id)) model,
       ];
       state = state.copyWith(
-        models: List.unmodifiable(appended),
+        models: _orderModels(appended, current.sort),
         nextCursor: page.nextCursor,
         clearCursor: page.nextCursor == null,
         loadingMore: false,
@@ -229,6 +229,24 @@ class CatalogueController extends Notifier<CatalogueState> {
       );
     }
   }
+}
+
+List<CatalogueModel> _orderModels(
+  List<CatalogueModel> models,
+  CatalogueSort sort,
+) {
+  if (!sort.sortsByParameters) return models;
+  final descending = sort == CatalogueSort.mostParameters;
+  final ordered = [...models]
+    ..sort((a, b) {
+      final left = a.parameterCount;
+      final right = b.parameterCount;
+      if (left == null && right == null) return 0;
+      if (left == null) return 1;
+      if (right == null) return -1;
+      return descending ? right.compareTo(left) : left.compareTo(right);
+    });
+  return List.unmodifiable(ordered);
 }
 
 final catalogueProvider = NotifierProvider<CatalogueController, CatalogueState>(

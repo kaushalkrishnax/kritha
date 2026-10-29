@@ -238,6 +238,15 @@ class ModelCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            model.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: KrithaText.sizeSm,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                           if (model.publisherLabel.isNotEmpty)
                             Text(
                               model.publisherLabel,
@@ -248,15 +257,6 @@ class ModelCard extends StatelessWidget {
                                 color: KrithaColors.textMuted,
                               ),
                             ),
-                          Text(
-                            model.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: KrithaText.sizeSm,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -268,6 +268,15 @@ class ModelCard extends StatelessWidget {
                           selected: true,
                         ),
                       ),
+                    SizedBox(width: KrithaSpacing.s6),
+                    Transform.rotate(
+                      angle: math.pi,
+                      child: KrithaIcon(
+                        icon: HugeIcons.strokeRoundedChevronLeft,
+                        size: KrithaIcons.sm,
+                        color: KrithaColors.textDimmed,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: KrithaSpacing.s8),
@@ -283,36 +292,21 @@ class ModelCard extends StatelessWidget {
                       ),
                     if (model.parameterCount != null)
                       _ModelMetadata(
-                        icon: HugeIcons.strokeRoundedDatabase,
-                        label: formatCount(model.parameterCount!),
+                        icon: HugeIcons.strokeRoundedCirclePile,
+                        label: formatParameterCount(model.parameterCount!),
                       ),
                     if (model.lastModified != null)
                       _ModelMetadata(
                         icon: HugeIcons.strokeRoundedCalendar03,
                         label: _updatedLabel(model.lastModified!),
                       ),
-                  ],
-                ),
-                SizedBox(height: KrithaSpacing.s6),
-                Row(
-                  children: [
                     _ModelMetadata(
                       icon: HugeIcons.strokeRoundedDownload04,
                       label: formatCount(model.downloads),
                     ),
-                    SizedBox(width: KrithaSpacing.s12),
                     _ModelMetadata(
                       icon: HugeIcons.strokeRoundedFavourite,
                       label: formatCount(model.likes),
-                    ),
-                    const Spacer(),
-                    Transform.rotate(
-                      angle: math.pi,
-                      child: KrithaIcon(
-                        icon: HugeIcons.strokeRoundedChevronLeft,
-                        size: KrithaIcons.sm,
-                        color: KrithaColors.textDimmed,
-                      ),
                     ),
                   ],
                 ),

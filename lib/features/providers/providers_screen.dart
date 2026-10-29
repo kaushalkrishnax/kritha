@@ -4,15 +4,37 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/context_menu.dart';
 import '../../widgets/create_popup.dart';
 import '../models/widgets/workspace_header.dart';
-import '../intelligence/model_configuration.dart';
 import 'provider_connection_tester.dart';
 import 'provider_definition.dart';
 import 'providers_controller.dart';
 
 class ProvidersScreen extends ConsumerWidget {
   const ProvidersScreen({super.key});
+
+  Future<void> _openCustomProvider(BuildContext context, WidgetRef ref) async {
+    final definition = providerDefinitionFor('custom');
+    if (definition == null) return;
+    final configuration =
+        ref
+            .read(providersControllerProvider)
+            .value
+            ?.configurationFor(definition.id) ??
+        ProviderConfiguration(
+          providerId: definition.id,
+          baseUrl: definition.defaultBaseUrl,
+          hasCredential: false,
+        );
+    await createPopup<void>(
+      context: context,
+      builder: (_) => _ProviderConfigDialog(
+        definition: definition,
+        configuration: configuration,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,6 +52,11 @@ class ProvidersScreen extends ConsumerWidget {
                 WorkspaceHeader(
                   title: 'Providers',
                   onBack: () => context.go('/chat'),
+                  actions: [
+                    _CustomProviderAction(
+                      onTap: () => _openCustomProvider(context, ref),
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: providers.when(
@@ -66,37 +93,13 @@ class _ProvidersBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    Future<void> addProvider() async {
-      final definition = await createPopup<InferenceProviderDefinition>(
-        context: context,
-        mobileFullScreen: true,
-        builder: (_) => const _AddProviderPopup(),
-      );
-      if (definition == null || !context.mounted) return;
-      await ref
-          .read(providersControllerProvider.notifier)
-          .addProvider(definition.id);
-      final configuration = ref
-          .read(providersControllerProvider)
-          .value
-          ?.configurationFor(definition.id);
-      if (configuration == null || !context.mounted) return;
-      await createPopup<void>(
-        context: context,
-        builder: (_) => _ProviderConfigDialog(
-          definition: definition,
-          configuration: configuration,
-        ),
-      );
-    }
-
-    final configured = supportedInferenceProviders
-        .where((definition) => !definition.isLocal)
-        .where(
-          (definition) =>
-              state.configurationFor(definition.id)?.configured == true,
-        )
-        .toList();
+    final definitions = [
+      for (final definition in supportedInferenceProviders)
+        if (!definition.isLocal &&
+            (definition.kind != ProviderKind.custom ||
+                state.configurationFor(definition.id)?.configured == true))
+          definition,
+    ];
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s16,
@@ -105,58 +108,16 @@ class _ProvidersBody extends ConsumerWidget {
         KrithaSpacing.s32,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _LocalModelsCard(),
-          SizedBox(height: KrithaSpacing.s20),
-          WorkspaceSectionTitle(
-            'Inference providers',
-            trailing: TextButton.icon(
-              onPressed: addProvider,
-              icon: KrithaIcon(
-                icon: HugeIcons.strokeRoundedPlusSign,
-                size: KrithaIcons.sm,
-                color: KrithaColors.textSecondary,
-              ),
-              label: const Text('Add provider'),
-            ),
-          ),
-          if (configured.isEmpty)
-            WorkspaceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'No inference providers added',
-                    style: TextStyle(
-                      fontSize: KrithaText.sizeMd,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: KrithaSpacing.s4),
-                  Text(
-                    'Add a provider only when you need one.',
-                    style: TextStyle(
-                      fontSize: KrithaText.sizeXs,
-                      color: KrithaColors.textMuted,
-                    ),
-                  ),
-                  SizedBox(height: KrithaSpacing.s10),
-                  WorkspaceOutlinedAction(
-                    label: 'Add provider',
-                    onPressed: addProvider,
-                  ),
-                ],
-              ),
-            ),
-          for (final definition in configured) ...[
+          for (final definition in definitions) ...[
             _ProviderCard(
               definition: definition,
               configuration: state.configurationFor(definition.id)!,
               result: state.testResults[definition.id],
               testing: state.testing.contains(definition.id),
             ),
-            SizedBox(height: KrithaSpacing.s12),
+            SizedBox(height: KrithaSpacing.s10),
           ],
         ],
       ),
@@ -164,128 +125,54 @@ class _ProvidersBody extends ConsumerWidget {
   }
 }
 
-class _LocalModelsCard extends ConsumerWidget {
-  const _LocalModelsCard();
+class _CustomProviderAction extends StatelessWidget {
+  const _CustomProviderAction({required this.onTap});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final model = ref.watch(modelConfigurationProvider).value;
-    return WorkspaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              KrithaIcon(
-                icon: HugeIcons.strokeRoundedCpu,
-                size: KrithaIcons.md,
-                color: KrithaColors.textSecondary,
-              ),
-              SizedBox(width: KrithaSpacing.s8),
-              Expanded(
-                child: Text(
-                  'Local models',
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeMd,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                model?.isReady == true ? model!.fileName! : 'No model selected',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: KrithaText.size2xs,
-                  color: model?.isReady == true
-                      ? KrithaColors.success
-                      : KrithaColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: KrithaSpacing.s12),
-          Wrap(
-            spacing: KrithaSpacing.s8,
-            runSpacing: KrithaSpacing.s8,
-            children: [
-              WorkspaceOutlinedAction(
-                label: 'Explore local models',
-                onPressed: () => context.go('/models'),
-              ),
-              WorkspaceOutlinedAction(
-                label: 'Configure assignments',
-                onPressed: () => context.go('/models/active'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddProviderPopup extends ConsumerStatefulWidget {
-  const _AddProviderPopup();
-
-  @override
-  ConsumerState<_AddProviderPopup> createState() => _AddProviderPopupState();
-}
-
-class _AddProviderPopupState extends ConsumerState<_AddProviderPopup> {
-  String query = '';
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final providers = supportedInferenceProviders
-        .where((item) => !item.isLocal)
-        .where(
-          (item) => '${item.name} ${item.description}'.toLowerCase().contains(
-            query.toLowerCase(),
-          ),
-        )
-        .toList();
-    final state = ref.watch(providersControllerProvider).value;
-    return CreatePopup(
-      title: 'Add inference provider',
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.all(KrithaSpacing.s16),
-            child: TextField(
-              autofocus: true,
-              onChanged: (value) => setState(() => query = value),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search providers',
-              ),
+    return Tooltip(
+      message: 'Add a custom OpenAI-compatible provider',
+      child: Material(
+        color: KrithaColors.bgSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KrithaRadius.base),
+          side: BorderSide(color: KrithaColors.borderSubtle),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          splashColor: KrithaColors.contextMenuPressed,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: KrithaSpacing.s12,
+              vertical: KrithaSpacing.s10,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                KrithaIcon(
+                  icon: HugeIcons.strokeRoundedListPlus,
+                  size: KrithaIcons.sm,
+                  color: KrithaColors.textSecondary,
+                ),
+                SizedBox(width: KrithaSpacing.s6),
+                Text(
+                  'Custom provider',
+                  style: TextStyle(
+                    fontSize: KrithaText.sizeXs,
+                    fontWeight: FontWeight.w600,
+                    color: KrithaColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: providers.length,
-              itemBuilder: (context, index) {
-                final provider = providers[index];
-                final configured =
-                    state?.configurationFor(provider.id)?.configured == true;
-                return ListTile(
-                  title: Text(provider.name),
-                  subtitle: Text(provider.description),
-                  trailing: configured
-                      ? Text(
-                          'Added',
-                          style: TextStyle(color: KrithaColors.textMuted),
-                        )
-                      : const Icon(Icons.chevron_right),
-                  enabled: !configured,
-                  onTap: configured
-                      ? null
-                      : () => Navigator.of(context).pop(provider),
-                );
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -304,13 +191,7 @@ class _ProviderCard extends ConsumerWidget {
   final ProviderConnectionResult? result;
   final bool testing;
 
-  Future<void> _test(BuildContext context, WidgetRef ref) async {
-    await ref
-        .read(providersControllerProvider.notifier)
-        .testConnection(definition.id);
-  }
-
-  Future<void> _configure(BuildContext context, WidgetRef ref) async {
+  Future<void> _configure(BuildContext context) async {
     await createPopup<void>(
       context: context,
       builder: (_) => _ProviderConfigDialog(
@@ -350,16 +231,53 @@ class _ProviderCard extends ConsumerWidget {
         .removeProvider(definition.id);
   }
 
+  Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
+    final selected = await showKrithaContextMenu(
+      context: context,
+      anchor: ContextMenuAnchor.fromContext(context),
+      align: ContextMenuAlign.right,
+      items: [
+        ContextMenuItem(
+          id: 'test',
+          label: testing ? 'Testing…' : 'Test connection',
+          icon: HugeIcons.strokeRoundedActivity01,
+          disabled: testing || !definition.canTest,
+        ),
+        if (configuration.configured)
+          ContextMenuItem(
+            id: 'remove',
+            label: 'Remove provider',
+            icon: HugeIcons.strokeRoundedDelete02,
+            destructive: true,
+            focusColor: Color(0x33FF453A),
+          ),
+      ],
+    );
+    if (!context.mounted || selected == null) return;
+    if (selected == 'test') {
+      await ref
+          .read(providersControllerProvider.notifier)
+          .testConnection(definition.id);
+    } else if (selected == 'remove') {
+      await _remove(context, ref);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final credentialText = definition.isLocal
-        ? 'No credential'
-        : configuration.hasCredential
-        ? '${definition.credentialLabel} saved'
-        : definition.requiresCredential
-        ? 'No ${definition.credentialLabel.toLowerCase()} saved'
-        : 'Credential optional';
+    final message = testing ? 'Testing connection…' : result?.message;
+    final messageColor = testing
+        ? KrithaColors.textMuted
+        : result == null
+        ? KrithaColors.textMuted
+        : result!.ok
+        ? KrithaColors.success
+        : KrithaColors.error;
     return WorkspaceCard(
+      padding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s14,
+        vertical: KrithaSpacing.s12,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,8 +285,8 @@ class _ProviderCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: KrithaColors.bgTertiary,
@@ -376,13 +294,9 @@ class _ProviderCard extends ConsumerWidget {
                   border: Border.all(color: KrithaColors.borderSubtle),
                 ),
                 child: KrithaIcon(
-                  icon: definition.isLocal
-                      ? HugeIcons.strokeRoundedCpu
-                      : definition.kind == ProviderKind.cloud
-                      ? HugeIcons.strokeRoundedActivity01
-                      : HugeIcons.strokeRoundedPlug02,
+                  icon: _providerIcon(definition),
                   size: KrithaIcons.base,
-                  color: KrithaColors.accentLightBlue,
+                  color: KrithaColors.textSecondary,
                 ),
               ),
               SizedBox(width: KrithaSpacing.s10),
@@ -393,7 +307,7 @@ class _ProviderCard extends ConsumerWidget {
                     Text(
                       definition.name,
                       style: TextStyle(
-                        fontSize: KrithaText.sizeMd,
+                        fontSize: KrithaText.sizeSm,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -403,86 +317,71 @@ class _ProviderCard extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: KrithaText.sizeXs,
                         color: KrithaColors.textMuted,
-                        height: 1.4,
+                        height: 1.35,
                       ),
                     ),
+                    if (message != null) ...[
+                      SizedBox(height: KrithaSpacing.s4),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          fontSize: KrithaText.size2xs,
+                          color: messageColor,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              SizedBox(width: KrithaSpacing.s8),
-              Switch(
-                value: configuration.enabled,
-                onChanged: (value) => ref
-                    .read(providersControllerProvider.notifier)
-                    .setEnabled(definition.id, value),
+              SizedBox(width: KrithaSpacing.s6),
+              Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: 'Provider actions',
+                  onPressed: testing
+                      ? null
+                      : () => _openMenu(buttonContext, ref),
+                  icon: KrithaIcon(
+                    icon: HugeIcons.strokeRoundedEllipsisVertical,
+                    size: KrithaIcons.sm,
+                    color: KrithaColors.textMuted,
+                  ),
+                ),
               ),
             ],
           ),
           SizedBox(height: KrithaSpacing.s10),
           Wrap(
-            spacing: KrithaSpacing.s8,
-            runSpacing: KrithaSpacing.s6,
-            children: [
-              _Pill(
-                label: configuration.enabled ? 'Enabled' : 'Disabled',
-                color: configuration.enabled
-                    ? KrithaColors.success
-                    : KrithaColors.textMuted,
-              ),
-              _Pill(label: credentialText, color: KrithaColors.textMuted),
-              if (configuration.baseUrl.isNotEmpty)
-                _Pill(
-                  label: configuration.baseUrl,
-                  color: KrithaColors.textMuted,
-                ),
-            ],
-          ),
-          if (result != null) ...[
-            SizedBox(height: KrithaSpacing.s10),
-            Text(
-              result!.message,
-              style: TextStyle(
-                fontSize: KrithaText.sizeXs,
-                color: result!.ok ? KrithaColors.success : KrithaColors.error,
-                height: 1.4,
-              ),
-            ),
-          ],
-          SizedBox(height: KrithaSpacing.s12),
-          Wrap(
+            alignment: WrapAlignment.end,
             spacing: KrithaSpacing.s8,
             runSpacing: KrithaSpacing.s8,
             children: [
-              if (!definition.isLocal)
-                WorkspaceOutlinedAction(
-                  label: 'Configure',
-                  onPressed: () => _configure(context, ref),
-                ),
-              if (!definition.isLocal)
-                WorkspaceOutlinedAction(
-                  label: 'Available models',
-                  onPressed: () => context.go('/models/active'),
-                ),
-              if (definition.isLocal || definition.canTest)
-                WorkspaceOutlinedAction(
-                  label: testing
-                      ? 'Testing…'
-                      : definition.isLocal
-                      ? 'Check local model'
-                      : 'Test connection',
-                  onPressed: testing ? null : () => _test(context, ref),
-                  busy: testing,
-                ),
-              if (!definition.isLocal)
-                WorkspaceOutlinedAction(
-                  label: 'Remove provider',
-                  onPressed: () => _remove(context, ref),
-                ),
+              WorkspaceOutlinedAction(
+                label: 'Available models',
+                onPressed: () => context.go('/models/active'),
+              ),
+              WorkspaceOutlinedAction(
+                label: 'Connect',
+                icon: HugeIcons.strokeRoundedPlusSign,
+                onPressed: () => _configure(context),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  static List<List<dynamic>> _providerIcon(
+    InferenceProviderDefinition definition,
+  ) {
+    return switch (definition.id) {
+      'openai' => HugeIcons.strokeRoundedChatGpt,
+      'anthropic' => HugeIcons.strokeRoundedClaude,
+      'google' => HugeIcons.strokeRoundedGoogleGemini,
+      'mistral' => HugeIcons.strokeRoundedMistral,
+      _ => HugeIcons.strokeRoundedPlug02,
+    };
   }
 }
 
@@ -530,6 +429,20 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
         return;
       }
     }
+    final credential = _credential.text.trim();
+    final current = ref
+        .watch(providersControllerProvider)
+        .value
+        ?.configurationFor(definition.id);
+    final hasCredential =
+        current?.hasCredential ?? widget.configuration.hasCredential;
+    if (definition.requiresCredential && !hasCredential && credential.isEmpty) {
+      setState(() {
+        _error =
+            'Enter a ${definition.credentialLabel.toLowerCase()} to connect.';
+      });
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -539,7 +452,6 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
       if (definition.supportsCustomEndpoint) {
         await controller.setBaseUrl(definition.id, baseUrl);
       }
-      final credential = _credential.text.trim();
       if (credential.isNotEmpty) {
         await controller.saveCredential(definition.id, credential);
       }
@@ -630,43 +542,41 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
               ),
               SizedBox(height: KrithaSpacing.s14),
             ],
-            if (!definition.isLocal) ...[
-              _FieldLabel(definition.credentialLabel),
-              SizedBox(height: KrithaSpacing.s6),
-              TextField(
-                controller: _credential,
-                obscureText: true,
-                autocorrect: false,
-                enableSuggestions: false,
-                decoration: _decoration(
-                  hintText: hasCredential
-                      ? 'Leave blank to keep the saved credential'
-                      : 'Paste a new credential',
-                ),
+            _FieldLabel(definition.credentialLabel),
+            SizedBox(height: KrithaSpacing.s6),
+            TextField(
+              controller: _credential,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: _decoration(
+                hintText: hasCredential
+                    ? 'Leave blank to keep the saved credential'
+                    : 'Paste a new credential',
               ),
-              if (hasCredential) ...[
-                SizedBox(height: KrithaSpacing.s8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'A credential is saved and is never displayed.',
-                        style: TextStyle(
-                          fontSize: KrithaText.size2xs,
-                          color: KrithaColors.textMuted,
-                        ),
+            ),
+            if (hasCredential) ...[
+              SizedBox(height: KrithaSpacing.s8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'A credential is saved and is never displayed.',
+                      style: TextStyle(
+                        fontSize: KrithaText.size2xs,
+                        color: KrithaColors.textMuted,
                       ),
                     ),
-                    TextButton(
-                      onPressed: _removeCredential,
-                      style: TextButton.styleFrom(
-                        foregroundColor: KrithaColors.error,
-                      ),
-                      child: const Text('Remove'),
+                  ),
+                  TextButton(
+                    onPressed: _removeCredential,
+                    style: TextButton.styleFrom(
+                      foregroundColor: KrithaColors.error,
                     ),
-                  ],
-                ),
-              ],
+                    child: const Text('Remove'),
+                  ),
+                ],
+              ),
             ],
             if (_error != null) ...[
               SizedBox(height: KrithaSpacing.s8),
@@ -722,39 +632,6 @@ class _FieldLabel extends StatelessWidget {
         fontSize: KrithaText.sizeXs,
         fontWeight: FontWeight.w600,
         color: KrithaColors.textSecondary,
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 240),
-      padding: EdgeInsets.symmetric(
-        horizontal: KrithaSpacing.s8,
-        vertical: KrithaSpacing.s4,
-      ),
-      decoration: BoxDecoration(
-        color: KrithaColors.bgTertiary,
-        borderRadius: BorderRadius.circular(KrithaRadius.full),
-        border: Border.all(color: KrithaColors.borderSubtle),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: KrithaText.size2xs,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
       ),
     );
   }

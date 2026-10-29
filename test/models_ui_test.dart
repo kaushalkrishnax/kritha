@@ -170,10 +170,10 @@ void main() {
 
     await tester.tap(find.byTooltip('Sort models'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Newest'));
+    await tester.tap(find.text('Most likes'));
     await tester.pumpAndSettle();
 
-    expect(catalogue.calls.last.sort, CatalogueSort.newest);
+    expect(catalogue.calls.last.sort, CatalogueSort.likes);
     expect(find.text('Popular on the Hub'), findsNothing);
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
@@ -353,84 +353,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Active models'), findsOneWidget);
-    expect(find.text('File validated'), findsOneWidget);
     expect(find.text('Choose model'), findsWidgets);
-    expect(find.text('Unavailable'), findsWidgets);
 
     await tester.tap(find.text('Choose model').first);
     await tester.pump(const Duration(milliseconds: 250));
     await tester.tap(find.text('local'));
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
     expect(find.text('Assigned'), findsOneWidget);
     expect(find.text('Remove assignment'), findsOneWidget);
   });
 
-  testWidgets('Providers tests the local model and keeps keys out of view', (
-    tester,
-  ) async {
-    final credentials = InMemoryProviderCredentialStore();
-    final connectionTester = FakeProviderConnectionTester()
-      ..models['openai'] = const [
-        ProviderModelInfo(id: 'gpt-4o', name: 'GPT-4o'),
-      ];
-    await pumpApp(
-      tester,
-      buildApp(
-        catalogue: catalogueWithModels(),
-        providerCredentials: credentials,
-        tester: connectionTester,
-      ),
-    );
-    await openSidebarEntry(tester, 'Providers');
+  testWidgets(
+    'Providers connects a hosted provider and keeps keys out of view',
+    (tester) async {
+      final credentials = InMemoryProviderCredentialStore();
+      final connectionTester = FakeProviderConnectionTester()
+        ..models['openai'] = const [
+          ProviderModelInfo(id: 'gpt-4o', name: 'GPT-4o'),
+        ];
+      await pumpApp(
+        tester,
+        buildApp(
+          catalogue: catalogueWithModels(),
+          providerCredentials: credentials,
+          tester: connectionTester,
+        ),
+      );
+      await openSidebarEntry(tester, 'Providers');
 
-    expect(find.text('Local models'), findsOneWidget);
-    expect(find.text('OpenAI'), findsNothing);
-    expect(find.text('No inference providers added'), findsOneWidget);
+      expect(find.text('OpenAI'), findsOneWidget);
+      expect(find.text('Anthropic'), findsOneWidget);
+      expect(find.text('Google Gemini'), findsOneWidget);
+      expect(find.text('Mistral AI'), findsOneWidget);
+      expect(find.text('Local models'), findsNothing);
 
-    await tester.tap(find.text('Add provider').first);
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.enterText(find.byType(TextField).last, 'OpenAI');
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.widgetWithText(ListTile, 'OpenAI'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.enterText(find.byType(TextField).last, 'sk-secret');
-    await tester.pump();
-    await tester.tap(find.text('Save'));
-    await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Connect').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'sk-secret');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    expect(credentials.credentials['openai'], 'sk-secret');
-    expect(find.text('API key saved'), findsOneWidget);
-    expect(find.text('sk-secret'), findsNothing);
+      expect(credentials.credentials['openai'], 'sk-secret');
+      expect(find.text('Provider settings saved'), findsOneWidget);
+      expect(find.text('sk-secret'), findsNothing);
 
-    await tester.tap(find.text('Configure').first);
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Leave blank to keep the saved credential'),
-      findsOneWidget,
-    );
-    expect(find.text('sk-secret'), findsNothing);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Connect').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Leave blank to keep the saved credential'),
+        findsOneWidget,
+      );
+      expect(find.text('sk-secret'), findsNothing);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Available models'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Choose model').first);
-    await tester.pumpAndSettle();
-    expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text('GPT-4o'), findsOneWidget);
-    expect(
-      find.textContaining('chat routing is not available yet'),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('GPT-4o'));
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(find.text('Assigned'), findsOneWidget);
+      await tester.tap(find.byTooltip('Provider actions').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Test connection'));
+      await tester.pumpAndSettle();
+      expect(connectionTester.testedProviderIds, ['openai']);
+      expect(find.textContaining('Endpoint reachable'), findsOneWidget);
 
-    await tester.tap(find.text('Choose model').first);
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.enterText(find.byType(TextField).last, 'GPT-4o');
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Recent models'), findsOneWidget);
-    expect(find.widgetWithText(InkWell, 'GPT-4o'), findsOneWidget);
-  });
+      await tester.tap(find.text('Available models').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Active models'), findsOneWidget);
+    },
+  );
 }

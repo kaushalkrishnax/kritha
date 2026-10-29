@@ -6,18 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/storage/secure_storage_service.dart';
 
 class StoredProviderSettings {
-  const StoredProviderSettings({
-    required this.enabled,
-    required this.baseUrl,
-    this.configured = true,
-  });
+  const StoredProviderSettings({required this.baseUrl, this.configured = true});
 
-  final bool enabled;
   final String baseUrl;
   final bool configured;
 
   Map<String, dynamic> toJson() => {
-    'enabled': enabled,
     'baseUrl': baseUrl,
     'configured': configured,
   };
@@ -47,7 +41,6 @@ class SharedPreferencesProviderSettingsStore implements ProviderSettingsStore {
         final value = entry.value;
         if (value is! Map) continue;
         result['${entry.key}'] = StoredProviderSettings(
-          enabled: value['enabled'] == true,
           baseUrl: value['baseUrl'] is String ? value['baseUrl'] as String : '',
           configured: value['configured'] != false,
         );

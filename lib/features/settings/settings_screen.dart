@@ -14,7 +14,7 @@ import '../../widgets/create_popup.dart';
 import '../../services/runtime_probe.dart';
 import '../../services/wake_word_bridge.dart';
 import '../chat/chat_controller.dart';
-import '../intelligence/providers.dart';
+import '../chat/widgets/chat_sidebar.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -23,7 +23,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     watchKrithaPalette(context);
     final runtime = ref.watch(runtimeStatusProvider);
-    final lifecycle = ref.watch(modelLifecycleProvider);
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -51,39 +50,44 @@ class SettingsScreen extends ConsumerWidget {
                     _SectionLabel('THEME'),
                     _ThemeControl(),
                     SizedBox(height: 22),
+                    _SectionLabel('PRIVACY'),
+                    _Card(
+                      child: Column(
+                        children: [
+                          _SettingsActionRow(
+                            icon: HugeIcons.strokeRoundedArchive,
+                            label: 'Archived chats',
+                            description: 'Restore or permanently delete archived conversations.',
+                            onTap: () => createPopup<void>(
+                              context: context,
+                              builder: (_) => const ArchivedSessionsDialog(),
+                            ),
+                          ),
+                          _RowDivider(),
+                          _SettingsActionRow(
+                            icon: HugeIcons.strokeRoundedShieldCheck,
+                            label: 'Permissions',
+                            description:
+                                'Microphone, notifications, and device access.',
+                            onTap: () => ScaffoldMessenger.of(context)
+                                .showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Permissions are not part of this foundation yet.',
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 22),
                     _SectionLabel('RUNTIME PROBES'),
                     _Card(
                       child: runtime.when(
                         data: (status) => _RuntimeRows(status: status),
                         loading: () => _LoadingProbe(),
                         error: (error, stackTrace) => _ProbeError(error: error),
-                      ),
-                    ),
-                    SizedBox(height: 22),
-                    _SectionLabel('INTELLIGENCE'),
-                    _Card(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _StatusRow(
-                            icon: HugeIcons.strokeRoundedCpu,
-                            label: 'Local inference',
-                            value: lifecycle.label,
-                            ok: lifecycle.ok,
-                          ),
-                          if (lifecycle.message != null) ...[
-                            SizedBox(height: 4),
-                            Text(
-                              lifecycle.message!,
-                              style: TextStyle(
-                                fontSize: KrithaText.sizeXs,
-                                color: lifecycle.ok == false
-                                    ? KrithaColors.warning
-                                    : KrithaColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
                     ),
                     SizedBox(height: 22),
@@ -497,21 +501,19 @@ class _SettingsHeader extends StatelessWidget {
           Tooltip(
             message: 'Back',
             child: Material(
-              color: KrithaColors.bgSecondary,
-              shape: CircleBorder(
-                side: BorderSide(color: KrithaColors.borderSubtle),
-              ),
+              color: Colors.transparent,
+              shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: InkResponse(
                 onTap: onBack,
-                customBorder: CircleBorder(),
+                customBorder: const CircleBorder(),
                 containedInkWell: true,
                 child: SizedBox(
                   width: 44,
                   height: 44,
                   child: KrithaIcon(
-                    icon: HugeIcons.strokeRoundedChevronLeft,
-                    size: 20,
+                    icon: HugeIcons.strokeRoundedArrowLeft02,
+                    size: 22,
                     color: KrithaColors.textSecondary,
                   ),
                 ),
@@ -534,6 +536,79 @@ class _SettingsHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingsActionRow extends StatelessWidget {
+  const _SettingsActionRow({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onTap,
+  });
+
+  final List<List<dynamic>> icon;
+  final String label;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(KrithaRadius.sm),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: KrithaColors.bgPrimary,
+                  borderRadius: BorderRadius.circular(KrithaRadius.sm),
+                  border: Border.all(color: KrithaColors.borderFaint),
+                ),
+                child: KrithaIcon(
+                  icon: icon,
+                  size: 15,
+                  color: KrithaColors.textMuted,
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: KrithaColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: KrithaText.size2xs,
+                        color: KrithaColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              KrithaIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                size: 16,
+                color: KrithaColors.textDimmed,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -122,7 +122,6 @@ class _ActiveBody extends ConsumerWidget {
               state: state,
               onChoose: () => _choose(context, ref, capability),
               onDeactivate: () => _deactivate(context, ref, capability),
-              onExploreModels: () => context.go('/models'),
             ),
             SizedBox(height: KrithaSpacing.s12),
           ],
@@ -138,14 +137,12 @@ class _CapabilitySlot extends StatelessWidget {
     required this.state,
     required this.onChoose,
     required this.onDeactivate,
-    required this.onExploreModels,
   });
 
   final ModelCapability capability;
   final ActiveModelsState state;
   final VoidCallback onChoose;
   final VoidCallback onDeactivate;
-  final VoidCallback onExploreModels;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +201,7 @@ class _CapabilitySlot extends StatelessWidget {
           ),
           SizedBox(height: KrithaSpacing.s12),
           Text(
-            _message(status, assignment, capability),
+            _message(status, assignment),
             style: TextStyle(
               fontSize: KrithaText.sizeXs,
               color: status == ActiveAssignmentStatus.stale
@@ -217,7 +214,7 @@ class _CapabilitySlot extends StatelessWidget {
           Wrap(
             spacing: KrithaSpacing.s8,
             runSpacing: KrithaSpacing.s8,
-            children: _actions(status, assignment, capability),
+            children: _actions(assignment),
           ),
         ],
       ),
@@ -227,15 +224,10 @@ class _CapabilitySlot extends StatelessWidget {
   String _message(
     ActiveAssignmentStatus status,
     ActiveModelAssignment? assignment,
-    ModelCapability capability,
   ) {
-    if (status == ActiveAssignmentStatus.noRuntime) {
-      return 'No execution path for ${capability.label.toLowerCase()} is '
-          'available in this build.';
-    }
     if (status == ActiveAssignmentStatus.assigned) {
       return '${assignment!.displayName} is saved from ${assignment.sourceId}. '
-          'Provider chat routing is not available yet.';
+          'Provider-hosted execution is not wired into chat in this build.';
     }
     if (status == ActiveAssignmentStatus.active) {
       return 'Assigned to ${assignment!.displayName} through '
@@ -255,47 +247,17 @@ class _CapabilitySlot extends StatelessWidget {
     }
     final message = state.configurationMessage;
     return message ??
-        'Choose a model from the available local or configured provider sources.';
+        'Choose a model from local inventory or a connected provider.';
   }
 
-  List<Widget> _actions(
-    ActiveAssignmentStatus status,
-    ActiveModelAssignment? assignment,
-    ModelCapability capability,
-  ) {
-    if (status == ActiveAssignmentStatus.noRuntime) {
-      if (assignment == null) {
-        return const [_DisabledAction(label: 'No execution path')];
-      }
-      return const [_DisabledAction(label: 'No execution path')];
-    }
-    if (status == ActiveAssignmentStatus.active ||
-        status == ActiveAssignmentStatus.assigned) {
-      return [
-        WorkspaceOutlinedAction(label: 'Choose model', onPressed: onChoose),
+  List<Widget> _actions(ActiveModelAssignment? assignment) {
+    return [
+      WorkspaceOutlinedAction(label: 'Choose model', onPressed: onChoose),
+      if (assignment != null)
         WorkspaceOutlinedAction(
           label: 'Remove assignment',
           onPressed: onDeactivate,
         ),
-      ];
-    }
-    if (status == ActiveAssignmentStatus.stale ||
-        status == ActiveAssignmentStatus.ready ||
-        status == ActiveAssignmentStatus.noModel) {
-      return [
-        WorkspaceOutlinedAction(label: 'Choose model', onPressed: onChoose),
-        if (assignment != null)
-          WorkspaceOutlinedAction(
-            label: 'Remove assignment',
-            onPressed: onDeactivate,
-          ),
-      ];
-    }
-    return [
-      WorkspaceOutlinedAction(
-        label: 'Explore local models',
-        onPressed: onExploreModels,
-      ),
     ];
   }
 }
@@ -311,13 +273,12 @@ class _StatusChip extends StatelessWidget {
       ActiveAssignmentStatus.active => ('Assigned', KrithaColors.success),
       ActiveAssignmentStatus.assigned => ('Assigned', KrithaColors.warning),
       ActiveAssignmentStatus.ready => (
-        'File validated',
+        'Local model ready',
         KrithaColors.accentLightBlue,
       ),
       ActiveAssignmentStatus.stale => ('Attention', KrithaColors.warning),
-      ActiveAssignmentStatus.noModel => ('No model', KrithaColors.textMuted),
-      ActiveAssignmentStatus.noRuntime => (
-        'Unavailable',
+      ActiveAssignmentStatus.noModel => (
+        'Not assigned',
         KrithaColors.textMuted,
       ),
     };
@@ -339,26 +300,6 @@ class _StatusChip extends StatelessWidget {
           color: color,
         ),
       ),
-    );
-  }
-}
-
-class _DisabledAction extends StatelessWidget {
-  const _DisabledAction({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: null,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 44),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(KrithaRadius.base),
-        ),
-      ),
-      child: Text(label),
     );
   }
 }

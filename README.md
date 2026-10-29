@@ -351,8 +351,8 @@ Sessions are first-class SQLite rows, not temporary UI state:
 - **Pin / unpin** — persisted and reflected by moving the row between the
   Pinned and Recents sections.
 - **Rename** — persisted from the long-press menu.
-- **Archive** — removes the chat from the active list; “Archived Chats” lists
-  archived sessions with restore and delete.
+- **Archive** — removes the chat from the active list; Archived chats under
+  Settings → Privacy lists archived sessions with restore and delete.
 - **Delete** — deletes the session and its messages in one transaction; if it
   was open, the newest remaining session is selected.
 - **Clear history** — settings clears every session and message after
@@ -426,10 +426,10 @@ Active Models surface:
   never shown after saving, and can be replaced or removed.
 - Hub and inference-provider secrets share `SecureStorageService`; their keys,
   validation and feature-specific behavior remain isolated.
-- Active Models persists capability assignments in SharedPreferences. Only the
-  validated local LiteRT-LM text path can be activated in this build; vision,
-  image generation, speech, audio, video and embeddings remain unavailable
-  until a real execution path exists.
+- Active Models persists capability assignments in SharedPreferences. Local
+  inventory and connected provider models can be assigned per capability; only
+  the validated local LiteRT-LM text path has an execution path in this build,
+  so provider-hosted routing and non-text execution are not claimed.
 - Custom catalogue is a gated Pro explanation screen only. It does not configure
   or contact an endpoint.
 
@@ -439,8 +439,8 @@ Active Models surface:
 Hub catalogue:
 
 - Supported entries cover the local LiteRT-LM runtime, hosted OpenAI,
-  Anthropic, Google Gemini, Mistral and OpenRouter connections, plus Ollama,
-  LM Studio and a custom OpenAI-compatible endpoint.
+  Anthropic, Google Gemini and Mistral connections, plus a custom
+  OpenAI-compatible endpoint.
 - Credentials live in secure storage under provider-specific keys; the Hub token
   is a separate secret. Saved keys are never rendered back into the UI.
 - Connection tests perform real HTTP requests to each provider's models
@@ -514,8 +514,8 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
 - **Message editing** — editing restarts the conversation from that turn by
   deleting the edited turn and everything after it. It does not create a branch
   or preserve attachments from the original turn.
-- **Sidebar utilities** — Library, Plugins, Permissions, More and
-  chat search are visible stubs.
+- **Sidebar utilities** — Library, Plugins, More and chat search are visible
+  stubs. Archived chats and Permissions live under Settings → Privacy.
 - **Settings depth** — runtime probes, local model selection/removal and
   confirmed history clearing are real; the remaining RN settings toggles are
   not implemented.
@@ -523,8 +523,9 @@ These are deliberate scope boundaries for this foundation, not hidden stubs:
   files and model cards use the real Hub API. A Hub repository is never treated
   as downloaded or runtime-compatible; only an already validated local
   `.litertlm` file can be assigned to the text capability.
-- **Hosted provider routing** — providers can be enabled, configured and tested
-  with real HTTP requests, but chat still uses the local intelligence engine.
+- **Hosted provider routing** — providers can be connected, configured and
+  tested with real HTTP requests, but chat still uses the local intelligence
+  engine.
 - **Active model routing** — capability assignments are persisted and shown with
   honest status, but the single local text model is still selected in Settings.
   Multi-model routing and non-text execution paths are not implemented.

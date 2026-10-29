@@ -66,8 +66,8 @@ and 2 px gaps stable.
    desktop sidebar both trailing controls are borderless (hover fill only); the
    overlay drawer keeps the search circle and sits it flush with the panel edge
    when no collapse control follows.
-2. `New chat`, `Library`, `Archived Chats`, `Plugins`,
-   `Permissions`, `More`: 56 px rows, 24 px gutter, no inter-row gaps.
+2. `New chat`, `Library`, `Models`, `Providers`, `Plugins`, `More`: 56 px rows,
+   24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
 4. Recents section and 56 px session rows.
 5. Footer account avatar/name; its menu contains account actions and Settings.
@@ -81,8 +81,8 @@ Rules:
   Rename, Archive and Delete. The menu opens at the press point and clamps
   inside the sidebar.
 - The collapsed wide-screen rail shows `LayoutAlignLeft` (expand), New chat,
-  Search, Pinned chats (`strokeRoundedPin`), Chats (`strokeRoundedMessageCircle`,
-  matching session rows) and Library, then the account avatar at the bottom.
+  Library, Models, Providers, Plugins and More, then the account avatar at the
+  bottom. Archived chats and Permissions live under Settings → Privacy.
   The full sidebar header pairs borderless search and `PanelLeft` collapse
   controls; the compact chat header uses `MenuTwoLine` to open the drawer.
 - Wide-screen open/close animates the 56↔300 px panel with a clipped width
@@ -312,8 +312,8 @@ popup menus.
   step. Do not swallow exceptions.
 - Stubs: label the action and report “not available in this build” (snackbar or
   disabled row). Visible stubs in the current build include Camera, Plugins,
-  Think harder, Library, Plugins, Permissions, More, chat search,
-  read aloud, video and screen sharing.
+  Think harder, Library, More, chat search, Permissions, read aloud, video and
+  screen sharing.
 - Missing local STT/TTS models should be explicit; do not fabricate a
   transcript.
 

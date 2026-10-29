@@ -28,11 +28,7 @@ class WorkspaceHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          WorkspaceIconButton(
-            icon: HugeIcons.strokeRoundedChevronLeft,
-            tooltip: backTooltip,
-            onTap: onBack,
-          ),
+          WorkspaceBackButton(tooltip: backTooltip, onTap: onBack),
           SizedBox(width: KrithaSpacing.s8),
           Expanded(
             child: Column(
@@ -57,6 +53,46 @@ class WorkspaceHeader extends StatelessWidget {
             Row(mainAxisSize: MainAxisSize.min, children: actions),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class WorkspaceBackButton extends StatelessWidget {
+  const WorkspaceBackButton({
+    super.key,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkResponse(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          containedInkWell: true,
+          hoverColor: KrithaColors.contextMenuPressed,
+          focusColor: KrithaColors.contextMenuPressed,
+          splashColor: KrithaColors.contextMenuPressed,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: KrithaIcon(
+              icon: HugeIcons.strokeRoundedArrowLeft02,
+              size: KrithaIcons.md,
+              color: KrithaColors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -162,34 +198,42 @@ class WorkspaceOutlinedAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.busy = false,
+    this.icon,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
+  final List<List<dynamic>>? icon;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: KrithaColors.textSecondary,
-        side: BorderSide(color: KrithaColors.borderStrong),
-        minimumSize: const Size(0, 44),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(KrithaRadius.base),
-        ),
+    final style = OutlinedButton.styleFrom(
+      foregroundColor: KrithaColors.textSecondary,
+      side: BorderSide(color: KrithaColors.borderStrong),
+      minimumSize: const Size(0, 44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
       ),
-      child: busy
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: KrithaColors.textMuted,
-              ),
-            )
-          : Text(label),
+    );
+    final child = busy
+        ? SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: KrithaColors.textMuted,
+            ),
+          )
+        : Text(label);
+    if (icon == null) {
+      return OutlinedButton(onPressed: onPressed, style: style, child: child);
+    }
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: style,
+      icon: KrithaIcon(icon: icon!, size: 16),
+      label: child,
     );
   }
 }

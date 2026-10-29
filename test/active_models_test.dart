@@ -58,11 +58,11 @@ void main() {
     expect(state.statusFor(ModelCapability.text), ActiveAssignmentStatus.ready);
     expect(
       state.statusFor(ModelCapability.vision),
-      ActiveAssignmentStatus.noRuntime,
+      ActiveAssignmentStatus.noModel,
     );
     expect(
       state.statusFor(ModelCapability.speechRecognition),
-      ActiveAssignmentStatus.noRuntime,
+      ActiveAssignmentStatus.noModel,
     );
   });
 
@@ -219,7 +219,7 @@ void main() {
     expect(state.statusFor(ModelCapability.text), ActiveAssignmentStatus.stale);
     expect(
       state.statusFor(ModelCapability.audio),
-      ActiveAssignmentStatus.noRuntime,
+      ActiveAssignmentStatus.noModel,
     );
   });
 
@@ -245,7 +245,6 @@ void main() {
           providerSettingsStoreProvider.overrideWithValue(
             InMemoryProviderSettingsStore({
               'openai': const StoredProviderSettings(
-                enabled: true,
                 baseUrl: 'https://api.openai.com/v1',
                 configured: true,
               ),

@@ -35,7 +35,7 @@ class ModelDetailsScreen extends ConsumerWidget {
                   onBack: () => context.go('/models'),
                   actions: [
                     WorkspaceIconButton(
-                      icon: HugeIcons.strokeRoundedMenuTwoLine,
+                      icon: HugeIcons.strokeRoundedFilterHorizontal,
                       tooltip: 'Active models',
                       onTap: () => context.push('/models/active'),
                     ),
@@ -569,7 +569,7 @@ class _Actions extends StatelessWidget {
                 ),
               ),
               icon: KrithaIcon(
-                icon: HugeIcons.strokeRoundedMenuTwoLine,
+                icon: HugeIcons.strokeRoundedFilterHorizontal,
                 size: 16,
                 color: KrithaColors.textOnAccent,
               ),
