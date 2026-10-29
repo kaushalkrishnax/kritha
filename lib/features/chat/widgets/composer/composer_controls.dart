@@ -42,7 +42,7 @@ Future<void> showAttachmentMenu(
       ContextMenuItem(
         id: 'think',
         label: 'Think harder',
-        icon: HugeIcons.strokeRoundedBrainCircuit,
+        icon: HugeIcons.strokeRoundedAiBrain03,
         disabled: true,
       ),
     ],

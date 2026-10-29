@@ -73,9 +73,9 @@ abstract final class KrithaColors {
       _lightMode ? Color(0xFFFFFFFF) : _darkTextOnAccent;
 
   // Brand / Accent
-  static const _darkAccentBlue = Color(0xFF2563EB);
+  static const _darkAccentBlue = Color(0xFF3B82F6);
   static Color get accentBlue =>
-      _lightMode ? Color(0xFF2563EB) : _darkAccentBlue;
+      _lightMode ? Color(0xFF3B82F6) : _darkAccentBlue;
   static const _darkAccentLightBlue = Color(0xFF60A5FA);
   static Color get accentLightBlue =>
       _lightMode ? Color(0xFF60A5FA) : _darkAccentLightBlue;
@@ -112,7 +112,7 @@ abstract final class KrithaColors {
       : _darkBorderFaint; // rgba(255,255,255,0.055)
   static const _darkBorderAccent = Color(0xFF3B82F6);
   static Color get borderAccent =>
-      _lightMode ? Color(0xFF2563EB) : _darkBorderAccent;
+      _lightMode ? Color(0xFF3B82F6) : _darkBorderAccent;
 
   // Context menu pressed overlay
   static const _darkContextMenuPressed = Color(0x17FFFFFF);
@@ -126,22 +126,22 @@ abstract final class KrithaColors {
   static const _darkUserBubbleBg = Color(0xFF21437D);
   static Color get userBubbleBg =>
       _lightMode ? Color(0xFFDBEAFE) : _darkUserBubbleBg;
-  static const _darkAssistantBubbleBg = Color(0x142563EB);
+  static const _darkAssistantBubbleBg = Color(0x143B82F6);
   static Color get assistantBubbleBg => _lightMode
-      ? Color(0x142563EB)
-      : _darkAssistantBubbleBg; // rgba(37,99,235,0.08)
-  static const _darkAssistantBubbleBorder = Color(0x402563EB);
+      ? Color(0x143B82F6)
+      : _darkAssistantBubbleBg; // rgba(59,130,246,0.08)
+  static const _darkAssistantBubbleBorder = Color(0x403B82F6);
   static Color get assistantBubbleBorder => _lightMode
-      ? Color(0x402563EB)
-      : _darkAssistantBubbleBorder; // rgba(37,99,235,0.25)
+      ? Color(0x403B82F6)
+      : _darkAssistantBubbleBorder; // rgba(59,130,246,0.25)
 
   // Thinking block
-  static const _darkThinkingBorder = Color(0xFF2563EB);
+  static const _darkThinkingBorder = Color(0xFF3B82F6);
   static Color get thinkingBorder =>
-      _lightMode ? Color(0xFF2563EB) : _darkThinkingBorder;
-  static const _darkThinkingBg = Color(0x142563EB);
+      _lightMode ? Color(0xFF3B82F6) : _darkThinkingBorder;
+  static const _darkThinkingBg = Color(0x143B82F6);
   static Color get thinkingBg =>
-      _lightMode ? Color(0x142563EB) : _darkThinkingBg; // rgba(37,99,235,0.08)
+      _lightMode ? Color(0x143B82F6) : _darkThinkingBg; // rgba(59,130,246,0.08)
 
   // Other semantic surfaces
   static const _darkErrorBubbleBg = Color(0x26F87171);
@@ -474,7 +474,7 @@ ThemeData buildKrithaTheme() {
     splashColor: KrithaColors.contextMenuPressed,
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: KrithaColors.accentLightBlue,
-      selectionColor: Color(0x4D2563EB),
+      selectionColor: Color(0x4D3B82F6),
       selectionHandleColor: KrithaColors.accentLightBlue,
     ),
     scrollbarTheme: ScrollbarThemeData(

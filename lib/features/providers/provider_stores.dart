@@ -6,14 +6,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/storage/secure_storage_service.dart';
 
 class StoredProviderSettings {
-  const StoredProviderSettings({required this.baseUrl, this.configured = true});
+  const StoredProviderSettings({
+    required this.baseUrl,
+    this.configured = true,
+    this.alias,
+  });
 
   final String baseUrl;
   final bool configured;
 
+  /// Editable alias for user-created providers. Built-ins leave this null and
+  /// use their definition's stable display name.
+  final String? alias;
+
   Map<String, dynamic> toJson() => {
     'baseUrl': baseUrl,
     'configured': configured,
+    if (alias != null) 'alias': alias,
   };
 }
 
@@ -43,6 +52,7 @@ class SharedPreferencesProviderSettingsStore implements ProviderSettingsStore {
         result['${entry.key}'] = StoredProviderSettings(
           baseUrl: value['baseUrl'] is String ? value['baseUrl'] as String : '',
           configured: value['configured'] != false,
+          alias: value['alias'] is String ? value['alias'] as String : null,
         );
       }
       return Map.unmodifiable(result);

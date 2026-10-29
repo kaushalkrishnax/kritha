@@ -294,7 +294,7 @@ class _ThinkingRow extends StatelessWidget {
       child: Row(
         children: [
           KrithaIcon(
-            icon: HugeIcons.strokeRoundedBrain,
+            icon: HugeIcons.strokeRoundedAiBrain03,
             size: KrithaIcons.sm,
             color: KrithaColors.accentLightBlue,
           ),

@@ -1,33 +1,73 @@
 import 'inference_provider.dart';
 import 'intelligence_exception.dart';
 import 'models/ai_request.dart';
+import 'models/model_capabilities.dart';
 
-/// Selects the first configured provider that can serve a request.
+/// The persisted Active Models choice for one inference capability.
 ///
-/// There is deliberately no fallback, retry or load balancing yet: one local
-/// provider is the only case Phase 1 needs.
+/// The provider id is the stable identity; the model id is kept exactly as the
+/// provider returned it. Neither value is rewritten or prefixed.
+class ActiveInferenceTarget {
+  const ActiveInferenceTarget({
+    required this.providerId,
+    required this.modelId,
+  });
+
+  final String providerId;
+  final String modelId;
+}
+
+/// Resolves a request to the provider selected by Active Models.
+///
+/// There is deliberately no retry or load balancing. A request either names a
+/// model explicitly or uses the active model for its primary capability; a
+/// missing assignment is an error rather than an opportunity to pick another
+/// provider.
 class RequestRouter {
-  const RequestRouter({required this.providers});
+  const RequestRouter({required this.providers, this.activeModels = const {}});
 
   final List<InferenceProvider> providers;
+
+  /// Model and provider selected in Active Models for each capability.
+  final Map<InferenceCapability, ActiveInferenceTarget> activeModels;
 
   InferenceProvider resolve(AiRequest request) {
     if (providers.isEmpty) {
       throw const ProviderUnavailableException(
-        'No inference provider is configured.',
+        'No active model is assigned for this request.',
       );
     }
 
     final requestedModel = request.modelId;
-    final candidates = requestedModel == null
-        ? providers
-        : providers
-              .where((provider) => provider.descriptor.id == requestedModel)
-              .toList(growable: false);
+    final active = activeModels[InferenceCapability.textGeneration];
+    final List<InferenceProvider> candidates;
+
+    if (requestedModel != null) {
+      candidates = active != null && active.modelId == requestedModel
+          ? _forTarget(active)
+          : providers
+                .where((provider) => provider.descriptor.id == requestedModel)
+                .toList(growable: false);
+      if (candidates.length > 1) {
+        throw ProviderUnavailableException(
+          'The model "$requestedModel" is provided by more than one provider. '
+          'Select it in Active Models so the provider is unambiguous.',
+        );
+      }
+    } else if (active != null) {
+      candidates = _forTarget(active);
+    } else {
+      candidates = providers;
+    }
 
     if (candidates.isEmpty) {
       throw ProviderUnavailableException(
-        'No configured provider serves model "$requestedModel".',
+        requestedModel == null && active == null
+            ? 'No active model is assigned for this request.'
+            : requestedModel != null
+            ? 'The requested model "$requestedModel" is no longer available.'
+            : 'The active model "${active!.modelId}" is no longer available '
+                  'from its provider.',
       );
     }
 
@@ -48,5 +88,15 @@ class RequestRouter {
           )
           .toSet(),
     );
+  }
+
+  List<InferenceProvider> _forTarget(ActiveInferenceTarget target) {
+    return providers
+        .where(
+          (provider) =>
+              provider.id == target.providerId &&
+              provider.descriptor.id == target.modelId,
+        )
+        .toList(growable: false);
   }
 }

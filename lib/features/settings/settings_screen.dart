@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
 import '../../services/runtime_probe.dart';
 import '../../services/wake_word_bridge.dart';
@@ -39,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
         child: SafeArea(
           child: Column(
             children: [
-              _SettingsHeader(onBack: () => context.pop()),
+              _SettingsHeader(onBack: () => goBackOrExit(context)),
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(16, 8, 16, 32),

@@ -28,6 +28,7 @@ void main() {
                         label: 'Close',
                         onPressed: () => Navigator.of(context).pop(),
                       ),
+                      PopupPrimaryButton(label: 'Save', onPressed: () {}),
                     ],
                     child: const Padding(
                       padding: EdgeInsets.all(20),
@@ -58,6 +59,18 @@ void main() {
       tester.getRect(find.byType(CreatePopup)).width,
       lessThanOrEqualTo(360),
     );
+    expect(
+      find.descendant(
+        of: find.byType(CreatePopup),
+        matching: find.byType(Divider),
+      ),
+      findsNothing,
+    );
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(save.style?.backgroundColor?.resolve({}), KrithaColors.accentBlue);
+    expect(save.style?.foregroundColor?.resolve({}), KrithaColors.textOnAccent);
 
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();

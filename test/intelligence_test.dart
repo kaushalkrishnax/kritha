@@ -16,10 +16,14 @@ import 'package:kritha/features/intelligence/models/model_capabilities.dart';
 import 'package:kritha/features/intelligence/models/model_descriptor.dart';
 import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/features/intelligence/request_router.dart';
+import 'package:kritha/features/intelligence/runtime_ids.dart';
 import 'package:kritha/features/intelligence/runtimes/litertlm_provider.dart';
+import 'package:kritha/features/models/active/active_models.dart';
+import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:litertlm/litertlm.dart' as lite;
 
 import 'support/fake_inference.dart';
+import 'support/fake_workspace.dart';
 
 const _descriptor = ModelDescriptor(
   id: 'test-model',
@@ -1128,6 +1132,49 @@ void main() {
         ModelLifecycleStage.configurationUnavailable,
       );
       expect(engine.disposeCalls, 1);
+    });
+
+    test('an active local assignment resolves to the local runtime', () async {
+      final directory = Directory.systemTemp.createTempSync('kritha-local-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final file = File('${directory.path}/assigned-local.litertlm')
+        ..writeAsBytesSync([1]);
+      final engine = _FakeLiteRtLmEngine(text: 'Assigned local answer.');
+      final container = ProviderContainer(
+        overrides: [
+          activeModelStoreProvider.overrideWithValue(
+            InMemoryActiveModelStore({
+              ModelCapability.text: ActiveModelAssignment(
+                capability: ModelCapability.text,
+                modelId: 'local:assigned-local',
+                displayName: 'assigned-local',
+                runtimeId: localRuntimeId,
+                sourceId: localProviderId,
+                activatedAt: DateTime(2026),
+              ),
+            }),
+          ),
+          recentModelStoreProvider.overrideWithValue(
+            InMemoryRecentModelStore(),
+          ),
+          modelConfigStoreProvider.overrideWithValue(
+            InMemoryModelConfigStore(file.path),
+          ),
+          liteRtLmEngineFactoryProvider.overrideWithValue((model) => engine),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(activeModelsProvider.future);
+
+      final response = await container
+          .read(intelligenceEngineProvider)
+          .generate(_prompt('Hello'));
+
+      expect(response.text, 'Assigned local answer.');
+      expect(
+        container.read(inferenceProvidersProvider).single,
+        isA<LiteRtLmProvider>(),
+      );
     });
 
     test('a fake provider can replace the whole registry', () async {

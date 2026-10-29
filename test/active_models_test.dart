@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/models/model_capabilities.dart';
 import 'package:kritha/features/intelligence/models/model_descriptor.dart';
+import 'package:kritha/features/intelligence/runtime_ids.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/providers/provider_connection_tester.dart';
@@ -64,6 +65,32 @@ void main() {
       state.statusFor(ModelCapability.speechRecognition),
       ActiveAssignmentStatus.noModel,
     );
+  });
+
+  test('normalizes legacy local assignment identifiers', () {
+    final assignment = ActiveModelAssignment.fromJson(ModelCapability.text, {
+      'modelId': 'legacy-model',
+      'displayName': 'Legacy model',
+      'runtimeId': localProviderId,
+      'sourceId': localRuntimeId,
+      'activatedAt': '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(assignment.sourceId, localProviderId);
+    expect(assignment.runtimeId, localRuntimeId);
+  });
+
+  test('normalizes remote assignment runtime identifiers', () {
+    final assignment = ActiveModelAssignment.fromJson(ModelCapability.text, {
+      'modelId': 'gemini-2.0-flash',
+      'displayName': 'Gemini',
+      'runtimeId': 'google',
+      'sourceId': 'google',
+      'activatedAt': '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(assignment.sourceId, 'google');
+    expect(assignment.runtimeId, geminiRuntimeId);
   });
 
   test('activates the validated local model and persists it', () async {

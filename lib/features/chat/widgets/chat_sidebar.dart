@@ -12,6 +12,12 @@ import '../../../models/chat_session.dart';
 import '../../../widgets/context_menu.dart';
 import '../chat_controller.dart';
 
+void _openWorkspace(BuildContext context, String location) {
+  final scaffold = Scaffold.maybeOf(context);
+  if (scaffold?.isDrawerOpen ?? false) scaffold!.closeDrawer();
+  context.push(location);
+}
+
 /// Shared sidebar body used both as an overlay drawer on compact/medium
 /// viewports and as a docked panel on wide ones.
 class ChatSidebar extends ConsumerStatefulWidget {
@@ -170,14 +176,14 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                         onTap: () => _stub(context, 'Library'),
                       ),
                       _ActionRow(
-                        icon: HugeIcons.strokeRoundedBrainCircuit,
-                        label: 'Models',
-                        onTap: () => context.go('/models'),
+                        icon: HugeIcons.strokeRoundedAiChip,
+                        label: 'Providers',
+                        onTap: () => _openWorkspace(context, '/providers'),
                       ),
                       _ActionRow(
-                        icon: HugeIcons.strokeRoundedPlug02,
-                        label: 'Providers',
-                        onTap: () => context.go('/providers'),
+                        icon: HugeIcons.strokeRoundedGoogleGemini,
+                        label: 'Models',
+                        onTap: () => _openWorkspace(context, '/models'),
                       ),
                       _ActionRow(
                         icon: HugeIcons.strokeRoundedPlug02,
@@ -650,15 +656,15 @@ class CompactSidebarRail extends StatelessWidget {
                   ),
                   SizedBox(height: KrithaSpacing.s8),
                   _RailButton(
-                    icon: HugeIcons.strokeRoundedBrainCircuit,
-                    tooltip: 'Models',
-                    onTap: () => context.go('/models'),
+                    icon: HugeIcons.strokeRoundedAiChip,
+                    tooltip: 'Providers',
+                    onTap: () => _openWorkspace(context, '/providers'),
                   ),
                   SizedBox(height: KrithaSpacing.s8),
                   _RailButton(
-                    icon: HugeIcons.strokeRoundedPlug02,
-                    tooltip: 'Providers',
-                    onTap: () => context.go('/providers'),
+                    icon: HugeIcons.strokeRoundedGoogleGemini,
+                    tooltip: 'Models',
+                    onTap: () => _openWorkspace(context, '/models'),
                   ),
                   SizedBox(height: KrithaSpacing.s8),
                   _RailButton(

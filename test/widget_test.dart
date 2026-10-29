@@ -9,9 +9,11 @@ import 'package:kritha/features/chat/widgets/chat_sidebar.dart';
 import 'package:kritha/features/intelligence/inference_provider.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/providers.dart';
+import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
 import 'support/fake_inference.dart';
+import 'support/fake_workspace.dart';
 
 void main() {
   late AppDatabase database;
@@ -46,6 +48,8 @@ void main() {
         modelConfigStoreProvider.overrideWithValue(
           InMemoryModelConfigStore('/models/test.litertlm'),
         ),
+        activeModelStoreProvider.overrideWithValue(InMemoryActiveModelStore()),
+        recentModelStoreProvider.overrideWithValue(InMemoryRecentModelStore()),
         inferenceProvidersProvider.overrideWithValue([
           inference ?? FakeInferenceProvider(),
         ]),

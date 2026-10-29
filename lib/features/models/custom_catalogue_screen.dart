@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/back_navigation.dart';
 import 'widgets/workspace_header.dart';
 
 class CustomCatalogueScreen extends StatelessWidget {
@@ -21,7 +21,7 @@ class CustomCatalogueScreen extends StatelessWidget {
               children: [
                 WorkspaceHeader(
                   title: 'Custom catalogue',
-                  onBack: () => context.go('/models'),
+                  onBack: () => goBackOrExit(context),
                 ),
                 Expanded(
                   child: SingleChildScrollView(

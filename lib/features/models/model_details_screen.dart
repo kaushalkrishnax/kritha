@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/back_navigation.dart';
 import '../chat/widgets/markdown_view.dart';
 import 'providers.dart';
 import 'widgets/catalogue_widgets.dart';
@@ -32,7 +33,7 @@ class ModelDetailsScreen extends ConsumerWidget {
               children: [
                 WorkspaceHeader(
                   title: name,
-                  onBack: () => context.go('/models'),
+                  onBack: () => goBackOrExit(context),
                   actions: [
                     WorkspaceIconButton(
                       icon: HugeIcons.strokeRoundedFilterHorizontal,
@@ -341,7 +342,7 @@ class _CompatibilityCard extends StatelessWidget {
           ),
           SizedBox(height: KrithaSpacing.s12),
           OutlinedButton.icon(
-            onPressed: () => context.go('/models'),
+            onPressed: () => goBackOrExit(context),
             style: OutlinedButton.styleFrom(
               foregroundColor: KrithaColors.textSecondary,
               side: BorderSide(color: KrithaColors.borderStrong),

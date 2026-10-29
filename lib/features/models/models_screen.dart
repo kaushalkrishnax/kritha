@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/back_navigation.dart';
 import '../../widgets/context_menu.dart';
 import 'providers.dart';
 import 'widgets/catalogue_widgets.dart';
@@ -24,6 +25,20 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   Timer? _debounce;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final catalogue = ref.read(catalogueProvider);
+      if (!catalogue.hasLoaded &&
+          !catalogue.loading &&
+          catalogue.failure == null) {
+        _catalogue.search();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
@@ -38,13 +53,6 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     _debounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       final query = value.trim();
-      final current = ref.read(catalogueProvider);
-      if (query.isEmpty &&
-          current.capability == null &&
-          current.sort == CatalogueSort.trending) {
-        _catalogue.reset();
-        return;
-      }
       _catalogue.search(query: query);
     });
   }
@@ -53,24 +61,13 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     _debounce?.cancel();
     _searchController.clear();
     setState(() {});
-    final current = ref.read(catalogueProvider);
-    if (current.capability == null && current.sort == CatalogueSort.trending) {
-      _catalogue.reset();
-    } else {
-      _catalogue.search(query: '');
-    }
+    _catalogue.search(query: '');
   }
 
   void _selectCapability(ModelCapability? capability) {
     _debounce?.cancel();
-    final query = _searchController.text.trim();
-    final sort = ref.read(catalogueProvider).sort;
-    if (capability == null && query.isEmpty && sort == CatalogueSort.trending) {
-      _catalogue.reset();
-      return;
-    }
     _catalogue.search(
-      query: query,
+      query: _searchController.text.trim(),
       capability: capability,
       clearCapability: capability == null,
     );
@@ -81,16 +78,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     _catalogue.search(query: _searchController.text.trim(), sort: sort);
   }
 
-  Future<void> _refresh(CatalogueState catalogue) async {
-    if (catalogue.isIdle) {
-      ref.invalidate(featuredCatalogueProvider);
-      try {
-        await ref.read(featuredCatalogueProvider.future);
-      } on Object {
-        // The error state is rendered by the section.
-      }
-      return;
-    }
+  Future<void> _refresh() async {
     await _catalogue.retry();
   }
 
@@ -128,7 +116,6 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   Widget build(BuildContext context) {
     watchKrithaPalette(context);
     final catalogue = ref.watch(catalogueProvider);
-    final featured = ref.watch(featuredCatalogueProvider);
 
     return Scaffold(
       backgroundColor: KrithaColors.bgBase,
@@ -140,7 +127,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               children: [
                 WorkspaceHeader(
                   title: 'Models',
-                  onBack: () => context.go('/chat'),
+                  onBack: () => goBackOrExit(context),
                   actions: [
                     WorkspaceIconButton(
                       icon: HugeIcons.strokeRoundedFilterHorizontal,
@@ -161,7 +148,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                   child: RefreshIndicator(
                     color: KrithaColors.accentLightBlue,
                     backgroundColor: KrithaColors.bgSurface,
-                    onRefresh: () => _refresh(catalogue),
+                    onRefresh: _refresh,
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [
@@ -192,7 +179,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                             ),
                           ),
                         ),
-                        ..._contentSlivers(catalogue, featured),
+                        ..._contentSlivers(catalogue),
                         SliverToBoxAdapter(
                           child: SizedBox(height: KrithaSpacing.s32),
                         ),
@@ -208,11 +195,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     );
   }
 
-  List<Widget> _contentSlivers(
-    CatalogueState catalogue,
-    AsyncValue<FeaturedCatalogueState> featured,
-  ) {
-    if (catalogue.loading) {
+  List<Widget> _contentSlivers(CatalogueState catalogue) {
+    if (catalogue.loading || !catalogue.hasLoaded) {
       return const [SliverToBoxAdapter(child: CatalogueLoading())];
     }
     if (catalogue.failure != null) {
@@ -228,10 +212,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
         ),
       ];
     }
-    if (!catalogue.isIdle && catalogue.hasLoaded) {
-      return _resultSlivers(catalogue);
-    }
-    return _featuredSlivers(featured);
+    return _resultSlivers(catalogue);
   }
 
   List<Widget> _resultSlivers(CatalogueState catalogue) {
@@ -243,9 +224,13 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               CatalogueEmpty(
                 title: catalogue.hasMore
                     ? 'More results available'
+                    : catalogue.isIdle
+                    ? 'No trending models'
                     : 'No models found',
                 message: catalogue.hasMore
                     ? 'Continue to load matching repositories.'
+                    : catalogue.isIdle
+                    ? 'The Hub returned no trending repositories right now.'
                     : 'Try a different search term or capability.',
               ),
               if (catalogue.hasMore)
@@ -305,54 +290,6 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                     child: const Text('Load more'),
                   )
                 : const SizedBox.shrink(),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _featuredSlivers(AsyncValue<FeaturedCatalogueState> featured) {
-    return [
-      SliverToBoxAdapter(
-        child: featured.when(
-          data: (state) {
-            if (state.popular.isEmpty && state.recommended.isEmpty) {
-              return const CatalogueEmpty(
-                title: 'No models available',
-                message: 'The Hub returned no repositories right now.',
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _FeaturedSection(
-                  title: 'Popular on the Hub',
-                  caption: 'Most downloaded repositories',
-                  models: state.popular,
-                  onTap: _openModel,
-                ),
-                SizedBox(height: KrithaSpacing.s20),
-                _FeaturedSection(
-                  title: 'Recommended',
-                  caption: 'Most liked repositories',
-                  models: state.recommended,
-                  onTap: _openModel,
-                ),
-              ],
-            );
-          },
-          loading: () => const CatalogueLoading(),
-          error: (error, stackTrace) => Padding(
-            padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s16),
-            child: CatalogueErrorView(
-              failure: error is CatalogueFailure
-                  ? error
-                  : const CatalogueFailure(
-                      kind: CatalogueFailureKind.unknown,
-                      message: 'The featured models could not be loaded.',
-                    ),
-              onRetry: () => ref.invalidate(featuredCatalogueProvider),
-            ),
           ),
         ),
       ),
@@ -476,67 +413,6 @@ class _ModelGrid extends StatelessWidget {
           SizedBox(height: KrithaSpacing.s8),
         ],
       ],
-    );
-  }
-}
-
-class _FeaturedSection extends StatelessWidget {
-  const _FeaturedSection({
-    required this.title,
-    required this.caption,
-    required this.models,
-    required this.onTap,
-  });
-
-  final String title;
-  final String caption;
-  final List<CatalogueModel> models;
-  final ValueChanged<CatalogueModel> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (models.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(left: KrithaSpacing.s16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(right: KrithaSpacing.s16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                WorkspaceSectionTitle(title),
-                Text(
-                  caption,
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeXs,
-                    color: KrithaColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: KrithaSpacing.s10),
-          SizedBox(
-            height: 136,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.only(right: KrithaSpacing.s16),
-              itemCount: models.length,
-              separatorBuilder: (_, _) => SizedBox(width: KrithaSpacing.s12),
-              itemBuilder: (context, index) {
-                final model = models[index];
-                return ModelCard(
-                  model: model,
-                  width: 300,
-                  onTap: () => onTap(model),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

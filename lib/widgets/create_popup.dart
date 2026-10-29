@@ -138,10 +138,8 @@ class CreatePopup extends StatelessWidget {
             ],
           ),
         ),
-        Divider(height: 1, color: KrithaColors.borderFaint),
         Flexible(child: child),
         if (actions.isNotEmpty) ...[
-          Divider(height: 1, color: KrithaColors.borderFaint),
           Padding(
             padding: EdgeInsets.all(KrithaSpacing.s16),
             child: Wrap(
@@ -189,9 +187,11 @@ class PopupPrimaryButton extends StatelessWidget {
     style: FilledButton.styleFrom(
       backgroundColor: destructive
           ? KrithaColors.error
-          : KrithaColors.bgTertiary,
-      foregroundColor: destructive ? Colors.white : KrithaColors.textPrimary,
-      side: BorderSide(color: KrithaColors.borderSubtle),
+          : KrithaColors.accentBlue,
+      foregroundColor: destructive ? Colors.white : KrithaColors.textOnAccent,
+      side: destructive
+          ? BorderSide(color: KrithaColors.borderSubtle)
+          : BorderSide.none,
     ),
     child: Text(label),
   );

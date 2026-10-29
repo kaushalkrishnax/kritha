@@ -10,6 +10,7 @@ import '../models/ai_response.dart';
 import '../models/model_capabilities.dart';
 import '../models/model_descriptor.dart';
 import '../request_validation.dart';
+import '../runtime_ids.dart';
 
 /// Engine-level seam over the `litertlm` package (verified against 0.0.14).
 ///
@@ -181,7 +182,11 @@ class NativeLiteRtLmEngine implements LiteRtLmEngine {
 class LiteRtLmProvider implements InferenceProvider {
   LiteRtLmProvider({required this.descriptor, required this.createEngine});
 
-  static const providerId = 'litertlm';
+  /// Runtime identifier used by descriptors and persisted assignments.
+  static const providerId = localRuntimeId;
+
+  /// Source identifier used by the provider graph and Active Models.
+  static const sourceId = localProviderId;
 
   @override
   final ModelDescriptor descriptor;
@@ -197,7 +202,7 @@ class LiteRtLmProvider implements InferenceProvider {
   bool _disposed = false;
 
   @override
-  String get id => providerId;
+  String get id => sourceId;
 
   @override
   ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;

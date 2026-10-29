@@ -18,6 +18,24 @@ class HuggingFaceHubClient {
 
   static const baseUrl = 'https://huggingface.co';
 
+  // The Hub only returns safetensors metadata when it is explicitly expanded.
+  // Expand every list field the catalogue reads so cards can show real
+  // parameter counts without a second request per repository.
+  static const _listFields = <String>[
+    'author',
+    'createdAt',
+    'lastModified',
+    'downloads',
+    'likes',
+    'pipeline_tag',
+    'private',
+    'gated',
+    'disabled',
+    'tags',
+    'library_name',
+    'safetensors',
+  ];
+
   final Dio _dio;
   final HubTokenReader _readToken;
 
@@ -38,7 +56,7 @@ class HuggingFaceHubClient {
         'direction': -1,
         'limit': limit.clamp(1, 100),
         if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
-        'full': false,
+        'expand': _listFields,
       },
       cancelToken: cancelToken,
     );

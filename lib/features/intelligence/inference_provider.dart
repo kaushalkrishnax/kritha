@@ -11,6 +11,10 @@ import 'models/model_descriptor.dart';
 /// generation succeeded.
 enum EngineLifecycleStage {
   fileReady,
+
+  /// A remote provider is configured and can accept requests without a local
+  /// engine load.
+  ready,
   initializing,
   initialized,
   initializationFailed,
@@ -24,6 +28,8 @@ class EngineLifecycle {
 
   const EngineLifecycle.fileReady() : this(EngineLifecycleStage.fileReady);
 
+  const EngineLifecycle.ready() : this(EngineLifecycleStage.ready);
+
   final EngineLifecycleStage stage;
 
   /// A short, user-safe explanation for a failed state.
@@ -32,6 +38,16 @@ class EngineLifecycle {
   bool get isInitialized => stage == EngineLifecycleStage.initialized;
 
   bool get isInitializing => stage == EngineLifecycleStage.initializing;
+
+  bool get isReady =>
+      stage == EngineLifecycleStage.ready ||
+      stage == EngineLifecycleStage.fileReady ||
+      stage == EngineLifecycleStage.initialized;
+
+  bool get isConfigured =>
+      stage != EngineLifecycleStage.unavailable &&
+      stage != EngineLifecycleStage.initializationFailed &&
+      stage != EngineLifecycleStage.disposed;
 
   @override
   bool operator ==(Object other) {

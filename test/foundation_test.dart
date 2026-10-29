@@ -19,10 +19,12 @@ import 'package:kritha/features/chat/widgets/kritha_avatar.dart';
 import 'package:kritha/features/chat/widgets/message_list.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/providers.dart';
+import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
 import 'support/fake_inference.dart';
+import 'support/fake_workspace.dart';
 import 'support/seed_fixture.dart';
 
 class _FakeDictationNotifier extends DictationNotifier {
@@ -90,13 +92,13 @@ void main() {
       expect(KrithaColors.textMuted, const Color(0xFF9299A3));
       expect(KrithaColors.textDimmed, const Color(0xFF68717D));
 
-      expect(KrithaColors.accentBlue, const Color(0xFF2563EB));
+      expect(KrithaColors.accentBlue, const Color(0xFF3B82F6));
       expect(KrithaColors.accentLightBlue, const Color(0xFF60A5FA));
       expect(KrithaColors.accentCyan, const Color(0xFF22D3EE));
       expect(KrithaColors.accentCyanBg, const Color(0xFF164E63));
 
       expect(KrithaColors.userBubbleBg, const Color(0xFF21437D));
-      expect(KrithaColors.assistantBubbleBg, const Color(0x142563EB));
+      expect(KrithaColors.assistantBubbleBg, const Color(0x143B82F6));
       expect(KrithaColors.bgScrim, const Color(0x99000000));
     });
 
@@ -157,6 +159,12 @@ void main() {
               runtimeStatusProvider.overrideWith((ref) async => _runtime),
               modelConfigStoreProvider.overrideWithValue(
                 InMemoryModelConfigStore('/models/test.litertlm'),
+              ),
+              activeModelStoreProvider.overrideWithValue(
+                InMemoryActiveModelStore(),
+              ),
+              recentModelStoreProvider.overrideWithValue(
+                InMemoryRecentModelStore(),
               ),
               inferenceProvidersProvider.overrideWithValue([
                 FakeInferenceProvider(
@@ -361,6 +369,10 @@ void main() {
       expect(find.byTooltip('Collapse sidebar'), findsOneWidget);
       expect(find.text('Recents').hitTestable(), findsOneWidget);
       expect(
+        tester.getTopLeft(find.text('Providers')).dy,
+        lessThan(tester.getTopLeft(find.text('Models')).dy),
+      );
+      expect(
         find.byWidgetPredicate(
           (widget) => widget is SizedBox && widget.width == 300,
         ),
@@ -386,6 +398,10 @@ void main() {
       // The rail repeats New chat, which also lives in the chat header, so use
       // the rail-only labels.
       expect(find.byTooltip('Library'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byTooltip('Providers')).dy,
+        lessThan(tester.getTopLeft(find.byTooltip('Models')).dy),
+      );
       expect(find.byTooltip('Models'), findsOneWidget);
       expect(find.byTooltip('Providers'), findsOneWidget);
       expect(find.byTooltip('Plugins'), findsOneWidget);
@@ -761,6 +777,12 @@ void main() {
               runtimeStatusProvider.overrideWith((ref) async => _runtime),
               modelConfigStoreProvider.overrideWithValue(
                 InMemoryModelConfigStore('/models/test.litertlm'),
+              ),
+              activeModelStoreProvider.overrideWithValue(
+                InMemoryActiveModelStore(),
+              ),
+              recentModelStoreProvider.overrideWithValue(
+                InMemoryRecentModelStore(),
               ),
               inferenceProvidersProvider.overrideWithValue([
                 FakeInferenceProvider(

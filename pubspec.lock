@@ -225,6 +225,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.4"
+  dart_openai:
+    dependency: "direct main"
+    description:
+      name: dart_openai
+      sha256: "2088f60b8517d7bb454b831b29548a7b11281873f5a3d8f391a3528462f6d9d1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "8.0.0"
   dart_style:
     dependency: transitive
     description:
@@ -281,6 +289,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.3"
+  fetch_api:
+    dependency: transitive
+    description:
+      name: fetch_api
+      sha256: "24cbd5616f3d4008c335c197bb90bfa0eb43b9e55c6de5c60d1f805092636034"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.1"
+  fetch_client:
+    dependency: transitive
+    description:
+      name: fetch_client
+      sha256: "2125ffb6325e0045cc3cbfca1a87e6defe9afa27d85dc14857c1cf3835a9a636"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.1"
   ffi:
     dependency: transitive
     description:
@@ -518,7 +542,7 @@ packages:
     source: hosted
     version: "0.15.7"
   http:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: http
       sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
@@ -1298,6 +1322,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.12"
+  tldts:
+    dependency: "direct main"
+    description:
+      name: tldts
+      sha256: "65a25b0b2f8200faffc7f6de7f7c6d5f1f4cad1d5b7ffdd15279616e6f7fdcad"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1-beta"
   typed_data:
     dependency: transitive
     description:

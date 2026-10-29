@@ -253,37 +253,6 @@ final catalogueProvider = NotifierProvider<CatalogueController, CatalogueState>(
   CatalogueController.new,
 );
 
-class FeaturedCatalogueState {
-  const FeaturedCatalogueState({
-    required this.popular,
-    required this.recommended,
-  });
-
-  final List<CatalogueModel> popular;
-  final List<CatalogueModel> recommended;
-}
-
-class FeaturedCatalogueController
-    extends AsyncNotifier<FeaturedCatalogueState> {
-  @override
-  Future<FeaturedCatalogueState> build() async {
-    final catalogue = ref.watch(modelCatalogueProvider);
-    final pages = await Future.wait([
-      catalogue.search(sort: CatalogueSort.downloads, limit: 12),
-      catalogue.search(sort: CatalogueSort.likes, limit: 12),
-    ]);
-    return FeaturedCatalogueState(
-      popular: filterDiscoverableModels(pages[0].models),
-      recommended: filterDiscoverableModels(pages[1].models),
-    );
-  }
-}
-
-final featuredCatalogueProvider =
-    AsyncNotifierProvider<FeaturedCatalogueController, FeaturedCatalogueState>(
-      FeaturedCatalogueController.new,
-    );
-
 final modelDetailsProvider = FutureProvider.autoDispose
     .family<ModelDetails, String>((ref, id) {
       return ref.watch(modelCatalogueProvider).details(id);

@@ -8,9 +8,11 @@ import '../../models/chat_attachment.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
 import '../intelligence/intelligence_exception.dart';
-import '../intelligence/model_configuration.dart';
 import '../intelligence/models/ai_response.dart';
 import '../intelligence/providers.dart';
+import '../intelligence/runtime_ids.dart';
+import '../models/active/active_models.dart';
+import '../providers/providers_controller.dart';
 import 'conversation_context.dart';
 
 /// A reply that could not be produced, scoped to the chat that asked for it.
@@ -533,7 +535,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     if (prompt.text.trim().isEmpty && prompt.attachments.isNotEmpty) {
       _publishFailure(
         sessionId,
-        'Attachments cannot be read by the local model yet. '
+        'Attachments cannot be read by the selected model yet. '
         'Send a text prompt instead.',
         retryable: false,
         generation: generation,
@@ -543,10 +545,18 @@ class ChatController extends AsyncNotifier<ChatState> {
 
     StreamIterator<AiResponse>? iterator;
     try {
-      // The model may have been removed since it was selected; revalidate
-      // before the runtime touches the path.
-      await ref.read(modelConfigurationProvider.notifier).revalidate();
+      // Assignments are authoritative; wait for the persisted selection before
+      // resolving the backend. Runtime-specific file checks happen in the
+      // local engine factory.
+      await ref.read(activeModelsProvider.future);
       if (generation != _generation) return;
+      final assignments = ref.read(activeAssignmentsProvider);
+      if (assignments.values.any(
+        (assignment) => assignment.sourceId != localProviderId,
+      )) {
+        await ref.read(providersControllerProvider.future);
+        if (generation != _generation) return;
+      }
 
       final stream = ref
           .read(intelligenceEngineProvider)
@@ -570,7 +580,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       if (text.trim().isEmpty) {
         _publishFailure(
           sessionId,
-          'The local model returned an empty response.',
+          'The selected model returned an empty response.',
           retryable: true,
           generation: generation,
         );
@@ -595,7 +605,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       if (generation != _generation) return;
       _publishFailure(
         sessionId,
-        'The local model could not answer. Try again.',
+        'The selected model could not answer. Try again.',
         retryable: true,
         generation: generation,
       );
@@ -844,15 +854,13 @@ class ChatController extends AsyncNotifier<ChatState> {
       ProviderUnavailableException(:final cause)
           when cause is UnsupportedError =>
         'This device cannot run the selected local model.',
-      ProviderUnavailableException() =>
-        'The local model is not available. Check the model in Models, '
-            'then retry.',
+      ProviderUnavailableException(:final message) => message,
       UnsupportedCapabilityException() =>
         'The selected model cannot handle this request.',
       InvalidRequestException() =>
-        'This prompt could not be sent to the local model.',
+        'This prompt could not be sent to the selected model.',
       InferenceFailedException() =>
-        'The local model could not finish the reply. Try again.',
+        'The selected model could not finish the reply. Try again.',
     };
   }
 

@@ -43,6 +43,14 @@ Rules:
 - Header icons must show both press and focus feedback; the pill's clip keeps
   the ripple inside the capsule.
 
+### Workspace headers
+
+Workspace screens use the shared borderless back control. Back navigation pops
+the current route so it returns to the screen that opened it; Android system
+back and desktop Escape use the same stack. When there is no previous route the
+action delegates to the platform's normal exit behavior. Do not hard-code a
+destination such as `/chat` in a back handler.
+
 ### Response actions
 
 Assistant replies end with a quiet action row: Copy, Read aloud, Share and More.

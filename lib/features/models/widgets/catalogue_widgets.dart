@@ -281,33 +281,14 @@ class ModelCard extends StatelessWidget {
                 ),
                 SizedBox(height: KrithaSpacing.s8),
                 Wrap(
-                  spacing: KrithaSpacing.s10,
+                  spacing: KrithaSpacing.s6,
                   runSpacing: KrithaSpacing.s4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (model.taskLabel != null)
-                      _ModelMetadata(
-                        icon: HugeIcons.strokeRoundedTask01,
-                        label: model.taskLabel!,
-                      ),
-                    if (model.parameterCount != null)
-                      _ModelMetadata(
-                        icon: HugeIcons.strokeRoundedCirclePile,
-                        label: formatParameterCount(model.parameterCount!),
-                      ),
-                    if (model.lastModified != null)
-                      _ModelMetadata(
-                        icon: HugeIcons.strokeRoundedCalendar03,
-                        label: _updatedLabel(model.lastModified!),
-                      ),
-                    _ModelMetadata(
-                      icon: HugeIcons.strokeRoundedDownload04,
-                      label: formatCount(model.downloads),
-                    ),
-                    _ModelMetadata(
-                      icon: HugeIcons.strokeRoundedFavourite,
-                      label: formatCount(model.likes),
-                    ),
+                    for (final (index, item) in _metadataItems().indexed) ...[
+                      if (index > 0) _MetadataSeparator(),
+                      item,
+                    ],
                   ],
                 ),
               ],
@@ -316,6 +297,34 @@ class ModelCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<Widget> _metadataItems() {
+    return [
+      if (model.taskLabel != null)
+        _ModelMetadata(
+          icon: HugeIcons.strokeRoundedTask01,
+          label: model.taskLabel!,
+        ),
+      if (model.parameterCount != null)
+        _ModelMetadata(
+          icon: HugeIcons.strokeRoundedChartScatter,
+          label: formatParameterCount(model.parameterCount!),
+        ),
+      if (model.lastModified != null)
+        _ModelMetadata(
+          icon: HugeIcons.strokeRoundedCalendar03,
+          label: _updatedLabel(model.lastModified!),
+        ),
+      _ModelMetadata(
+        icon: HugeIcons.strokeRoundedDownload04,
+        label: formatCount(model.downloads),
+      ),
+      _ModelMetadata(
+        icon: HugeIcons.strokeRoundedFavourite,
+        label: formatCount(model.likes),
+      ),
+    ];
   }
 
   static String _updatedLabel(DateTime date) {
@@ -364,6 +373,22 @@ class _PublisherAvatar extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _MetadataSeparator extends StatelessWidget {
+  const _MetadataSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '•',
+      style: TextStyle(
+        fontSize: KrithaText.size2xs,
+        color: KrithaColors.textDimmed,
+        height: 1,
+      ),
+    );
+  }
 }
 
 class _ModelMetadata extends StatelessWidget {

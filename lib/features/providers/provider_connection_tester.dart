@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/dio_error_utils.dart';
 import '../models/catalogue/catalogue_model.dart';
 import 'provider_definition.dart';
+import 'provider_http_auth.dart';
 
 class ProviderConnectionResult {
   const ProviderConnectionResult({
@@ -56,43 +57,6 @@ class HttpProviderConnectionTester implements ProviderConnectionTester {
 
   final Dio _dio;
 
-  Map<String, String> _headersFor(
-    InferenceProviderDefinition definition,
-    String? credential,
-  ) {
-    final headers = <String, String>{'accept': 'application/json'};
-    final secret = credential?.trim();
-    switch (definition.authStyle) {
-      case ProviderAuthStyle.none:
-        break;
-      case ProviderAuthStyle.bearer:
-        if (secret != null && secret.isNotEmpty) {
-          headers['authorization'] = 'Bearer $secret';
-        }
-      case ProviderAuthStyle.anthropic:
-        if (secret != null && secret.isNotEmpty) {
-          headers['x-api-key'] = secret;
-        }
-        headers['anthropic-version'] = '2023-06-01';
-      case ProviderAuthStyle.queryKey:
-        break;
-    }
-    return headers;
-  }
-
-  Map<String, dynamic>? _queryFor(
-    InferenceProviderDefinition definition,
-    String? credential,
-  ) {
-    final secret = credential?.trim();
-    if (definition.authStyle == ProviderAuthStyle.queryKey &&
-        secret != null &&
-        secret.isNotEmpty) {
-      return {'key': secret};
-    }
-    return null;
-  }
-
   @override
   Future<ProviderConnectionResult> test(
     InferenceProviderDefinition definition, {
@@ -113,8 +77,8 @@ class HttpProviderConnectionTester implements ProviderConnectionTester {
       );
     }
     final path = definition.testPath!;
-    final headers = _headersFor(definition, credential);
-    final query = _queryFor(definition, credential);
+    final headers = providerAuthHeaders(definition, credential);
+    final query = providerAuthQuery(definition, credential);
 
     try {
       final response = await _dio.get<dynamic>(
@@ -179,9 +143,9 @@ class HttpProviderConnectionTester implements ProviderConnectionTester {
     if (base.isEmpty) return const [];
     final response = await _dio.get<dynamic>(
       '$base${definition.testPath}',
-      queryParameters: _queryFor(definition, credential),
+      queryParameters: providerAuthQuery(definition, credential),
       options: Options(
-        headers: _headersFor(definition, credential),
+        headers: providerAuthHeaders(definition, credential),
         validateStatus: (_) => true,
         responseType: ResponseType.json,
       ),

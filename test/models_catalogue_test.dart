@@ -213,7 +213,26 @@ void main() {
       expect(request.queryParameters['direction'], -1);
       expect(request.queryParameters['limit'], 10);
       expect(request.queryParameters['cursor'], 'abc');
+      expect(
+        request.uri.queryParametersAll['expand'],
+        containsAll(<String>['safetensors', 'downloads', 'likes']),
+      );
       expect(request.headers['authorization'], 'Bearer hf_secret');
+    });
+
+    test('uses the Hub trending score with category filters', () async {
+      final adapter = _FakeHttpAdapter((options) async => _jsonResponse([]));
+      final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+      await client.searchModels(
+        capability: ModelCapability.text,
+        sort: CatalogueSort.trending,
+      );
+
+      final request = adapter.requests.single;
+      expect(request.queryParameters['filter'], 'text-generation');
+      expect(request.queryParameters['sort'], 'trendingScore');
+      expect(request.queryParameters['direction'], -1);
     });
 
     test('omits the authorization header for public browsing', () async {

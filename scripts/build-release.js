@@ -4,8 +4,8 @@
 //
 //   node scripts/build-release.js --platform android  # split APKs: arm64 + x64
 //   node scripts/build-release.js --platform aab       # one store bundle
-//   node scripts/build-release.js --platform ios       # signed arm64 device .app
-//   node scripts/build-release.js --platform app        # App Store Connect IPA
+//   node scripts/build-release.js --platform ios       # unsigned arm64 device + host-arch simulator .apps
+//   node scripts/build-release.js --platform app       # App Store Connect IPA
 //   node scripts/build-release.js --platform macos     # separate arm64 + x86_64 .apps
 //   node scripts/build-release.js --platform windows   # x86_64 signed release zip
 
@@ -219,12 +219,25 @@ function buildIosApp(version, ipa) {
   }
 
   flutterBuild(['ios', '--release', '--no-codesign']);
-  const app = path.join(ROOT, 'build', 'ios', 'iphoneos', 'Runner.app');
-  verifyArchitectures(path.join(app, 'Runner'), ['arm64']);
+  const deviceApp = path.join(ROOT, 'build', 'ios', 'iphoneos', 'Runner.app');
+  verifyArchitectures(path.join(deviceApp, 'Runner'), ['arm64']);
   console.log('Verified unsigned local iOS device build; distribution signing is still required.');
   copyBundle(
-    app,
+    deviceApp,
     path.join(ROOT, 'dist', 'ios', `Kritha-${version}-arm64-RELEASE.app`),
+  );
+
+  flutterBuild(['ios', '--release', '--no-codesign', '--simulator']);
+  const simulatorArch = process.arch === 'arm64' ? 'arm64' : 'x86_64';
+  const simApp = path.join(ROOT, 'build', 'ios', 'iphonesimulator', 'Runner.app');
+  if (!fs.existsSync(simApp)) {
+    throw new Error(`Flutter did not produce the iOS simulator app at ${simApp}.`);
+  }
+  verifyArchitectures(path.join(simApp, 'Runner'), [simulatorArch]);
+  console.log(`Verified unsigned local iOS ${simulatorArch} simulator build.`);
+  copyBundle(
+    simApp,
+    path.join(ROOT, 'dist', 'ios', `Kritha-${version}-${simulatorArch}-SIMULATOR-RELEASE.app`),
   );
 }
 

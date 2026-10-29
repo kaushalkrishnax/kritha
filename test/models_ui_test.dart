@@ -1,20 +1,28 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:kritha/app.dart';
 import 'package:kritha/core/providers.dart';
+import 'package:kritha/core/theme.dart';
 import 'package:kritha/data/app_database.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/providers.dart';
+import 'package:kritha/features/intelligence/runtime_ids.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_failure.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/catalogue_providers.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
+import 'package:kritha/features/models/widgets/catalogue_widgets.dart';
 import 'package:kritha/features/providers/provider_connection_tester.dart';
+import 'package:kritha/features/providers/provider_definition.dart';
+import 'package:kritha/features/providers/providers_controller.dart';
 import 'package:kritha/features/providers/provider_stores.dart';
 import 'package:kritha/widgets/create_popup.dart';
 import 'package:kritha/services/runtime_probe.dart';
@@ -57,9 +65,10 @@ void main() {
     required FakeModelCatalogue catalogue,
     InMemoryHuggingFaceTokenStore? tokenStore,
     InMemoryActiveModelStore? activeStore,
+    InMemoryRecentModelStore? recentStore,
     InMemoryProviderSettingsStore? providerSettings,
     InMemoryProviderCredentialStore? providerCredentials,
-    FakeProviderConnectionTester? tester,
+    ProviderConnectionTester? tester,
   }) {
     return ProviderScope(
       overrides: [
@@ -76,7 +85,9 @@ void main() {
         activeModelStoreProvider.overrideWithValue(
           activeStore ?? InMemoryActiveModelStore(),
         ),
-        recentModelStoreProvider.overrideWithValue(InMemoryRecentModelStore()),
+        recentModelStoreProvider.overrideWithValue(
+          recentStore ?? InMemoryRecentModelStore(),
+        ),
         providerSettingsStoreProvider.overrideWithValue(
           providerSettings ?? InMemoryProviderSettingsStore(),
         ),
@@ -109,12 +120,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> openTextModelPicker(WidgetTester tester) async {
+    await openSidebarEntry(tester, 'Models');
+    await tester.tap(find.byTooltip('Active models'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose model').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   FakeModelCatalogue catalogueWithModels() {
     const alpha = CatalogueModel(
       id: 'acme/alpha',
       pipelineTag: 'text-generation',
       downloads: 1200,
       likes: 40,
+      parameterCount: 7000000000,
     );
     const beta = CatalogueModel(
       id: 'acme/beta',
@@ -146,22 +167,118 @@ void main() {
     );
   }
 
-  testWidgets('Models opens on Explore with featured repositories', (
+  testWidgets('Models opens on trending repositories', (tester) async {
+    final catalogue = catalogueWithModels();
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    expect(find.text('Models'), findsOneWidget);
+    expect(catalogue.calls.single.sort, CatalogueSort.trending);
+    expect(find.text('Popular on the Hub'), findsNothing);
+    expect(find.text('Recommended'), findsNothing);
+    expect(find.text('alpha'), findsOneWidget);
+    expect(find.text('beta'), findsOneWidget);
+    expect(find.text('Search Hugging Face models'), findsOneWidget);
+    expect(find.text('image-maker'), findsNothing);
+    expect(find.text('7B'), findsWidgets);
+    expect(find.text('•'), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is KrithaIcon &&
+            widget.icon == HugeIcons.strokeRoundedChartScatter,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('All tab uses the search result list layout vertically', (
     tester,
   ) async {
     await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
     await openSidebarEntry(tester, 'Models');
 
-    expect(find.text('Models'), findsOneWidget);
-    expect(find.text('Popular on the Hub'), findsOneWidget);
-    expect(find.text('Recommended'), findsOneWidget);
-    expect(find.text('alpha'), findsWidgets);
-    expect(find.text('beta'), findsWidgets);
-    expect(find.text('Search Hugging Face models'), findsOneWidget);
-    expect(find.text('image-maker'), findsNothing);
+    expect(find.byType(ModelCard), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(CustomScrollView),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ListView && widget.scrollDirection == Axis.horizontal,
+        ),
+      ),
+      findsNothing,
+    );
+
+    final first = find.byType(ModelCard).at(0);
+    final second = find.byType(ModelCard).at(1);
+    expect(tester.getTopLeft(first).dx, tester.getTopLeft(second).dx);
+    expect(tester.getTopLeft(first).dy, lessThan(tester.getTopLeft(second).dy));
+    expect(tester.widget<ModelCard>(first).width, isNull);
   });
 
-  testWidgets('sorting in Explore replaces featured sections with results', (
+  testWidgets('nested workspaces return through the navigation stack', (
+    tester,
+  ) async {
+    await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.byTooltip('Active models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Active models'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('alpha'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start a new chat'), findsOneWidget);
+  });
+
+  testWidgets('Escape returns to the previous workspace', (tester) async {
+    await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.byTooltip('Active models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Active models'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('alpha'), findsOneWidget);
+  });
+
+  testWidgets('system back returns to the previous workspace', (tester) async {
+    await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.byTooltip('Active models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Active models'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('alpha'), findsOneWidget);
+  });
+
+  testWidgets('Escape dismisses a menu before leaving the workspace', (
+    tester,
+  ) async {
+    await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.byTooltip('Sort models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Most likes'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Most likes'), findsNothing);
+    expect(find.text('alpha'), findsOneWidget);
+  });
+
+  testWidgets('sorting the All tab requests the selected ranking', (
     tester,
   ) async {
     final catalogue = catalogueWithModels();
@@ -174,9 +291,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(catalogue.calls.last.sort, CatalogueSort.likes);
+    expect(catalogue.calls.last.query, isEmpty);
+    expect(catalogue.calls.last.capability, isNull);
     expect(find.text('Popular on the Hub'), findsNothing);
+    expect(find.text('Recommended'), findsNothing);
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
+  });
+
+  testWidgets('category filters keep the trending ranking', (tester) async {
+    final catalogue = catalogueWithModels();
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.text('Text'));
+    await tester.pumpAndSettle();
+
+    expect(catalogue.calls.last.capability, ModelCapability.text);
+    expect(catalogue.calls.last.sort, CatalogueSort.trending);
+
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+
+    expect(catalogue.calls.last.capability, isNull);
+    expect(catalogue.calls.last.sort, CatalogueSort.trending);
   });
 
   testWidgets('clearing search cancels the pending debounce', (tester) async {
@@ -190,8 +328,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
 
-    expect(find.text('Popular on the Hub'), findsOneWidget);
+    expect(find.text('alpha'), findsOneWidget);
     expect(catalogue.calls.where((call) => call.query == 'acme'), isEmpty);
+    expect(catalogue.calls.last.sort, CatalogueSort.trending);
+    expect(catalogue.calls.last.query, isEmpty);
   });
 
   testWidgets('search paginates and opens repository details', (tester) async {
@@ -363,6 +503,243 @@ void main() {
     expect(find.text('Remove assignment'), findsOneWidget);
   });
 
+  testWidgets('model picker formats Gemini names and publisher labels', (
+    tester,
+  ) async {
+    final recentStore = InMemoryRecentModelStore()
+      ..models = [
+        ActiveModelAssignment(
+          capability: ModelCapability.text,
+          modelId: 'models/gemini-2.5-flash',
+          displayName: 'models/gemini-2.5-flash',
+          runtimeId: geminiRuntimeId,
+          sourceId: 'google',
+          activatedAt: DateTime(2026),
+        ),
+      ];
+    final connectionTester = FakeProviderConnectionTester()
+      ..models['google'] = const [
+        ProviderModelInfo(
+          id: 'models/gemini-2.5-flash',
+          name: 'models/gemini-2.5-flash',
+        ),
+        ProviderModelInfo(
+          id: 'models/gemini-2.5-pro',
+          name: 'models/gemini-2.5-pro',
+        ),
+      ];
+    final activeStore = InMemoryActiveModelStore();
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        activeStore: activeStore,
+        recentStore: recentStore,
+        providerSettings: InMemoryProviderSettingsStore({
+          'google': const StoredProviderSettings(
+            baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+            configured: true,
+          ),
+        }),
+        providerCredentials: InMemoryProviderCredentialStore({
+          'google': 'gemini-key',
+        }),
+        tester: connectionTester,
+      ),
+    );
+    await openSidebarEntry(tester, 'Models');
+    await tester.tap(find.byTooltip('Active models'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose model').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('models/gemini-2.5-flash'), findsNothing);
+    expect(find.text('models/gemini-2.5-pro'), findsNothing);
+    expect(find.text('gemini-2.5-flash'), findsWidgets);
+    expect(find.text('gemini-2.5-pro'), findsWidgets);
+    expect(find.text('Google'), findsWidgets);
+    expect(find.text('google'), findsNothing);
+
+    await tester.tap(find.text('gemini-2.5-pro'));
+    await tester.pumpAndSettle();
+    expect(
+      activeStore.assignments[ModelCapability.text]?.modelId,
+      'models/gemini-2.5-pro',
+    );
+
+    final message = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.textSpan?.toPlainText() ==
+                'gemini-2.5-pro is assigned through Google.',
+      ),
+    );
+    final spans = (message.textSpan! as TextSpan).children!.cast<TextSpan>();
+    expect(spans[0].text, 'gemini-2.5-pro');
+    expect(spans[0].style?.fontWeight, FontWeight.w700);
+    expect(spans[2].text, 'Google');
+    expect(spans[2].style?.fontWeight, FontWeight.w700);
+  });
+
+  testWidgets('provider models show loading then success and empty', (
+    tester,
+  ) async {
+    final controlled = _ControlledProviderConnectionTester();
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: InMemoryProviderSettingsStore({
+          'openai': const StoredProviderSettings(
+            baseUrl: 'https://api.openai.com/v1',
+            configured: true,
+          ),
+        }),
+        providerCredentials: InMemoryProviderCredentialStore({
+          'openai': 'sk-test',
+        }),
+        tester: controlled,
+      ),
+    );
+    await openTextModelPicker(tester);
+
+    expect(find.text('Loading provider models…'), findsOneWidget);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+
+    controlled.completeModels(0, const [
+      ProviderModelInfo(id: 'gpt-4o', name: 'GPT-4o'),
+    ]);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('GPT-4o'), findsOneWidget);
+    expect(find.text('Loading provider models…'), findsNothing);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CreatePopup)),
+    );
+    container.invalidate(providerModelsProvider('openai'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.text('Loading provider models…'), findsOneWidget);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+
+    controlled.completeModels(1, const []);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('GPT-4o'), findsNothing);
+    expect(find.text('Loading provider models…'), findsNothing);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('custom provider error clears when the request is retried', (
+    tester,
+  ) async {
+    final controlled = _ControlledProviderConnectionTester();
+    const providerId = 'custom-retry';
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: InMemoryProviderSettingsStore({
+          providerId: const StoredProviderSettings(
+            baseUrl: 'https://api.example.com/v1',
+            configured: true,
+            alias: 'my-api',
+          ),
+        }),
+        tester: controlled,
+      ),
+    );
+    await openTextModelPicker(tester);
+
+    controlled.failModels(0, StateError('provider failed'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsOneWidget,
+    );
+    expect(find.text('Loading provider models…'), findsNothing);
+    expect(find.text('Manage providers'), findsOneWidget);
+    expect(find.text('Manage provider'), findsNothing);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CreatePopup)),
+    );
+    container.invalidate(providerModelsProvider(providerId));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.text('Loading provider models…'), findsOneWidget);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+
+    controlled.completeModels(1, const [
+      ProviderModelInfo(id: 'shared:model', name: 'Shared'),
+    ]);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shared'), findsOneWidget);
+    expect(find.text('Loading provider models…'), findsNothing);
+    expect(
+      find.text('Could not load models. Check the provider configuration.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('provider model error action opens the Providers workspace', (
+    tester,
+  ) async {
+    final controlled = _ControlledProviderConnectionTester();
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: InMemoryProviderSettingsStore({
+          'openai': const StoredProviderSettings(
+            baseUrl: 'https://api.openai.com/v1',
+            configured: true,
+          ),
+        }),
+        providerCredentials: InMemoryProviderCredentialStore({
+          'openai': 'sk-test',
+        }),
+        tester: controlled,
+      ),
+    );
+    await openTextModelPicker(tester);
+
+    controlled.failModels(0, StateError('provider failed'));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Manage providers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Providers'), findsOneWidget);
+  });
+
   testWidgets(
     'Providers connects a hosted provider and keeps keys out of view',
     (tester) async {
@@ -386,6 +763,21 @@ void main() {
       expect(find.text('Google Gemini'), findsOneWidget);
       expect(find.text('Mistral AI'), findsOneWidget);
       expect(find.text('Local models'), findsNothing);
+      expect(find.text('Available models'), findsNothing);
+      expect(find.byTooltip('Provider actions'), findsNothing);
+      expect(find.text('Test connection'), findsNWidgets(4));
+      expect(find.text('Connect'), findsNWidgets(4));
+      expect(find.text('Configure'), findsNothing);
+      expect(find.byTooltip('Configured'), findsNothing);
+      expect(find.byType(OutlinedButton), findsNWidgets(8));
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is KrithaIcon &&
+              widget.icon == HugeIcons.strokeRoundedPlus,
+        ),
+        findsNWidgets(4),
+      );
 
       await tester.tap(find.text('Connect').first);
       await tester.pumpAndSettle();
@@ -397,8 +789,16 @@ void main() {
       expect(credentials.credentials['openai'], 'sk-secret');
       expect(find.text('Provider settings saved'), findsOneWidget);
       expect(find.text('sk-secret'), findsNothing);
+      expect(find.text('Configure'), findsOneWidget);
+      expect(find.text('Connect'), findsNWidgets(3));
+      expect(find.byTooltip('Configured'), findsOneWidget);
+      final tick = find.descendant(
+        of: find.byTooltip('Configured'),
+        matching: find.byType(KrithaIcon),
+      );
+      expect(tester.widget<KrithaIcon>(tick).color, KrithaColors.success);
 
-      await tester.tap(find.text('Connect').first);
+      await tester.tap(find.text('Configure').first);
       await tester.pumpAndSettle();
       expect(
         find.text('Leave blank to keep the saved credential'),
@@ -408,16 +808,281 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Provider actions').first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Test connection'));
+      await tester.tap(find.text('Test connection').first);
       await tester.pumpAndSettle();
       expect(connectionTester.testedProviderIds, ['openai']);
       expect(find.textContaining('Endpoint reachable'), findsOneWidget);
+      expect(find.text('Test connection'), findsNWidgets(4));
 
-      await tester.tap(find.text('Available models').first);
+      await tester.tap(find.text('Configure').first);
       await tester.pumpAndSettle();
-      expect(find.text('Active models'), findsOneWidget);
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(credentials.credentials.containsKey('openai'), isFalse);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('OpenAI'), findsOneWidget);
+      expect(find.byTooltip('Configured'), findsNothing);
+      expect(find.text('Configure'), findsNothing);
+      expect(find.text('Connect'), findsNWidgets(4));
     },
   );
+
+  testWidgets(
+    'provider cards sort configured providers first without section headings',
+    (tester) async {
+      final credentials = InMemoryProviderCredentialStore({
+        'openai': 'sk-openai',
+        'mistral': 'sk-mistral',
+      });
+      await pumpApp(
+        tester,
+        buildApp(
+          catalogue: catalogueWithModels(),
+          providerCredentials: credentials,
+        ),
+      );
+      await openSidebarEntry(tester, 'Providers');
+
+      double top(String label) => tester.getTopLeft(find.text(label)).dy;
+
+      expect(top('OpenAI'), lessThan(top('Mistral AI')));
+      expect(top('Mistral AI'), lessThan(top('Anthropic')));
+      expect(top('Anthropic'), lessThan(top('Google Gemini')));
+      expect(find.byTooltip('Configured'), findsNWidgets(2));
+      expect(find.text('Configure'), findsNWidgets(2));
+      expect(find.text('Connect'), findsNWidgets(2));
+      expect(find.text('Test connection'), findsNWidgets(4));
+      expect(find.text('Configured'), findsNothing);
+      expect(find.text('Not configured'), findsNothing);
+    },
+  );
+
+  testWidgets('custom providers respect optional credentials in sorting', (
+    tester,
+  ) async {
+    final settings = InMemoryProviderSettingsStore({
+      'openai': const StoredProviderSettings(
+        baseUrl: 'https://api.openai.com/v1',
+        configured: true,
+      ),
+      'custom-sort': const StoredProviderSettings(
+        baseUrl: 'https://api.example.com/v1',
+        configured: true,
+        alias: 'my-api',
+      ),
+    });
+    final credentials = InMemoryProviderCredentialStore({
+      'openai': 'sk-openai',
+    });
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: settings,
+        providerCredentials: credentials,
+      ),
+    );
+    await openSidebarEntry(tester, 'Providers');
+
+    double top(String label) => tester.getTopLeft(find.text(label)).dy;
+
+    expect(top('OpenAI'), lessThan(top('my-api')));
+    expect(top('my-api'), lessThan(top('Anthropic')));
+    expect(top('Anthropic'), lessThan(top('Google Gemini')));
+    expect(find.byTooltip('Configured'), findsNWidgets(2));
+    expect(find.text('Configure'), findsNWidgets(2));
+    expect(find.text('Connect'), findsNWidgets(3));
+    expect(find.text('Test connection'), findsNWidgets(5));
+  });
+
+  testWidgets('connection tests stay available without saved credentials', (
+    tester,
+  ) async {
+    final connectionTester = FakeProviderConnectionTester();
+    await pumpApp(
+      tester,
+      buildApp(catalogue: catalogueWithModels(), tester: connectionTester),
+    );
+    await openSidebarEntry(tester, 'Providers');
+
+    await tester.tap(find.text('Test connection').first);
+    await tester.pumpAndSettle();
+
+    expect(connectionTester.testedProviderIds, isEmpty);
+    expect(find.textContaining('before testing'), findsOneWidget);
+    expect(find.text('Test connection'), findsNWidgets(4));
+  });
+
+  testWidgets('removing a custom credential keeps the provider', (
+    tester,
+  ) async {
+    final settings = InMemoryProviderSettingsStore({
+      'custom-remove': const StoredProviderSettings(
+        baseUrl: 'https://api.example.com/v1',
+        configured: true,
+        alias: 'my-api',
+      ),
+    });
+    final credentials = InMemoryProviderCredentialStore({
+      'custom-remove': 'custom-secret',
+    });
+    await pumpApp(
+      tester,
+      buildApp(
+        catalogue: catalogueWithModels(),
+        providerSettings: settings,
+        providerCredentials: credentials,
+      ),
+    );
+    await openSidebarEntry(tester, 'Providers');
+
+    expect(find.text('my-api'), findsOneWidget);
+    expect(find.byTooltip('Configured'), findsOneWidget);
+    expect(find.text('Configure'), findsOneWidget);
+
+    await tester.tap(find.text('Configure').first);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('An API key is saved and is never displayed.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    expect(credentials.credentials.containsKey('custom-remove'), isFalse);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('my-api'), findsOneWidget);
+    expect(settings.settings.containsKey('custom-remove'), isTrue);
+    expect(find.byTooltip('Configured'), findsOneWidget);
+    expect(find.text('Configure'), findsOneWidget);
+    expect(find.text('Connect'), findsNWidgets(4));
+  });
+
+  testWidgets(
+    'custom provider alias stays empty until an incomplete URL is finished',
+    (tester) async {
+      await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+      await openSidebarEntry(tester, 'Providers');
+
+      await tester.tap(
+        find.byTooltip('Add a custom OpenAI-compatible provider'),
+      );
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'https://api.');
+      await tester.tap(fields.at(1));
+      await tester.pump();
+      expect(tester.widget<TextField>(fields.at(2)).controller!.text, isEmpty);
+
+      await tester.enterText(fields.at(0), 'https://api.example.co.uk/v1');
+      await tester.tap(fields.at(1));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(fields.at(2)).controller!.text,
+        'Example Api',
+      );
+    },
+  );
+
+  testWidgets(
+    'custom provider popup derives an editable alias and creates a new provider',
+    (tester) async {
+      final settings = InMemoryProviderSettingsStore();
+      final credentials = InMemoryProviderCredentialStore();
+      await pumpApp(
+        tester,
+        buildApp(
+          catalogue: catalogueWithModels(),
+          providerSettings: settings,
+          providerCredentials: credentials,
+        ),
+      );
+      await openSidebarEntry(tester, 'Providers');
+
+      await tester.tap(
+        find.byTooltip('Add a custom OpenAI-compatible provider'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('New custom provider'), findsOneWidget);
+      final fields = find.byType(TextField);
+      expect(fields, findsNWidgets(3));
+      expect(
+        tester.getTopLeft(find.text('API URL')).dy,
+        lessThan(tester.getTopLeft(find.text('API key')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('API key')).dy,
+        lessThan(tester.getTopLeft(find.text('API Alias')).dy),
+      );
+
+      await tester.enterText(fields.at(0), 'https://api.example.co.uk/v1');
+      await tester.pump();
+      expect(tester.widget<TextField>(fields.at(2)).controller!.text, isEmpty);
+
+      await tester.tap(fields.at(1));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(fields.at(2)).controller!.text,
+        'Example Api',
+      );
+
+      await tester.enterText(fields.at(1), 'custom-secret');
+      await tester.enterText(fields.at(2), 'My Work API');
+      await tester.enterText(fields.at(0), 'https://example.com/v1');
+      await tester.tap(fields.at(1));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(fields.at(2)).controller!.text,
+        'My Work API',
+      );
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Custom provider created'), findsOneWidget);
+      final custom = settings.settings.entries.singleWhere(
+        (entry) => entry.value.alias == 'My Work API',
+      );
+      expect(custom.key, startsWith('custom-'));
+      expect(credentials.credentials[custom.key], 'custom-secret');
+      expect(find.text('My Work API'), findsOneWidget);
+    },
+  );
+}
+
+class _ControlledProviderConnectionTester implements ProviderConnectionTester {
+  final _modelRequests = <Completer<List<ProviderModelInfo>>>[];
+
+  @override
+  Future<ProviderConnectionResult> test(
+    InferenceProviderDefinition definition, {
+    required String baseUrl,
+    String? credential,
+  }) async {
+    return const ProviderConnectionResult(ok: true, message: 'ok');
+  }
+
+  @override
+  Future<List<ProviderModelInfo>> listModels(
+    InferenceProviderDefinition definition, {
+    required String baseUrl,
+    String? credential,
+  }) {
+    final completer = Completer<List<ProviderModelInfo>>();
+    _modelRequests.add(completer);
+    return completer.future;
+  }
+
+  void completeModels(int index, List<ProviderModelInfo> models) {
+    _modelRequests[index].complete(models);
+  }
+
+  void failModels(int index, Object error) {
+    _modelRequests[index].completeError(error);
+  }
 }

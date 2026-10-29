@@ -37,10 +37,11 @@ class InferenceProviderStatus {
   bool get modelLoaded => lifecycle.isInitialized;
 }
 
-/// Application-facing entry point for local inference.
+/// Application-facing entry point for inference.
 ///
-/// Widgets depend on this class only; they never see provider or runtime
-/// objects.
+/// Widgets and feature controllers depend on this class only; they never see
+/// provider or runtime objects or know whether the selected model is local or
+/// remote.
 class IntelligenceEngine {
   const IntelligenceEngine({
     required this.router,
@@ -56,8 +57,7 @@ class IntelligenceEngine {
         InferenceProviderStatus(
           providerId: provider.id,
           modelId: provider.descriptor.id,
-          modelConfigured:
-              provider.descriptor.modelPath?.trim().isNotEmpty ?? false,
+          modelConfigured: provider.lifecycle.value.isConfigured,
           lifecycle: provider.lifecycle.value,
         ),
     ],

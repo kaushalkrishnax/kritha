@@ -1,12 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/theme.dart';
-import '../../widgets/context_menu.dart';
+import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
 import '../models/widgets/workspace_header.dart';
+import 'provider_alias.dart';
 import 'provider_connection_tester.dart';
 import 'provider_definition.dart';
 import 'providers_controller.dart';
@@ -14,25 +14,10 @@ import 'providers_controller.dart';
 class ProvidersScreen extends ConsumerWidget {
   const ProvidersScreen({super.key});
 
-  Future<void> _openCustomProvider(BuildContext context, WidgetRef ref) async {
-    final definition = providerDefinitionFor('custom');
-    if (definition == null) return;
-    final configuration =
-        ref
-            .read(providersControllerProvider)
-            .value
-            ?.configurationFor(definition.id) ??
-        ProviderConfiguration(
-          providerId: definition.id,
-          baseUrl: definition.defaultBaseUrl,
-          hasCredential: false,
-        );
+  Future<void> _openCustomProvider(BuildContext context) async {
     await createPopup<void>(
       context: context,
-      builder: (_) => _ProviderConfigDialog(
-        definition: definition,
-        configuration: configuration,
-      ),
+      builder: (_) => const _CustomProviderDialog(),
     );
   }
 
@@ -51,10 +36,10 @@ class ProvidersScreen extends ConsumerWidget {
               children: [
                 WorkspaceHeader(
                   title: 'Providers',
-                  onBack: () => context.go('/chat'),
+                  onBack: () => goBackOrExit(context),
                   actions: [
                     _CustomProviderAction(
-                      onTap: () => _openCustomProvider(context, ref),
+                      onTap: () => _openCustomProvider(context),
                     ),
                   ],
                 ),
@@ -93,13 +78,18 @@ class _ProvidersBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final definitions = [
-      for (final definition in supportedInferenceProviders)
-        if (!definition.isLocal &&
-            (definition.kind != ProviderKind.custom ||
-                state.configurationFor(definition.id)?.configured == true))
-          definition,
+    final configurations = [
+      for (final definition in builtInInferenceProviders)
+        if (!definition.isLocal) ?state.configurationFor(definition.id),
+      ...state.customConfigurations,
     ];
+    final configured = configurations
+        .where((c) => c.hasRequiredCredentials)
+        .toList();
+    final notConfigured = configurations
+        .where((c) => !c.hasRequiredCredentials)
+        .toList();
+
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         KrithaSpacing.s16,
@@ -110,14 +100,53 @@ class _ProvidersBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final definition in definitions) ...[
+          for (final configuration in configured) ...[
             _ProviderCard(
-              definition: definition,
-              configuration: state.configurationFor(definition.id)!,
-              result: state.testResults[definition.id],
-              testing: state.testing.contains(definition.id),
+              definition: configuration.definition,
+              configuration: configuration,
+              result: state.testResults[configuration.providerId],
+              testing: state.testing.contains(configuration.providerId),
             ),
             SizedBox(height: KrithaSpacing.s10),
+          ],
+          if (notConfigured.isNotEmpty) ...[
+            Padding(
+              padding: EdgeInsets.only(
+                left: KrithaSpacing.s4,
+                right: KrithaSpacing.s4,
+                top: KrithaSpacing.s16,
+                bottom: KrithaSpacing.s8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Not Configured',
+                    style: TextStyle(
+                      fontSize: KrithaText.sizeSm,
+                      fontWeight: FontWeight.w700,
+                      color: KrithaColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Configure more providers',
+                    style: TextStyle(
+                      fontSize: KrithaText.sizeXs,
+                      color: KrithaColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final configuration in notConfigured) ...[
+              _ProviderCard(
+                definition: configuration.definition,
+                configuration: configuration,
+                result: state.testResults[configuration.providerId],
+                testing: state.testing.contains(configuration.providerId),
+              ),
+              SizedBox(height: KrithaSpacing.s10),
+            ],
           ],
         ],
       ),
@@ -194,73 +223,13 @@ class _ProviderCard extends ConsumerWidget {
   Future<void> _configure(BuildContext context) async {
     await createPopup<void>(
       context: context,
-      builder: (_) => _ProviderConfigDialog(
-        definition: definition,
-        configuration: configuration,
-      ),
+      builder: (_) => definition.isCustom
+          ? _CustomProviderDialog(configuration: configuration)
+          : _ProviderConfigDialog(
+              definition: definition,
+              configuration: configuration,
+            ),
     );
-  }
-
-  Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    final confirmed = await createPopup<bool>(
-      context: context,
-      builder: (_) => CreatePopup(
-        title: 'Remove ${definition.name}?',
-        actions: [
-          PopupSecondaryButton(
-            label: 'Cancel',
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          PopupPrimaryButton(
-            label: 'Remove provider',
-            destructive: true,
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-        child: Padding(
-          padding: EdgeInsets.all(KrithaSpacing.s20),
-          child: const Text(
-            'The saved credential and provider settings will be removed from this device.',
-          ),
-        ),
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    await ref
-        .read(providersControllerProvider.notifier)
-        .removeProvider(definition.id);
-  }
-
-  Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
-    final selected = await showKrithaContextMenu(
-      context: context,
-      anchor: ContextMenuAnchor.fromContext(context),
-      align: ContextMenuAlign.right,
-      items: [
-        ContextMenuItem(
-          id: 'test',
-          label: testing ? 'Testing…' : 'Test connection',
-          icon: HugeIcons.strokeRoundedActivity01,
-          disabled: testing || !definition.canTest,
-        ),
-        if (configuration.configured)
-          ContextMenuItem(
-            id: 'remove',
-            label: 'Remove provider',
-            icon: HugeIcons.strokeRoundedDelete02,
-            destructive: true,
-            focusColor: Color(0x33FF453A),
-          ),
-      ],
-    );
-    if (!context.mounted || selected == null) return;
-    if (selected == 'test') {
-      await ref
-          .read(providersControllerProvider.notifier)
-          .testConnection(definition.id);
-    } else if (selected == 'remove') {
-      await _remove(context, ref);
-    }
   }
 
   @override
@@ -305,7 +274,9 @@ class _ProviderCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      definition.name,
+                      definition.isCustom
+                          ? configuration.alias
+                          : definition.name,
                       style: TextStyle(
                         fontSize: KrithaText.sizeSm,
                         fontWeight: FontWeight.w700,
@@ -313,7 +284,9 @@ class _ProviderCard extends ConsumerWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      definition.description,
+                      definition.isCustom
+                          ? 'Alias ${configuration.alias} · ${configuration.baseUrl}'
+                          : definition.description,
                       style: TextStyle(
                         fontSize: KrithaText.sizeXs,
                         color: KrithaColors.textMuted,
@@ -334,20 +307,17 @@ class _ProviderCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              SizedBox(width: KrithaSpacing.s6),
-              Builder(
-                builder: (buttonContext) => IconButton(
-                  tooltip: 'Provider actions',
-                  onPressed: testing
-                      ? null
-                      : () => _openMenu(buttonContext, ref),
-                  icon: KrithaIcon(
-                    icon: HugeIcons.strokeRoundedEllipsisVertical,
+              if (configuration.configured) ...[
+                SizedBox(width: KrithaSpacing.s6),
+                Tooltip(
+                  message: 'Configured',
+                  child: KrithaIcon(
+                    icon: HugeIcons.strokeRoundedCheckmarkCircle02,
                     size: KrithaIcons.sm,
-                    color: KrithaColors.textMuted,
+                    color: KrithaColors.success,
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           SizedBox(height: KrithaSpacing.s10),
@@ -357,12 +327,22 @@ class _ProviderCard extends ConsumerWidget {
             runSpacing: KrithaSpacing.s8,
             children: [
               WorkspaceOutlinedAction(
-                label: 'Available models',
-                onPressed: () => context.go('/models/active'),
+                label: 'Test connection',
+                icon: HugeIcons.strokeRoundedActivity01,
+                busy: testing,
+                onPressed: testing
+                    ? null
+                    : () => ref
+                          .read(providersControllerProvider.notifier)
+                          .testConnection(configuration.providerId),
               ),
               WorkspaceOutlinedAction(
-                label: 'Connect',
-                icon: HugeIcons.strokeRoundedPlusSign,
+                label: configuration.hasRequiredCredentials
+                    ? 'Configure'
+                    : 'Connect',
+                icon: configuration.hasRequiredCredentials
+                    ? HugeIcons.strokeRoundedSettings01
+                    : HugeIcons.strokeRoundedPlus,
                 onPressed: () => _configure(context),
               ),
             ],
@@ -379,8 +359,13 @@ class _ProviderCard extends ConsumerWidget {
       'openai' => HugeIcons.strokeRoundedChatGpt,
       'anthropic' => HugeIcons.strokeRoundedClaude,
       'google' => HugeIcons.strokeRoundedGoogleGemini,
+      'xai' => HugeIcons.strokeRoundedGrok02,
+      'deepseek' => HugeIcons.strokeRoundedDeepseek,
+      'perplexity' => HugeIcons.strokeRoundedPerplexityAi,
+      'qwen' => HugeIcons.strokeRoundedQwen,
+      'huggingface' => HugeIcons.strokeRoundedHappy01,
       'mistral' => HugeIcons.strokeRoundedMistral,
-      _ => HugeIcons.strokeRoundedPlug02,
+      _ => HugeIcons.strokeRoundedAiChip,
     };
   }
 }
@@ -595,6 +580,267 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   }
 
   InputDecoration _decoration({required String hintText}) {
+    return InputDecoration(
+      hintText: hintText,
+      filled: true,
+      fillColor: KrithaColors.bgPrimary,
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s12,
+        vertical: KrithaSpacing.s12,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        borderSide: BorderSide(color: KrithaColors.borderSubtle),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        borderSide: BorderSide(color: KrithaColors.borderSubtle),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        borderSide: BorderSide(color: KrithaColors.borderAccent),
+      ),
+    );
+  }
+}
+
+class _CustomProviderDialog extends ConsumerStatefulWidget {
+  const _CustomProviderDialog({this.configuration});
+
+  final ProviderConfiguration? configuration;
+
+  @override
+  ConsumerState<_CustomProviderDialog> createState() =>
+      _CustomProviderDialogState();
+}
+
+class _CustomProviderDialogState extends ConsumerState<_CustomProviderDialog> {
+  late final TextEditingController _baseUrl = TextEditingController(
+    text: widget.configuration?.baseUrl ?? '',
+  );
+  late final TextEditingController _alias = TextEditingController(
+    text: widget.configuration?.alias ?? '',
+  );
+  final _credential = TextEditingController();
+  final _urlFocus = FocusNode();
+  String? _error;
+  bool _saving = false;
+
+  bool get _editing => widget.configuration != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlFocus.addListener(_onUrlFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _urlFocus
+      ..removeListener(_onUrlFocusChanged)
+      ..dispose();
+    _baseUrl.dispose();
+    _alias.dispose();
+    _credential.dispose();
+    super.dispose();
+  }
+
+  void _onUrlFocusChanged() {
+    if (_urlFocus.hasFocus) return;
+    _deriveAliasFromUrl();
+  }
+
+  void _deriveAliasFromUrl() {
+    if (_alias.text.trim().isNotEmpty) return;
+    final derived = deriveProviderAlias(_baseUrl.text);
+    if (derived == null || derived.isEmpty) return;
+    _alias.value = TextEditingValue(
+      text: derived,
+      selection: TextSelection.collapsed(offset: derived.length),
+    );
+  }
+
+  Future<void> _save() async {
+    final controller = ref.read(providersControllerProvider.notifier);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      if (_editing) {
+        await controller.updateCustomProvider(
+          widget.configuration!.providerId,
+          baseUrl: _baseUrl.text,
+          alias: _alias.text,
+          credential: _credential.text.trim().isEmpty ? null : _credential.text,
+        );
+      } else {
+        await controller.createCustomProvider(
+          baseUrl: _baseUrl.text,
+          alias: _alias.text,
+          credential: _credential.text,
+        );
+      }
+    } on ProviderConfigurationException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = error.message;
+      });
+      return;
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'The provider settings could not be saved.';
+      });
+      return;
+    }
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          _editing ? 'Provider updated' : 'Custom provider created',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeCredential() async {
+    try {
+      await ref
+          .read(providersControllerProvider.notifier)
+          .removeCredential(widget.configuration!.providerId);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The API key could not be removed')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    _credential.clear();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Provider API key removed')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final configuration = widget.configuration == null
+        ? null
+        : ref
+              .watch(providersControllerProvider)
+              .value
+              ?.configurationFor(widget.configuration!.providerId);
+    final hasCredential =
+        configuration?.hasCredential ??
+        widget.configuration?.hasCredential ??
+        false;
+    return CreatePopup(
+      title: _editing ? 'Edit custom provider' : 'New custom provider',
+      actions: [
+        PopupSecondaryButton(
+          label: 'Cancel',
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+        ),
+        PopupPrimaryButton(
+          label: _saving ? 'Saving…' : 'Save',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(KrithaSpacing.s20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _FieldLabel('API URL'),
+            SizedBox(height: KrithaSpacing.s6),
+            TextField(
+              controller: _baseUrl,
+              focusNode: _urlFocus,
+              autocorrect: false,
+              decoration: _customDecoration(
+                hintText: 'https://api.example.com/v1',
+              ),
+            ),
+            SizedBox(height: KrithaSpacing.s14),
+            const _FieldLabel('API key'),
+            SizedBox(height: KrithaSpacing.s6),
+            TextField(
+              controller: _credential,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: _customDecoration(
+                hintText: hasCredential
+                    ? 'Leave blank to keep the saved API key'
+                    : 'Paste an API key (optional)',
+              ),
+            ),
+            if (hasCredential) ...[
+              SizedBox(height: KrithaSpacing.s8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'An API key is saved and is never displayed.',
+                      style: TextStyle(
+                        fontSize: KrithaText.size2xs,
+                        color: KrithaColors.textMuted,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _removeCredential,
+                    style: TextButton.styleFrom(
+                      foregroundColor: KrithaColors.error,
+                    ),
+                    child: const Text('Remove'),
+                  ),
+                ],
+              ),
+            ],
+            SizedBox(height: KrithaSpacing.s14),
+            const _FieldLabel('API Alias'),
+            SizedBox(height: KrithaSpacing.s6),
+            TextField(
+              controller: _alias,
+              autocorrect: false,
+              decoration: _customDecoration(
+                hintText: 'Derived from the URL when left empty',
+              ),
+            ),
+            SizedBox(height: KrithaSpacing.s6),
+            Text(
+              'The alias identifies this provider in lists. Model IDs are '
+              'kept exactly as the API returns them.',
+              style: TextStyle(
+                fontSize: KrithaText.size2xs,
+                color: KrithaColors.textMuted,
+                height: 1.4,
+              ),
+            ),
+            if (_error != null) ...[
+              SizedBox(height: KrithaSpacing.s8),
+              Text(
+                _error!,
+                style: TextStyle(
+                  fontSize: KrithaText.sizeXs,
+                  color: KrithaColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _customDecoration({required String hintText}) {
     return InputDecoration(
       hintText: hintText,
       filled: true,

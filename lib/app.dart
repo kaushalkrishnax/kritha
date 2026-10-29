@@ -1,9 +1,11 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'widgets/back_navigation.dart';
 
 class KrithaApp extends ConsumerWidget {
   const KrithaApp({super.key});
@@ -29,7 +31,13 @@ class KrithaApp extends ConsumerWidget {
         watchKrithaPalette(context);
         return DefaultTextStyle.merge(
           style: Theme.of(context).textTheme.bodyMedium!,
-          child: child ?? SizedBox.shrink(),
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () =>
+                  goBackOrExitRouter(ref.read(routerProvider)),
+            },
+            child: child ?? SizedBox.shrink(),
+          ),
         );
       },
       routerConfig: ref.watch(routerProvider),

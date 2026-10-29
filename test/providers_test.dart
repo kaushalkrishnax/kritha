@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
+import 'package:kritha/features/intelligence/runtime_ids.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/providers/provider_connection_tester.dart';
 import 'package:kritha/features/providers/provider_definition.dart';
@@ -105,19 +106,23 @@ void main() {
         expect(settings.settings['openai']!.configured, isTrue);
         final state = container.read(providersControllerProvider).value!;
         expect(state.configurationFor('openai')!.hasCredential, isTrue);
+        expect(
+          state.configurationFor('openai')!.hasRequiredCredentials,
+          isTrue,
+        );
         expect(state.configurationFor('openai')!.configured, isTrue);
         expect(state.toString(), isNot(contains('sk-test')));
 
         await controller.removeCredential('openai');
         expect(credentials.credentials.containsKey('openai'), isFalse);
-        expect(
-          container
-              .read(providersControllerProvider)
-              .value!
-              .configurationFor('openai')!
-              .hasCredential,
-          isFalse,
-        );
+        final removed = container
+            .read(providersControllerProvider)
+            .value!
+            .configurationFor('openai')!;
+        expect(removed.hasCredential, isFalse);
+        expect(removed.hasRequiredCredentials, isFalse);
+        expect(removed.configured, isFalse);
+        expect(settings.settings.containsKey('openai'), isTrue);
       },
     );
 
@@ -228,6 +233,175 @@ void main() {
 
       expect(result.ok, isFalse);
       expect(result.message, contains('No local model is selected'));
+    });
+  });
+
+  group('custom providers', () {
+    test(
+      'creates independent providers with derived and edited aliases',
+      () async {
+        final settings = InMemoryProviderSettingsStore();
+        final credentials = InMemoryProviderCredentialStore();
+        final tester = FakeProviderConnectionTester();
+        final container = buildContainer(
+          settings: settings,
+          credentials: credentials,
+          tester: tester,
+        );
+        addTearDown(container.dispose);
+        await container.read(providersControllerProvider.future);
+        final controller = container.read(providersControllerProvider.notifier);
+
+        final first = await controller.createCustomProvider(
+          baseUrl: 'https://api.example.co.uk/v1',
+          alias: '',
+          credential: 'key-a',
+        );
+        final second = await controller.createCustomProvider(
+          baseUrl: 'https://example.com/v1',
+          alias: 'My Work API',
+          credential: 'key-b',
+        );
+
+        expect(first.alias, 'Example Api');
+        expect(second.alias, 'My Work API');
+        expect(first.providerId, isNot(second.providerId));
+        expect(first.configured, isTrue);
+        expect(settings.settings[first.providerId]!.alias, 'Example Api');
+        expect(settings.settings[second.providerId]!.alias, 'My Work API');
+        expect(credentials.credentials[first.providerId], 'key-a');
+        expect(credentials.credentials[second.providerId], 'key-b');
+
+        final state = container.read(providersControllerProvider).value!;
+        expect(state.customConfigurations, hasLength(2));
+        expect(
+          state.configurationForAlias('EXAMPLE API')?.providerId,
+          first.providerId,
+        );
+
+        await expectLater(
+          controller.createCustomProvider(
+            baseUrl: 'https://another.example.com/v1',
+            alias: 'my work api',
+          ),
+          throwsA(isA<ProviderConfigurationException>()),
+        );
+        await expectLater(
+          controller.createCustomProvider(
+            baseUrl: 'https://another.example.com/v1',
+            alias: 'openai',
+          ),
+          throwsA(isA<ProviderConfigurationException>()),
+        );
+        expect(
+          settings.settings.keys.where((id) => id.startsWith('custom-')),
+          hasLength(2),
+        );
+
+        final updated = await controller.updateCustomProvider(
+          first.providerId,
+          baseUrl: 'https://api.example.com/v1',
+          alias: 'Renamed API',
+        );
+        expect(updated.providerId, first.providerId);
+        expect(updated.alias, 'Renamed API');
+        expect(settings.settings[first.providerId]!.alias, 'Renamed API');
+        expect(credentials.credentials[first.providerId], 'key-a');
+      },
+    );
+
+    test(
+      'removing a custom credential keeps the provider configured',
+      () async {
+        final settings = InMemoryProviderSettingsStore();
+        final credentials = InMemoryProviderCredentialStore();
+        final container = buildContainer(
+          settings: settings,
+          credentials: credentials,
+        );
+        addTearDown(container.dispose);
+        await container.read(providersControllerProvider.future);
+        final controller = container.read(providersControllerProvider.notifier);
+
+        final custom = await controller.createCustomProvider(
+          baseUrl: 'https://api.example.com/v1',
+          alias: 'my-api',
+          credential: 'custom-secret',
+        );
+        expect(custom.hasCredential, isTrue);
+        expect(custom.hasRequiredCredentials, isTrue);
+        expect(custom.configured, isTrue);
+
+        await controller.removeCredential(custom.providerId);
+
+        final state = container.read(providersControllerProvider).value!;
+        final updated = state.configurationFor(custom.providerId)!;
+        expect(credentials.credentials.containsKey(custom.providerId), isFalse);
+        expect(settings.settings.containsKey(custom.providerId), isTrue);
+        expect(updated.hasCredential, isFalse);
+        expect(updated.hasRequiredCredentials, isTrue);
+        expect(updated.configured, isTrue);
+      },
+    );
+
+    test('preserves the legacy custom provider configuration', () async {
+      final settings = InMemoryProviderSettingsStore({
+        'custom': const StoredProviderSettings(
+          baseUrl: 'https://api.deepseek.com',
+        ),
+      });
+      final credentials = InMemoryProviderCredentialStore({
+        'custom': 'ds-test',
+      });
+      final container = buildContainer(
+        settings: settings,
+        credentials: credentials,
+      );
+      addTearDown(container.dispose);
+
+      final state = await container.read(providersControllerProvider.future);
+      final legacy = state.configurationFor('custom');
+
+      expect(legacy, isNotNull);
+      expect(legacy!.alias, 'custom');
+      expect(legacy.definition.runtimeId, openAiRuntimeId);
+      expect(legacy.baseUrl, 'https://api.deepseek.com');
+      expect(legacy.hasCredential, isTrue);
+      expect(legacy.configured, isTrue);
+    });
+
+    test('lists identical model IDs independently for each provider', () async {
+      final tester = FakeProviderConnectionTester();
+      final container = buildContainer(tester: tester);
+      addTearDown(container.dispose);
+      await container.read(providersControllerProvider.future);
+      final controller = container.read(providersControllerProvider.notifier);
+
+      final first = await controller.createCustomProvider(
+        baseUrl: 'https://a.example.com/v1',
+        alias: 'provider-a',
+      );
+      final second = await controller.createCustomProvider(
+        baseUrl: 'https://b.example.com/v1',
+        alias: 'provider-b',
+      );
+      tester.models[first.providerId] = const [
+        ProviderModelInfo(id: 'shared:model', name: 'Shared'),
+      ];
+      tester.models[second.providerId] = const [
+        ProviderModelInfo(id: 'shared:model', name: 'Shared'),
+      ];
+
+      final firstModels = await container.read(
+        providerModelsProvider(first.providerId).future,
+      );
+      final secondModels = await container.read(
+        providerModelsProvider(second.providerId).future,
+      );
+
+      expect(firstModels.single.id, 'shared:model');
+      expect(secondModels.single.id, 'shared:model');
+      expect(first.providerId, isNot(second.providerId));
     });
   });
 

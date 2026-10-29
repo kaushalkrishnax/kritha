@@ -17,7 +17,7 @@
 
 <p>
   <img src="https://img.shields.io/badge/Android-arm64%20%7C%20x86__64-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android arm64 and x86_64" />
-  <img src="https://img.shields.io/badge/iOS-arm64-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS arm64" />
+  <img src="https://img.shields.io/badge/iOS-arm64%20device%20%7C%20host%20simulator-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS arm64 device and host-architecture simulator" />
   <img src="https://img.shields.io/badge/macOS-universal-000000?style=flat-square&logo=apple&logoColor=white" alt="Universal macOS" />
   <img src="https://img.shields.io/badge/Windows-x86__64-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows x86_64" />
 </p>

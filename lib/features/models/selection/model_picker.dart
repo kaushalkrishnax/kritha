@@ -6,13 +6,14 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/create_popup.dart';
 import '../../intelligence/model_configuration.dart';
+import '../../intelligence/runtime_ids.dart';
 import '../../providers/providers_controller.dart';
-import '../../providers/provider_definition.dart';
 import '../../providers/provider_connection_tester.dart';
 import '../active/active_models.dart';
 import '../catalogue/catalogue_model.dart';
 import '../widgets/catalogue_widgets.dart';
 import '../widgets/workspace_header.dart';
+import 'model_display.dart';
 
 Future<ActiveModelAssignment?> showModelPicker(
   BuildContext context, {
@@ -59,7 +60,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     ModelConfiguration? configuration,
     ProvidersState? providers,
   ) {
-    if (item.sourceId == 'local-litertlm') {
+    if (item.sourceId == localProviderId) {
       return item.capability == ModelCapability.text &&
           configuration?.descriptor?.id == item.modelId;
     }
@@ -88,6 +89,51 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     );
   }
 
+  Widget _providerSection(
+    String title,
+    List<ActiveModelAssignment> choices,
+    AsyncValue<List<ProviderModelInfo>> models,
+  ) {
+    if (models.isLoading) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          WorkspaceSectionTitle(title),
+          const CatalogueLoading(label: 'Loading provider models…'),
+        ],
+      );
+    }
+    if (models.hasError) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          WorkspaceSectionTitle(title),
+          Padding(
+            padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: KrithaSpacing.s8,
+              children: [
+                Text(
+                  'Could not load models. Check the provider configuration.',
+                  style: TextStyle(
+                    fontSize: KrithaText.sizeXs,
+                    color: KrithaColors.textMuted,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/providers'),
+                  child: const Text('Manage providers'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return _section(title, choices);
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeValue = ref.watch(activeModelsProvider).value;
@@ -112,7 +158,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
         modelId: model.id,
         displayName: model.displayName,
         runtimeId: model.runtimeId,
-        sourceId: 'local-litertlm',
+        sourceId: localProviderId,
         activatedAt: DateTime.now(),
       );
       if (_matches(assignment) && !recentKeys.contains(_key(assignment))) {
@@ -130,14 +176,12 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
           )
         >[];
     if (providersValue != null) {
-      for (final definition in supportedInferenceProviders.where(
-        (definition) => !definition.isLocal,
-      )) {
-        final configuration = providersValue.configurationFor(definition.id);
-        if (configuration == null || !configuration.configured) {
-          continue;
-        }
-        final models = ref.watch(providerModelsProvider(definition.id));
+      for (final configuration in providersValue.configurations.values) {
+        if (configuration.isLocal || !configuration.configured) continue;
+        final definition = configuration.definition;
+        final models = ref.watch(
+          providerModelsProvider(configuration.providerId),
+        );
         final choices = (models.asData?.value ?? const <ProviderModelInfo>[])
             .where((model) {
               if (!model.supports(widget.capability)) return false;
@@ -145,8 +189,8 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 capability: widget.capability,
                 modelId: model.id,
                 displayName: model.name,
-                runtimeId: definition.id,
-                sourceId: definition.id,
+                runtimeId: definition.runtimeId,
+                sourceId: configuration.providerId,
                 activatedAt: DateTime.now(),
               );
               return _matches(item) && !recentKeys.contains(_key(item));
@@ -156,13 +200,18 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 capability: widget.capability,
                 modelId: model.id,
                 displayName: model.name,
-                runtimeId: definition.id,
-                sourceId: definition.id,
+                runtimeId: definition.runtimeId,
+                sourceId: configuration.providerId,
                 activatedAt: DateTime.now(),
               ),
             )
             .toList();
-        providerGroups.add((definition.name, definition.id, choices, models));
+        providerGroups.add((
+          definition.isCustom ? configuration.alias : definition.name,
+          configuration.providerId,
+          choices,
+          models,
+        ));
       }
     }
 
@@ -233,36 +282,8 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                   const CatalogueLoading(label: 'Loading available models…'),
                 _section('Recent models', recent),
                 _section('Local models', local),
-                for (final group in providerGroups) ...[
-                  if (group.$3.isNotEmpty) _section(group.$1, group.$3),
-                  if (group.$4.isLoading) ...[
-                    WorkspaceSectionTitle(group.$1),
-                    const CatalogueLoading(label: 'Loading provider models…'),
-                  ],
-                  if (group.$4.hasError) ...[
-                    WorkspaceSectionTitle(group.$1),
-                    Padding(
-                      padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: KrithaSpacing.s8,
-                        children: [
-                          Text(
-                            'Could not load models. Check the provider configuration.',
-                            style: TextStyle(
-                              fontSize: KrithaText.sizeXs,
-                              color: KrithaColors.textMuted,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => context.go('/providers'),
-                            child: const Text('Manage provider'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                for (final group in providerGroups)
+                  _providerSection(group.$1, group.$3, group.$4),
                 if (activeValue != null &&
                     providersValue != null &&
                     recent.isEmpty &&
@@ -284,7 +305,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                       OutlinedButton(
                         onPressed: () {
                           Navigator.of(context).pop();
-                          context.go('/providers');
+                          context.push('/providers');
                         },
                         child: const Text('Manage providers'),
                       ),
@@ -299,14 +320,25 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
   }
 }
 
-class _ModelChoiceRow extends StatelessWidget {
+class _ModelChoiceRow extends ConsumerWidget {
   const _ModelChoiceRow({required this.model});
 
   final ActiveModelAssignment model;
 
   @override
-  Widget build(BuildContext context) {
-    final isLocal = model.sourceId == 'local-litertlm';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLocal = model.sourceId == localProviderId;
+    final provider = ref
+        .watch(providersControllerProvider)
+        .value
+        ?.configurationFor(model.sourceId);
+    final customAlias = provider?.isCustom == true ? provider!.alias : null;
+    final providerLabel = isLocal
+        ? 'Local LiteRT-LM'
+        : customAlias ?? displayPublisherName(model.sourceId);
+    final displayName = model.runtimeId == geminiRuntimeId
+        ? displayModelName(model.displayName)
+        : model.displayName;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -341,7 +373,7 @@ class _ModelChoiceRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      model.displayName,
+                      displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -350,10 +382,7 @@ class _ModelChoiceRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      isLocal
-                          ? 'Local LiteRT-LM'
-                          : providerDefinitionFor(model.sourceId)?.name ??
-                                model.sourceId,
+                      providerLabel,
                       style: TextStyle(
                         fontSize: KrithaText.size2xs,
                         color: KrithaColors.textMuted,

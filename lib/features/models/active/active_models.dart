@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../intelligence/model_configuration.dart';
 import '../../intelligence/models/model_descriptor.dart';
+import '../../intelligence/runtime_ids.dart';
+import '../../providers/provider_definition.dart';
 import '../../providers/providers_controller.dart';
 import '../catalogue/catalogue_model.dart';
 
@@ -17,7 +19,7 @@ class ActiveModelAssignment {
     required this.displayName,
     required this.runtimeId,
     required this.activatedAt,
-    this.sourceId = 'local-litertlm',
+    this.sourceId = localProviderId,
   });
 
   final ModelCapability capability;
@@ -44,22 +46,40 @@ class ActiveModelAssignment {
     if (modelId is! String || modelId.trim().isEmpty) {
       throw const FormatException('Missing model id');
     }
+    final sourceId = _canonicalSourceId(
+      json['sourceId'] is String ? json['sourceId'] as String : null,
+    );
     return ActiveModelAssignment(
       capability: capability,
       modelId: modelId,
       displayName: json['displayName'] is String
           ? json['displayName'] as String
           : modelId,
-      runtimeId: json['runtimeId'] is String
-          ? json['runtimeId'] as String
-          : 'unknown',
+      runtimeId: _canonicalRuntimeId(
+        sourceId,
+        json['runtimeId'] is String ? json['runtimeId'] as String : null,
+      ),
       activatedAt:
           DateTime.tryParse('${json['activatedAt']}') ?? DateTime.now(),
-      sourceId: json['sourceId'] is String
-          ? json['sourceId'] as String
-          : 'local-litertlm',
+      sourceId: sourceId,
     );
   }
+}
+
+String _canonicalSourceId(String? raw) {
+  final value = raw?.trim();
+  if (value == null || value.isEmpty || value == localRuntimeId) {
+    return localProviderId;
+  }
+  return value;
+}
+
+String _canonicalRuntimeId(String sourceId, String? raw) {
+  final value = raw?.trim();
+  if (sourceId == localProviderId) return localRuntimeId;
+  final definition = providerDefinitionFor(sourceId);
+  if (definition != null) return definition.runtimeId;
+  return value == null || value.isEmpty ? sourceId : value;
 }
 
 abstract interface class ActiveModelStore {
@@ -204,7 +224,7 @@ class ActiveModelsState {
           ? ActiveAssignmentStatus.ready
           : ActiveAssignmentStatus.noModel;
     }
-    if (assignment.sourceId != 'local-litertlm') {
+    if (assignment.sourceId != localProviderId) {
       return ActiveAssignmentStatus.assigned;
     }
     final model = configuredModel;
@@ -278,7 +298,7 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     if (current == null) return;
     await assignModel(
       capability: capability,
-      sourceId: 'local-litertlm',
+      sourceId: localProviderId,
       modelId: model.id,
       displayName: model.displayName,
       runtimeId: model.runtimeId,
@@ -292,7 +312,12 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     required String displayName,
     required String runtimeId,
   }) async {
-    if (sourceId == 'local-litertlm') {
+    final canonicalSourceId = _canonicalSourceId(sourceId);
+    final canonicalRuntimeId = _canonicalRuntimeId(
+      canonicalSourceId,
+      runtimeId,
+    );
+    if (canonicalSourceId == localProviderId) {
       if (capability != ModelCapability.text) {
         throw ActiveModelException(
           'The local LiteRT-LM runtime does not expose ${capability.label.toLowerCase()} in this build.',
@@ -307,13 +332,15 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
       }
     } else {
       final provider = await ref.read(providersControllerProvider.future);
-      final configuration = provider.configurationFor(sourceId);
+      final configuration = provider.configurationFor(canonicalSourceId);
       if (configuration == null || !configuration.configured) {
         throw const ActiveModelException(
           'Connect this provider before assigning its model.',
         );
       }
-      final models = await ref.read(providerModelsProvider(sourceId).future);
+      final models = await ref.read(
+        providerModelsProvider(canonicalSourceId).future,
+      );
       final model = models.where((model) => model.id == modelId);
       if (model.isEmpty || !model.first.supports(capability)) {
         throw const ActiveModelException(
@@ -327,8 +354,8 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
       capability: capability,
       modelId: modelId,
       displayName: displayName,
-      runtimeId: runtimeId,
-      sourceId: sourceId,
+      runtimeId: canonicalRuntimeId,
+      sourceId: canonicalSourceId,
       activatedAt: DateTime.now(),
     );
     final next = Map<ModelCapability, ActiveModelAssignment>.from(
@@ -337,7 +364,8 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     final recents = [
       assignment,
       ...current.recents.where(
-        (item) => !(item.sourceId == sourceId && item.modelId == modelId),
+        (item) =>
+            !(item.sourceId == canonicalSourceId && item.modelId == modelId),
       ),
     ].take(12).toList(growable: false);
     await _persist(next);

@@ -1,9 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/back_navigation.dart';
+import '../intelligence/runtime_ids.dart';
+import '../providers/providers_controller.dart';
 import 'providers.dart';
+import 'selection/model_display.dart';
 import 'selection/model_picker.dart';
 import 'widgets/catalogue_widgets.dart';
 import 'widgets/workspace_header.dart';
@@ -26,7 +29,7 @@ class ActiveModelsScreen extends ConsumerWidget {
               children: [
                 WorkspaceHeader(
                   title: 'Active models',
-                  onBack: () => context.go('/models'),
+                  onBack: () => goBackOrExit(context),
                 ),
                 Expanded(
                   child: active.when(
@@ -131,7 +134,7 @@ class _ActiveBody extends ConsumerWidget {
   }
 }
 
-class _CapabilitySlot extends StatelessWidget {
+class _CapabilitySlot extends ConsumerWidget {
   const _CapabilitySlot({
     required this.capability,
     required this.state,
@@ -145,9 +148,18 @@ class _CapabilitySlot extends StatelessWidget {
   final VoidCallback onDeactivate;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final status = state.statusFor(capability);
     final assignment = state.assignments[capability];
+    final remote = assignment != null && assignment.sourceId != localProviderId;
+    final provider = remote
+        ? ref
+              .watch(providersControllerProvider)
+              .value
+              ?.configurationFor(assignment.sourceId)
+        : null;
+    final providerConfigured = provider?.configured ?? false;
+    final providerAlias = provider?.alias ?? assignment?.sourceId;
     return WorkspaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +179,9 @@ class _CapabilitySlot extends StatelessWidget {
                 child: KrithaIcon(
                   icon: capabilityIcon(capability),
                   size: KrithaIcons.base,
-                  color: status == ActiveAssignmentStatus.active
+                  color:
+                      status == ActiveAssignmentStatus.active ||
+                          providerConfigured
                       ? KrithaColors.success
                       : KrithaColors.textMuted,
                 ),
@@ -196,12 +210,15 @@ class _CapabilitySlot extends StatelessWidget {
                 ),
               ),
               SizedBox(width: KrithaSpacing.s8),
-              _StatusChip(status: status),
+              _StatusChip(
+                status: status,
+                providerConfigured: providerConfigured,
+              ),
             ],
           ),
           SizedBox(height: KrithaSpacing.s12),
-          Text(
-            _message(status, assignment),
+          Text.rich(
+            _message(status, assignment, providerAlias),
             style: TextStyle(
               fontSize: KrithaText.sizeXs,
               color: status == ActiveAssignmentStatus.stale
@@ -221,33 +238,66 @@ class _CapabilitySlot extends StatelessWidget {
     );
   }
 
-  String _message(
+  InlineSpan _message(
     ActiveAssignmentStatus status,
     ActiveModelAssignment? assignment,
+    String? providerAlias,
   ) {
     if (status == ActiveAssignmentStatus.assigned) {
-      return '${assignment!.displayName} is saved from ${assignment.sourceId}. '
-          'Provider-hosted execution is not wired into chat in this build.';
+      final modelName = displayModelName(assignment!.displayName);
+      final providerName = displayPublisherName(
+        providerAlias ?? assignment.sourceId,
+      );
+      return TextSpan(
+        children: [
+          _strong(modelName),
+          const TextSpan(text: ' is assigned through '),
+          _strong(providerName),
+          const TextSpan(text: '.'),
+        ],
+      );
     }
     if (status == ActiveAssignmentStatus.active) {
-      return 'Assigned to ${assignment!.displayName} through '
-          '${assignment.runtimeId}. Runtime compatibility is checked on use, '
-          'and the engine loads only on demand.';
+      return TextSpan(
+        text:
+            'Assigned to ${displayModelName(assignment!.displayName)} through '
+            '${assignment.runtimeId}. Runtime compatibility is checked on use, '
+            'and the engine loads only on demand.',
+      );
     }
     if (status == ActiveAssignmentStatus.ready) {
-      final name =
-          state.configuredModel?.displayName ??
-          state.configurationFileName ??
-          'the validated local model';
-      return '$name is validated and ready to assign.';
+      final name = displayModelName(
+        state.configuredModel?.displayName ??
+            state.configurationFileName ??
+            'the validated local model',
+      );
+      return TextSpan(
+        text:
+            '$name is validated. Until you assign a text model, chat uses it '
+            'as the legacy local text model.',
+      );
     }
     if (status == ActiveAssignmentStatus.stale) {
-      final name = assignment?.displayName ?? 'the previous model';
-      return 'Previously assigned to $name, but it is no longer available.';
+      final name = displayModelName(
+        assignment?.displayName ?? 'the previous model',
+      );
+      return TextSpan(
+        text: 'Previously assigned to $name, but it is no longer available.',
+      );
     }
     final message = state.configurationMessage;
-    return message ??
-        'Choose a model from local inventory or a connected provider.';
+    return TextSpan(
+      text:
+          message ??
+          'Choose a model from local inventory or a connected provider.',
+    );
+  }
+
+  TextSpan _strong(String value) {
+    return TextSpan(
+      text: value,
+      style: const TextStyle(fontWeight: FontWeight.w700),
+    );
   }
 
   List<Widget> _actions(ActiveModelAssignment? assignment) {
@@ -263,15 +313,20 @@ class _CapabilitySlot extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.status, required this.providerConfigured});
 
   final ActiveAssignmentStatus status;
+  final bool providerConfigured;
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
       ActiveAssignmentStatus.active => ('Assigned', KrithaColors.success),
-      ActiveAssignmentStatus.assigned => ('Assigned', KrithaColors.warning),
+      ActiveAssignmentStatus.assigned when providerConfigured => (
+        'Configured',
+        KrithaColors.success,
+      ),
+      ActiveAssignmentStatus.assigned => ('Needs setup', KrithaColors.warning),
       ActiveAssignmentStatus.ready => (
         'Local model ready',
         KrithaColors.accentLightBlue,

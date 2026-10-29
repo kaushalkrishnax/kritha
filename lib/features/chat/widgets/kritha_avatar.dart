@@ -31,7 +31,7 @@ class KrithaAvatar extends StatelessWidget {
         boxShadow: showRing
             ? [
                 BoxShadow(
-                  color: Color(0x332563EB),
+                  color: Color(0x333B82F6),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),

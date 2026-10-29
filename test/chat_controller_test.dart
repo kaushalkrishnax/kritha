@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kritha/core/providers.dart';
 import 'package:kritha/data/app_database.dart';
 import 'package:kritha/features/chat/chat_controller.dart';
@@ -11,11 +14,17 @@ import 'package:kritha/features/intelligence/intelligence_exception.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
 import 'package:kritha/features/intelligence/providers.dart';
+import 'package:kritha/features/intelligence/runtime_ids.dart';
+import 'package:kritha/features/models/active/active_models.dart';
+import 'package:kritha/features/models/catalogue/catalogue_model.dart';
+import 'package:kritha/features/providers/provider_stores.dart';
+import 'package:kritha/features/providers/providers_controller.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
 
 import 'support/fake_inference.dart';
+import 'support/fake_workspace.dart';
 import 'support/seed_fixture.dart';
 
 void main() {
@@ -32,6 +41,8 @@ void main() {
         modelConfigStoreProvider.overrideWithValue(
           InMemoryModelConfigStore('/models/fake.litertlm'),
         ),
+        activeModelStoreProvider.overrideWithValue(InMemoryActiveModelStore()),
+        recentModelStoreProvider.overrideWithValue(InMemoryRecentModelStore()),
         inferenceProvidersProvider.overrideWith((ref) => [activeProvider]),
       ],
     );
@@ -85,6 +96,69 @@ void main() {
     expect(persisted.first.text, 'Explain the KV cache in one line');
     expect(persisted.last.text, 'Local answer.');
     expect(await database.countSessions(), 2);
+  });
+
+  test('a remote active assignment drives chat streaming', () async {
+    container.dispose();
+    containerDisposed = true;
+
+    final remoteContainer = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(database),
+        modelConfigStoreProvider.overrideWithValue(InMemoryModelConfigStore()),
+        activeModelStoreProvider.overrideWithValue(
+          InMemoryActiveModelStore({
+            ModelCapability.text: ActiveModelAssignment(
+              capability: ModelCapability.text,
+              modelId: 'gpt-4o',
+              displayName: 'GPT-4o',
+              runtimeId: openAiRuntimeId,
+              sourceId: 'openai',
+              activatedAt: DateTime(2026),
+            ),
+          }),
+        ),
+        recentModelStoreProvider.overrideWithValue(InMemoryRecentModelStore()),
+        providerSettingsStoreProvider.overrideWithValue(
+          InMemoryProviderSettingsStore({
+            'openai': const StoredProviderSettings(
+              baseUrl: 'https://api.openai.com/v1',
+            ),
+          }),
+        ),
+        providerCredentialStoreProvider.overrideWithValue(
+          InMemoryProviderCredentialStore({'openai': 'sk-test'}),
+        ),
+        inferenceHttpClientFactoryProvider.overrideWithValue(
+          () => MockClient((request) async {
+            return http.Response(
+              'data: ${jsonEncode(_openAiStreamChunk('Remote '))}\n\n'
+              'data: ${jsonEncode(_openAiStreamChunk('reply'))}\n\n'
+              'data: [DONE]\n\n',
+              200,
+              headers: {'content-type': 'text/event-stream'},
+            );
+          }),
+        ),
+      ],
+    );
+    addTearDown(remoteContainer.dispose);
+
+    await remoteContainer.read(activeModelsProvider.future);
+    await remoteContainer.read(providersControllerProvider.future);
+    await remoteContainer.read(chatControllerProvider.future);
+    remoteContainer.read(chatControllerProvider.notifier).newChat();
+    await remoteContainer
+        .read(chatControllerProvider.notifier)
+        .send('Remote hello');
+
+    final state = remoteContainer.read(chatControllerProvider).value!;
+    expect(state.failure, isNull);
+    expect(state.messages.last.text, 'Remote reply');
+    final persisted = await database.messagesForSession(
+      state.currentSessionId!,
+    );
+    expect(persisted.last.text, 'Remote reply');
   });
 
   test('persisted history is mapped into the inference request', () async {
@@ -903,6 +977,20 @@ void main() {
     await pending;
   });
 }
+
+Map<String, dynamic> _openAiStreamChunk(String text) => {
+  'id': 'chatcmpl-1',
+  'object': 'chat.completion.chunk',
+  'created': 1,
+  'model': 'gpt-4o',
+  'choices': [
+    {
+      'index': 0,
+      'delta': {'content': text},
+      'finish_reason': null,
+    },
+  ],
+};
 
 class _DelayedDatabase extends AppDatabase {
   _DelayedDatabase(super.executor);
