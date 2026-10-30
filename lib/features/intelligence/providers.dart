@@ -15,7 +15,6 @@ import 'model_lifecycle.dart';
 import 'models/model_capabilities.dart';
 import 'models/model_descriptor.dart';
 import 'remote/anthropic_provider.dart';
-import 'remote/gemini_provider.dart';
 import 'remote/openai_compatible_provider.dart';
 import 'request_router.dart';
 import 'runtime_ids.dart';
@@ -215,14 +214,6 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
     Future<String?> readCredential() => credentials.read(assignment.sourceId);
     final adapter = switch (definition.runtimeId) {
       anthropicRuntimeId => AnthropicProvider(
-        sourceId: assignment.sourceId,
-        descriptor: descriptor,
-        baseUrl: configuration.baseUrl,
-        readCredential: readCredential,
-        requiresCredential: definition.requiresCredential,
-        clientFactory: clientFactory,
-      ),
-      geminiRuntimeId => GeminiProvider(
         sourceId: assignment.sourceId,
         descriptor: descriptor,
         baseUrl: configuration.baseUrl,

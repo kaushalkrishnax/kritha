@@ -2,7 +2,7 @@ import '../intelligence/runtime_ids.dart';
 
 enum ProviderKind { local, cloud, custom }
 
-enum ProviderAuthStyle { none, bearer, anthropic, queryKey }
+enum ProviderAuthStyle { none, bearer, anthropic }
 
 class InferenceProviderDefinition {
   const InferenceProviderDefinition({
@@ -95,11 +95,11 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
   ),
   InferenceProviderDefinition(
     id: 'google',
-    runtimeId: geminiRuntimeId,
+    runtimeId: openAiRuntimeId,
     name: 'Google Gemini',
     description: 'Gemini models through the Google Generative Language API (OpenAI-compatible endpoint).',
     kind: ProviderKind.cloud,
-    authStyle: ProviderAuthStyle.queryKey,
+    authStyle: ProviderAuthStyle.bearer,
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
     credentialLabel: 'API key',
     requiresCredential: true,

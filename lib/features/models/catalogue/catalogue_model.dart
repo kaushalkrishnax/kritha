@@ -1,3 +1,5 @@
+import 'hugging_face_urls.dart';
+
 /// A capability a repository advertises or an execution path can serve.
 enum ModelCapability {
   text(
@@ -186,6 +188,8 @@ class CatalogueModel {
     this.license,
     this.author,
     this.parameterCount,
+    this.sha,
+    this.usedStorage,
   });
 
   /// `namespace/repository`.
@@ -203,6 +207,8 @@ class CatalogueModel {
   final String? license;
   final String? author;
   final int? parameterCount;
+  final String? sha;
+  final int? usedStorage;
 
   String get namespace {
     final slash = id.indexOf('/');
@@ -273,28 +279,45 @@ class CatalogueModel {
           _licenseTag(json['tags']),
       author: _string(json['author']) ?? _string(json['authorName']),
       parameterCount: _parameterCount(json),
+      sha: _string(json['sha']),
+      usedStorage: _intOrNull(json['usedStorage']),
     );
   }
 }
 
 class ModelFile {
-  const ModelFile({required this.path, this.sizeBytes, this.isLfs = false});
+  const ModelFile({
+    required this.path,
+    this.sizeBytes,
+    this.isLfs = false,
+    this.type = 'file',
+    this.oid,
+  });
 
   final String path;
   final int? sizeBytes;
   final bool isLfs;
+  final String type;
+  final String? oid;
 
-  bool get isLitertLm => path.toLowerCase().endsWith('.litertlm');
+  bool get isDirectory => type == 'directory';
+
+  bool get isLitertLm =>
+      !isDirectory && path.toLowerCase().endsWith('.litertlm');
+
+  String get name {
+    final clean = path.endsWith('/')
+        ? path.substring(0, path.length - 1)
+        : path;
+    final slash = clean.lastIndexOf('/');
+    return slash < 0 ? clean : clean.substring(slash + 1);
+  }
 
   String get readableSize {
+    if (isDirectory) return '';
     final size = sizeBytes;
     if (size == null || size <= 0) return '—';
-    if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-    if (size < 1024 * 1024 * 1024) {
-      return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    return formatBytes(size);
   }
 
   factory ModelFile.fromJson(Map<String, dynamic> json) {
@@ -303,8 +326,20 @@ class ModelFile {
       path: _string(json['path']) ?? '',
       sizeBytes: _intOrNull(json['size']) ?? _intOrNull(lfs?['size']),
       isLfs: lfs != null,
+      type: _string(json['type']) ?? 'file',
+      oid: _string(json['oid']),
     );
   }
+}
+
+String formatBytes(int size) {
+  if (size <= 0) return '—';
+  if (size < 1024) return '$size B';
+  if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+  if (size < 1024 * 1024 * 1024) {
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
 }
 
 class ModelPage {
@@ -326,6 +361,9 @@ class ModelDetails {
     this.readme,
     this.cardData = const {},
     this.config = const {},
+    this.safetensors = const {},
+    this.publisher,
+    this.branch = 'main',
   });
 
   final CatalogueModel model;
@@ -333,6 +371,28 @@ class ModelDetails {
   final String? readme;
   final Map<String, dynamic> cardData;
   final Map<String, dynamic> config;
+  final Map<String, dynamic> safetensors;
+  final HubPublisher? publisher;
+  final String branch;
+
+  String get repositoryUrl => HuggingFaceUrls.repository(model.id);
+
+  String? get commitSha => model.sha;
+
+  String? get commitUrl {
+    final sha = model.sha;
+    return sha == null ? null : HuggingFaceUrls.commit(model.id, sha);
+  }
+
+  String? fileUrl(ModelFile file) {
+    if (file.path.isEmpty) return null;
+    return HuggingFaceUrls.blob(model.id, branch, file.path);
+  }
+
+  String? directoryUrl(ModelFile directory) {
+    if (directory.path.isEmpty) return null;
+    return HuggingFaceUrls.tree(model.id, branch, directory.path);
+  }
 
   bool get hasLitertLmFile => files.any((file) => file.isLitertLm);
 
@@ -342,7 +402,74 @@ class ModelDetails {
       final first = architectures.first;
       if (first is String && first.trim().isNotEmpty) return first;
     }
-    return _string(config['model_type']);
+    return _string(config['model_type']) ??
+        _string(_map(config['text_config'])?['model_type']);
+  }
+
+  String? get modelType =>
+      _string(config['model_type']) ??
+      _string(_map(config['text_config'])?['model_type']);
+
+  String? get libraryName => model.libraryName;
+
+  int? get parameterCount => model.parameterCount;
+
+  int? get contextLength =>
+      _intOrNull(config['max_position_embeddings']) ??
+      _intOrNull(_map(config['text_config'])?['max_position_embeddings']);
+
+  List<String> get weightPrecisions {
+    final parameters = _map(safetensors['parameters']);
+    if (parameters == null) return const [];
+    return List.unmodifiable([
+      for (final key in parameters.keys)
+        if (key.trim().isNotEmpty && key != 'total') key.trim(),
+    ]);
+  }
+
+  List<String> get quantizations {
+    final found = <String>{};
+    final quantization =
+        _map(config['quantization_config']) ??
+        _map(_map(config['text_config'])?['quantization_config']);
+    if (quantization != null) {
+      final method = _string(quantization['quant_method']);
+      if (method != null) found.add(_titleIdentifier(method));
+      final bits =
+          _intOrNull(quantization['bits']) ?? _intOrNull(quantization['w_bit']);
+      if (bits != null && bits > 0) found.add('$bits-bit');
+      if (quantization['load_in_4bit'] == true) found.add('4-bit');
+      if (quantization['load_in_8bit'] == true) found.add('8-bit');
+    }
+    for (final tag in model.tags) {
+      final lower = tag.toLowerCase();
+      final bitMatch = RegExp(r'(\d+)[-_]?bit').firstMatch(lower);
+      if (bitMatch != null) found.add('${bitMatch.group(1)}-bit');
+      for (final method in const [
+        'awq',
+        'gptq',
+        'fp8',
+        'int8',
+        'int4',
+        'nf4',
+      ]) {
+        if (lower == method ||
+            lower.endsWith(':$method') ||
+            lower.contains('$method-')) {
+          found.add(method.toUpperCase());
+        }
+      }
+    }
+    return List.unmodifiable(found);
+  }
+
+  int get repositorySize {
+    final storage = model.usedStorage;
+    if (storage != null && storage > 0) return storage;
+    return files.fold<int>(
+      0,
+      (total, file) => total + (file.isDirectory ? 0 : (file.sizeBytes ?? 0)),
+    );
   }
 
   List<String> get formats {
@@ -362,6 +489,7 @@ class ModelDetails {
       }
     }
     for (final file in files) {
+      if (file.isDirectory) continue;
       final lower = file.path.toLowerCase();
       if (lower.endsWith('.litertlm')) found.add('LiteRT-LM');
       if (lower.endsWith('.gguf')) found.add('GGUF');
@@ -375,6 +503,8 @@ class ModelDetails {
     Map<String, dynamic> json, {
     List<ModelFile> files = const [],
     String? readme,
+    HubPublisher? publisher,
+    String branch = 'main',
   }) {
     return ModelDetails(
       model: CatalogueModel.fromJson(json),
@@ -382,6 +512,56 @@ class ModelDetails {
       readme: readme,
       cardData: _map(json['cardData']) ?? const {},
       config: _map(json['config']) ?? const {},
+      safetensors: _map(json['safetensors']) ?? const {},
+      publisher: publisher,
+      branch: branch,
+    );
+  }
+}
+
+class HubPublisher {
+  const HubPublisher({
+    required this.name,
+    required this.displayName,
+    required this.avatarUrl,
+    required this.isOrganization,
+    this.followers = 0,
+    this.following = 0,
+    this.isFollowing = false,
+    this.isVerified = false,
+  });
+
+  final String name;
+  final String displayName;
+  final String? avatarUrl;
+  final bool isOrganization;
+  final int followers;
+  final int following;
+  final bool isFollowing;
+  final bool isVerified;
+
+  factory HubPublisher.fromJson(
+    Map<String, dynamic> json, {
+    required String fallbackName,
+    required bool organization,
+  }) {
+    final name = _string(json['name']) ?? _string(json['user']) ?? fallbackName;
+    final fullName = _string(json['fullname']);
+    final rawAvatar = _string(json['avatarUrl']);
+    final avatar = rawAvatar == null
+        ? null
+        : rawAvatar.startsWith('http')
+        ? rawAvatar
+        : '${HuggingFaceUrls.origin}$rawAvatar';
+    return HubPublisher(
+      name: name,
+      displayName: fullName ?? name,
+      avatarUrl: avatar,
+      isOrganization: organization || _string(json['type']) == 'org',
+      followers: _intOrNull(json['numFollowers']) ?? 0,
+      following: _intOrNull(json['numFollowing']) ?? 0,
+      isFollowing: json['isFollowing'] == true,
+      isVerified: json['isVerified'] == true,
     );
   }
 }
@@ -461,6 +641,12 @@ int? _parameterCount(Map<String, dynamic> json) {
 }
 
 String _displayPublisher(String value) => value
+    .split(RegExp(r'[-_\s]+'))
+    .where((part) => part.isNotEmpty)
+    .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+    .join(' ');
+
+String _titleIdentifier(String value) => value
     .split(RegExp(r'[-_\s]+'))
     .where((part) => part.isNotEmpty)
     .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')

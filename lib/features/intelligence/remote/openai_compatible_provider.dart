@@ -90,7 +90,7 @@ class OpenAiCompatibleProvider implements InferenceProvider {
     final stopwatch = Stopwatch()..start();
     try {
       final completion = await _openAi(credential).chat.create(
-        model: descriptor.id,
+        model: _requestModel,
         messages: _messagesFor(request),
         temperature: request.options.temperature,
         topP: request.options.topP,
@@ -137,7 +137,7 @@ class OpenAiCompatibleProvider implements InferenceProvider {
     final buffer = StringBuffer();
     try {
       final chunks = _openAi(credential).chat.createStream(
-        model: descriptor.id,
+        model: _requestModel,
         messages: _messagesFor(request),
         temperature: request.options.temperature,
         topP: request.options.topP,
@@ -186,6 +186,12 @@ class OpenAiCompatibleProvider implements InferenceProvider {
       requestsTimeOut: requestTimeout,
     );
   }
+
+  /// Some OpenAI-compatible catalogues prefix IDs with `models/`; the chat
+  /// endpoint accepts the bare identifier.
+  String get _requestModel => descriptor.id.startsWith('models/')
+      ? descriptor.id.substring('models/'.length)
+      : descriptor.id;
 
   Future<String?> _credential() async {
     final value = (await readCredential())?.trim();
@@ -335,12 +341,35 @@ class OpenAiCompatibleProvider implements InferenceProvider {
 
 ({String baseUrl, String version}) _normalizeOpenAiBase(String raw) {
   var value = stripTrailingSlashes(raw);
-  for (final suffix in const ['/chat/completions', '/v1']) {
-    if (value.endsWith(suffix)) {
-      value = value.substring(0, value.length - suffix.length);
-    }
+  if (value.endsWith('/chat/completions')) {
+    value = stripTrailingSlashes(
+      value.substring(0, value.length - '/chat/completions'.length),
+    );
   }
-  return (baseUrl: stripTrailingSlashes(value), version: 'v1');
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.host.isEmpty) {
+    return (baseUrl: value, version: 'v1');
+  }
+  final segments = [...uri.pathSegments.where((part) => part.isNotEmpty)];
+  var version = 'v1';
+  var versionIndex = -1;
+  for (var index = 0; index < segments.length; index++) {
+    if (RegExp(r'^v\d').hasMatch(segments[index])) versionIndex = index;
+  }
+  if (versionIndex >= 0) {
+    version = segments.sublist(versionIndex).join('/');
+    segments.removeRange(versionIndex, segments.length);
+  }
+  final path = segments.isEmpty ? '' : '/${segments.join('/')}';
+  return (
+    baseUrl: Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: path,
+    ).toString(),
+    version: version,
+  );
 }
 
 bool _validBaseUrl(String value) {

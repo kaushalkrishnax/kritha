@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/dio_error_utils.dart';
 import 'catalogue_failure.dart';
 import 'catalogue_model.dart';
+import 'hugging_face_urls.dart';
 
 typedef HubTokenReader = Future<String?> Function();
 
@@ -16,7 +17,7 @@ typedef HubTokenReader = Future<String?> Function();
 class HuggingFaceHubClient {
   HuggingFaceHubClient(this._dio, this._readToken);
 
-  static const baseUrl = 'https://huggingface.co';
+  static const baseUrl = HuggingFaceUrls.origin;
 
   // The Hub only returns safetensors metadata when it is explicitly expanded.
   // Expand every list field the catalogue reads so cards can show real
@@ -118,12 +119,12 @@ class HuggingFaceHubClient {
 
   Future<List<ModelFile>> fetchFiles(
     String id, {
+    String revision = 'main',
     CancelToken? cancelToken,
   }) async {
     try {
       final response = await _get(
-        '/api/models/${_modelPath(id)}/tree/main',
-        queryParameters: const {'recursive': true},
+        '/api/models/${_modelPath(id)}/tree/${Uri.encodeComponent(revision)}',
         cancelToken: cancelToken,
       );
       final data = response.data;
@@ -134,12 +135,42 @@ class HuggingFaceHubClient {
         );
       }
       return List.unmodifiable([
-        for (final item in data) ModelFile.fromJson(_fileJson(item)),
+        for (final item in data)
+          if (item is Map && item['path'] != null)
+            ModelFile.fromJson(_fileJson(item)),
       ]);
     } on CatalogueFailure catch (failure) {
       if (failure.kind == CatalogueFailureKind.notFound) return const [];
       rethrow;
     }
+  }
+
+  Future<HubPublisher?> fetchPublisher(
+    String name, {
+    CancelToken? cancelToken,
+  }) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) return null;
+    final encoded = Uri.encodeComponent(normalized);
+    for (final (path, organization) in [
+      ('/api/organizations/$encoded/overview', true),
+      ('/api/users/$encoded/overview', false),
+    ]) {
+      try {
+        final response = await _get(path, cancelToken: cancelToken);
+        final data = response.data;
+        if (data is! Map) continue;
+        return HubPublisher.fromJson(
+          _asMap(data),
+          fallbackName: normalized,
+          organization: organization,
+        );
+      } on CatalogueFailure catch (failure) {
+        if (failure.kind == CatalogueFailureKind.notFound) continue;
+        return null;
+      }
+    }
+    return null;
   }
 
   Future<String?> fetchReadme(String id, {CancelToken? cancelToken}) async {

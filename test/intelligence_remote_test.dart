@@ -490,7 +490,7 @@ void main() {
     expect(events.map((event) => event.text), ['Claude ', 'Claude reply']);
   });
 
-  test('routes Gemini through generateContent and normalizes usage', () async {
+  test('routes Gemini through the OpenAI-compatible runtime', () async {
     final requests = <http.Request>[];
     final container = await containerFor(
       assignments: {
@@ -503,30 +503,13 @@ void main() {
       },
       settings: {
         'google': const StoredProviderSettings(
-          baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
         ),
       },
       credentials: {'google': 'gemini-key'},
       clientFactory: recorder(requests, (request) async {
         return http.Response(
-          jsonEncode({
-            'candidates': [
-              {
-                'content': {
-                  'role': 'model',
-                  'parts': [
-                    {'text': 'Gemini reply'},
-                  ],
-                },
-                'finishReason': 'STOP',
-              },
-            ],
-            'usageMetadata': {
-              'promptTokenCount': 3,
-              'candidatesTokenCount': 2,
-              'totalTokenCount': 5,
-            },
-          }),
+          jsonEncode(_completion('Gemini reply', 'gemini-2.0-flash')),
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -538,22 +521,22 @@ void main() {
         .generate(prompt());
 
     expect(response.text, 'Gemini reply');
-    expect(response.metadata['totalTokens'], '5');
+    expect(response.modelId, 'gemini-2.0-flash');
+    expect(response.metadata['totalTokens'], '2');
     final request = requests.single;
     expect(
       request.url.toString(),
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=gemini-key',
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     );
+    expect(request.headers['authorization'], 'Bearer gemini-key');
     final body = jsonDecode(request.body) as Map<String, dynamic>;
-    expect(body['systemInstruction'], {
-      'parts': [
-        {'text': 'Be concise.'},
-      ],
-    });
-    expect((body['contents'] as List).single['role'], 'user');
+    expect(body['model'], 'gemini-2.0-flash');
+    expect(body['max_tokens'], 64);
+    expect((body['messages'] as List).first['role'], 'system');
+    expect((body['messages'] as List).last['content'], 'Hello');
   });
 
-  test('streams Gemini SSE chunks', () async {
+  test('streams Gemini through the OpenAI-compatible runtime', () async {
     final requests = <http.Request>[];
     final container = await containerFor(
       assignments: {
@@ -566,14 +549,15 @@ void main() {
       },
       settings: {
         'google': const StoredProviderSettings(
-          baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
         ),
       },
       credentials: {'google': 'gemini-key'},
       clientFactory: recorder(requests, (request) async {
         return http.Response(
-          'data: {"candidates":[{"content":{"parts":[{"text":"Gemini "}]}}]}\n\n'
-          'data: {"candidates":[{"content":{"parts":[{"text":"reply"}]}}]}\n\n',
+          'data: ${jsonEncode(_openAiChunk('Gemini '))}\n\n'
+          'data: ${jsonEncode(_openAiChunk('reply'))}\n\n'
+          'data: [DONE]\n\n',
           200,
           headers: {'content-type': 'text/event-stream'},
         );
@@ -588,8 +572,9 @@ void main() {
     expect(events.map((event) => event.text), ['Gemini ', 'Gemini reply']);
     expect(
       requests.single.url.toString(),
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?key=gemini-key&alt=sse',
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     );
+    expect(requests.single.headers['authorization'], 'Bearer gemini-key');
   });
 
   test('switching the active assignment switches the backend', () async {

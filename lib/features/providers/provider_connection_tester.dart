@@ -78,12 +78,10 @@ class HttpProviderConnectionTester implements ProviderConnectionTester {
     }
     final path = definition.testPath!;
     final headers = providerAuthHeaders(definition, credential);
-    final query = providerAuthQuery(definition, credential);
 
     try {
       final response = await _dio.get<dynamic>(
         '$base$path',
-        queryParameters: query,
         options: Options(
           headers: headers,
           validateStatus: (_) => true,
@@ -143,7 +141,6 @@ class HttpProviderConnectionTester implements ProviderConnectionTester {
     if (base.isEmpty) return const [];
     final response = await _dio.get<dynamic>(
       '$base${definition.testPath}',
-      queryParameters: providerAuthQuery(definition, credential),
       options: Options(
         headers: providerAuthHeaders(definition, credential),
         validateStatus: (_) => true,

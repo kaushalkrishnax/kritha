@@ -8,4 +8,7 @@ const localProviderId = 'local-litertlm';
 const localRuntimeId = 'litertlm';
 const openAiRuntimeId = 'openai';
 const anthropicRuntimeId = 'anthropic';
+
+/// Retained so assignments saved before Gemini moved to the OpenAI-compatible
+/// adapter still resolve; new Gemini assignments use [openAiRuntimeId].
 const geminiRuntimeId = 'gemini';

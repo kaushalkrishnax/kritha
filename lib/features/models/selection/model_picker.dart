@@ -336,9 +336,7 @@ class _ModelChoiceRow extends ConsumerWidget {
     final providerLabel = isLocal
         ? 'Local LiteRT-LM'
         : customAlias ?? displayPublisherName(model.sourceId);
-    final displayName = model.runtimeId == geminiRuntimeId
-        ? displayModelName(model.displayName)
-        : model.displayName;
+    final displayName = displayModelName(model.displayName);
     return Material(
       color: Colors.transparent,
       child: InkWell(

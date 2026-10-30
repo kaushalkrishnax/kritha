@@ -53,9 +53,21 @@ class ModelCatalogueRepository implements ModelCatalogue {
       id,
       cancelToken: cancelToken,
     );
-    final files = await _client.fetchFiles(id, cancelToken: cancelToken);
-    final readme = await _client.fetchReadme(id, cancelToken: cancelToken);
-    return ModelDetails.fromJson(document, files: files, readme: readme);
+    final model = CatalogueModel.fromJson(document);
+    final publisherName = model.author ?? model.namespace;
+    final results = await Future.wait<Object?>([
+      _client.fetchFiles(id, cancelToken: cancelToken),
+      _client.fetchReadme(id, cancelToken: cancelToken),
+      publisherName.isEmpty
+          ? Future<HubPublisher?>.value()
+          : _client.fetchPublisher(publisherName, cancelToken: cancelToken),
+    ]);
+    return ModelDetails.fromJson(
+      document,
+      files: results[0] as List<ModelFile>,
+      readme: results[1] as String?,
+      publisher: results[2] as HubPublisher?,
+    );
   }
 
   @override

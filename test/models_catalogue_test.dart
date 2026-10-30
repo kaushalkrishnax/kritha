@@ -328,6 +328,52 @@ void main() {
       expect(await client.fetchFiles('acme/model'), isEmpty);
     });
 
+    test(
+      'fetches organization statistics and falls back to a user profile',
+      () async {
+        final adapter = _FakeHttpAdapter((options) async {
+          if (options.path.contains('/organizations/')) {
+            return _jsonResponse({}, status: 404);
+          }
+          return _jsonResponse({
+            'name': 'someone',
+            'numFollowers': 12,
+            'numFollowing': 4,
+          });
+        });
+        final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+        final publisher = await client.fetchPublisher('someone');
+
+        expect(publisher?.name, 'someone');
+        expect(publisher?.isOrganization, isFalse);
+        expect(publisher?.followers, 12);
+        expect(publisher?.following, 4);
+        expect(adapter.requests.map((request) => request.path), [
+          '/api/organizations/someone/overview',
+          '/api/users/someone/overview',
+        ]);
+      },
+    );
+
+    test('requests the top-level repository tree', () async {
+      final adapter = _FakeHttpAdapter(
+        (options) async => _jsonResponse([
+          {'path': 'nested', 'type': 'directory'},
+          {'path': 'model.litertlm', 'type': 'file', 'size': 2048},
+        ]),
+      );
+      final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+      final files = await client.fetchFiles('acme/model');
+
+      expect(adapter.requests.single.path, '/api/models/acme/model/tree/main');
+      expect(adapter.requests.single.queryParameters, isEmpty);
+      expect(files, hasLength(2));
+      expect(files.first.isDirectory, isTrue);
+      expect(files.last.readableSize, '2.0 KB');
+    });
+
     test('validates a token through whoami-v2', () async {
       final adapter = _FakeHttpAdapter((options) async {
         return _jsonResponse({'name': 'kaushal', 'fullname': 'Kaushal'});

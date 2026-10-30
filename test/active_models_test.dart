@@ -90,7 +90,7 @@ void main() {
     });
 
     expect(assignment.sourceId, 'google');
-    expect(assignment.runtimeId, geminiRuntimeId);
+    expect(assignment.runtimeId, openAiRuntimeId);
   });
 
   test('activates the validated local model and persists it', () async {

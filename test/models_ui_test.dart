@@ -398,9 +398,40 @@ void main() {
 
     await tester.tap(find.text('alpha'));
     await tester.pumpAndSettle();
-    expect(find.text('Runtime compatibility is not verified'), findsOneWidget);
+    expect(find.text('Model Overview'), findsOneWidget);
+    expect(find.text('Model Setup'), findsOneWidget);
+    expect(find.text('Model Card'), findsOneWidget);
+    expect(find.text('Model Files'), findsOneWidget);
+    expect(find.text('Setup Now'), findsOneWidget);
+    expect(find.text('View more'), findsOneWidget);
     expect(find.text('model.litertlm'), findsOneWidget);
     expect(find.textContaining('Alpha model card'), findsOneWidget);
+  });
+
+  testWidgets('repository details render honest empty states', (tester) async {
+    const empty = CatalogueModel(id: 'acme/empty');
+    final catalogue = FakeModelCatalogue(
+      pages: const {
+        null: ModelPage(models: [empty]),
+      },
+      detailsById: const {'acme/empty': ModelDetails(model: empty)},
+    );
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.text('empty'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No model card'), findsOneWidget);
+    expect(find.text('No files'), findsOneWidget);
+    expect(
+      find.text('No technical metadata was declared for this repository.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('No metadata tags were returned for this repository.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('catalogue failures show an offline state with retry', (

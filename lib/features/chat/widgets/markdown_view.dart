@@ -1,15 +1,19 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../../../core/external_links.dart';
 import '../../../core/theme.dart';
 
 /// Kritha-tuned Markdown: the package handles parsing, code highlighting and
 /// LaTeX; this widget only maps the package's style surface onto the app's
 /// palette and type scale.
 class MarkdownView extends StatelessWidget {
-  const MarkdownView({super.key, required this.data});
+  const MarkdownView({super.key, required this.data, this.onLinkTap});
 
   final String data;
+
+  /// Lets a surface resolve relative links before they leave the app.
+  final void Function(String url)? onLinkTap;
 
   /// Rebuilt per frame: the palette flips with the active theme, so caching the
   /// sheet would pin the first theme's colours for the rest of the session.
@@ -86,9 +90,12 @@ class MarkdownView extends StatelessWidget {
       useDollarSignsForLatex: true,
       isStreaming: false,
       onLinkTap: (url, title) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Links are disabled in this size demo: $url')),
-        );
+        final handler = onLinkTap;
+        if (handler != null) {
+          handler(url);
+          return;
+        }
+        openExternalUrl(context, url);
       },
     );
   }

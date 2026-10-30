@@ -539,20 +539,24 @@ void main() {
       );
     });
 
-    test('sends the Google key as a query parameter', () async {
+    test('sends the Google key as a bearer token', () async {
       final adapter = _FakeHttpAdapter(
-        (options) async => _jsonResponse({'models': []}),
+        (options) async => _jsonResponse({'data': []}),
       );
       final tester = HttpProviderConnectionTester(_dio(adapter));
 
       final result = await tester.test(
         providerDefinitionFor('google')!,
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
         credential: 'google-key',
       );
 
       expect(result.ok, isTrue);
-      expect(adapter.requests.single.queryParameters['key'], 'google-key');
+      expect(
+        adapter.requests.single.headers['authorization'],
+        'Bearer google-key',
+      );
+      expect(adapter.requests.single.queryParameters, isEmpty);
     });
 
     test('reports authentication failures without claiming success', () async {
