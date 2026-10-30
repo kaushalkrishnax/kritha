@@ -417,10 +417,27 @@ Active Models surface:
 
 - The default Explore view searches `https://huggingface.co/api/models` with
   capability filters, sort order and `Link`-header cursor pagination. Public
-  browsing works without a token.
+  browsing works without a token. Cards resolve the real publisher avatar with
+  one cached `/api/{organizations|users}/<name>/avatar` lookup per publisher;
+  rendered initials are only a fallback. The first page loads as a
+  left-to-right shimmer skeleton of eight cards rather than a centred spinner.
 - Model details load the full repository record, file tree and `README.md`.
-  They distinguish repository discovery from runtime compatibility: a Hub entry
-  is never described as downloaded, verified or runnable.
+  The header offers Open in HF Hub and Copy repository URL. Inline loading uses
+  a section-shaped skeleton for overview, setup, card and files.
+- The overview header shows the publisher logo and `namespace/model-name` with a
+  copy action, followed by followers, likes and downloads in that order.
+  Metadata is grouped into Tasks, Libraries, Languages, Licenses and Other;
+  raw Hub IDs are preserved and only the display label is humanised. Languages
+  collapse to a single "N languages" pill that expands on tap.
+- Model Setup lists only published technical facts (architecture, parameters,
+  weights, quantization, format, library, task, context window) and routes the
+  primary action to Active Models. It does not compute memory or storage
+  compatibility.
+- Model Card renders the README Markdown with View more/View less and an
+  explicit empty state. Model Files shows the branch and a clickable latest
+  commit, then directories and files with sizes; only the first six entries are
+  visible until View more, and links open the Hub externally. A Hub entry is
+  never described as downloaded, verified or runnable.
 - A dedicated Dio client sends an optional Hugging Face token as a Bearer header.
   It has no request logging, and the token is stored in platform secure storage,
   never shown after saving, and can be replaced or removed.
@@ -438,14 +455,24 @@ Active Models surface:
 `lib/features/providers/` configures inference connections independently of the
 Hub catalogue:
 
-- Supported entries cover the local LiteRT-LM runtime, hosted OpenAI,
-  Anthropic, Google Gemini and Mistral connections, plus a custom
-  OpenAI-compatible endpoint.
+- Entries cover the local LiteRT-LM runtime plus OpenAI, Anthropic, Google
+  Gemini, xAI, Groq, DeepSeek, Perplexity, Qwen, Hugging Face, Mistral and
+  user-created OpenAI-compatible endpoints. All but Anthropic use a shared
+  OpenAI-compatible adapter; Anthropic keeps its Messages API adapter.
+- The first settings load renders provider-shaped skeletons; only screen-level
+  content is skeletonized, never individual buttons or labels.
+- Every provider card keeps one action row at natural width: Test and Usage on
+  the left, Connect or Configure on the right. Test and Usage stay visible but
+  disabled until the provider has its required credentials. Connect is a filled
+  primary action; Configure uses the neutral outlined treatment of Test/Usage.
 - Credentials live in secure storage under provider-specific keys; the Hub token
   is a separate secret. Saved keys are never rendered back into the UI.
 - Connection tests perform real HTTP requests to each provider's models
   endpoint and report the actual status. They do not route chat through the
   provider or claim inference success.
+- Usage is a local request counter per provider stored in SharedPreferences.
+  The popup reports only recorded counts; it never estimates spend or claims
+  remote billing figures.
 
 ## Project layout
 
@@ -479,7 +506,7 @@ lib/
                                adapter and model configuration
   models/                      Message, attachment and session models
   services/runtime_probe.dart  Startup probes for native packages
-  widgets/                     Shared context menu and frosted glass surface
+  widgets/                     Shared context menu, frosted glass and skeleton placeholders
 docs/DESIGN_CONVENTIONS.md     Token, typography and visual rules
 docs/BUTTONS.md                Button and interaction spec
 docs/UI_PATTERNS.md            Shell, header, composer, overlay and Live Talk patterns

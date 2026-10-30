@@ -80,6 +80,7 @@ void main() {
         ),
         inferenceProvidersProvider.overrideWithValue([FakeInferenceProvider()]),
         modelCatalogueProvider.overrideWithValue(catalogue),
+        publisherAvatarProvider.overrideWith((ref, publisher) async => null),
         huggingFaceTokenStoreProvider.overrideWithValue(
           tokenStore ?? InMemoryHuggingFaceTokenStore(),
         ),
@@ -190,7 +191,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is KrithaIcon &&
-            widget.icon == HugeIcons.strokeRoundedChartScatter,
+            widget.icon == HugeIcons.strokeRoundedSignalFull02,
       ),
       findsOneWidget,
     );
@@ -406,6 +407,83 @@ void main() {
     expect(find.text('View more'), findsOneWidget);
     expect(find.text('model.litertlm'), findsOneWidget);
     expect(find.textContaining('Alpha model card'), findsOneWidget);
+  });
+
+  testWidgets('repository details collapse long file lists behind View more', (
+    tester,
+  ) async {
+    const model = CatalogueModel(id: 'acme/large');
+    final files = [
+      for (var index = 0; index < 9; index++)
+        ModelFile(path: 'weights/file-$index.bin', sizeBytes: 1024),
+    ];
+    final catalogue = FakeModelCatalogue(
+      pages: const {
+        null: ModelPage(models: [model]),
+      },
+      detailsById: {
+        'acme/large': ModelDetails(
+          model: model,
+          files: files,
+          readme: '# Model card',
+        ),
+      },
+    );
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.text('large'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('file-0.bin'), findsOneWidget);
+    expect(find.text('file-8.bin'), findsNothing);
+    expect(find.text('View more'), findsNWidgets(2));
+
+    await tester.ensureVisible(find.text('View more').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View more').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('file-8.bin'), findsOneWidget);
+    expect(find.text('View less'), findsOneWidget);
+  });
+
+  testWidgets('languages collapse into a summary chip until expanded', (
+    tester,
+  ) async {
+    const model = CatalogueModel(
+      id: 'acme/multilingual',
+      tags: [
+        'language:en',
+        'language:fr',
+        'language:de',
+        'base_model:acme/a-very-long-repository-name-for-overflow-checking',
+      ],
+    );
+    final catalogue = FakeModelCatalogue(
+      pages: const {
+        null: ModelPage(models: [model]),
+      },
+      detailsById: const {'acme/multilingual': ModelDetails(model: model)},
+    );
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.text('multilingual'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 languages'), findsOneWidget);
+    expect(find.text('English'), findsNothing);
+
+    await tester.ensureVisible(find.text('3 languages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3 languages'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 languages'), findsNothing);
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('French'), findsOneWidget);
+    expect(find.text('German'), findsOneWidget);
   });
 
   testWidgets('repository details render honest empty states', (tester) async {
@@ -801,20 +879,22 @@ void main() {
       expect(find.text('Local models'), findsNothing);
       expect(find.text('Available models'), findsNothing);
       expect(find.byTooltip('Provider actions'), findsNothing);
-      expect(find.text('Test'), findsNothing);
-      expect(find.text('Usage'), findsNothing);
-      expect(find.text('Connect'), findsNWidgets(10));
+      expect(find.text('Test'), findsNWidgets(10));
+      expect(find.text('Usage'), findsNWidgets(10));
       expect(find.text('Configure'), findsNothing);
+      expect(find.text('Connect'), findsNWidgets(10));
       expect(find.byTooltip('Configured'), findsNothing);
-      expect(find.byType(OutlinedButton), findsNWidgets(10));
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is KrithaIcon &&
-              widget.icon == HugeIcons.strokeRoundedPlus,
-        ),
-        findsNWidgets(10),
-      );
+      expect(find.byType(OutlinedButton), findsNWidgets(20));
+      expect(find.widgetWithText(FilledButton, 'Connect'), findsNWidgets(10));
+      for (final label in ['Test', 'Usage']) {
+        final button = tester.widget<OutlinedButton>(
+          find.ancestor(
+            of: find.text(label).first,
+            matching: find.byType(OutlinedButton),
+          ),
+        );
+        expect(button.onPressed, isNull);
+      }
 
       await tester.tap(find.text('Connect').first);
       await tester.pumpAndSettle();
@@ -826,11 +906,18 @@ void main() {
       expect(credentials.credentials['openai'], 'sk-secret');
       expect(find.text('Provider settings saved'), findsOneWidget);
       expect(find.text('sk-secret'), findsNothing);
-      expect(find.text('Test'), findsOneWidget);
-      expect(find.text('Usage'), findsOneWidget);
+      expect(find.text('Test'), findsNWidgets(10));
+      expect(find.text('Usage'), findsNWidgets(10));
       expect(find.text('Configure'), findsOneWidget);
       expect(find.text('Connect'), findsNWidgets(9));
       expect(find.byTooltip('Configured'), findsOneWidget);
+      final firstTest = tester.widget<OutlinedButton>(
+        find.ancestor(
+          of: find.text('Test').first,
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(firstTest.onPressed, isNotNull);
       final tick = find.descendant(
         of: find.byTooltip('Configured'),
         matching: find.byType(KrithaIcon),
@@ -851,7 +938,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(connectionTester.testedProviderIds, ['openai']);
       expect(find.textContaining('Endpoint reachable'), findsOneWidget);
-      expect(find.text('Test'), findsOneWidget);
+      expect(find.text('Test'), findsNWidgets(10));
 
       await tester.tap(find.text('Configure').first);
       await tester.pumpAndSettle();
@@ -863,8 +950,8 @@ void main() {
 
       expect(find.text('OpenAI'), findsOneWidget);
       expect(find.byTooltip('Configured'), findsNothing);
-      expect(find.text('Test'), findsNothing);
-      expect(find.text('Usage'), findsNothing);
+      expect(find.text('Test'), findsNWidgets(10));
+      expect(find.text('Usage'), findsNWidgets(10));
       expect(find.text('Configure'), findsNothing);
       expect(find.text('Connect'), findsNWidgets(10));
     },
@@ -892,10 +979,10 @@ void main() {
       expect(top('Mistral AI'), lessThan(top('Anthropic')));
       expect(top('Anthropic'), lessThan(top('Google Gemini')));
       expect(find.byTooltip('Configured'), findsNWidgets(2));
-      expect(find.text('Usage'), findsNWidgets(2));
+      expect(find.text('Usage'), findsNWidgets(10));
       expect(find.text('Configure'), findsNWidgets(2));
       expect(find.text('Connect'), findsNWidgets(8));
-      expect(find.text('Test'), findsNWidgets(2));
+      expect(find.text('Test'), findsNWidgets(10));
       expect(find.text('Configured'), findsNothing);
       expect(find.text('Not configured'), findsNothing);
     },
@@ -923,7 +1010,7 @@ void main() {
     );
     await openSidebarEntry(tester, 'Providers');
 
-    await tester.tap(find.text('Usage'));
+    await tester.tap(find.text('Usage').first);
     await tester.pumpAndSettle();
 
     expect(find.text('OpenAI usage'), findsOneWidget);
@@ -955,7 +1042,7 @@ void main() {
     );
     await openSidebarEntry(tester, 'Providers');
 
-    await tester.tap(find.text('Usage'));
+    await tester.tap(find.text('Usage').first);
     await tester.pumpAndSettle();
 
     expect(find.text('OpenAI usage'), findsOneWidget);
@@ -999,28 +1086,61 @@ void main() {
     expect(top('my-api'), lessThan(top('Anthropic')));
     expect(top('Anthropic'), lessThan(top('Google Gemini')));
     expect(find.byTooltip('Configured'), findsNWidgets(2));
-    expect(find.text('Test'), findsNWidgets(2));
-    expect(find.text('Usage'), findsNWidgets(2));
+    expect(find.text('Test'), findsNWidgets(11));
+    expect(find.text('Usage'), findsNWidgets(11));
     expect(find.text('Configure'), findsNWidgets(2));
     expect(find.text('Connect'), findsNWidgets(9));
   });
 
-  testWidgets('provider actions stay hidden until credentials are configured', (
-    tester,
-  ) async {
-    final connectionTester = FakeProviderConnectionTester();
-    await pumpApp(
-      tester,
-      buildApp(catalogue: catalogueWithModels(), tester: connectionTester),
-    );
-    await openSidebarEntry(tester, 'Providers');
+  testWidgets(
+    'provider actions stay visible but disabled before configuration',
+    (tester) async {
+      final connectionTester = FakeProviderConnectionTester();
+      await pumpApp(
+        tester,
+        buildApp(catalogue: catalogueWithModels(), tester: connectionTester),
+      );
+      await openSidebarEntry(tester, 'Providers');
 
-    expect(find.text('Connect'), findsNWidgets(10));
-    expect(find.text('Test'), findsNothing);
-    expect(find.text('Usage'), findsNothing);
-    expect(find.text('Configure'), findsNothing);
-    expect(connectionTester.testedProviderIds, isEmpty);
-  });
+      expect(find.text('Test'), findsNWidgets(10));
+      expect(find.text('Usage'), findsNWidgets(10));
+      expect(find.text('Configure'), findsNothing);
+      expect(find.text('Connect'), findsNWidgets(10));
+      for (final label in ['Test', 'Usage']) {
+        final button = tester.widget<OutlinedButton>(
+          find.ancestor(
+            of: find.text(label).first,
+            matching: find.byType(OutlinedButton),
+          ),
+        );
+        expect(button.onPressed, isNull);
+      }
+      expect(connectionTester.testedProviderIds, isEmpty);
+
+      final testRect = tester.getRect(
+        find.ancestor(
+          of: find.text('Test').first,
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      final usageRect = tester.getRect(
+        find.ancestor(
+          of: find.text('Usage').first,
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      final connectRect = tester.getRect(
+        find.ancestor(
+          of: find.text('Connect').first,
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(testRect.left, lessThan(usageRect.left));
+      expect(usageRect.right, lessThan(connectRect.left));
+      expect(testRect.top, moreOrLessEquals(usageRect.top));
+      expect(usageRect.top, moreOrLessEquals(connectRect.top));
+    },
+  );
 
   testWidgets('removing a custom credential keeps the provider', (
     tester,

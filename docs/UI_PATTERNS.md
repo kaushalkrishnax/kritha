@@ -51,6 +51,10 @@ back and desktop Escape use the same stack. When there is no previous route the
 action delegates to the platform's normal exit behavior. Do not hard-code a
 destination such as `/chat` in a back handler.
 
+Workspace action rows keep natural widths. Place quiet utility actions on the
+left and the single primary action on the right; never expand actions to fill
+the row. `WorkspaceOutlinedAction` labels stay single-line with ellipsis.
+
 ### Response actions
 
 Assistant replies end with a quiet action row: Copy, Read aloud, Share and More.
@@ -324,6 +328,13 @@ popup menus.
   screen sharing.
 - Missing local STT/TTS models should be explicit; do not fabricate a
   transcript.
+- Loading a workspace list or a detail surface uses a layout-shaped skeleton
+  (`SkeletonBox`), not a centred spinner. Prefer skeletons for every
+  screen/list/detail load. They mirror the real card or section geometry so the
+  swap does not move content. Do not skeletonize individual small elements such
+  as buttons, labels, icons or inline counts; those keep their normal chrome and
+  only use a spinner for an in-place action. Short in-place work such as
+  pagination and connection tests keeps its compact spinner.
 
 ## 11. Motion and feedback
 
@@ -335,12 +346,60 @@ popup menus.
 | Scroll-down reveal | 180 ms fade; auto-hide 1.5 s |
 | Dictation waveform | Live meter; paused fade in place |
 | Live Talk pill | 2.4 s fluid loop; paused settles to dim static |
+| Skeleton loading | 1.2 s left-to-right shimmer sweep; stops when data arrives |
 
 Do not animate layout for the composer expansion or menu position. Respect the
 existing durations; add a new `KrithaMotion` token only if the interaction is a
 new class of motion.
 
-## 12. Pattern checklist for new surfaces
+## 12. Models and providers workspaces
+
+### Model list
+
+- Cards are compact rows: publisher avatar (or initials fallback), repository
+  name, publisher, then task/parameter/updated/download/like metadata. The Hub
+  search payload has no avatar field, so resolve it once per publisher and cache
+  the result; never request it per card rebuild.
+- The first load renders `CatalogueSkeleton` cards that mirror the real card
+  height. Keep the inline spinner for appended pages, and show Load more only
+  while a cursor exists.
+
+### Model details
+
+- Header: shared back control, the title “Model Details” and one overflow menu
+  with Open in HF Hub and Copy repository URL.
+- Overview: publisher logo, repository identity and a copy action. Render the
+  `namespace/` prefix as a muted run and the model name as its own run so a wrap
+  moves the whole name to the next line instead of splitting it. Below it,
+  followers, then likes, then downloads. Do not reintroduce a separate publisher
+  heading or verification mark.
+- Metadata chips: Tasks (`error`), Libraries (`accentLightBlue`), Languages
+  (`success`), Licenses (`textPrimary`) and Other (`textMuted`, no icon). Keep
+  raw Hub IDs and humanise only the visible label. Long labels ellipsize inside
+  the chip instead of overflowing.
+- Languages: one language renders directly; two or more collapse to an
+  “N languages” chip. Expansion is one-way for that visit. Do not add group
+  filter chips above the tags.
+- Setup: published technical facts only, an instruction of at most 20 words and
+  a primary action to Active Models. No memory or storage compatibility
+  estimates.
+- Card and files: Markdown with View more/View less and an honest empty state;
+  files show the branch, a clickable latest commit, sizes and a six-row View
+  more. Links open the Hub externally.
+
+### Provider cards
+
+- The first settings load renders provider-shaped skeleton cards instead of a
+  centred spinner; only the list is skeletonized, not each action button.
+- One natural-width action row per card: Test + Usage on the left, Connect or
+  Configure on the right. Do not wrap actions in `Expanded` or flex.
+- Test and Usage are always visible but disabled until the provider has its
+  required credentials. Connect is the only filled (primary) action; Configure
+  uses the same neutral outlined treatment as Test/Usage.
+- Usage counts are local. Label the popup as tracked on this device and never
+  fabricate spend or remote billing values.
+
+## 13. Pattern checklist for new surfaces
 
 - [ ] Does the surface use the background hierarchy and `borderSubtle`?
 - [ ] Are all text styles free of local font family/default primary colour?

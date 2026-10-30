@@ -225,7 +225,7 @@ class WorkspaceOutlinedAction extends StatelessWidget {
               color: KrithaColors.textMuted,
             ),
           )
-        : Text(label);
+        : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
     if (icon == null) {
       return OutlinedButton(onPressed: onPressed, style: style, child: child);
     }

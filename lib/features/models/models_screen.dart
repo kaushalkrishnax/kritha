@@ -197,7 +197,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
 
   List<Widget> _contentSlivers(CatalogueState catalogue) {
     if (catalogue.loading || !catalogue.hasLoaded) {
-      return const [SliverToBoxAdapter(child: CatalogueLoading())];
+      return const [SliverToBoxAdapter(child: CatalogueSkeleton())];
     }
     if (catalogue.failure != null) {
       return [

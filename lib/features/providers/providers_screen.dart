@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../core/theme.dart';
 import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
+import '../../widgets/skeleton.dart';
 import '../models/widgets/workspace_header.dart';
 import 'provider_alias.dart';
 import 'provider_connection_tester.dart';
@@ -48,12 +49,7 @@ class ProvidersScreen extends ConsumerWidget {
                 Expanded(
                   child: providers.when(
                     data: (state) => _ProvidersBody(state: state),
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: KrithaColors.accentLightBlue,
-                      ),
-                    ),
+                    loading: () => const _ProvidersSkeleton(),
                     error: (error, stackTrace) => Padding(
                       padding: EdgeInsets.all(KrithaSpacing.s16),
                       child: _ErrorCard(
@@ -209,6 +205,83 @@ class _CustomProviderAction extends StatelessWidget {
   }
 }
 
+class _ProvidersSkeleton extends StatelessWidget {
+  const _ProvidersSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        KrithaSpacing.s16,
+        KrithaSpacing.s4,
+        KrithaSpacing.s16,
+        KrithaSpacing.s32,
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < 7; index++) ...[
+            const _ProviderCardSkeleton(),
+            SizedBox(height: KrithaSpacing.s10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderCardSkeleton extends StatelessWidget {
+  const _ProviderCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final buttonRadius = BorderRadius.circular(KrithaRadius.base);
+    return WorkspaceCard(
+      padding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s14,
+        vertical: KrithaSpacing.s12,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonBox(
+                width: 36,
+                height: 36,
+                radius: BorderRadius.circular(KrithaRadius.base),
+              ),
+              SizedBox(width: KrithaSpacing.s10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBox(width: 120, height: 13),
+                    SizedBox(height: KrithaSpacing.s6),
+                    SkeletonBox(height: 11),
+                    SizedBox(height: KrithaSpacing.s4),
+                    SkeletonBox(width: 210, height: 11),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: KrithaSpacing.s12),
+          Row(
+            children: [
+              SkeletonBox(width: 72, height: 44, radius: buttonRadius),
+              SizedBox(width: KrithaSpacing.s8),
+              SkeletonBox(width: 82, height: 44, radius: buttonRadius),
+              const Spacer(),
+              SkeletonBox(width: 88, height: 44, radius: buttonRadius),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProviderCard extends ConsumerWidget {
   const _ProviderCard({
     required this.definition,
@@ -254,6 +327,7 @@ class _ProviderCard extends ConsumerWidget {
         : result!.ok
         ? KrithaColors.success
         : KrithaColors.error;
+    final available = configuration.hasRequiredCredentials;
     return WorkspaceCard(
       padding: EdgeInsets.symmetric(
         horizontal: KrithaSpacing.s14,
@@ -333,38 +407,33 @@ class _ProviderCard extends ConsumerWidget {
             ],
           ),
           SizedBox(height: KrithaSpacing.s10),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: KrithaSpacing.s8,
-            runSpacing: KrithaSpacing.s8,
+          Row(
             children: [
-              if (configuration.hasRequiredCredentials) ...[
-                WorkspaceOutlinedAction(
-                  label: 'Test',
-                  icon: HugeIcons.strokeRoundedActivity01,
-                  busy: testing,
-                  onPressed: testing
-                      ? null
-                      : () => ref
-                            .read(providersControllerProvider.notifier)
-                            .testConnection(configuration.providerId),
-                ),
-                WorkspaceOutlinedAction(
-                  label: 'Usage',
-                  icon: HugeIcons.strokeRoundedAnalytics01,
-                  onPressed: () => _openUsage(context),
-                ),
+              WorkspaceOutlinedAction(
+                label: 'Test',
+                icon: HugeIcons.strokeRoundedActivity01,
+                busy: testing,
+                onPressed: testing || !available
+                    ? null
+                    : () => ref
+                          .read(providersControllerProvider.notifier)
+                          .testConnection(configuration.providerId),
+              ),
+              SizedBox(width: KrithaSpacing.s8),
+              WorkspaceOutlinedAction(
+                label: 'Usage',
+                icon: HugeIcons.strokeRoundedAnalytics01,
+                onPressed: available ? () => _openUsage(context) : null,
+              ),
+              const Spacer(),
+              if (available)
                 WorkspaceOutlinedAction(
                   label: 'Configure',
                   icon: HugeIcons.strokeRoundedSettings01,
                   onPressed: () => _configure(context),
-                ),
-              ] else
-                WorkspaceOutlinedAction(
-                  label: 'Connect',
-                  icon: HugeIcons.strokeRoundedPlus,
-                  onPressed: () => _configure(context),
-                ),
+                )
+              else
+                _ProviderConnectAction(onPressed: () => _configure(context)),
             ],
           ),
         ],
@@ -388,6 +457,37 @@ class _ProviderCard extends ConsumerWidget {
       'mistral' => HugeIcons.strokeRoundedMistral,
       _ => HugeIcons.strokeRoundedAiChip,
     };
+  }
+}
+
+class _ProviderConnectAction extends StatelessWidget {
+  const _ProviderConnectAction({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: KrithaColors.accentBlue,
+        foregroundColor: KrithaColors.textOnAccent,
+        minimumSize: const Size(0, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KrithaRadius.base),
+        ),
+      ),
+      icon: KrithaIcon(
+        icon: HugeIcons.strokeRoundedPlus,
+        size: 16,
+        color: KrithaColors.textOnAccent,
+      ),
+      label: const Text(
+        'Connect',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
   }
 }
 

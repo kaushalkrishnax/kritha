@@ -7,6 +7,7 @@ import '../../core/external_links.dart';
 import '../../core/theme.dart';
 import '../../widgets/back_navigation.dart';
 import '../../widgets/context_menu.dart';
+import '../../widgets/skeleton.dart';
 import '../chat/widgets/markdown_view.dart';
 import 'catalogue/hugging_face_urls.dart';
 import 'catalogue/model_metadata.dart';
@@ -48,9 +49,7 @@ class ModelDetailsScreen extends ConsumerWidget {
                 Expanded(
                   child: details.when(
                     data: (data) => _DetailsBody(details: data),
-                    loading: () => const CatalogueLoading(
-                      label: 'Loading repository details…',
-                    ),
+                    loading: () => const _DetailsSkeleton(),
                     error: (error, stackTrace) => SingleChildScrollView(
                       padding: EdgeInsets.all(KrithaSpacing.s16),
                       child: CatalogueErrorView(
@@ -145,6 +144,190 @@ class _DetailsBody extends StatelessWidget {
   }
 }
 
+class _DetailsSkeleton extends StatelessWidget {
+  const _DetailsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        KrithaSpacing.s16,
+        KrithaSpacing.s4,
+        KrithaSpacing.s16,
+        KrithaSpacing.s32,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const WorkspaceSectionTitle('Model Overview'),
+          WorkspaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SkeletonBox(
+                      width: 24,
+                      height: 24,
+                      radius: BorderRadius.all(
+                        Radius.circular(KrithaRadius.full),
+                      ),
+                    ),
+                    SizedBox(width: KrithaSpacing.s10),
+                    Expanded(child: SkeletonBox(height: 16)),
+                  ],
+                ),
+                SizedBox(height: KrithaSpacing.s12),
+                Row(
+                  children: [
+                    SkeletonBox(
+                      width: 110,
+                      height: 28,
+                      radius: BorderRadius.all(
+                        Radius.circular(KrithaRadius.full),
+                      ),
+                    ),
+                    SizedBox(width: KrithaSpacing.s8),
+                    SkeletonBox(
+                      width: 76,
+                      height: 28,
+                      radius: BorderRadius.all(
+                        Radius.circular(KrithaRadius.full),
+                      ),
+                    ),
+                    SizedBox(width: KrithaSpacing.s8),
+                    SkeletonBox(
+                      width: 84,
+                      height: 28,
+                      radius: BorderRadius.all(
+                        Radius.circular(KrithaRadius.full),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: KrithaSpacing.s14),
+                Wrap(
+                  spacing: KrithaSpacing.s6,
+                  runSpacing: KrithaSpacing.s6,
+                  children: [
+                    for (var index = 0; index < 9; index++)
+                      SkeletonBox(
+                        width: 62 + (index % 4) * 14,
+                        height: 24,
+                        radius: BorderRadius.all(
+                          Radius.circular(KrithaRadius.full),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: KrithaSpacing.s20),
+          const WorkspaceSectionTitle('Model Setup'),
+          const WorkspaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SkeletonBox(height: 12),
+                SizedBox(height: KrithaSpacing.s8),
+                SkeletonBox(width: 260, height: 12),
+                SizedBox(height: KrithaSpacing.s14),
+                Row(
+                  children: [
+                    Expanded(child: SkeletonBox(height: 38)),
+                    SizedBox(width: KrithaSpacing.s12),
+                    Expanded(child: SkeletonBox(height: 38)),
+                    SizedBox(width: KrithaSpacing.s12),
+                    Expanded(child: SkeletonBox(height: 38)),
+                  ],
+                ),
+                SizedBox(height: KrithaSpacing.s14),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SkeletonBox(width: 132, height: 44),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: KrithaSpacing.s20),
+          const WorkspaceSectionTitle('Model Card'),
+          const WorkspaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SkeletonBox(height: 12),
+                SizedBox(height: KrithaSpacing.s8),
+                SkeletonBox(height: 12),
+                SizedBox(height: KrithaSpacing.s8),
+                SkeletonBox(width: 240, height: 12),
+                SizedBox(height: KrithaSpacing.s16),
+                SkeletonBox(width: 104, height: 14),
+              ],
+            ),
+          ),
+          SizedBox(height: KrithaSpacing.s20),
+          const WorkspaceSectionTitle('Model Files'),
+          WorkspaceCard(
+            padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: KrithaSpacing.s12,
+                    vertical: KrithaSpacing.s10,
+                  ),
+                  child: Row(
+                    children: [
+                      SkeletonBox(
+                        width: 64,
+                        height: 28,
+                        radius: BorderRadius.all(
+                          Radius.circular(KrithaRadius.full),
+                        ),
+                      ),
+                      SizedBox(width: KrithaSpacing.s10),
+                      Expanded(child: SkeletonBox(height: 14)),
+                      SizedBox(width: KrithaSpacing.s8),
+                      SkeletonBox(width: 56, height: 12),
+                    ],
+                  ),
+                ),
+                WorkspaceDivider(),
+                for (var index = 0; index < 3; index++) ...[
+                  if (index > 0) WorkspaceDivider(),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: KrithaSpacing.s12,
+                      vertical: KrithaSpacing.s12,
+                    ),
+                    child: Row(
+                      children: [
+                        SkeletonBox(
+                          width: 20,
+                          height: 20,
+                          radius: BorderRadius.all(
+                            Radius.circular(KrithaRadius.xs),
+                          ),
+                        ),
+                        SizedBox(width: KrithaSpacing.s10),
+                        Expanded(child: SkeletonBox(height: 12)),
+                        SizedBox(width: KrithaSpacing.s12),
+                        SkeletonBox(width: 48, height: 12),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ModelOverviewCard extends StatelessWidget {
   const _ModelOverviewCard({required this.details});
 
@@ -168,95 +351,70 @@ class _ModelOverviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PublisherAvatar(
-                url: publisher?.avatarUrl ?? model.avatarUrl,
-                label: publisherName,
-              ),
-              SizedBox(width: KrithaSpacing.s12),
+              _PublisherAvatar(url: publisher?.avatarUrl, label: publisherName),
+              SizedBox(width: KrithaSpacing.s10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            publisherName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: KrithaText.sizeMd,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                    if (model.namespace.isNotEmpty)
+                      Text(
+                        '${model.namespace}/',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: KrithaText.sizeMd,
+                          fontWeight: FontWeight.w700,
+                          color: KrithaColors.textMuted,
+                          height: 1.3,
                         ),
-                        if (publisher?.isVerified == true) ...[
-                          SizedBox(width: KrithaSpacing.s6),
-                          KrithaIcon(
-                            icon: HugeIcons.strokeRoundedCheckmarkBadge01,
-                            size: KrithaIcons.sm,
-                            color: KrithaColors.accentLightBlue,
-                          ),
-                        ],
-                      ],
-                    ),
-                    SizedBox(height: KrithaSpacing.s4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                if (model.namespace.isNotEmpty)
-                                  TextSpan(
-                                    text: '${model.namespace}/',
-                                    style: TextStyle(
-                                      color: KrithaColors.textMuted,
-                                    ),
-                                  ),
-                                TextSpan(
-                                  text: model.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: KrithaText.sizeSm,
-                              color: KrithaColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: KrithaSpacing.s4),
-                        _CopyIconButton(
-                          tooltip: 'Copy repository identifier',
-                          onTap: () => copyTextToClipboard(
-                            context,
-                            model.id,
-                            message: 'Repository identifier copied',
-                          ),
-                        ),
-                      ],
+                      ),
+                    Text(
+                      model.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: KrithaText.sizeMd,
+                        fontWeight: FontWeight.w700,
+                        color: KrithaColors.textPrimary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(width: KrithaSpacing.s8),
-              _LikesPill(likes: model.likes),
+              SizedBox(width: KrithaSpacing.s4),
+              _CopyIconButton(
+                tooltip: 'Copy repository identifier',
+                onTap: () => copyTextToClipboard(
+                  context,
+                  model.id,
+                  message: 'Repository identifier copied',
+                ),
+              ),
             ],
           ),
-          if (followers > 0 || following > 0) ...[
+          if (followers > 0 ||
+              following > 0 ||
+              model.likes > 0 ||
+              model.downloads > 0) ...[
             SizedBox(height: KrithaSpacing.s12),
-            _FollowerPill(
-              publisherName: publisherName,
-              followers: followers,
-              following: following,
-              followingPublisher: publisher?.isFollowing == true,
+            Wrap(
+              spacing: KrithaSpacing.s8,
+              runSpacing: KrithaSpacing.s8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (followers > 0 || following > 0)
+                  _FollowerPill(
+                    publisherName: publisherName,
+                    followers: followers,
+                    following: following,
+                    followingPublisher: publisher?.isFollowing == true,
+                  ),
+                _LikesPill(likes: model.likes),
+                _DownloadsPill(downloads: model.downloads),
+              ],
             ),
           ],
           if (model.gated || model.isPrivate) ...[
@@ -285,7 +443,16 @@ class _ModelOverviewCard extends StatelessWidget {
             ),
           ],
           SizedBox(height: KrithaSpacing.s14),
-          _MetadataBrowser(tags: tags),
+          if (tags.isEmpty)
+            Text(
+              'No metadata tags were returned for this repository.',
+              style: TextStyle(
+                fontSize: KrithaText.sizeXs,
+                color: KrithaColors.textMuted,
+              ),
+            )
+          else
+            _MetadataTags(tags: tags),
         ],
       ),
     );
@@ -304,8 +471,8 @@ class _PublisherAvatar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(KrithaRadius.full),
       child: Container(
-        width: 48,
-        height: 48,
+        width: 24,
+        height: 24,
         color: KrithaColors.bgTertiary,
         child: source == null
             ? _fallback()
@@ -322,7 +489,7 @@ class _PublisherAvatar extends StatelessWidget {
     child: Text(
       label.isEmpty ? '?' : label[0].toUpperCase(),
       style: TextStyle(
-        fontSize: KrithaText.sizeMd,
+        fontSize: KrithaText.sizeXs,
         fontWeight: FontWeight.w700,
         color: KrithaColors.textSecondary,
       ),
@@ -358,6 +525,46 @@ class _LikesPill extends StatelessWidget {
           SizedBox(width: KrithaSpacing.s6),
           Text(
             formatCount(likes),
+            style: TextStyle(
+              fontSize: KrithaText.sizeXs,
+              fontWeight: FontWeight.w600,
+              color: KrithaColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DownloadsPill extends StatelessWidget {
+  const _DownloadsPill({required this.downloads});
+
+  final int downloads;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s10,
+        vertical: KrithaSpacing.s6,
+      ),
+      decoration: BoxDecoration(
+        color: KrithaColors.bgSecondary,
+        borderRadius: BorderRadius.circular(KrithaRadius.full),
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KrithaIcon(
+            icon: HugeIcons.strokeRoundedDownload04,
+            size: KrithaIcons.sm,
+            color: KrithaColors.textMuted,
+          ),
+          SizedBox(width: KrithaSpacing.s6),
+          Text(
+            formatCount(downloads),
             style: TextStyle(
               fontSize: KrithaText.sizeXs,
               fontWeight: FontWeight.w600,
@@ -461,127 +668,49 @@ class _CopyIconButton extends StatelessWidget {
   }
 }
 
-class _MetadataBrowser extends StatefulWidget {
-  const _MetadataBrowser({required this.tags});
+class _MetadataTags extends StatefulWidget {
+  const _MetadataTags({required this.tags});
 
   final List<ModelMetadataTag> tags;
 
   @override
-  State<_MetadataBrowser> createState() => _MetadataBrowserState();
+  State<_MetadataTags> createState() => _MetadataTagsState();
 }
 
-class _MetadataBrowserState extends State<_MetadataBrowser> {
-  ModelMetadataCategory? _category;
+class _MetadataTagsState extends State<_MetadataTags> {
+  bool _expandedLanguages = false;
 
   @override
   Widget build(BuildContext context) {
-    final visible = metadataForCategory(widget.tags, _category);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: KrithaSpacing.s6,
-          runSpacing: KrithaSpacing.s6,
-          children: [
-            _MetadataCategoryChip(
-              label: 'Main',
-              selected: _category == null,
-              onTap: () => setState(() => _category = null),
-            ),
-            for (final category in ModelMetadataCategory.values)
-              _MetadataCategoryChip(
-                label: category.label,
-                icon: category.icon,
-                selected: _category == category,
-                onTap: () => setState(() => _category = category),
-              ),
-          ],
-        ),
-        SizedBox(height: KrithaSpacing.s12),
-        if (widget.tags.isEmpty)
-          Text(
-            'No metadata tags were returned for this repository.',
-            style: TextStyle(
-              fontSize: KrithaText.sizeXs,
-              color: KrithaColors.textMuted,
-            ),
-          )
-        else if (visible.isEmpty)
-          Text(
-            'No ${_category!.label.toLowerCase()} metadata was returned.',
-            style: TextStyle(
-              fontSize: KrithaText.sizeXs,
-              color: KrithaColors.textMuted,
-            ),
-          )
-        else
-          Wrap(
-            spacing: KrithaSpacing.s6,
-            runSpacing: KrithaSpacing.s6,
-            children: [for (final tag in visible) _MetadataTagChip(tag: tag)],
+    final languages = widget.tags
+        .where((tag) => tag.category == ModelMetadataCategory.languages)
+        .toList(growable: false);
+    final children = <Widget>[];
+    var addedLanguages = false;
+    for (final tag in widget.tags) {
+      if (tag.category != ModelMetadataCategory.languages) {
+        children.add(_MetadataTagChip(tag: tag));
+        continue;
+      }
+      if (addedLanguages) continue;
+      addedLanguages = true;
+      if (_expandedLanguages || languages.length <= 1) {
+        children.addAll(
+          languages.map((language) => _MetadataTagChip(tag: language)),
+        );
+      } else {
+        children.add(
+          _LanguageSummaryChip(
+            count: languages.length,
+            onTap: () => setState(() => _expandedLanguages = true),
           ),
-      ],
-    );
-  }
-}
-
-class _MetadataCategoryChip extends StatelessWidget {
-  const _MetadataCategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.icon,
-  });
-
-  final String label;
-  final List<List<dynamic>>? icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = selected
-        ? KrithaColors.textOnAccent
-        : KrithaColors.textSecondary;
-    return Material(
-      color: selected ? KrithaColors.accentBlue : KrithaColors.bgSecondary,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(KrithaRadius.full),
-        side: BorderSide(
-          color: selected
-              ? KrithaColors.borderAccent
-              : KrithaColors.borderSubtle,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        mouseCursor: SystemMouseCursors.click,
-        hoverColor: KrithaColors.contextMenuPressed,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: KrithaSpacing.s10,
-            vertical: KrithaSpacing.s6,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                KrithaIcon(icon: icon!, size: 14, color: foreground),
-                SizedBox(width: KrithaSpacing.s6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: KrithaText.sizeXs,
-                  fontWeight: FontWeight.w600,
-                  color: foreground,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      }
+    }
+    return Wrap(
+      spacing: KrithaSpacing.s6,
+      runSpacing: KrithaSpacing.s6,
+      children: children,
     );
   }
 }
@@ -593,36 +722,92 @@ class _MetadataTagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOther = tag.category == ModelMetadataCategory.other;
+    final color = tag.category.color;
+    final icon = tag.category.icon;
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: KrithaSpacing.s10,
-        vertical: KrithaSpacing.s6,
+        horizontal: KrithaSpacing.s8,
+        vertical: KrithaSpacing.s4,
       ),
       decoration: BoxDecoration(
-        color: KrithaColors.bgSecondary,
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(KrithaRadius.full),
-        border: Border.all(color: KrithaColors.borderSubtle),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!isOther) ...[
-            KrithaIcon(
-              icon: tag.category.icon,
-              size: 14,
-              color: KrithaColors.textMuted,
-            ),
-            SizedBox(width: KrithaSpacing.s6),
+          if (icon != null) ...[
+            KrithaIcon(icon: icon, size: 12, color: color),
+            SizedBox(width: KrithaSpacing.s4),
           ],
-          Text(
-            tag.label,
-            style: TextStyle(
-              fontSize: KrithaText.sizeXs,
-              color: KrithaColors.textSecondary,
+          Flexible(
+            child: Text(
+              tag.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: KrithaText.size2xs,
+                color: KrithaColors.textSecondary,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LanguageSummaryChip extends StatelessWidget {
+  const _LanguageSummaryChip({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ModelMetadataCategory.languages.color;
+    return Material(
+      color: color.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.full),
+        side: BorderSide(color: color.withValues(alpha: 0.24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
+        hoverColor: KrithaColors.contextMenuPressed,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: KrithaSpacing.s8,
+            vertical: KrithaSpacing.s4,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              KrithaIcon(
+                icon: HugeIcons.strokeRoundedGlobe02,
+                size: 12,
+                color: color,
+              ),
+              SizedBox(width: KrithaSpacing.s4),
+              Text(
+                '$count languages',
+                style: TextStyle(
+                  fontSize: KrithaText.size2xs,
+                  color: KrithaColors.textSecondary,
+                ),
+              ),
+              SizedBox(width: KrithaSpacing.s4),
+              KrithaIcon(
+                icon: HugeIcons.strokeRoundedArrowDown01,
+                size: 12,
+                color: color,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -691,7 +876,7 @@ class _ModelSetupCard extends StatelessWidget {
                 ),
               ),
               icon: KrithaIcon(
-                icon: HugeIcons.strokeRoundedSettings02,
+                icon: HugeIcons.strokeRoundedBlockGame,
                 size: 16,
                 color: KrithaColors.textOnAccent,
               ),
@@ -809,38 +994,26 @@ class _ModelCardSectionState extends State<_ModelCardSection> {
           AnimatedSize(
             duration: KrithaMotion.fast,
             alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: _expanded ? double.infinity : 360,
-              ),
-              child: ClipRect(
-                child: MarkdownView(
-                  data: readme,
-                  onLinkTap: (url) => _openLink(context, url),
-                ),
-              ),
-            ),
+            child: _expanded
+                ? MarkdownView(
+                    data: readme,
+                    onLinkTap: (url) => _openLink(context, url),
+                  )
+                : SizedBox(
+                    height: 360,
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: MarkdownView(
+                        data: readme,
+                        onLinkTap: (url) => _openLink(context, url),
+                      ),
+                    ),
+                  ),
           ),
           SizedBox(height: KrithaSpacing.s8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _expanded = !_expanded),
-              style: TextButton.styleFrom(
-                foregroundColor: KrithaColors.accentLightBlue,
-                padding: EdgeInsets.symmetric(
-                  horizontal: KrithaSpacing.s8,
-                  vertical: KrithaSpacing.s6,
-                ),
-              ),
-              icon: KrithaIcon(
-                icon: _expanded
-                    ? HugeIcons.strokeRoundedArrowUp01
-                    : HugeIcons.strokeRoundedArrowDown01,
-                size: 16,
-              ),
-              label: Text(_expanded ? 'View less' : 'View more'),
-            ),
+          _ViewMoreToggle(
+            expanded: _expanded,
+            onPressed: () => setState(() => _expanded = !_expanded),
           ),
         ],
       ),
@@ -862,18 +1035,30 @@ class _ModelCardSectionState extends State<_ModelCardSection> {
   }
 }
 
-class _ModelFilesCard extends StatelessWidget {
+class _ModelFilesCard extends StatefulWidget {
   const _ModelFilesCard({required this.details});
 
   final ModelDetails details;
 
   @override
+  State<_ModelFilesCard> createState() => _ModelFilesCardState();
+}
+
+class _ModelFilesCardState extends State<_ModelFilesCard> {
+  static const _collapsedLimit = 6;
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final details = widget.details;
     final entries = [...details.files]
       ..sort((a, b) {
         if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
         return a.path.toLowerCase().compareTo(b.path.toLowerCase());
       });
+    final visible = _expanded
+        ? entries
+        : entries.take(_collapsedLimit).toList(growable: false);
     final size = details.repositorySize;
 
     return WorkspaceCard(
@@ -991,11 +1176,25 @@ class _ModelFilesCard extends StatelessWidget {
                 compact: true,
               ),
             )
-          else
-            for (var index = 0; index < entries.length; index++) ...[
+          else ...[
+            for (var index = 0; index < visible.length; index++) ...[
               if (index > 0) WorkspaceDivider(),
-              _RepositoryEntryRow(details: details, file: entries[index]),
+              _RepositoryEntryRow(details: details, file: visible[index]),
             ],
+            if (entries.length > _collapsedLimit) ...[
+              WorkspaceDivider(),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: KrithaSpacing.s8,
+                  vertical: KrithaSpacing.s2,
+                ),
+                child: _ViewMoreToggle(
+                  expanded: _expanded,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -1003,6 +1202,37 @@ class _ModelFilesCard extends StatelessWidget {
 
   static String _shortSha(String sha) =>
       sha.length <= 7 ? sha : sha.substring(0, 7);
+}
+
+class _ViewMoreToggle extends StatelessWidget {
+  const _ViewMoreToggle({required this.expanded, required this.onPressed});
+
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          foregroundColor: KrithaColors.accentLightBlue,
+          padding: EdgeInsets.symmetric(
+            horizontal: KrithaSpacing.s8,
+            vertical: KrithaSpacing.s6,
+          ),
+        ),
+        icon: KrithaIcon(
+          icon: expanded
+              ? HugeIcons.strokeRoundedArrowUp01
+              : HugeIcons.strokeRoundedArrowDown01,
+          size: 16,
+        ),
+        label: Text(expanded ? 'View less' : 'View more'),
+      ),
+    );
+  }
 }
 
 class _RepositoryEntryRow extends StatelessWidget {

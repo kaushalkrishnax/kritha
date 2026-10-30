@@ -20,10 +20,24 @@ final huggingFaceDioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-final modelCatalogueProvider = Provider<ModelCatalogue>((ref) {
-  final client = HuggingFaceHubClient(
+final huggingFaceHubClientProvider = Provider<HuggingFaceHubClient>((ref) {
+  return HuggingFaceHubClient(
     ref.watch(huggingFaceDioProvider),
     () => ref.read(huggingFaceTokenStoreProvider).readToken(),
   );
-  return ModelCatalogueRepository(client);
+});
+
+final modelCatalogueProvider = Provider<ModelCatalogue>((ref) {
+  return ModelCatalogueRepository(ref.watch(huggingFaceHubClientProvider));
+});
+
+/// Publisher avatars are not part of the model list payload, so each unique
+/// publisher is resolved once and kept for the session.
+final publisherAvatarProvider = FutureProvider.family<String?, String>((
+  ref,
+  publisher,
+) async {
+  final name = publisher.trim();
+  if (name.isEmpty) return null;
+  return ref.watch(huggingFaceHubClientProvider).fetchPublisherAvatar(name);
 });

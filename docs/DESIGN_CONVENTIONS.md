@@ -113,6 +113,9 @@ buttons.
   and the Live Talk fluid glow.
 - `success`, `warning`, `error` — status only. `error` is also the destructive
   text/icon colour.
+- Metadata chips reuse semantic tokens by category: `error` for tasks,
+  `accentLightBlue` for libraries, `success` for languages, `textPrimary` for
+  licenses and `textMuted` for other. Other has no icon.
 - `waveformBar` — dictation metering bars. Intentionally light grey rather than
   pure white so the strip sits calmly in the frosted composer.
 
@@ -238,6 +241,11 @@ Animation rules:
   settle into a dim static state when paused.
 - `showGeneralDialog(requestFocus: false)` is required for menus that must not
   steal focus from the composer keyboard.
+- Loading skeletons (`SkeletonBox`) sweep a `bgTertiary` highlight left to right
+  across a `bgSecondary` base over 1.2 s and stop when data arrives. Use
+  layout-shaped skeletons for screen, list and detail loads wherever possible;
+  do not skeletonize buttons, labels, icons or inline counts. Keep circular
+  progress for short in-place work such as pagination or a connection test.
 
 ## 9. Accessibility and interaction
 

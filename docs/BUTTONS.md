@@ -20,6 +20,8 @@ already shipped.
 | Message action surface | Bubble-shaped `Material` + `InkWell` | Long-press a user message |
 | Destructive action | Same shape as its peer, `error` text/icon | Delete chat/message |
 | Disabled/unavailable | Dim the normal shape; no tap handler | Camera, Plugins, Video |
+| Workspace utility action | Outlined 44 px, natural width | Test, Usage, Configure |
+| Workspace primary action | Filled `accentBlue`, natural width | Connect |
 
 Use a standard `IconButton` only for simple toolbar icons where its default
 ripple is acceptable (`PlusButton`, `VoiceModeButton`). For a custom shape,
@@ -251,6 +253,33 @@ the missing response menu.
 
 It floats above the composer with 24 px lift and 12 px bottom gap. Keep it
 outside the transcript's hit area so it never blocks message taps.
+
+### 3.13 Workspace actions — `WorkspaceOutlinedAction` / `_ProviderConnectAction`
+
+**Files:** `lib/features/models/widgets/workspace_header.dart`,
+`lib/features/providers/providers_screen.dart`
+
+| Property | Value |
+| --- | --- |
+| Size | 44 px high, natural width |
+| Shape | Rounded `KrithaRadius.base` |
+| Outlined | `textSecondary` label/icon, 1 px `borderStrong` |
+| Primary | `accentBlue` fill, `textOnAccent` label/icon |
+| Icon | 16–18 px Hugeicons, 8 px icon–label gap |
+| Label | Single line, ellipsis instead of wrap |
+| Disabled | Null callback; muted label and border, no emphasis |
+
+Rules:
+
+- Use the outlined variant for secondary actions (`Test`, `Usage`,
+  `Configure`) and the filled variant only for the single primary action in the
+  row (`Connect`).
+- Workspace rows keep natural widths; never stretch these controls with
+  `Expanded`.
+- `Test`/`Usage` may stay visible while disabled before a provider is
+  configured. Connect/Configure always remain enabled.
+- Busy state swaps the label for a 16 px progress indicator while keeping the
+  control size.
 
 ## 4. State matrix
 

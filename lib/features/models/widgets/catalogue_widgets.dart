@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
+import '../../../widgets/skeleton.dart';
 import '../catalogue/catalogue_failure.dart';
 import '../catalogue/catalogue_model.dart';
+import '../catalogue/catalogue_providers.dart';
 import 'workspace_header.dart';
 
 List<List<dynamic>> capabilityIcon(ModelCapability capability) {
@@ -144,6 +147,81 @@ class CatalogueLoading extends StatelessWidget {
               fontSize: KrithaText.sizeSm,
               color: KrithaColors.textMuted,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CatalogueSkeleton extends StatelessWidget {
+  const CatalogueSkeleton({super.key, this.count = 8});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s16),
+      child: Column(
+        children: [
+          for (var index = 0; index < count; index++) ...[
+            const _ModelCardSkeleton(),
+            SizedBox(height: KrithaSpacing.s8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ModelCardSkeleton extends StatelessWidget {
+  const _ModelCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s12,
+        vertical: KrithaSpacing.s10,
+      ),
+      decoration: BoxDecoration(
+        color: KrithaColors.bgSurface,
+        borderRadius: BorderRadius.circular(KrithaRadius.md),
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SkeletonBox(
+                width: 28,
+                height: 28,
+                radius: BorderRadius.circular(KrithaRadius.full),
+              ),
+              SizedBox(width: KrithaSpacing.s8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBox(width: 160, height: 11),
+                    SizedBox(height: KrithaSpacing.s6),
+                    SkeletonBox(width: 96, height: 9),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: KrithaSpacing.s10),
+          Row(
+            children: [
+              SkeletonBox(width: 58, height: 9),
+              SizedBox(width: KrithaSpacing.s8),
+              SkeletonBox(width: 44, height: 9),
+              SizedBox(width: KrithaSpacing.s8),
+              SkeletonBox(width: 72, height: 9),
+            ],
           ),
         ],
       ),
@@ -308,7 +386,7 @@ class ModelCard extends StatelessWidget {
         ),
       if (model.parameterCount != null)
         _ModelMetadata(
-          icon: HugeIcons.strokeRoundedChartScatter,
+          icon: HugeIcons.strokeRoundedSignalFull02,
           label: formatParameterCount(model.parameterCount!),
         ),
       if (model.lastModified != null)
@@ -338,14 +416,14 @@ class ModelCard extends StatelessWidget {
   }
 }
 
-class _PublisherAvatar extends StatelessWidget {
+class _PublisherAvatar extends ConsumerWidget {
   const _PublisherAvatar({required this.model});
 
   final CatalogueModel model;
 
   @override
-  Widget build(BuildContext context) {
-    final url = model.avatarUrl;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url = ref.watch(publisherAvatarProvider(model.publisher)).value;
     return ClipOval(
       child: SizedBox(
         width: 28,

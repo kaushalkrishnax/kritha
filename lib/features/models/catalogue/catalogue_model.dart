@@ -237,13 +237,9 @@ class CatalogueModel {
 
   bool get hasDiscoverableTask => !_generationTasks.contains(declaredTask);
 
-  String get publisherLabel => _displayPublisher(author ?? namespace);
+  String get publisherLabel => _displayPublisher(publisher);
 
-  String? get avatarUrl {
-    final publisher = author ?? namespace;
-    if (publisher.isEmpty) return null;
-    return 'https://huggingface.co/avatars/${Uri.encodeComponent(publisher)}.png';
-  }
+  String get publisher => author ?? namespace;
 
   String? get taskLabel {
     final task = declaredTask;

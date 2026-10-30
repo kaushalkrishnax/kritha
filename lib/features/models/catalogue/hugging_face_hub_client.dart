@@ -173,6 +173,33 @@ class HuggingFaceHubClient {
     return null;
   }
 
+  /// Search results carry only the publisher name, so the avatar needs a
+  /// second, per-publisher lookup. Callers should cache the result.
+  Future<String?> fetchPublisherAvatar(
+    String name, {
+    CancelToken? cancelToken,
+  }) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) return null;
+    final encoded = Uri.encodeComponent(normalized);
+    for (final path in [
+      '/api/organizations/$encoded/avatar',
+      '/api/users/$encoded/avatar',
+    ]) {
+      try {
+        final response = await _get(path, cancelToken: cancelToken);
+        final data = response.data;
+        if (data is! Map) continue;
+        final url = data['avatarUrl'];
+        if (url is String && url.trim().isNotEmpty) return url.trim();
+      } on CatalogueFailure catch (failure) {
+        if (failure.kind == CatalogueFailureKind.notFound) continue;
+        return null;
+      }
+    }
+    return null;
+  }
+
   Future<String?> fetchReadme(String id, {CancelToken? cancelToken}) async {
     try {
       final response = await _get(

@@ -115,7 +115,7 @@ void main() {
       expect(model.taskLabel, 'Image-Text-To-Text');
       expect(sparse.parameterCount, isNull);
       expect(sparse.lastModified, isNull);
-      expect(sparse.avatarUrl, contains('team'));
+      expect(sparse.publisher, 'team');
     });
 
     test('parses files, details and runtime format hints', () {
@@ -355,6 +355,30 @@ void main() {
         ]);
       },
     );
+
+    test('resolves a publisher avatar through the user fallback', () async {
+      final adapter = _FakeHttpAdapter((options) async {
+        if (options.path.contains('/organizations/')) {
+          return _jsonResponse({}, status: 404);
+        }
+        return _jsonResponse({
+          'avatarUrl':
+              'https://cdn-avatars.huggingface.co/v1/production/uploads/a.png',
+        });
+      });
+      final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+      final avatar = await client.fetchPublisherAvatar('someone');
+
+      expect(
+        avatar,
+        'https://cdn-avatars.huggingface.co/v1/production/uploads/a.png',
+      );
+      expect(adapter.requests.map((request) => request.path), [
+        '/api/organizations/someone/avatar',
+        '/api/users/someone/avatar',
+      ]);
+    });
 
     test('requests the top-level repository tree', () async {
       final adapter = _FakeHttpAdapter(

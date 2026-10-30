@@ -5,7 +5,7 @@ import 'package:kritha/features/models/catalogue/model_metadata.dart';
 
 void main() {
   group('metadata classification', () {
-    test('groups declared Hub fields without a static tag catalogue', () {
+    test('groups declared Hub fields by metadata category', () {
       final tags = classifyModelMetadata(
         pipelineTag: 'text-generation',
         libraryName: 'transformers',
@@ -33,7 +33,7 @@ void main() {
         ModelMetadataCategory.languages,
         ModelMetadataCategory.languages,
         ModelMetadataCategory.licenses,
-        ModelMetadataCategory.other,
+        ModelMetadataCategory.libraries,
         ModelMetadataCategory.other,
       ]);
       expect(tags[0].label, 'Text Generation');
@@ -41,6 +41,36 @@ void main() {
       expect(tags[2].label, 'English');
       expect(tags[3].label, 'French');
       expect(tags[4].label, 'Apache 2.0');
+      expect(tags[5].label, 'Safetensors');
+    });
+
+    test('maps bare language codes and library tags from the Hub', () {
+      final tags = classifyModelMetadata(
+        pipelineTag: 'automatic-speech-recognition',
+        libraryName: 'nemo',
+        tags: ['pytorch', 'transformers', 'cs', 'en', 'zh', 'region:us'],
+      );
+
+      expect(tags.map((tag) => tag.category), [
+        ModelMetadataCategory.tasks,
+        ModelMetadataCategory.libraries,
+        ModelMetadataCategory.libraries,
+        ModelMetadataCategory.libraries,
+        ModelMetadataCategory.languages,
+        ModelMetadataCategory.languages,
+        ModelMetadataCategory.languages,
+        ModelMetadataCategory.other,
+      ]);
+      expect(tags.map((tag) => tag.label), [
+        'Automatic Speech Recognition',
+        'NeMo',
+        'PyTorch',
+        'Transformers',
+        'Czech',
+        'English',
+        'Chinese',
+        'region:us',
+      ]);
     });
 
     test('deduplicates identifiers and ignores empty values', () {
@@ -70,25 +100,6 @@ void main() {
       );
 
       expect(tags, isEmpty);
-      expect(metadataForCategory(tags, null), isEmpty);
-    });
-
-    test('filters the combined view by category', () {
-      final tags = classifyModelMetadata(
-        pipelineTag: 'text-generation',
-        libraryName: 'transformers',
-        tags: ['language:en', 'license:mit', 'safetensors'],
-      );
-
-      expect(metadataForCategory(tags, null), hasLength(5));
-      expect(
-        metadataForCategory(tags, ModelMetadataCategory.licenses).single.raw,
-        'license:mit',
-      );
-      expect(
-        metadataForCategory(tags, ModelMetadataCategory.other).single.raw,
-        'safetensors',
-      );
     });
 
     test('defines exactly the five metadata categories', () {
@@ -100,8 +111,16 @@ void main() {
         'Other',
       ]);
       for (final category in ModelMetadataCategory.values) {
-        expect(category.icon, isNotEmpty);
+        if (category == ModelMetadataCategory.other) {
+          expect(category.icon, isNull);
+        } else {
+          expect(category.icon, isNotEmpty);
+        }
       }
+      expect(
+        ModelMetadataCategory.values.map((category) => category.color).toSet(),
+        hasLength(ModelMetadataCategory.values.length),
+      );
     });
   });
 
