@@ -470,8 +470,7 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
 String _storedAliasFor(String providerId, StoredProviderSettings settings) {
   final saved = cleanProviderAlias(settings.alias ?? '');
   if (saved.isNotEmpty && isValidProviderAlias(saved)) return saved;
-  // The pre-multi-provider build stored one custom provider under "custom".
-  // Keeping that alias preserves its saved credential and assignments.
+  // Preserve legacy "custom" provider alias and assignments.
   if (providerId == 'custom') return 'custom';
   return deriveProviderAlias(settings.baseUrl) ??
       normalizeProviderAlias(providerId);

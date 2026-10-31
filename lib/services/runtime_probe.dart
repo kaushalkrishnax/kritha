@@ -11,7 +11,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite;
 import '../data/app_database.dart';
 import '../core/storage/secure_storage_service.dart';
 
-/// Result of touching each platform package once at startup.
+/// Startup platform package probe results.
 class RuntimeStatus {
   const RuntimeStatus({
     required this.liteRtLmReady,
@@ -42,9 +42,7 @@ class RuntimeStatus {
   bool get sherpaReady => sherpaVersion.isNotEmpty;
 }
 
-/// Exercises every platform dependency once. Everything is best-effort: a
-/// missing permission or unavailable plugin is reported in the UI instead of
-/// crashing the demo.
+/// Best-effort platform dependency probe surfacing status in settings.
 class RuntimeProbe {
   RuntimeProbe({
     required this.database,
@@ -61,12 +59,11 @@ class RuntimeProbe {
     var sherpaVersion = '';
     var onnxRuntimeVersion = '';
     try {
-      // Loading the package's native log bridge verifies the bundled LiteRT-LM
-      // runtime without requiring a model file.
+      // Probes native LiteRT-LM log bridge without requiring a model file.
       litertlm.setMinimumLogLevel(litertlm.LogSeverity.error);
       liteRtLmReady = true;
     } on Object {
-      // A platform without a compatible native runtime reports unavailable.
+      // Platform without native runtime reports unavailable.
     }
 
     try {
@@ -74,7 +71,7 @@ class RuntimeProbe {
       sherpaVersion = sherpa.getVersion();
       onnxRuntimeVersion = sherpa.getOnnxruntimeVersion();
     } on Object {
-      // Report a missing native library in the runtime diagnostics.
+      // Report missing native library in runtime diagnostics.
     }
 
     var sqliteVersion = '';
@@ -84,7 +81,7 @@ class RuntimeProbe {
       sqliteVersion = row['version'] as String? ?? '';
       db.close();
     } on Object {
-      // sqlite3 is also exercised by Drift; this is a direct probe.
+      // Direct sqlite3 probe alongside Drift.
     }
 
     var secureStorageReady = false;
@@ -142,11 +139,11 @@ class RuntimeProbe {
       documentsPath = '';
     }
 
-    // Touch the database so its lazy connection opens during startup.
+    // Opens lazy database connection during startup.
     try {
       await database.countMessages();
     } on Object {
-      // The chat provider will surface a database error separately.
+      // Chat provider surfaces database errors separately.
     }
 
     return RuntimeStatus(

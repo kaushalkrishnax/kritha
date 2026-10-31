@@ -133,8 +133,7 @@ class VoiceModeButton extends StatelessWidget {
   }
 }
 
-/// Primary action: send when there is content, otherwise start Live Talk,
-/// and a stop glyph while a reply is in flight.
+/// Primary send/stop/live-talk composer action.
 class ComposerActionButton extends StatelessWidget {
   const ComposerActionButton({
     super.key,

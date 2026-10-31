@@ -6,10 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../catalogue/catalogue_providers.dart';
 import '../catalogue/hugging_face_hub_client.dart';
 
-/// Owns the files for one model configuration.
-///
-/// Every configuration gets its own root; rows only store paths relative to
-/// that root, so two configurations can never share a physical artifact.
+/// Manages isolated storage root and relative paths for one model configuration.
 abstract interface class ModelArtifactStorage {
   String get rootPath;
 
@@ -100,8 +97,7 @@ class FileModelArtifactStorage implements ModelArtifactStorage {
   }
 }
 
-/// Returns a normalized, configuration-relative path, or `null` when the
-/// supplied path could escape the configuration root.
+/// Normalizes path relative to configuration root; returns null if path escapes root.
 String? normalizeArtifactTarget(String raw) {
   final normalized = raw.trim().replaceAll('\\', '/');
   if (normalized.isEmpty) return null;
@@ -115,10 +111,7 @@ String? normalizeArtifactTarget(String raw) {
   return segments.join(Platform.pathSeparator);
 }
 
-/// One in-flight resumable transfer.
-///
-/// Pausing stops the network read but keeps the bytes already written, so
-/// [resume] continues from the partial file instead of starting again.
+/// In-flight resumable transfer preserving partial downloads on pause.
 abstract interface class ModelArtifactDownload {
   Future<void> get done;
 

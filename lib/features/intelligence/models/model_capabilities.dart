@@ -2,7 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'model_capabilities.freezed.dart';
 
-/// An operation a local model can be asked to perform.
+/// Inference operation supported by a model.
 enum InferenceCapability {
   textGeneration,
   imageInput,
@@ -10,12 +10,7 @@ enum InferenceCapability {
   structuredOutput,
 }
 
-/// What a model is declared to support.
-///
-/// LiteRT-LM 0.0.14 cannot inspect a model file beyond speculative-decoding
-/// support, so these flags come from the descriptor rather than a probe. The
-/// default is empty on purpose: an undeclared capability must never be treated
-/// as available.
+/// Declared model capabilities; empty by default to prevent assuming undeclared features.
 @freezed
 abstract class ModelCapabilities with _$ModelCapabilities {
   const ModelCapabilities._();
@@ -24,7 +19,7 @@ abstract class ModelCapabilities with _$ModelCapabilities {
     @Default(<InferenceCapability>{}) Set<InferenceCapability> supported,
   }) = _ModelCapabilities;
 
-  /// The conservative declaration used until a model is verified otherwise.
+  /// Default conservative capabilities until verified.
   static const textOnly = ModelCapabilities(
     supported: {InferenceCapability.textGeneration},
   );

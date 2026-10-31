@@ -4,16 +4,11 @@ import 'models/ai_request.dart';
 import 'models/ai_response.dart';
 import 'models/model_descriptor.dart';
 
-/// Where an inference provider is in its native lifecycle.
-///
-/// [fileReady] only means configuration points at a validated file. It never
-/// means the runtime loaded the weights, and none of these states imply that a
-/// generation succeeded.
+/// Native lifecycle state of an inference provider.
 enum EngineLifecycleStage {
   fileReady,
 
-  /// A remote provider is configured and can accept requests without a local
-  /// engine load.
+  /// Remote provider configured and ready without local engine load.
   ready,
   initializing,
   initialized,
@@ -32,7 +27,7 @@ class EngineLifecycle {
 
   final EngineLifecycleStage stage;
 
-  /// A short, user-safe explanation for a failed state.
+  /// User-safe explanation for failed state.
   final String? message;
 
   bool get isInitialized => stage == EngineLifecycleStage.initialized;
@@ -63,35 +58,23 @@ class EngineLifecycle {
   String toString() => 'EngineLifecycle(${stage.name})';
 }
 
-/// A runtime that can execute inference for one model.
-///
-/// Implementations own native resources. [initialize] loads the runtime and
-/// model; [generate] and [stream] must be safe to call afterwards, and
-/// [dispose] must be idempotent. Errors surface as [IntelligenceException]
-/// subtypes.
+/// Runtime executing inference for one model with managed native resources.
 abstract interface class InferenceProvider {
   String get id;
 
   ModelDescriptor get descriptor;
 
-  /// Observable lifecycle. It is safe to inspect without loading the model.
+  /// Observable lifecycle; safe to inspect without loading model.
   ValueListenable<EngineLifecycle> get lifecycle;
 
-  /// Whether the runtime and model are loaded in this process. This says
-  /// nothing about whether a generation has succeeded.
+  /// Whether runtime and model are loaded in memory.
   bool get isInitialized;
 
   Future<void> initialize();
 
-  /// Runs one request to completion.
   Future<AiResponse> generate(AiRequest request);
 
-  /// Runs one request and emits output as it is produced.
-  ///
-  /// Each event is a cumulative partial snapshot, not a completed response.
-  /// Completion is signalled only by the stream closing normally. Cancelling
-  /// the subscription must stop native generation; the runtime may keep the
-  /// loaded model for later requests.
+  /// Streams cumulative partial snapshots; cancelling subscription stops native generation.
   Stream<AiResponse> stream(AiRequest request);
 
   Future<void> dispose();

@@ -2,9 +2,6 @@ import 'intelligence_exception.dart';
 import 'models/ai_request.dart';
 
 /// Checks request invariants before routing or native execution.
-///
-/// Capability declarations are deliberately not checked here: the router and
-/// provider enforce them after model selection.
 class AiRequestValidator {
   const AiRequestValidator();
 

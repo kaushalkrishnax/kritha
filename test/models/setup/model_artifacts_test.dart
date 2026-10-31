@@ -240,6 +240,7 @@ void main() {
       final source = File('${tempDir.path}/external-tokenizer.model');
       await source.writeAsString('device bytes');
       final row = controller.addArtifactRow(ModelArtifactKind.helper)!;
+      expect(row.targetPath, isEmpty);
 
       await controller.assignDeviceArtifact(row.id, source.path);
 
@@ -470,6 +471,21 @@ void main() {
     expect(normalizeArtifactTarget('nested/config.json'), isNotNull);
     final storage = FileModelArtifactStorage(tempDir.path);
     expect(storage.resolve('../config.json'), isEmpty);
+  });
+
+  test('duplicate target paths flag every conflicting row', () async {
+    final controller = await readyController();
+    final config = controller
+        .artifactsFor(ModelArtifactKind.configuration)
+        .single;
+    final helper = controller.addArtifactRow(ModelArtifactKind.helper)!;
+
+    await controller.updateArtifactTarget(helper.id, ' config.json ');
+
+    expect(controller.duplicateTargetIds, {config.id, helper.id});
+
+    controller.toggleArtifactSelected(helper.id);
+    expect(controller.duplicateTargetIds, isEmpty);
   });
 
   test(

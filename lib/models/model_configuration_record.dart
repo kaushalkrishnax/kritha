@@ -1,8 +1,4 @@
-/// A saved model configuration and the artifacts it owns.
-///
-/// Only user-facing configuration data lives here. Pre-check results (device,
-/// runtime probes and compatibility decisions) are deliberately not persisted;
-/// they are re-evaluated whenever the wizard opens.
+/// Persisted model configuration; pre-check results are evaluated dynamically.
 class ConfiguredModel {
   const ConfiguredModel({
     required this.id,
@@ -24,7 +20,7 @@ class ConfiguredModel {
   final String branch;
   final String? commitSha;
 
-  /// Root directory owned by this configuration.
+  /// Storage root owned by this configuration.
   final String rootPath;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -53,11 +49,7 @@ class ConfiguredModelArtifact {
   });
 
   final String id;
-
-  /// `configuration`, `helper` or `weights`.
   final String kind;
-
-  /// `repository`, `device` or `unassigned`.
   final String sourceType;
   final String? repositoryPath;
   final String? deviceSourcePath;

@@ -9,8 +9,7 @@ enum CatalogueFailureKind {
   unknown,
 }
 
-/// A user-safe catalogue failure. Transport details stay in this object and
-/// never include request headers or credentials.
+/// User-safe catalogue failure omitting credentials and request headers.
 class CatalogueFailure implements Exception {
   const CatalogueFailure({
     required this.kind,

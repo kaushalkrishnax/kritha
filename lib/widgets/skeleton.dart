@@ -2,9 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../core/theme.dart';
 
-/// Shimmering placeholder for content that is still loading.
-///
-/// Use it to mirror real screen geometry, never inside buttons or labels.
+/// Shimmering placeholder mirroring layout geometry while loading.
 class SkeletonBox extends StatefulWidget {
   const SkeletonBox({super.key, this.width, this.height = 12, this.radius});
 

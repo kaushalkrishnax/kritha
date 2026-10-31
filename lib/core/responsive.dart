@@ -1,14 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Shared viewport breakpoints for the whole application.
-///
-/// Compact: `< 600` logical pixels.
-/// Medium: `600 – 839` logical pixels.
-/// Wide: `>= 840` logical pixels.
-///
-/// These mirror the three states the chat shell is designed around. Keep every
-/// responsive decision in the app anchored to this one definition so a
-/// component never disagrees with the shell about the current viewport.
+/// Shared viewport breakpoints for responsive layouts.
 abstract final class KrithaBreakpoints {
   static const double compact = 600;
   static const double medium = 840;
@@ -27,16 +19,14 @@ extension KrithaViewportX on KrithaViewport {
   bool get isMedium => this == KrithaViewport.medium;
   bool get isWide => this == KrithaViewport.wide;
 
-  /// Messages and the composer share one readable column. Medium viewports
-  /// are already narrower than the cap, so only wide screens need it.
+  /// Messages and composer readable column cap; only wide screens need it.
   bool get usesCenteredColumn => this == KrithaViewport.wide;
 
-  /// Wide screens get a docked sidebar; smaller screens use an overlay drawer.
+  /// Docked sidebar on wide screens; overlay drawer on smaller screens.
   bool get usesDockedSidebar => this == KrithaViewport.wide;
 }
 
-/// Small helper that exposes the current [KrithaViewport] to a subtree using
-/// the constraints it is actually rendered with, not the device type.
+/// Exposes [KrithaViewport] from local constraints rather than device type.
 class ResponsiveBuilder extends StatelessWidget {
   const ResponsiveBuilder({super.key, required this.builder});
 

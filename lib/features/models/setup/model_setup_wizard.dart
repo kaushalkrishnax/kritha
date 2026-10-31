@@ -34,8 +34,7 @@ class ModelSetupWizard extends ConsumerStatefulWidget {
 
   final ModelDetails details;
 
-  /// Stable identity for the configuration being edited. Omitted when the
-  /// wizard creates a new configuration.
+  /// Stable identity for configuration being edited; null when creating.
   final String? configurationId;
 
   @override
@@ -55,8 +54,7 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
       store: ref.read(configuredModelStoreProvider),
       configurationId: widget.configurationId,
     );
-    // The first frame renders the neutral pending checklist; the real checks
-    // start immediately afterwards instead of completing during initState.
+    // Render neutral checklist on first frame before initiating pre-checks.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_controller.runAssessment());
     });

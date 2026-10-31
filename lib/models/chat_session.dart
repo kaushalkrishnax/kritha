@@ -1,4 +1,3 @@
-/// A persisted conversation session.
 class ChatSession {
   const ChatSession({
     required this.id,

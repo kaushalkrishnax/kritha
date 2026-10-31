@@ -5,9 +5,6 @@ import '../../../data/app_database.dart';
 import '../../../models/model_configuration_record.dart';
 
 /// Persistence boundary for saved model configurations.
-///
-/// Pre-check results never cross this boundary. A future Configured Models
-/// screen reads the same records through [ConfiguredModelStore.all].
 abstract interface class ConfiguredModelStore {
   Future<void> save(ConfiguredModel model);
 

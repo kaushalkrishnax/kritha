@@ -33,18 +33,14 @@ class ModelMetadataTag {
     required this.category,
   });
 
-  /// The untouched Hub identifier used by the API.
   final String raw;
-
-  /// The exact API value; tags are never rewritten for display.
   final String label;
   final ModelMetadataCategory category;
 
-  /// Comparison-only form. Never use this for display.
   String get normalized => normalizeModelIdentifier(raw);
 }
 
-/// Classifies Hub metadata; tags are prefixed (`language:en`) or bare identifiers.
+/// Classifies Hub metadata tags into categories.
 List<ModelMetadataTag> classifyModelMetadata({
   required String? pipelineTag,
   required String? libraryName,
@@ -103,7 +99,7 @@ List<ModelMetadataTag> classifyModelMetadata({
   return List.unmodifiable(result);
 }
 
-/// Hub library identifiers used to classify bare tags such as `pytorch`.
+/// Hub library identifiers used to classify bare tags.
 const _libraryTags = <String>{
   'pytorch',
   'tf',
@@ -161,7 +157,7 @@ const _libraryTags = <String>{
   'univa',
 };
 
-/// Lookup form of [_libraryTags]; separators are not significant.
+/// Lookup map for [_libraryTags].
 final _normalizedLibraryTags = {
   for (final tag in _libraryTags) normalizeModelIdentifier(tag),
 };

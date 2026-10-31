@@ -5,10 +5,7 @@ import 'models/ai_request.dart';
 import 'models/ai_response.dart';
 import 'models/model_descriptor.dart';
 
-/// Records one local usage event for every provider request that settles.
-///
-/// The decorator keeps the provider adapters free of persistence concerns while
-/// still counting requests at the same boundary the app invokes them.
+/// Decorator recording usage events without coupling adapters to persistence.
 class UsageTrackingInferenceProvider implements InferenceProvider {
   UsageTrackingInferenceProvider({
     required this.inner,

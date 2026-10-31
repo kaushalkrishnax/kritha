@@ -1,9 +1,6 @@
 import 'package:tldts/data/trie.dart' as psl;
 
-/// Normalizes an alias into a lower-case, hyphen-separated comparison key.
-///
-/// Aliases never carry routing meaning; they are editable labels for providers.
-/// Keeping a normalized key makes uniqueness checks predictable.
+/// Normalizes alias into hyphenated lowercase key for uniqueness checks.
 String normalizeProviderAlias(String value) {
   final normalized = value
       .trim()
@@ -13,17 +10,12 @@ String normalizeProviderAlias(String value) {
   return normalized;
 }
 
-/// Cleans a user-facing alias while preserving capitalization and spaces.
+/// Cleans user-facing alias while preserving capitalization and spaces.
 String cleanProviderAlias(String value) {
   return value.trim().replaceAll(RegExp(r'\s+'), ' ');
 }
 
-/// Derives an alias from the hostname labels of [rawUrl].
-///
-/// The public suffix and port are excluded. Labels are ordered domain first,
-/// then subdomain, and title-cased. `api.example.co.uk` becomes `Example Api`.
-/// Returns null when the hostname is an IP address, localhost, or otherwise has
-/// no reliable registrable domain.
+/// Derives title-cased alias from hostname labels excluding public suffix and port.
 String? deriveProviderAlias(String rawUrl) {
   final uri = Uri.tryParse(rawUrl.trim());
   if (uri == null ||
@@ -75,10 +67,7 @@ _RegistrableParts? _registrableParts(String host) {
   final labels = host.split('.');
   if (labels.length < 2) return null;
 
-  // tldts 0.0.1-beta ships the complete trie but its parser rejects ICANN
-  // rules; reading the trie directly keeps multi-label suffixes correct.
-  // Private PSL entries are not public suffixes, so googleapis.com keeps
-  // googleapis in the derived alias.
+  // Read trie directly for correct multi-label suffix parsing without private PSL exclusions.
   final exception = _lookupSuffix(labels, psl.exceptions);
   final match = exception == null
       ? _lookupSuffix(labels, psl.rules)

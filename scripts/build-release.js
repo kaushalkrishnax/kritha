@@ -47,6 +47,7 @@ function flutterBuild(args) {
 
 function buildMacosArchitecture(arch) {
   flutterBuild(['macos', '--release', '--config-only']);
+  run('bash', [path.join(ROOT, 'scripts', 'patch-sherpa-macos.sh')]);
   const buildDirectory = path.join(ROOT, 'build', 'macos');
   run('xcodebuild', [
     '-workspace',

@@ -257,10 +257,13 @@ Active Models surface:
 - Step 2 manages artifact selection per configuration in a table-first layout:
   Config Files, Helper Files and Model Weights are expandable sections with
   selection-aware round checkboxes (`all`/`partial`/`none`), row checkboxes,
-  and unlabelled rows whose controls explain themselves: target path and source
+  and unlabelled rows whose controls explain themselves: source then target
   split the remaining width equally, then download/delete, choose/replace and
-  the row menu sit in one intrinsic cluster with even gaps. Phones use the same
-  unlabelled stack, wrapping the action cluster only when the row is too narrow.
+  the row menu sit in one intrinsic cluster with even gaps. Phones stack source
+  over target and keep the actions beside the path they act on: choose/replace
+  and a red remove-row button beside the source, download/delete and
+  choose-from-device beside the target. Text buttons share one label slot and
+  the icon buttons share one size, so both rows stay aligned.
   Selection and download state are separate; unselected rows keep their
   metadata and context menu but disable editing and normal actions. Download,
   Replace, Delete/Choose, Add Row, tri-state section toggles and the three-item

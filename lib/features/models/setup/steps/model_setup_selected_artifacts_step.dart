@@ -1,21 +1,22 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme.dart';
-import '../../../../widgets/context_menu.dart';
 import '../../../../widgets/create_popup.dart';
 import '../../catalogue/catalogue_model.dart';
 import '../model_artifact.dart';
 import '../model_setup_assessment.dart';
 import '../model_setup_controller.dart';
 
-const _viewLimitBytes = 512 * 1024;
 const _tableBreakpoint = 640.0;
 const _selectionColumnWidth = 42.0;
+// Reserved label width keeps action clusters aligned across rows.
+const _actionLabelWidth = 68.0;
+const _iconActionSize = 30.0;
+const _duplicateTargetError = 'Same path as another row';
 
 class ModelSetupSelectedArtifactsStep extends StatefulWidget {
   const ModelSetupSelectedArtifactsStep({super.key, required this.controller});
@@ -81,6 +82,11 @@ class _ModelSetupSelectedArtifactsStepState
                     repositoryId: controller.details.model.id,
                   ),
                 ],
+                SizedBox(height: KrithaSpacing.s16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _DownloadAllButton(controller: controller),
+                ),
               ],
             ),
           ),
@@ -97,61 +103,38 @@ class _ManageArtifactsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final heading = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Manage Artifacts',
-              style: TextStyle(
-                fontSize: KrithaText.sizeLg,
-                fontWeight: FontWeight.w700,
-                color: KrithaColors.textPrimary,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Manage Artifacts',
+          style: TextStyle(
+            fontSize: KrithaText.sizeLg,
+            fontWeight: FontWeight.w700,
+            color: KrithaColors.textPrimary,
+          ),
+        ),
+        SizedBox(height: KrithaSpacing.s4),
+        Text(
+          'Review, select and download the files required for this model.',
+          style: TextStyle(
+            fontSize: KrithaText.sizeXs,
+            color: KrithaColors.textMuted,
+            height: 1.4,
+          ),
+        ),
+        if (controller.saveError != null) ...[
+          SizedBox(height: KrithaSpacing.s4),
+          Text(
+            controller.saveError!,
+            style: TextStyle(
+              fontSize: KrithaText.size2xs,
+              color: KrithaColors.error,
+              height: 1.4,
             ),
-            SizedBox(height: KrithaSpacing.s4),
-            Text(
-              'Review, select and download the files required for this model.',
-              style: TextStyle(
-                fontSize: KrithaText.sizeXs,
-                color: KrithaColors.textMuted,
-                height: 1.4,
-              ),
-            ),
-            if (controller.saveError != null) ...[
-              SizedBox(height: KrithaSpacing.s4),
-              Text(
-                controller.saveError!,
-                style: TextStyle(
-                  fontSize: KrithaText.size2xs,
-                  color: KrithaColors.error,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ],
-        );
-        final button = _DownloadAllButton(controller: controller);
-        if (constraints.maxWidth < 520) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              heading,
-              SizedBox(height: KrithaSpacing.s12),
-              button,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: heading),
-            SizedBox(width: KrithaSpacing.s16),
-            button,
-          ],
-        );
-      },
+          ),
+        ],
+      ],
     );
   }
 }
@@ -377,6 +360,7 @@ class _ArtifactTable extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < _tableBreakpoint;
+        final duplicates = controller.duplicateTargetIds;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -387,6 +371,9 @@ class _ArtifactTable extends StatelessWidget {
                   row: rows[index],
                   repositoryId: repositoryId,
                   showDivider: index < rows.length - 1,
+                  targetError: duplicates.contains(rows[index].id)
+                      ? _duplicateTargetError
+                      : null,
                 )
               else
                 _ArtifactTableRow(
@@ -394,6 +381,9 @@ class _ArtifactTable extends StatelessWidget {
                   row: rows[index],
                   repositoryId: repositoryId,
                   showDivider: index < rows.length - 1,
+                  targetError: duplicates.contains(rows[index].id)
+                      ? _duplicateTargetError
+                      : null,
                 ),
           ],
         );
@@ -408,12 +398,14 @@ class _ArtifactTableRow extends StatelessWidget {
     required this.row,
     required this.repositoryId,
     required this.showDivider,
+    this.targetError,
   });
 
   final ModelSetupWizardController controller;
   final ModelArtifactRow row;
   final String repositoryId;
   final bool showDivider;
+  final String? targetError;
 
   @override
   Widget build(BuildContext context) {
@@ -446,18 +438,24 @@ class _ArtifactTableRow extends StatelessWidget {
           ),
           SizedBox(width: KrithaSpacing.s8),
           Expanded(
+            child: _SourceCell(row: row, repositoryId: repositoryId),
+          ),
+          SizedBox(width: KrithaSpacing.s8),
+          Expanded(
             child: _TargetPathField(
               controller: controller,
               row: row,
               enabled: active,
+              error: targetError,
             ),
           ),
           SizedBox(width: KrithaSpacing.s8),
-          Expanded(
-            child: _SourceCell(row: row, repositoryId: repositoryId),
-          ),
-          SizedBox(width: KrithaSpacing.s8),
-          _RowActions(controller: controller, row: row, active: active),
+          _ArtifactActions(
+            controller: controller,
+            row: row,
+            active: active,
+            labelWidth: _actionLabelWidth,
+          ).table(context),
         ],
       ),
     );
@@ -470,17 +468,25 @@ class _ArtifactKeyValueRow extends StatelessWidget {
     required this.row,
     required this.repositoryId,
     required this.showDivider,
+    this.targetError,
   });
 
   final ModelSetupWizardController controller;
   final ModelArtifactRow row;
   final String repositoryId;
   final bool showDivider;
+  final String? targetError;
 
   @override
   Widget build(BuildContext context) {
     final selected = row.selected;
     final active = selected && !row.isTransferring;
+    final actions = _ArtifactActions(
+      controller: controller,
+      row: row,
+      active: active,
+      labelWidth: _actionLabelWidth,
+    );
     return Container(
       key: ValueKey('artifact-row-${row.id}'),
       decoration: BoxDecoration(
@@ -514,20 +520,54 @@ class _ArtifactKeyValueRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _TargetPathField(
-                  controller: controller,
-                  row: row,
-                  enabled: active,
+                _CompactArtifactLine(
+                  element: _SourceCell(row: row, repositoryId: repositoryId),
+                  action: actions.secondaryAction(context),
+                  trailing: actions.removeRowButton(context),
                 ),
                 SizedBox(height: KrithaSpacing.s8),
-                _SourceCell(row: row, repositoryId: repositoryId),
-                SizedBox(height: KrithaSpacing.s8),
-                _RowActions(controller: controller, row: row, active: active),
+                _CompactArtifactLine(
+                  element: _TargetPathField(
+                    controller: controller,
+                    row: row,
+                    enabled: active,
+                    error: targetError,
+                  ),
+                  action: actions.primaryAction(),
+                  // Keep the empty slot so both text actions stay aligned.
+                  trailing: const SizedBox(width: _iconActionSize),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CompactArtifactLine extends StatelessWidget {
+  const _CompactArtifactLine({
+    required this.element,
+    required this.action,
+    required this.trailing,
+  });
+
+  final Widget element;
+  final Widget action;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: element),
+        SizedBox(width: KrithaSpacing.s8),
+        action,
+        SizedBox(width: KrithaSpacing.s6),
+        trailing,
+      ],
     );
   }
 }
@@ -562,15 +602,13 @@ class _RoundCheckbox extends StatelessWidget {
             shape: const CircleBorder(),
             side: BorderSide(color: KrithaColors.borderStrong),
             activeColor: KrithaColors.accentBlue,
-            // The default glyph spans nearly the whole box; a smaller overlay
-            // keeps the round control legible with real internal padding.
+            // Smaller overlay gives round control internal padding.
             checkColor: Colors.transparent,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             splashRadius: 16,
           ),
-          // Checkbox paints checkColor transparent, so both the tick and the
-          // indeterminate dash are drawn here.
+          // Custom painter renders tick and dash over transparent checkbox.
           if (value != false)
             IgnorePointer(
               child: KrithaIcon(
@@ -613,10 +651,8 @@ class _SourceCell extends StatelessWidget {
               ),
               SizedBox(width: KrithaSpacing.s6),
               Expanded(
-                child: Text(
-                  path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: _MiddleEllipsisText(
+                  text: path,
                   style: TextStyle(
                     fontSize: KrithaText.size2xs,
                     color: muted
@@ -635,6 +671,79 @@ class _SourceCell extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Middle truncation preserving file extension.
+class _MiddleEllipsisText extends StatelessWidget {
+  const _MiddleEllipsisText({required this.text, required this.style});
+
+  static const _tailLength = 14;
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final value = _middleEllipsis(
+          text: text,
+          style: style,
+          maxWidth: constraints.maxWidth,
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+          tailLength: _tailLength,
+        );
+        return Text(
+          value,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+String _middleEllipsis({
+  required String text,
+  required TextStyle style,
+  required double maxWidth,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+  required int tailLength,
+}) {
+  double widthOf(String value) {
+    final painter = TextPainter(
+      text: TextSpan(text: value, style: style),
+      maxLines: 1,
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  if (maxWidth <= 0 || widthOf(text) <= maxWidth) return text;
+  final tail = text.length <= tailLength
+      ? text
+      : text.substring(text.length - tailLength);
+  final suffix = '…$tail';
+  if (widthOf(suffix) >= maxWidth) return suffix;
+
+  var low = 0;
+  var high = text.length - tail.length;
+  while (low < high) {
+    final mid = (low + high + 1) ~/ 2;
+    if (widthOf('${text.substring(0, mid)}$suffix') <= maxWidth) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return '${text.substring(0, low)}$suffix';
 }
 
 class _ArtifactProgress extends StatelessWidget {
@@ -687,53 +796,113 @@ String _byteLabel(int? bytes) {
   return formatBytes(bytes);
 }
 
-class _RowActions extends StatelessWidget {
-  const _RowActions({
+class _ArtifactActions {
+  const _ArtifactActions({
     required this.controller,
     required this.row,
     required this.active,
+    this.labelWidth,
   });
 
   final ModelSetupWizardController controller;
   final ModelArtifactRow row;
   final bool active;
+  final double? labelWidth;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget table(BuildContext context) {
     return Wrap(
       spacing: KrithaSpacing.s6,
       runSpacing: KrithaSpacing.s6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _primaryAction(),
-        _secondaryAction(context),
-        Builder(
-          builder: (buttonContext) => IconButton(
-            key: ValueKey('artifact-menu-${row.id}'),
-            tooltip: 'Artifact options',
-            visualDensity: VisualDensity.compact,
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              fixedSize: const Size(30, 30),
-              minimumSize: const Size(30, 30),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: () => _openMenu(context, buttonContext),
-            icon: KrithaIcon(
-              icon: HugeIcons.strokeRoundedEllipsisVertical,
-              size: KrithaIcons.sm,
-              color: KrithaColors.textMuted,
-            ),
-          ),
-        ),
+        primaryAction(),
+        secondaryAction(context),
+        removeRowButton(context),
       ],
     );
   }
 
-  Widget _primaryAction() {
+  Widget removeRowButton(BuildContext context) {
+    return IconButton(
+      key: ValueKey('artifact-remove-${row.id}'),
+      tooltip: 'Remove row',
+      visualDensity: VisualDensity.compact,
+      iconSize: 16,
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(_iconActionSize, _iconActionSize),
+        minimumSize: const Size(_iconActionSize, _iconActionSize),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: KrithaColors.error,
+        backgroundColor: KrithaColors.error.withValues(alpha: 0.12),
+      ),
+      onPressed: () => unawaited(_removeRow(context)),
+      icon: KrithaIcon(
+        icon: HugeIcons.strokeRoundedRowDelete,
+        size: KrithaIcons.sm,
+        color: KrithaColors.error,
+      ),
+    );
+  }
+
+  Future<void> _removeRow(BuildContext context) async {
+    if (row.selected) {
+      final copy = row.hasLocalCopy ? ' Its local copy will be deleted.' : '';
+      final confirmed = await createPopup<bool>(
+        context: context,
+        builder: (popupContext) => CreatePopup(
+          title: 'Remove ${_fileName(row)}?',
+          actions: [
+            PopupSecondaryButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(popupContext).pop(false),
+            ),
+            PopupPrimaryButton(
+              label: 'Remove',
+              destructive: true,
+              onPressed: () => Navigator.of(popupContext).pop(true),
+            ),
+          ],
+          child: Padding(
+            padding: EdgeInsets.all(KrithaSpacing.s20),
+            child: Text(
+              'The selected artifact row will be removed from this configuration.$copy',
+              style: TextStyle(
+                fontSize: KrithaText.sizeXs,
+                color: KrithaColors.textSecondary,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+    }
+    await controller.removeArtifactRow(row.id);
+  }
+
+  Widget _action({
+    required String label,
+    required List<List<dynamic>> icon,
+    required bool enabled,
+    required VoidCallback? onPressed,
+    bool primary = false,
+    bool destructive = false,
+  }) {
+    return _SmallActionButton(
+      label: label,
+      icon: icon,
+      enabled: enabled,
+      onPressed: onPressed,
+      primary: primary,
+      destructive: destructive,
+      labelWidth: labelWidth,
+    );
+  }
+
+  Widget primaryAction() {
     if (row.isWorking) {
-      return _SmallActionButton(
+      return _action(
         label: 'Pause',
         icon: HugeIcons.strokeRoundedPause,
         enabled: true,
@@ -742,7 +911,7 @@ class _RowActions extends StatelessWidget {
       );
     }
     if (row.isPaused) {
-      return _SmallActionButton(
+      return _action(
         label: 'Resume',
         icon: HugeIcons.strokeRoundedPlay,
         enabled: true,
@@ -751,7 +920,7 @@ class _RowActions extends StatelessWidget {
       );
     }
     if (row.isUnassigned) {
-      return _SmallActionButton(
+      return _action(
         label: 'Download',
         icon: HugeIcons.strokeRoundedDownload01,
         enabled: false,
@@ -760,7 +929,7 @@ class _RowActions extends StatelessWidget {
       );
     }
     if (row.isDevice) {
-      return _SmallActionButton(
+      return _action(
         label: 'Download',
         icon: HugeIcons.strokeRoundedDownload01,
         enabled: false,
@@ -769,7 +938,7 @@ class _RowActions extends StatelessWidget {
       );
     }
     if (row.isReady) {
-      return _SmallActionButton(
+      return _action(
         label: 'Delete',
         icon: HugeIcons.strokeRoundedDelete02,
         enabled: active,
@@ -777,7 +946,7 @@ class _RowActions extends StatelessWidget {
         onPressed: () => unawaited(controller.deleteArtifactCopy(row.id)),
       );
     }
-    return _SmallActionButton(
+    return _action(
       label: 'Download',
       icon: HugeIcons.strokeRoundedDownload01,
       enabled: active && row.canDownload,
@@ -786,122 +955,21 @@ class _RowActions extends StatelessWidget {
     );
   }
 
-  Widget _secondaryAction(BuildContext context) {
+  Widget secondaryAction(BuildContext context) {
     if (row.isUnassigned) {
-      return _SmallActionButton(
+      return _action(
         label: 'Choose',
         icon: HugeIcons.strokeRoundedLink01,
         enabled: active,
         onPressed: () => unawaited(_chooseSource(context, row)),
       );
     }
-    return _SmallActionButton(
+    return _action(
       label: 'Replace',
       icon: HugeIcons.strokeRoundedLink01,
       enabled: active,
       onPressed: () => unawaited(_chooseSource(context, row)),
     );
-  }
-
-  Future<void> _openMenu(
-    BuildContext context,
-    BuildContext buttonContext,
-  ) async {
-    final canView =
-        row.selected &&
-        row.viewPath != null &&
-        row.kind != ModelArtifactKind.weights &&
-        (row.sizeBytes == null || row.sizeBytes! <= _viewLimitBytes);
-    final selected = await showKrithaContextMenu(
-      context: context,
-      anchor: ContextMenuAnchor.fromContext(buttonContext),
-      align: ContextMenuAlign.right,
-      items: [
-        ContextMenuItem(
-          id: 'view',
-          label: 'View',
-          icon: HugeIcons.strokeRoundedEye,
-          disabled: !canView,
-        ),
-        ContextMenuItem(
-          id: 'choose',
-          label: 'Choose from device',
-          icon: HugeIcons.strokeRoundedFolder01,
-          disabled: !row.selected || row.isTransferring,
-        ),
-        ContextMenuItem(
-          id: 'remove',
-          label: 'Remove row',
-          icon: HugeIcons.strokeRoundedDelete02,
-          destructive: true,
-        ),
-      ],
-    );
-    if (!context.mounted || selected == null) return;
-    switch (selected) {
-      case 'view':
-        await _view(context);
-      case 'choose':
-        await _chooseDevice(context, row);
-      case 'remove':
-        await controller.removeArtifactRow(row.id);
-    }
-  }
-
-  Future<void> _view(BuildContext context) async {
-    final path = row.viewPath;
-    if (path == null) return;
-    final file = File(path);
-    try {
-      if (!await file.exists()) {
-        if (context.mounted) {
-          _message(context, 'The file no longer exists on this device.');
-        }
-        return;
-      }
-      final size = await file.length();
-      if (size > _viewLimitBytes) {
-        if (context.mounted) {
-          _message(context, 'This file is too large to preview.');
-        }
-        return;
-      }
-      final text = await file.readAsString();
-      if (!context.mounted) return;
-      await createPopup<void>(
-        context: context,
-        builder: (popupContext) => CreatePopup(
-          title: row.displayName,
-          subtitle: row.targetPath,
-          actions: [
-            PopupSecondaryButton(
-              label: 'Close',
-              onPressed: () => Navigator.of(popupContext).pop(),
-            ),
-          ],
-          child: SizedBox(
-            height: 360,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(KrithaSpacing.s16),
-              child: SelectableText(
-                text,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.5,
-                ).copyWith(color: KrithaColors.textSecondary),
-              ),
-            ),
-          ),
-        ),
-      );
-    } on FileSystemException {
-      if (context.mounted) _message(context, 'The file could not be read.');
-    } on FormatException {
-      if (context.mounted) {
-        _message(context, 'This file is not text and cannot be previewed.');
-      }
-    }
   }
 
   Future<void> _chooseSource(
@@ -1202,6 +1270,7 @@ class _SmallActionButton extends StatelessWidget {
     required this.onPressed,
     this.primary = false,
     this.destructive = false,
+    this.labelWidth,
   });
 
   final String label;
@@ -1210,6 +1279,7 @@ class _SmallActionButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool primary;
   final bool destructive;
+  final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -1226,7 +1296,7 @@ class _SmallActionButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       style: TextButton.styleFrom(
         minimumSize: const Size(0, 30),
-        padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s8),
+        padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s6),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         textStyle: TextStyle(
           fontSize: KrithaText.size2xs,
@@ -1252,7 +1322,17 @@ class _SmallActionButton extends StatelessWidget {
         size: 14,
         color: enabled ? foreground : disabledForeground,
       ),
-      label: Text(label),
+      label: labelWidth == null
+          ? Text(label)
+          : SizedBox(
+              width: labelWidth,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
     );
   }
 }
@@ -1262,11 +1342,13 @@ class _TargetPathField extends StatefulWidget {
     required this.controller,
     required this.row,
     required this.enabled,
+    this.error,
   });
 
   final ModelSetupWizardController controller;
   final ModelArtifactRow row;
   final bool enabled;
+  final String? error;
 
   @override
   State<_TargetPathField> createState() => _TargetPathFieldState();
@@ -1312,29 +1394,86 @@ class _TargetPathFieldState extends State<_TargetPathField> {
 
   @override
   Widget build(BuildContext context) {
+    final error = widget.error;
+    final invalid = error != null;
+    final targetStyle = TextStyle(
+      fontSize: KrithaText.size2xs,
+      color: widget.enabled
+          ? KrithaColors.textSecondary
+          : KrithaColors.textDimmed,
+    );
+    final field = widget.enabled
+        ? _editableField(targetStyle, invalid)
+        : _readOnlyField(targetStyle, invalid);
+    if (!invalid) return field;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        field,
+        Padding(
+          padding: EdgeInsets.only(
+            top: KrithaSpacing.s2,
+            left: KrithaSpacing.s2,
+          ),
+          child: Text(
+            error,
+            key: ValueKey('artifact-target-error-${widget.row.id}'),
+            style: TextStyle(
+              fontSize: KrithaText.size2xs,
+              color: KrithaColors.error,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _readOnlyField(TextStyle targetStyle, bool invalid) {
+    return Tooltip(
+      message: widget.row.targetPath,
+      child: Container(
+        key: ValueKey('artifact-target-${widget.row.id}'),
+        padding: EdgeInsets.symmetric(
+          horizontal: KrithaSpacing.s8,
+          vertical: 7,
+        ),
+        decoration: BoxDecoration(
+          color: KrithaColors.bgSurface,
+          borderRadius: BorderRadius.circular(KrithaRadius.sm),
+          border: Border.all(
+            color: invalid ? KrithaColors.error : KrithaColors.borderFaint,
+          ),
+        ),
+        child: _MiddleEllipsisText(
+          text: widget.row.targetPath,
+          style: targetStyle,
+        ),
+      ),
+    );
+  }
+
+  Widget _editableField(TextStyle targetStyle, bool invalid) {
+    final borderColor = invalid
+        ? KrithaColors.error
+        : KrithaColors.borderSubtle;
     return TextField(
       key: ValueKey('artifact-target-${widget.row.id}'),
       controller: _text,
       focusNode: _focus,
-      enabled: widget.enabled,
+      enabled: true,
       maxLines: 1,
       textInputAction: TextInputAction.done,
       onSubmitted: (_) {
         _submit();
         _focus.unfocus();
       },
-      style: TextStyle(
-        fontSize: KrithaText.size2xs,
-        color: widget.enabled
-            ? KrithaColors.textSecondary
-            : KrithaColors.textDimmed,
-      ),
+      style: targetStyle,
       decoration: InputDecoration(
         isDense: true,
         filled: true,
-        fillColor: widget.enabled
-            ? KrithaColors.bgPrimary
-            : KrithaColors.bgSurface,
+        fillColor: KrithaColors.bgPrimary,
         hintText: 'Relative path',
         hintStyle: TextStyle(
           fontSize: KrithaText.size2xs,
@@ -1346,19 +1485,17 @@ class _TargetPathFieldState extends State<_TargetPathField> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(KrithaRadius.sm),
-          borderSide: BorderSide(color: KrithaColors.borderSubtle),
+          borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(KrithaRadius.sm),
-          borderSide: BorderSide(color: KrithaColors.borderSubtle),
+          borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(KrithaRadius.sm),
-          borderSide: BorderSide(color: KrithaColors.accentBlue),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(KrithaRadius.sm),
-          borderSide: BorderSide(color: KrithaColors.borderFaint),
+          borderSide: BorderSide(
+            color: invalid ? KrithaColors.error : KrithaColors.accentBlue,
+          ),
         ),
       ),
     );
@@ -1376,7 +1513,7 @@ Color _sourceColor(ModelArtifactSourceType type, bool muted) {
   if (muted) return KrithaColors.textDimmed;
   return switch (type) {
     ModelArtifactSourceType.repository => KrithaColors.accentLightBlue,
-    ModelArtifactSourceType.device => KrithaColors.textSecondary,
+    ModelArtifactSourceType.device => KrithaColors.accentLightBlue,
     ModelArtifactSourceType.unassigned => KrithaColors.textMuted,
   };
 }

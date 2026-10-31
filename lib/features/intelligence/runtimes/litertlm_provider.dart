@@ -12,11 +12,7 @@ import '../models/model_descriptor.dart';
 import '../request_validation.dart';
 import '../runtime_ids.dart';
 
-/// Engine-level seam over the `litertlm` package (verified against 0.0.14).
-///
-/// Keeping the seam at engine level means prompt mapping, capability checks
-/// and error translation stay under test without a model file or native
-/// library.
+/// Engine-level seam over litertlm to test mappings and errors without native libs.
 abstract interface class LiteRtLmEngine {
   Future<void> initialize();
 
@@ -25,10 +21,7 @@ abstract interface class LiteRtLmEngine {
     required lite.Message message,
   });
 
-  /// Streams text fragments for one turn.
-  ///
-  /// Cancelling the subscription must cancel native generation; the
-  /// implementation disposes the conversation afterwards.
+  /// Streams text fragments for one turn; cancelling aborts native generation.
   Stream<String> stream({
     required lite.ConversationConfig conversation,
     required lite.Message message,
@@ -37,10 +30,7 @@ abstract interface class LiteRtLmEngine {
   Future<void> dispose();
 }
 
-/// The real LiteRT-LM engine.
-///
-/// `Engine` construction is cheap; native work starts in [initialize], which is
-/// only called when a request is actually executed.
+/// Real LiteRT-LM engine; native initialization is deferred until execution.
 class NativeLiteRtLmEngine implements LiteRtLmEngine {
   NativeLiteRtLmEngine({
     required this.modelPath,
@@ -107,18 +97,18 @@ class NativeLiteRtLmEngine implements LiteRtLmEngine {
       cleanedUp = true;
       final current = subscription;
       subscription = null;
-      // Teardown must not replace the stream's real outcome with a cancel error.
+      // Teardown must not replace stream outcome with a cancel error.
       try {
         await current?.cancel();
       } on Object {
-        // The native stream may already be gone.
+        // Native stream may already be closed.
       }
       final conversation = active;
       active = null;
       try {
         await conversation?.dispose();
       } on Object {
-        // Disposing a failed conversation is best-effort.
+        // Disposing failed conversation is best-effort.
       }
     }
 
@@ -171,14 +161,7 @@ class NativeLiteRtLmEngine implements LiteRtLmEngine {
   }
 }
 
-/// Text-generation provider backed by LiteRT-LM.
-///
-/// A conversation is created per request, so the model sees the supplied
-/// history without the provider owning chat state. Conversations could be
-/// reused across turns, but the package exposes no reset or truncate operation,
-/// and a cancelled or failed turn leaves native transcript state unverified.
-/// Reuse per chat session is therefore deferred until it is validated on a
-/// device.
+/// Text-generation provider backed by LiteRT-LM; creates conversation per request.
 class LiteRtLmProvider implements InferenceProvider {
   LiteRtLmProvider({required this.descriptor, required this.createEngine});
 
@@ -310,12 +293,11 @@ class LiteRtLmProvider implements InferenceProvider {
     Future<void> stop() async {
       final active = subscription;
       subscription = null;
-      // Cancelling the native stream must not turn a closed request into an
-      // unhandled background error.
+      // Cancelling native stream must not trigger unhandled background error.
       try {
         await active?.cancel();
       } on Object {
-        // The engine stream may already be closed.
+        // Engine stream may already be closed.
       }
     }
 
@@ -401,7 +383,7 @@ class LiteRtLmProvider implements InferenceProvider {
       try {
         await pending;
       } on Object {
-        // Initialization is expected to fail once disposal has begun.
+        // Initialization expected to fail once disposal has begun.
       }
     }
     await _discardEngine();
@@ -439,7 +421,7 @@ class LiteRtLmProvider implements InferenceProvider {
       throw UnsupportedCapabilityException(providerId: id, missing: missing);
     }
 
-    // Reject structured generation explicitly even if a descriptor over-declares it.
+    // Reject structured generation explicitly even if descriptor over-declares it.
     if (request.responseSchema != null) {
       throw UnsupportedCapabilityException(
         providerId: id,
@@ -525,8 +507,7 @@ class LiteRtLmProvider implements InferenceProvider {
   }
 
   Future<void> _discardAfterGenerationFailure() async {
-    // Initialization failures are recorded by _start; do not replace them with
-    // a generation-failure message.
+    // Initialization failures recorded by _start; avoid replacing with generation failure.
     if (!_lifecycle.value.isInitialized) return;
     await _discardEngine(
       message: 'The local engine stopped after a generation failure.',
@@ -543,7 +524,7 @@ class LiteRtLmProvider implements InferenceProvider {
       try {
         await engine.dispose();
       } on Object {
-        // A failing native teardown must not mask the original failure.
+        // Native teardown failure must not mask original failure.
       }
     }
     if (!_disposed) _publish(EngineLifecycle(stage, message: message));

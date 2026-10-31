@@ -8,10 +8,7 @@ Duration _latencyFromJson(int milliseconds) =>
 
 int _latencyToJson(Duration latency) => latency.inMilliseconds;
 
-/// A generated text snapshot, free of runtime-specific types.
-///
-/// Unary generation returns a completed response. Stream events are cumulative
-/// partial snapshots; the stream closing is the only completion signal.
+/// Generated text snapshot decoupled from runtime-specific types.
 @freezed
 abstract class AiResponse with _$AiResponse {
   const factory AiResponse({

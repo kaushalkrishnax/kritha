@@ -9,7 +9,6 @@ import '../../dictation_controller.dart';
 import '../composer/composer_controller.dart';
 import 'recording_waveform.dart';
 
-/// In-composer audio dictation bar.
 class DictationBar extends ConsumerWidget {
   const DictationBar({super.key});
 

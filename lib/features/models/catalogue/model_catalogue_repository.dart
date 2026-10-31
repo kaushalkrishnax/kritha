@@ -4,7 +4,6 @@ import 'catalogue_filter.dart';
 import 'catalogue_model.dart';
 import 'hugging_face_hub_client.dart';
 
-/// The catalogue surface the UI and controllers depend on.
 abstract interface class ModelCatalogue {
   Future<ModelPage> search({
     String? query,

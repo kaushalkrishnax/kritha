@@ -5,8 +5,7 @@ import '../token/hugging_face_token_store.dart';
 import 'hugging_face_hub_client.dart';
 import 'model_catalogue_repository.dart';
 
-/// Dedicated Hub transport. It deliberately has no `LogInterceptor` so a
-/// Hugging Face token can never be written to the console.
+/// Hub transport without LogInterceptor to prevent leaking tokens.
 final huggingFaceDioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -31,8 +30,7 @@ final modelCatalogueProvider = Provider<ModelCatalogue>((ref) {
   return ModelCatalogueRepository(ref.watch(huggingFaceHubClientProvider));
 });
 
-/// Publisher avatars are not part of the model list payload, so each unique
-/// publisher is resolved once and kept for the session.
+/// Caches publisher avatars per session.
 final publisherAvatarProvider = FutureProvider.family<String?, String>((
   ref,
   publisher,

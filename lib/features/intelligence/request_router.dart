@@ -3,10 +3,7 @@ import 'intelligence_exception.dart';
 import 'models/ai_request.dart';
 import 'models/model_capabilities.dart';
 
-/// The persisted Active Models choice for one inference capability.
-///
-/// The provider id is the stable identity; the model id is kept exactly as the
-/// provider returned it. Neither value is rewritten or prefixed.
+/// Persisted Active Models choice for one inference capability.
 class ActiveInferenceTarget {
   const ActiveInferenceTarget({
     required this.providerId,
@@ -17,18 +14,13 @@ class ActiveInferenceTarget {
   final String modelId;
 }
 
-/// Resolves a request to the provider selected by Active Models.
-///
-/// There is deliberately no retry or load balancing. A request either names a
-/// model explicitly or uses the active model for its primary capability; a
-/// missing assignment is an error rather than an opportunity to pick another
-/// provider.
+/// Routes request to provider configured in Active Models without fallback or retry.
 class RequestRouter {
   const RequestRouter({required this.providers, this.activeModels = const {}});
 
   final List<InferenceProvider> providers;
 
-  /// Model and provider selected in Active Models for each capability.
+  /// Active model and provider mapped per capability.
   final Map<InferenceCapability, ActiveInferenceTarget> activeModels;
 
   InferenceProvider resolve(AiRequest request) {

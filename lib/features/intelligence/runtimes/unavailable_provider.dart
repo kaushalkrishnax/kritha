@@ -6,11 +6,7 @@ import '../models/ai_request.dart';
 import '../models/ai_response.dart';
 import '../models/model_descriptor.dart';
 
-/// A resolved assignment whose source can no longer execute it.
-///
-/// Keeping a placeholder in the provider list lets routing stay deterministic:
-/// the active model is still the target, and the request fails with a specific
-/// reason instead of silently choosing another model.
+/// Placeholder for unexecutable assignments ensuring deterministic routing failures.
 class UnavailableInferenceProvider implements InferenceProvider {
   UnavailableInferenceProvider({
     required this.id,

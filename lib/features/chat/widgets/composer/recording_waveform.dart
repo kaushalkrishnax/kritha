@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme.dart';
 
-/// Live audio recording waveform visualizer.
 class RecordingWaveform extends StatefulWidget {
   const RecordingWaveform({
     super.key,

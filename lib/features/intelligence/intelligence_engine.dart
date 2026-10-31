@@ -4,10 +4,7 @@ import 'models/ai_response.dart';
 import 'request_router.dart';
 import 'request_validation.dart';
 
-/// Snapshot of what the intelligence layer is configured to do.
-///
-/// It never reports successful inference: that claim requires an actual
-/// generation result.
+/// Configured intelligence layer snapshot; does not imply successful inference.
 class IntelligenceStatus {
   const IntelligenceStatus({required this.providers});
 
@@ -37,11 +34,7 @@ class InferenceProviderStatus {
   bool get modelLoaded => lifecycle.isInitialized;
 }
 
-/// Application-facing entry point for inference.
-///
-/// Widgets and feature controllers depend on this class only; they never see
-/// provider or runtime objects or know whether the selected model is local or
-/// remote.
+/// Application-facing inference entry point abstracting model providers and runtimes.
 class IntelligenceEngine {
   const IntelligenceEngine({
     required this.router,
@@ -68,7 +61,7 @@ class IntelligenceEngine {
     return router.resolve(request).generate(request);
   }
 
-  /// Streams a request through the same validation and routing as [generate].
+  /// Streams request through shared validation and routing.
   Stream<AiResponse> stream(AiRequest request) {
     _validate(request);
     return router.resolve(request).stream(request);

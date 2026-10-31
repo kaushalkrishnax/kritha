@@ -4,8 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/theme.dart';
 import '../model_setup_controller.dart';
 
-/// Step 3 entry point. The shared controller already holds the assessment for
-/// the testing flow that will replace this placeholder.
+/// Step 3 entry point using shared wizard controller assessment.
 class ModelSetupTestingStep extends StatelessWidget {
   const ModelSetupTestingStep({super.key, required this.controller});
 

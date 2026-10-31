@@ -11,19 +11,13 @@ import 'hugging_face_urls.dart';
 
 typedef HubTokenReader = Future<String?> Function();
 
-/// Thin transport over the official Hugging Face Hub API.
-///
-/// This client owns URL construction, authentication headers and JSON parsing.
-/// It never logs requests, and it must be given a [Dio] without a
-/// `LogInterceptor` so a Hub token cannot leak into console output.
+/// Hugging Face Hub API transport; requires a Dio client without log interceptors.
 class HuggingFaceHubClient {
   HuggingFaceHubClient(this._dio, this._readToken);
 
   static const baseUrl = HuggingFaceUrls.origin;
 
-  // The Hub only returns safetensors metadata when it is explicitly expanded.
-  // Expand every list field the catalogue reads so cards can show real
-  // parameter counts without a second request per repository.
+  // Expand safetensors fields to retrieve parameter counts without follow-up requests.
   static const _listFields = <String>[
     'author',
     'createdAt',
@@ -185,8 +179,7 @@ class HuggingFaceHubClient {
     return null;
   }
 
-  /// Search results carry only the publisher name, so the avatar needs a
-  /// second, per-publisher lookup. Callers should cache the result.
+  /// Look up publisher avatar; callers should cache results.
   Future<String?> fetchPublisherAvatar(
     String name, {
     CancelToken? cancelToken,
@@ -239,8 +232,7 @@ class HuggingFaceHubClient {
     return HubAccount.fromJson(_asMap(data));
   }
 
-  /// Downloads one repository file to [destinationPath]; the caller owns the
-  /// destination directory and any cleanup after a failure.
+  /// Downloads repository file to destinationPath; caller owns cleanup.
   Future<void> downloadFile({
     required String repositoryId,
     required String revision,
@@ -281,12 +273,7 @@ class HuggingFaceHubClient {
     }
   }
 
-  /// Opens one byte range of a repository file as a raw stream.
-  ///
-  /// The caller appends chunks to the partial file and calls this again with a
-  /// new offset after an interruption. A `416` response means the file already
-  /// holds every byte the server has, and a `200` response means the server
-  /// ignored the range and sent the whole file from the start.
+  /// Streams a byte range of a repository file; handles resume and range offsets.
   Future<HubDownloadChunk> openDownload({
     required String repositoryId,
     required String revision,
@@ -484,7 +471,7 @@ class HuggingFaceHubClient {
   }
 }
 
-/// One open byte range of a repository file.
+/// Open byte range of a repository file.
 class HubDownloadChunk {
   const HubDownloadChunk({
     required this.stream,
@@ -506,7 +493,7 @@ class _ContentRange {
   final int? total;
 }
 
-/// Extracts the cursor from an RFC 8288 `Link` header returned by the Hub.
+/// Extracts cursor from RFC 8288 Link header returned by Hugging Face Hub.
 String? parseNextCursor(String? linkHeader) {
   if (linkHeader == null || linkHeader.trim().isEmpty) return null;
   final match = RegExp(

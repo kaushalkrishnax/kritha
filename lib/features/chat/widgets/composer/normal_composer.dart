@@ -14,8 +14,7 @@ import '../attachment_view.dart';
 import 'composer_controller.dart';
 import 'composer_controls.dart';
 
-/// The normal text composer. One TextField is kept across the compact and
-/// expanded layouts, so focus and selection survive expansion.
+/// Normal text composer; single TextField preserved across layouts.
 class NormalComposer extends ConsumerStatefulWidget {
   const NormalComposer({super.key, required this.viewport});
 
@@ -36,7 +35,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
   @override
   void initState() {
     super.initState();
-    // The draft lives in the provider so it survives a trip through Live Talk.
+    // Draft lives in provider to survive Live Talk transitions.
     _textController = TextEditingController(
       text: ref.read(composerProvider).draftText,
     )..addListener(_onTextChanged);
@@ -97,13 +96,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
     ref.read(composerProvider.notifier).setLiveTalkActive(true);
   }
 
-  /// Counts wrapped lines for the exact width the field receives and updates
-  /// the latched expansion state.
-  ///
-  /// Expansion is always decided from the *compact* width. If it were decided
-  /// from the current width, expanding would widen the field, shorten the text
-  /// back to one line, collapse it and repeat — the flicker users saw. The
-  /// latched state makes both directions stable.
+  /// Measures wrapped lines against compact width to prevent layout feedback loops.
   void _scheduleMeasurement({
     required String text,
     required double compactWidth,
@@ -147,8 +140,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
       maxLines: KrithaDimensions.composerMaxLines + 1,
     )..layout(maxWidth: math.max(40, maxWidth));
     final wrapped = painter.computeLineMetrics().length;
-    // A trailing newline still occupies (and must grow) a line even when the
-    // painter reports no glyphs for it.
+    // Trailing newline must occupy a line even if text painter reports no glyphs.
     final explicit = '\n'.allMatches(text).length + 1;
     return math
         .max(wrapped, explicit)
@@ -157,8 +149,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
 
   @override
   Widget build(BuildContext context) {
-    // The draft can also change from outside the field (for example "Edit
-    // message" in the message context menu). Mirror it once, then focus.
+    // Mirror external draft updates and focus.
     ref.listen(composerProvider.select((state) => state.draftText), (
       previous,
       next,
@@ -192,10 +183,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          // Compact: 8px padding each side, plus button, mic and action.
-          // Expanded: 10px padding each side and 6px input padding each side.
-          // Expansion is always judged at the compact width to avoid the
-          // widen/collapse feedback loop (see _scheduleMeasurement).
+          // Measure at compact width to avoid widen/collapse layout jitter.
           final compactTextWidth = width - 140;
           final expandedTextWidth = width - 32;
           _scheduleMeasurement(
@@ -281,10 +269,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                               child: TextField(
                                 controller: _textController,
                                 focusNode: _focusNode,
-                                // Always multiline so Enter inserts a newline and
-                                // pasted line breaks are preserved. The parent
-                                // SizedBox controls the visible height and the
-                                // field scrolls internally at the maximum.
+                                // Multiline to preserve line breaks; parent SizedBox bounds visible height.
                                 minLines: 1,
                                 maxLines: null,
                                 keyboardType: TextInputType.multiline,

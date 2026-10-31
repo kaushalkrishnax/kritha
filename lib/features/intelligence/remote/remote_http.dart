@@ -17,10 +17,7 @@ Uri remoteUri(String baseUrl, String path, {Map<String, String>? query}) {
       : uri.replace(queryParameters: {...uri.queryParameters, ...query});
 }
 
-/// Decodes server-sent events carrying one JSON object per `data:` line.
-///
-/// Anthropic and Gemini both use this shape. Comment, event and id lines are
-/// ignored, and the stream ends at `[DONE]` when a provider sends it.
+/// Decodes server-sent events carrying JSON objects per data line.
 Stream<Map<String, dynamic>> decodeSseJson(Stream<List<int>> bytes) async* {
   final lines = bytes
       .transform(const Utf8Decoder())

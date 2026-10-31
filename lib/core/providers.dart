@@ -70,8 +70,7 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-/// Probes every platform package once. The settings screen shows the outcome;
-/// the chat header only needs to know whether the speech runtime loaded.
+/// Probes platform packages once for settings and speech runtime status.
 final runtimeStatusProvider = FutureProvider<RuntimeStatus>((ref) {
   final database = ref.watch(databaseProvider);
   final dio = ref.watch(dioProvider);

@@ -6,8 +6,7 @@ sealed class IntelligenceException implements Exception {
 
   final String message;
 
-  /// The underlying runtime error, when one exists. Never surfaced verbatim to
-  /// widgets.
+  /// Underlying runtime error when one exists; not surfaced directly to widgets.
   final Object? cause;
 
   @override

@@ -1,10 +1,7 @@
 import 'inference_provider.dart';
 import 'model_configuration.dart';
 
-/// Combined, user-facing state for the configured model and its engine.
-///
-/// Configuration validation, native initialization and successful generation
-/// stay separate: [initialized] only means the runtime loaded the model.
+/// User-facing state combining model configuration and engine readiness.
 enum ModelLifecycleStage {
   checkingConfiguration,
   notConfigured,
@@ -23,7 +20,7 @@ class ModelLifecycle {
 
   final ModelLifecycleStage stage;
 
-  /// A short, user-safe explanation for a failed state.
+  /// User-safe explanation for failed state.
   final String? message;
   final String? fileName;
   final String? modelId;

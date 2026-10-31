@@ -8,10 +8,7 @@ import 'models/model_capabilities.dart';
 import 'models/model_descriptor.dart';
 import 'runtimes/litertlm_provider.dart';
 
-/// Where a selected model stands before any runtime work happens.
-///
-/// Configuration, engine loading and successful generation are deliberately
-/// separate: [ready] only means the file is present and looks like a model.
+/// Model configuration status before runtime initialization.
 enum ModelConfigurationStatus {
   notConfigured,
   missingFile,
@@ -179,7 +176,7 @@ class ModelConfigurationController extends AsyncNotifier<ModelConfiguration> {
     final store = ref.watch(modelConfigStoreProvider);
     await _writes;
     final next = ModelConfiguration.validate(await store.readPath());
-    // A selection or removal can finish while the startup read is pending.
+    // Preserve newer selection if startup read finishes late.
     if (revision != _revision) {
       await _settle();
       final current = state;
@@ -224,9 +221,7 @@ class ModelConfigurationController extends AsyncNotifier<ModelConfiguration> {
     );
   }
 
-  /// Re-checks the saved path so a file removed after selection is reported
-  /// before the runtime sees it. It waits for writes already in flight, but a
-  /// newer write can still invalidate this read.
+  /// Re-checks path to detect deleted files before runtime sees them.
   Future<void> revalidate() {
     final revision = ++_revision;
     return _track(() async {

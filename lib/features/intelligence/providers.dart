@@ -22,18 +22,14 @@ import 'runtimes/litertlm_provider.dart';
 import 'runtimes/unavailable_provider.dart';
 import 'usage_tracking_provider.dart';
 
-/// The validated local model, retained for Settings and migration.
-///
-/// Active inference uses the assignment graph below; this provider is not an
-/// independent source of model selection once an assignment exists.
+/// Validated local model, retained for Settings and migration.
 final configuredModelProvider = Provider<ModelDescriptor?>((ref) {
   final configuration = ref.watch(modelConfigurationProvider);
   if (configuration.hasError) return null;
   return configuration.value?.descriptor;
 });
 
-/// Builds the native engine for a descriptor. Tests override this with a fake
-/// so the provider graph never touches a model or native library.
+/// Builds native engine for a descriptor; test overrides inject fakes.
 final liteRtLmEngineFactoryProvider =
     Provider<LiteRtLmEngine Function(ModelDescriptor)>((ref) {
       return (model) {
@@ -257,10 +253,7 @@ final intelligenceEngineProvider = Provider<IntelligenceEngine>(
   (ref) => IntelligenceEngine(router: ref.watch(requestRouterProvider)),
 );
 
-/// Observable diagnostics for Settings.
-///
-/// Watching this provider never initializes a native engine; it only combines
-/// configuration validation with the lifecycle the provider has reported.
+/// Observable diagnostics for Settings combining config validation and reported lifecycle.
 final modelLifecycleProvider =
     NotifierProvider<ModelLifecycleNotifier, ModelLifecycle>(
       ModelLifecycleNotifier.new,
@@ -291,8 +284,7 @@ class ModelLifecycleNotifier extends Notifier<ModelLifecycle> {
 
     for (final provider in providers) {
       void onChange() {
-        // Disposal happens while Riverpod runs provider callbacks; the
-        // provider graph is rebuilt without this provider anyway.
+        // Disposal runs during Riverpod callbacks while rebuilding provider graph.
         if (provider.lifecycle.value.stage == EngineLifecycleStage.disposed) {
           return;
         }
@@ -315,8 +307,7 @@ class ModelLifecycleNotifier extends Notifier<ModelLifecycle> {
 }
 
 final intelligenceStatusProvider = Provider<IntelligenceStatus>((ref) {
-  // Rebuild when the engine lifecycle changes, not only when configuration
-  // changes.
+  // Rebuild when engine lifecycle changes, not just configuration.
   ref.watch(modelLifecycleProvider);
   return ref.watch(intelligenceEngineProvider).status;
 });

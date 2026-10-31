@@ -40,12 +40,10 @@ class MessageList extends StatelessWidget {
   final VoidCallback onRetry;
   final ScrollController scrollController;
 
-  /// Space reserved for the floating header so the first turn can scroll clear
-  /// of the top fade.
+  /// Space reserved for floating header.
   final double topPadding;
 
-  /// Space reserved for the floating composer so the last turn can scroll clear
-  /// of it.
+  /// Space reserved for floating composer.
   final double bottomPadding;
 
   @override

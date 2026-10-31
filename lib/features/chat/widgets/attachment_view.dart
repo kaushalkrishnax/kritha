@@ -70,8 +70,7 @@ class _AttachmentTile extends StatelessWidget {
             child: Tooltip(
               message: 'Remove attachment',
               child: Material(
-                // One step above the attachment tile (bgTertiary) so the X
-                // reads as a solid control instead of a black cut-out.
+                // Background is one step above tile so close button reads as solid.
                 color: KrithaColors.bgQuaternary,
                 shape: CircleBorder(),
                 child: InkWell(

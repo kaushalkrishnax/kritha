@@ -8,7 +8,7 @@ import '../../../../core/theme.dart';
 class LiveTalkPill extends StatefulWidget {
   const LiveTalkPill({super.key, required this.active});
 
-  /// Listening and speaking phases animate; paused keeps a dim static glow.
+  /// Listening and speaking animate; paused retains dim static glow.
   final bool active;
 
   @override
@@ -93,12 +93,10 @@ class _LiveTalkGlowPainter extends CustomPainter {
     canvas.clipRRect(clip);
 
     final phase = progress * math.pi * 2;
-    // Intensity breathes with the flow instead of jumping between frames. The
-    // paused state keeps a small residual glow so the pill never disappears.
+    // Breathe intensity with flow; retain residual glow when paused.
     final energy = active ? 0.55 + 0.20 * math.sin(phase) : 0.18;
 
-    // Three overlapping soft blobs move at different frequencies; together
-    // they read as a fluid blue glow rising from the bottom of the pill.
+    // Overlapping blobs at offset frequencies create fluid rising glow.
     for (var index = 0; index < 3; index++) {
       final offset = index * 2.15;
       final centre = Offset(
@@ -127,9 +125,7 @@ class _LiveTalkGlowPainter extends CustomPainter {
       );
     }
 
-    // A restrained audio-level wave across the middle. Its amplitude and
-    // opacity follow [energy], so the listening pulse is visible without
-    // turning the pill into an equalizer.
+    // Audio wave scaled by energy for subtle listening pulse.
     final amplitude = active ? 1.6 + energy * 6.4 : 1.2;
     final wave = Path();
     for (double x = 0; x <= size.width; x += 1.5) {

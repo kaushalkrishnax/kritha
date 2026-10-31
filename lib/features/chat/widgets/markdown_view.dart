@@ -4,9 +4,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import '../../../core/external_links.dart';
 import '../../../core/theme.dart';
 
-/// Kritha-tuned Markdown: the package handles parsing, code highlighting and
-/// LaTeX; this widget only maps the package's style surface onto the app's
-/// palette and type scale.
+/// Maps package style surface to Kritha palette and type scale.
 class MarkdownView extends StatelessWidget {
   const MarkdownView({super.key, required this.data, this.onLinkTap});
 
@@ -15,8 +13,7 @@ class MarkdownView extends StatelessWidget {
   /// Lets a surface resolve relative links before they leave the app.
   final void Function(String url)? onLinkTap;
 
-  /// Rebuilt per frame: the palette flips with the active theme, so caching the
-  /// sheet would pin the first theme's colours for the rest of the session.
+  // Rebuilt per frame so palette flips immediately with active theme.
   GptMarkdownStyleSheet get _styleSheet => GptMarkdownStyleSheet(
     heading: HeadingStyle(
       showDivider: false,

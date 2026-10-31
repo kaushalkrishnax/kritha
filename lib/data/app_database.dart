@@ -37,10 +37,7 @@ class ChatEntries extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// A saved local model configuration.
-///
-/// Only wizard-owned configuration data is stored; pre-check results are
-/// re-evaluated on every open and never persisted.
+/// Saved local model configuration; pre-checks are evaluated dynamically.
 @DataClassName('ModelConfigurationRow')
 class ModelConfigurations extends Table {
   TextColumn get id => text()();
@@ -233,8 +230,7 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Removes turns at or after [from]. Timestamp precision is second-level, so
-  /// prompt editing uses [deleteMessagesFromId] instead.
+  /// Removes turns at or after [from]; prompt editing uses [deleteMessagesFromId].
   Future<void> deleteMessagesFrom(String sessionId, DateTime from) {
     return (delete(chatEntries)..where(
           (row) =>
@@ -244,8 +240,7 @@ class AppDatabase extends _$AppDatabase {
         .go();
   }
 
-  /// Deletes [messageId] and every later turn without relying on timestamp
-  /// uniqueness: Drift stores date times with second precision.
+  /// Deletes [messageId] and later turns; avoids second-precision timestamp collisions.
   Future<void> deleteMessagesFromId(String sessionId, String messageId) async {
     await transaction(() async {
       final messages = await messagesForSession(sessionId);
@@ -268,8 +263,7 @@ class AppDatabase extends _$AppDatabase {
     return row.read(count) ?? 0;
   }
 
-  /// Seeds the fixture conversation together with its owning session. Existing
-  /// installations are left alone.
+  /// Seeds fixture conversation on fresh installs.
   Future<void> seedIfEmpty(Iterable<ChatMessage> messages) async {
     if (await countMessages() > 0 || await countSessions() > 0) {
       return;
@@ -300,8 +294,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Links messages written before schema v3 to a session. Returns the session
-  /// id that now owns them, or null when there is nothing to adopt.
+  /// Migrates pre-v3 messages to an adopted session.
   Future<String?> adoptOrphanMessages() async {
     final orphans = await (select(
       chatEntries,
@@ -335,7 +328,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearHistory() => delete(chatEntries).go();
 
-  /// Removes every conversation and message. Used by the settings reset.
+  /// Removes every conversation and message for settings reset.
   Future<void> resetAll() async {
     await transaction(() async {
       await delete(chatEntries).go();
@@ -343,9 +336,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Inserts or replaces one saved configuration together with its artifacts.
-  /// Replacing a configuration rewrites its artifact rows, never the shared
-  /// rows of another configuration.
+  /// Inserts or replaces a saved configuration and rewrites its artifact rows.
   Future<void> saveModelConfiguration(ConfiguredModel model) async {
     await transaction(() async {
       await into(modelConfigurations).insertOnConflictUpdate(
@@ -386,7 +377,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Every saved configuration, newest first, with its artifacts in order.
+  /// Every saved configuration, newest first, with ordered artifacts.
   Future<List<ConfiguredModel>> configuredModels() async {
     final rows = await (select(
       modelConfigurations,
@@ -408,8 +399,7 @@ class AppDatabase extends _$AppDatabase {
     return _mapConfiguredModel(row, artifacts[id] ?? const []);
   }
 
-  /// Deletes the configuration row and the artifact rows it owns. The caller
-  /// owns the files on disk.
+  /// Deletes configuration and owned artifact rows; caller owns files on disk.
   Future<void> deleteModelConfiguration(String id) async {
     await transaction(() async {
       await (delete(

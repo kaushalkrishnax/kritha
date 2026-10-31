@@ -8,10 +8,6 @@ part 'chat_message.g.dart';
 enum ChatRole { user, assistant }
 
 /// A single persisted chat turn.
-///
-/// Freezed gives value equality, `copyWith` and pattern matching; the JSON
-/// serializer is also what the Drift layer uses to prove both generators ship
-/// in the measured build.
 @freezed
 abstract class ChatMessage with _$ChatMessage {
   const factory ChatMessage({

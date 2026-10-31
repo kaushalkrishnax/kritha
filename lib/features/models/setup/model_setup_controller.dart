@@ -42,10 +42,7 @@ typedef ModelArtifactStorageFactory = ModelArtifactStorage Function(
   String rootPath,
 );
 
-/// Shared state for all three wizard steps.
-///
-/// Step 2 owns the configuration-specific artifact rows. Step 3 reads the same
-/// controller so navigating backwards never drops a selection or download.
+/// Shared wizard state preserved across navigation steps.
 class ModelSetupWizardController extends ChangeNotifier {
   ModelSetupWizardController({
     required this.details,
@@ -87,7 +84,6 @@ class ModelSetupWizardController extends ChangeNotifier {
   final Set<ModelArtifactKind> _collapsedSections = {};
   bool _artifactsPrepared = false;
   int _nextRowNumber = 1;
-  int _nextTargetNumber = 1;
   bool _downloadAllRunning = false;
   final Map<String, ModelArtifactDownload> _activeDownloads = {};
   String? _artifactRootPath;
@@ -177,6 +173,22 @@ class ModelSetupWizardController extends ChangeNotifier {
   bool get hasDownloadableSelection =>
       _artifacts.any((row) => row.selected && row.canDownload);
 
+  /// Ids of selected rows sharing a target path with another selected row.
+  Set<String> get duplicateTargetIds {
+    final byTarget = <String, List<String>>{};
+    for (final row in _artifacts) {
+      if (!row.selected) continue;
+      final normalized = normalizeArtifactTarget(row.targetPath);
+      if (normalized == null) continue;
+      // Filesystems the artifacts land on are case-insensitive by default.
+      byTarget.putIfAbsent(normalized.toLowerCase(), () => []).add(row.id);
+    }
+    return {
+      for (final ids in byTarget.values)
+        if (ids.length > 1) ...ids,
+    };
+  }
+
   String get runtimeId =>
       selection?.runtimeId ?? _assessment?.runtimeConstraints?.runtimeId ?? '';
 
@@ -186,8 +198,7 @@ class ModelSetupWizardController extends ChangeNotifier {
 
   String? get saveError => _saveError;
 
-  /// The first structural problem blocking persistence, or `null` when every
-  /// selected row has a source and a valid configuration-relative target.
+  /// First structural issue blocking persistence, or null if rows are valid.
   String? get saveIssue {
     for (final row in _artifacts) {
       if (!row.selected) continue;
@@ -208,10 +219,10 @@ class ModelSetupWizardController extends ChangeNotifier {
     return null;
   }
 
-  /// Saving is independent of downloads; only incomplete rows block it.
+  /// Saving requires complete row configuration, independent of downloads.
   bool get canSaveConfiguration => !_saving && !_running && saveIssue == null;
 
-  /// Testing needs the artifacts on disk, not just a saved configuration.
+  /// Testing requires artifacts on disk, not just saved configuration.
   bool get canTestArtifacts => !_saving && artifactsComplete;
 
   Future<void> runAssessment() async {
@@ -269,10 +280,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
   }
 
-  /// Builds the initial rows once from the assessment's final selection.
-  ///
-  /// Discovery never implies a download: rows start idle and the status stays
-  /// incomplete until every selected file exists in this configuration.
+  /// Populates initial artifact rows; discovery starts idle without downloading.
   void prepareArtifacts() {
     if (_artifactsPrepared) return;
     _artifactsPrepared = true;
@@ -360,8 +368,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     return path.isEmpty ? name : path;
   }
 
-  /// Picks at most one weight row during setup. Every weight remains selectable
-  /// afterwards, but the initial selection must not include every quantisation.
+  /// Selects at most one weight row initially to avoid downloading all quantizations.
   ModelFile? _defaultWeightFile(List<ModelFile> weights) {
     if (weights.isEmpty) return null;
 
@@ -444,11 +451,10 @@ class ModelSetupWizardController extends ChangeNotifier {
 
   ModelArtifactRow? addArtifactRow(ModelArtifactKind kind) {
     prepareArtifacts();
-    final number = _nextTargetNumber++;
     final row = ModelArtifactRow(
       id: 'artifact-${_nextRowNumber++}',
       kind: kind,
-      targetPath: kind.newTargetPath(number),
+      targetPath: '',
     );
     _artifacts = List.unmodifiable([..._artifacts, row]);
     _saveError = null;
@@ -471,10 +477,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     final row = _rowById(id);
     if (row == null) return;
     final normalized = normalizeArtifactTarget(targetPath);
-    final next = row.copyWith(
-      targetPath: targetPath.trim(),
-      targetEdited: true,
-    );
+    final next = row.copyWith(targetPath: targetPath.trim());
     if (row.localPath == null || normalized == null) {
       _replaceRow(next);
       _notify();
@@ -486,7 +489,7 @@ class ModelSetupWizardController extends ChangeNotifier {
       _notify();
       return;
     }
-    // Apply the edit before moving the file so Save never reads a stale path.
+    // Apply edit before moving file so save never reads stale path.
     _replaceRow(next);
     _notify();
     try {
@@ -516,9 +519,9 @@ class ModelSetupWizardController extends ChangeNotifier {
       sourceType: ModelArtifactSourceType.repository,
       repositoryFile: file,
       deviceSourcePath: null,
-      targetPath: row.targetEdited
-          ? row.targetPath
-          : artifactFileName(file.path),
+      targetPath: row.targetPath.trim().isEmpty
+          ? artifactFileName(file.path)
+          : row.targetPath,
       selected: true,
       status: ModelArtifactStatus.idle,
       progress: null,
@@ -537,7 +540,9 @@ class ModelSetupWizardController extends ChangeNotifier {
     final path = sourcePath.trim();
     if (path.isEmpty) return;
     await _clearLocalCopy(row);
-    final target = row.targetEdited ? row.targetPath : artifactFileName(path);
+    final target = row.targetPath.trim().isEmpty
+        ? artifactFileName(path)
+        : row.targetPath;
     int? size;
     try {
       size = await File(path).length();
@@ -732,10 +737,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
   }
 
-  /// Upserts this configuration and its artifact rows.
-  ///
-  /// Only configuration metadata and artifact rows are written; the pre-check
-  /// assessment stays in memory for this wizard session.
+  /// Upserts configuration and artifact rows; pre-checks remain transient.
   Future<bool> saveConfiguration() async {
     if (!canSaveConfiguration) return false;
     prepareArtifacts();
@@ -865,8 +867,7 @@ class ModelSetupWizardController extends ChangeNotifier {
       final file = File(path);
       if (await file.exists()) await file.delete();
     } on FileSystemException {
-      // A stale file must not block the row transition; the next write
-      // overwrites the same target and the UI surfaces real write failures.
+      // Overwrite target if stale file exists; real failures surface on write.
     }
   }
 

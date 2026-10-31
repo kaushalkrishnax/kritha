@@ -14,7 +14,6 @@ class ModelArtifactRow {
     this.sourceType = ModelArtifactSourceType.unassigned,
     this.repositoryFile,
     this.deviceSourcePath,
-    this.targetEdited = false,
     this.selected = true,
     this.status = ModelArtifactStatus.idle,
     this.progress,
@@ -30,7 +29,6 @@ class ModelArtifactRow {
   final ModelFile? repositoryFile;
   final String? deviceSourcePath;
   final String targetPath;
-  final bool targetEdited;
   final bool selected;
   final ModelArtifactStatus status;
   final double? progress;
@@ -82,8 +80,7 @@ class ModelArtifactRow {
     ModelArtifactSourceType.unassigned => 'No source assigned',
   };
 
-  /// The path shown inside the repository card. Nested files keep their folder
-  /// so the source remains distinguishable from a same-named top-level file.
+  /// Relative path preserving parent folder to distinguish nested files.
   String get repositoryLabel {
     final file = repositoryFile;
     if (file == null) return '';
@@ -105,7 +102,6 @@ class ModelArtifactRow {
     Object? repositoryFile = _unset,
     Object? deviceSourcePath = _unset,
     String? targetPath,
-    bool? targetEdited,
     bool? selected,
     ModelArtifactStatus? status,
     Object? progress = _unset,
@@ -125,7 +121,6 @@ class ModelArtifactRow {
           ? this.deviceSourcePath
           : deviceSourcePath as String?,
       targetPath: targetPath ?? this.targetPath,
-      targetEdited: targetEdited ?? this.targetEdited,
       selected: selected ?? this.selected,
       status: status ?? this.status,
       progress: identical(progress, _unset)
@@ -158,12 +153,6 @@ extension ModelArtifactKindSection on ModelArtifactKind {
     ModelArtifactKind.configuration => 'Configuration',
     ModelArtifactKind.helper => 'Helper',
     ModelArtifactKind.weights => 'Weights',
-  };
-
-  String newTargetPath(int index) => switch (this) {
-    ModelArtifactKind.configuration => 'config/config_$index.json',
-    ModelArtifactKind.helper => 'helper/helper_$index.bin',
-    ModelArtifactKind.weights => 'weights/weights_$index.litertlm',
   };
 }
 

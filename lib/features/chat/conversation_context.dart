@@ -2,15 +2,7 @@ import '../../models/chat_message.dart';
 import '../intelligence/intelligence_exception.dart';
 import '../intelligence/models/ai_request.dart';
 
-/// Builds the inference context for one chat session.
-///
-/// The caller supplies only the active session's persisted history in display
-/// order. Empty-text turns, including attachment-only prompts, are omitted
-/// because the runtime has no attachment input. No system message is
-/// synthesized: chat history has no system role.
-///
-/// Retry passes the persisted transcript through the same builder, so partial
-/// streamed output never enters the context.
+/// Builds inference context from persisted session history, omitting empty turns.
 class ConversationContextBuilder {
   const ConversationContextBuilder();
 

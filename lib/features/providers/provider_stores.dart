@@ -15,8 +15,7 @@ class StoredProviderSettings {
   final String baseUrl;
   final bool configured;
 
-  /// Editable alias for user-created providers. Built-ins leave this null and
-  /// use their definition's stable display name.
+  /// Editable alias for custom providers; null for built-in providers.
   final String? alias;
 
   Map<String, dynamic> toJson() => {

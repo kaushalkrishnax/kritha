@@ -26,7 +26,6 @@ extension LiveTalkPhaseX on LiveTalkPhase {
   bool get isPaused => this == LiveTalkPhase.paused;
 }
 
-/// Everything the composer needs to decide its layout.
 class ComposerState {
   const ComposerState({
     this.draftText = '',

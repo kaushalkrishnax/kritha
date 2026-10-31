@@ -18,8 +18,7 @@ void _openWorkspace(BuildContext context, String location) {
   context.push(location);
 }
 
-/// Shared sidebar body used both as an overlay drawer on compact/medium
-/// viewports and as a docked panel on wide ones.
+/// Shared sidebar body used in docked panel and overlay drawer.
 class ChatSidebar extends ConsumerStatefulWidget {
   const ChatSidebar({
     super.key,
@@ -853,7 +852,7 @@ class _SessionRow extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  /// Global press point, so the menu opens where the finger landed.
+  /// Global press point so menu opens at touch location.
   final void Function(Offset pressPosition) onLongPress;
 
   @override
@@ -922,8 +921,7 @@ class _SessionRowState extends State<_SessionRow> {
   }
 }
 
-/// Adapts the sidebar body into the shell: an overlay on small screens and a
-/// docked column on wide ones. Chosen by [KrithaViewport], not the device type.
+/// Shell sidebar adapter: overlay on compact/medium screens, docked on wide screens.
 class ChatSidebarPanel extends StatelessWidget {
   const ChatSidebarPanel({
     super.key,

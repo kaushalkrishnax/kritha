@@ -1,14 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 /// Hub query keys used by catalogue filters.
-///
-/// The Models UI only exposes filter values (keywords); the key stays an
-/// implementation detail so requests remain valid Hub queries.
 abstract final class CatalogueFilterKeys {
   static const tag = 'filter';
 }
 
-/// One filter sent to the Hub model listing endpoint.
+/// Filter sent to Hub model listing endpoint.
 @immutable
 class CatalogueFilter {
   const CatalogueFilter({
@@ -20,7 +17,7 @@ class CatalogueFilter {
   final String key;
   final String value;
 
-  /// Presets are offered by the app and cannot be deleted, only toggled.
+  /// Presets are built-in and can only be toggled.
   final bool preset;
 
   String get id => '$key=$value';
@@ -41,12 +38,11 @@ class CatalogueFilter {
   String toString() => value;
 }
 
-/// Filters the Models page offers out of the box.
+/// Built-in catalogue filters.
 abstract final class CatalogueFilterPresets {
   static const litertLmValue = 'litert-lm';
 
-  /// The Hub lists LiteRT-LM repositories under this tag, so a tag filter works
-  /// for both the initial listing and search results.
+  /// LiteRT-LM tag filter for initial listing and search results.
   static const litertLm = CatalogueFilter(
     key: CatalogueFilterKeys.tag,
     value: litertLmValue,
@@ -55,7 +51,6 @@ abstract final class CatalogueFilterPresets {
 
   static const all = <CatalogueFilter>[litertLm];
 
-  /// Applied on first load so the catalogue only lists runnable LiteRT-LM
-  /// repositories.
+  /// Default initial filter to list runnable LiteRT-LM repositories.
   static const defaults = <CatalogueFilter>[litertLm];
 }

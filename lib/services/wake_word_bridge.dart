@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// Narrow Flutter bridge for the native Android wake-word foreground service.
-/// The model/inference library remains packaged in the base Android APK.
+/// Flutter bridge for native Android wake-word foreground service.
 abstract final class WakeWordBridge {
   static const _method = MethodChannel('com.kritha/wake_word');
   static const _events = EventChannel('com.kritha/wake_word/events');

@@ -40,10 +40,7 @@ abstract class AiGenerationOptions with _$AiGenerationOptions {
       _$AiGenerationOptionsFromJson(json);
 }
 
-/// One inference request.
-///
-/// Application entities such as `ChatMessage` are intentionally not reused:
-/// the engine contract must stay independent of persistence.
+/// Independent inference request entity uncoupled from persistence.
 @freezed
 abstract class AiRequest with _$AiRequest {
   const AiRequest._();

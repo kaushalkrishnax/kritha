@@ -30,29 +30,24 @@ abstract final class KrithaColors {
   static Color get bgCard => _lightMode ? Color(0xFFFFFFFF) : _darkBgCard;
   static const _darkBgScrim = Color(0x99000000);
   static Color get bgScrim =>
-      _lightMode ? Color(0x66000000) : _darkBgScrim; // rgba(0,0,0,0.60)
+      _lightMode ? Color(0x66000000) : _darkBgScrim;
 
   /// Translucent composer surface used with a backdrop blur.
   static const _darkComposerGlass = Color(0xD11E2228);
-  static Color get composerGlass => _lightMode
-      ? Color(0xE6FFFFFF)
-      : _darkComposerGlass; // bgSecondary at ~82%
+  static Color get composerGlass =>
+      _lightMode ? Color(0xE6FFFFFF) : _darkComposerGlass;
 
-  /// Colour the transcript dissolves into behind the floating composer. It has
-  /// to match the chat surface, not be a shadow, or light mode gets a grey
-  /// smudge and dark mode a lighter band.
+  /// Dissolves transcript behind floating composer; matches chat surface to avoid smudges.
   static Color get composerBackdrop => bgDeepest;
 
-  /// Soft elevation around the glass composer. Light mode uses a tinted, wide
-  /// shadow instead of a hard black ring.
+  /// Soft elevation around glass composer; uses tinted shadow in light mode.
   static Color get composerShadow =>
       _lightMode ? Color(0x140F172A) : Color(0x66000000);
 
-  /// Semi-transparent puck behind the scroll-to-bottom arrow.
   static Color get scrollDownSurface =>
       _lightMode ? Color(0xCCFFFFFF) : Color(0x99262B32);
 
-  /// Floating menu elevation; light mode needs a tinted shadow, not pure black.
+  /// Floating menu elevation; light mode uses a tinted shadow.
   static Color get menuShadow =>
       _lightMode ? Color(0x1F0F172A) : Color(0x80000000);
 
@@ -103,13 +98,11 @@ abstract final class KrithaColors {
   static Color get borderStrong =>
       _lightMode ? Color(0xFF94A3B8) : _darkBorderStrong;
   static const _darkBorderSubtle = Color(0x1AFFFFFF);
-  static Color get borderSubtle => _lightMode
-      ? Color(0x260F172A)
-      : _darkBorderSubtle; // rgba(255,255,255,0.10)
+  static Color get borderSubtle =>
+      _lightMode ? Color(0x260F172A) : _darkBorderSubtle;
   static const _darkBorderFaint = Color(0x0EFFFFFF);
-  static Color get borderFaint => _lightMode
-      ? Color(0x140F172A)
-      : _darkBorderFaint; // rgba(255,255,255,0.055)
+  static Color get borderFaint =>
+      _lightMode ? Color(0x140F172A) : _darkBorderFaint;
   static const _darkBorderAccent = Color(0xFF3566F0);
   static Color get borderAccent =>
       _lightMode ? Color(0xFF3566F0) : _darkBorderAccent;
@@ -127,13 +120,11 @@ abstract final class KrithaColors {
   static Color get userBubbleBg =>
       _lightMode ? Color(0xFFDBEAFE) : _darkUserBubbleBg;
   static const _darkAssistantBubbleBg = Color(0x143B82F6);
-  static Color get assistantBubbleBg => _lightMode
-      ? Color(0x143B82F6)
-      : _darkAssistantBubbleBg; // rgba(59,130,246,0.08)
+  static Color get assistantBubbleBg =>
+      _lightMode ? Color(0x143B82F6) : _darkAssistantBubbleBg;
   static const _darkAssistantBubbleBorder = Color(0x403B82F6);
-  static Color get assistantBubbleBorder => _lightMode
-      ? Color(0x403B82F6)
-      : _darkAssistantBubbleBorder; // rgba(59,130,246,0.25)
+  static Color get assistantBubbleBorder =>
+      _lightMode ? Color(0x403B82F6) : _darkAssistantBubbleBorder;
 
   // Thinking block
   static const _darkThinkingBorder = Color(0xFF3B82F6);
@@ -141,17 +132,15 @@ abstract final class KrithaColors {
       _lightMode ? Color(0xFF3B82F6) : _darkThinkingBorder;
   static const _darkThinkingBg = Color(0x143B82F6);
   static Color get thinkingBg =>
-      _lightMode ? Color(0x143B82F6) : _darkThinkingBg; // rgba(59,130,246,0.08)
+      _lightMode ? Color(0x143B82F6) : _darkThinkingBg;
 
   // Other semantic surfaces
   static const _darkErrorBubbleBg = Color(0x26F87171);
-  static Color get errorBubbleBg => _lightMode
-      ? Color(0x26DC2626)
-      : _darkErrorBubbleBg; // rgba(248,113,113,0.15)
+  static Color get errorBubbleBg =>
+      _lightMode ? Color(0x26DC2626) : _darkErrorBubbleBg;
   static const _darkTtsActiveBg = Color(0x2660A5FA);
-  static Color get ttsActiveBg => _lightMode
-      ? Color(0x263B82F6)
-      : _darkTtsActiveBg; // rgba(96,165,250,0.15)
+  static Color get ttsActiveBg =>
+      _lightMode ? Color(0x263B82F6) : _darkTtsActiveBg;
 
   // Data visualisation
   static const _darkWaveformBar = Color(0xFFC5CBD3);
@@ -374,20 +363,14 @@ abstract final class KrithaIcons {
   static const lg = 24.0;
   static const xl = 28.0;
 
-  /// Hugeicons ships its stroke-rounded set at 1.5 on a 24×24 viewBox, which
-  /// reads noticeably lighter than the reference UI. 2.0 matches the medium
-  /// weight used by ChatGPT-style navigation and toolbar glyphs.
+  /// Stroke weight 2.0 matches medium-weight navigation and toolbar glyphs.
   static const stroke = 2.0;
 
-  /// Slightly lighter weight for 13–15 px inline glyphs so small counters
-  /// (dots, ticks, arrows) stay open at small sizes.
+  /// Lighter stroke keeps 13–15px inline glyph counters open.
   static const compactStroke = 1.7;
 }
 
-/// [HugeIcon] with Kritha's stroke weight applied by default.
-///
-/// Use this instead of [HugeIcon] everywhere in the app; pass [strokeWidth]
-/// only when a specific glyph needs a different weight.
+/// [HugeIcon] with Kritha stroke weight applied by default.
 class KrithaIcon extends StatelessWidget {
   const KrithaIcon({
     super.key,
@@ -453,10 +436,7 @@ abstract final class KrithaInputs {
   }
 }
 
-/// Keeps [KrithaColors] in sync with the active [Theme] and makes the caller
-/// depend on it. The palette is static, so without an explicit [Theme]
-/// dependency most subtrees keep their previously-built colours after a theme
-/// switch. Screens call this once at the top of their build.
+/// Binds [KrithaColors] to active [Theme] so subtrees rebuild on theme switch.
 void watchKrithaPalette(BuildContext context) {
   KrithaColors.setLightMode(Theme.of(context).brightness == Brightness.light);
 }

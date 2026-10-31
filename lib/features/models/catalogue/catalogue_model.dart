@@ -165,8 +165,7 @@ enum CatalogueSort {
   final String label;
   final String apiValue;
 
-  /// The Hub has no parameter-count ordering, so these sorts order the fetched
-  /// page locally instead of asking the API for a field it does not expose.
+  /// Hub has no parameter-count ordering, so page is sorted locally.
   bool get sortsByParameters =>
       this == CatalogueSort.mostParameters ||
       this == CatalogueSort.leastParameters;
@@ -193,7 +192,6 @@ class CatalogueModel {
     this.usedStorage,
   });
 
-  /// `namespace/repository`.
   final String id;
   final String? pipelineTag;
   final String? libraryName;

@@ -131,8 +131,7 @@ class DictationNotifier extends Notifier<DictationState> {
         level = ((amplitude.current + 50) / 50).clamp(0.12, 1.0);
       }
     } on Object {
-      // Keep the synthesised fallback so the waveform never freezes on a
-      // platform that cannot report amplitude.
+      // Fallback amplitude prevents frozen waveform on unsupported platforms.
     } finally {
       _ticking = false;
     }
@@ -145,11 +144,7 @@ class DictationNotifier extends Notifier<DictationState> {
     state = state.copyWith(elapsed: _watch.elapsed, levels: levels);
   }
 
-  /// Stops the take and returns its transcript.
-  ///
-  /// TODO(stt): feed the stopped file to the offline sherpa-onnx recogniser and
-  /// return its text. Until a model is bundled this throws, so callers surface
-  /// the missing-model error and no audio file is attached to the message.
+  /// Stops take and returns transcript; throws until offline recognizer model is bundled.
   Future<String> transcribe() async {
     if (!state.isActive) {
       throw const DictationException('There is no recording to transcribe.');
@@ -174,7 +169,7 @@ class DictationNotifier extends Notifier<DictationState> {
         final file = File(path);
         if (file.existsSync()) await file.delete();
       } on Object {
-        // Temp files are cleaned up by the OS anyway.
+        // Temp files cleaned up by OS.
       }
     }
     _reset();
@@ -191,7 +186,7 @@ class DictationNotifier extends Notifier<DictationState> {
     try {
       await _engine.cancel();
     } on Object {
-      // Cancelling is best-effort; the file is removed below.
+      // Cancelling is best-effort; file is cleaned up below.
     }
     await _discardFile();
     _reset();
@@ -214,7 +209,7 @@ class DictationNotifier extends Notifier<DictationState> {
       final file = File(path);
       if (file.existsSync()) await file.delete();
     } on Object {
-      // Temp files are cleaned up by the OS anyway.
+      // Temp files cleaned up by OS.
     }
   }
 }

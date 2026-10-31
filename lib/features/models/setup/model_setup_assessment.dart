@@ -131,7 +131,6 @@ class ModelSetupModelInfo {
   final List<String> weightPrecisions;
   final String? libraryName;
 
-  /// Whether a declared format and the library are the same identifier.
   bool get formatMatchesLibrary =>
       declaredFormatMatchesLibrary(formats: formats, libraryName: libraryName);
 
@@ -195,10 +194,7 @@ class ModelSetupSelection {
       weightFiles.fold(0, (total, file) => total + (file.sizeBytes ?? 0));
 }
 
-/// Everything discovered and evaluated during the pre-checks.
-///
-/// The later wizard steps read this same object, so it carries the source
-/// model details alongside the derived runtime and compatibility results.
+/// Assessment results from pre-checks shared with later wizard steps.
 class ModelSetupAssessment {
   const ModelSetupAssessment({
     required this.details,

@@ -1,14 +1,9 @@
 import 'dart:io';
 
-/// The kind of content carried by an attachment. Kept intentionally small: the
-/// original composer distinguishes images from generic files.
+/// Attachment kind; composer distinguishes images from generic files.
 enum ChatAttachmentKind { image, file }
 
-/// An attachment selected through the composer.
-///
-/// The Flutter build supports picking images and documents. The file is copied
-/// to the app's temporary cache by the picker; the metadata is persisted with
-/// the message so history can render a preview after a restart.
+/// Selected attachment copied to temporary cache with persisted metadata.
 class ChatAttachment {
   const ChatAttachment({
     required this.id,

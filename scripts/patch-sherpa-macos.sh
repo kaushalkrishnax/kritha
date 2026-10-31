@@ -7,12 +7,20 @@
 # sherpa Dart/FFI side does not import the C module as a Swift module.
 set -euo pipefail
 
-SHERPA_PKG="$HOME/.pub-cache/hosted/pub.dev/sherpa_onnx_macos-1.13.8/macos/sherpa_onnx_macos/sherpa-onnx.xcframework"
-MODULEMAP="$SHERPA_PKG/macos-arm64_x86_64/Headers/module.modulemap"
+PUB_CACHE_DIR="${PUB_CACHE:-$HOME/.pub-cache}"
+COUNT=0
 
-if [ -f "$MODULEMAP" ]; then
-  rm -f "$MODULEMAP"
-  echo "Removed conflicting module.modulemap from sherpa_onnx_macos."
+shopt -s nullglob
+for map in "$PUB_CACHE_DIR"/hosted/pub.dev/sherpa_onnx_macos*/macos/sherpa_onnx_macos/sherpa-onnx.xcframework/*/Headers/module.modulemap; do
+  if [ -f "$map" ]; then
+    rm -f "$map"
+    echo "Removed conflicting module.modulemap: $map"
+    COUNT=$((COUNT + 1))
+  fi
+done
+
+if [ "$COUNT" -gt 0 ]; then
+  echo "Successfully patched $COUNT module.modulemap file(s)."
 else
   echo "No conflicting module.modulemap present (already patched)."
 fi

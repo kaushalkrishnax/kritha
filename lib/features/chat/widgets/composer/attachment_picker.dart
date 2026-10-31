@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../models/chat_attachment.dart';
 
-/// Picks attachments for the composer. Kept behind an interface so widget
-/// tests can supply deterministic files without touching platform channels.
+/// Attachment picker interface enabling deterministic test fakes.
 abstract interface class AttachmentPicker {
   Future<List<ChatAttachment>> pickImages();
   Future<List<ChatAttachment>> pickFiles();

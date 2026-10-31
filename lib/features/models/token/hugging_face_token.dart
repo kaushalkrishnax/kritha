@@ -49,8 +49,7 @@ class HuggingFaceTokenController extends AsyncNotifier<HuggingFaceTokenState> {
     return HuggingFaceTokenState(hasToken: token != null);
   }
 
-  /// Validates first, then persists. An explicitly rejected token is never
-  /// stored. A network failure stores it with an honest "unverified" notice.
+  /// Validates token before persisting; stores unverified notice on network failure.
   Future<bool> save(String rawToken) async {
     final token = rawToken.trim();
     if (token.isEmpty) return false;

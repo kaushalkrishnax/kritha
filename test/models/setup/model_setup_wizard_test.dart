@@ -333,12 +333,11 @@ void main() {
       isNull,
     );
     expect(
-      tester
-          .widget<TextField>(
-            find.byKey(const ValueKey('artifact-target-artifact-1')),
-          )
-          .enabled,
-      isFalse,
+      find.descendant(
+        of: find.byKey(const ValueKey('artifact-target-artifact-1')),
+        matching: find.byType(TextField),
+      ),
+      findsNothing,
     );
 
     await tester.tap(find.byKey(const ValueKey(sectionKey)));
@@ -356,6 +355,49 @@ void main() {
           .onPressed,
       isNotNull,
     );
+  });
+
+  testWidgets('duplicate target paths flag both rows', (tester) async {
+    tester.view.physicalSize = const Size(700, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      buildWizard(
+        Future.value(runtime()),
+        store: _FakeStore(),
+        configurationId: 'wizard-duplicates',
+        width: 700,
+        height: 900,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    Future<void> setTarget(String id, String value) async {
+      await tester.enterText(
+        find.byKey(ValueKey('artifact-target-$id')),
+        value,
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+    }
+
+    Finder errorFor(String id) =>
+        find.byKey(ValueKey('artifact-target-error-$id'));
+
+    await setTarget('artifact-1', 'shared.bin');
+    await setTarget('artifact-2', 'shared.bin');
+
+    expect(errorFor('artifact-1'), findsOneWidget);
+    expect(errorFor('artifact-2'), findsOneWidget);
+
+    await setTarget('artifact-2', 'other.bin');
+
+    expect(errorFor('artifact-1'), findsNothing);
+    expect(errorFor('artifact-2'), findsNothing);
   });
 
   testWidgets('download progress can be paused and resumed', (tester) async {

@@ -20,13 +20,13 @@ class InferenceProviderDefinition {
     this.testPath = '/models',
   });
 
-  /// Stable identity used by credentials, assignments and routing.
+  /// Stable identity for credentials, assignments and routing.
   final String id;
 
-  /// Editable, human-readable identity. Falls back to [id] for built-ins.
+  /// Human-readable label falling back to [id].
   final String? alias;
 
-  /// The adapter that executes models from this source.
+  /// Adapter executing models from this source.
   final String runtimeId;
   final String name;
   final String description;
@@ -177,11 +177,7 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
   ),
 ];
 
-/// Built-ins plus the legacy custom-provider template.
-///
-/// The template is retained for compatibility with older saved configuration
-/// and connection-test callers. User-created custom providers are resolved from
-/// the provider store instead.
+/// Built-in providers and legacy custom template retained for compatibility.
 const supportedInferenceProviders = <InferenceProviderDefinition>[
   ...builtInInferenceProviders,
   InferenceProviderDefinition(

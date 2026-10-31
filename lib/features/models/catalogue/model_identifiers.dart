@@ -1,4 +1,4 @@
-/// Comparison form for identifiers: case and separators are ignored.
+/// Normalizes identifier ignoring case and separators.
 String normalizeModelIdentifier(String value) =>
     value.toLowerCase().replaceAll(_identifierSeparator, '');
 
@@ -25,7 +25,6 @@ bool declaredFormatMatchesLibrary({
   return declared.any((format) => modelIdentifiersMatch(format, library));
 }
 
-/// Already normalised, so `litert-lm` maps to `litertlm`.
 const _formatIdentifiers = <String>{
   'litertlm',
   'gguf',

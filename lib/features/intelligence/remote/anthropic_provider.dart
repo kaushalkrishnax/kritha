@@ -16,10 +16,7 @@ import '../models/model_descriptor.dart';
 import '../request_validation.dart';
 import 'remote_http.dart';
 
-/// Adapter for the Anthropic Messages API.
-///
-/// Anthropic is not OpenAI-compatible: it uses `/messages`, `x-api-key` and
-/// its own content-block streaming events.
+/// Adapter for Anthropic Messages API.
 class AnthropicProvider implements InferenceProvider {
   AnthropicProvider({
     required this.sourceId,

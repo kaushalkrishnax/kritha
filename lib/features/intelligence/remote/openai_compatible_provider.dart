@@ -14,10 +14,7 @@ import '../models/model_descriptor.dart';
 import '../request_validation.dart';
 import 'remote_http.dart';
 
-/// Adapter for OpenAI and endpoints implementing its chat-completions shape.
-///
-/// A new [OpenAIClient] is built for every request from the selected provider
-/// configuration. No process-global OpenAI state is read or written.
+/// Adapter for OpenAI and compatible chat-completions endpoints.
 class OpenAiCompatibleProvider implements InferenceProvider {
   OpenAiCompatibleProvider({
     required this.sourceId,
@@ -187,8 +184,7 @@ class OpenAiCompatibleProvider implements InferenceProvider {
     );
   }
 
-  /// Some OpenAI-compatible catalogues prefix IDs with `models/`; the chat
-  /// endpoint accepts the bare identifier.
+  // Strips models/ prefix if present; chat endpoint requires bare identifier.
   String get _requestModel => descriptor.id.startsWith('models/')
       ? descriptor.id.substring('models/'.length)
       : descriptor.id;

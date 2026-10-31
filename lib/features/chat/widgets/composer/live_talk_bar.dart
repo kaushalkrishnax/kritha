@@ -6,12 +6,7 @@ import 'composer_controller.dart';
 import 'composer_controls.dart';
 import 'live_talk_pill.dart';
 
-/// The dedicated Live Talk capsule: two round utility controls, the glowing
-/// centre pill, the pause/resume microphone and the close control.
-///
-/// The native Live Talk runtime is not bundled yet, so the bar exposes the
-/// real state machine and transitions without starting a microphone session.
-/// [LiveTalkPill] renders the listening animation while that runtime is absent.
+/// Dedicated Live Talk capsule with glowing pill, mic and close controls.
 class LiveTalkBar extends StatelessWidget {
   const LiveTalkBar({
     super.key,

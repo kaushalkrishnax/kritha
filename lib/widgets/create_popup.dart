@@ -87,8 +87,7 @@ class CreatePopup extends StatelessWidget {
   final Widget child;
   final List<Widget> actions;
 
-  /// Replaces [actions] with a full-width footer, so callers can balance
-  /// leading and trailing action groups.
+  /// Full-width footer replacing [actions] for custom button layout.
   final Widget? footer;
   final Widget? leading;
 

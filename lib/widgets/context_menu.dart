@@ -5,11 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import '../core/theme.dart';
 
 /// One row in a [showKrithaContextMenu] menu.
-///
-/// Menus never draw separator lines. Group emphasis comes from destructive
-/// colour and the 48px row rhythm, with an 8px outer inset owned by the first
-/// and last rows. If a menu has a heading, the top edge inset belongs to the
-/// heading; the first action remains a normal-height row.
 class ContextMenuItem {
   ContextMenuItem({
     required this.id,
@@ -34,12 +29,10 @@ enum ContextMenuAlign { left, right, auto }
 class ContextMenuAnchor {
   ContextMenuAnchor({required this.position, required this.size});
 
-  /// Top-left corner of the target in global coordinates.
   final Offset position;
   final Size size;
 
-  /// Builds an anchor from a widget's paint bounds. Call this from a widget
-  /// that is already laid out (for example inside a long-press callback).
+  /// Builds an anchor from a widget's global paint bounds.
   factory ContextMenuAnchor.fromContext(
     BuildContext context, {
     double? height,
@@ -73,8 +66,7 @@ Future<String?> showKrithaContextMenu({
     barrierLabel: 'Dismiss menu',
     barrierColor: Colors.transparent,
     transitionDuration: Duration.zero,
-    // Keep the composer's TextField focused and the software keyboard open.
-    // The menu is an overlay, not a focus-taking dialog.
+    // Keeps composer focused and software keyboard open as an overlay.
     requestFocus: false,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return _ContextMenuOverlay(
@@ -154,10 +146,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     final headerHeight = widget.header == null
         ? 0.0
         : KrithaDimensions.contextMenuHeaderHeight;
-    // Every row owns its full 48px press surface. The first and last rows add
-    // an 8px outer edge inset inside that press surface, so the estimate must
-    // include the outside edge padding, with the leading inset shared with a
-    // header when present. The 2px allowance covers the 1px border.
+    // Row height includes 48px target, outer insets, and border allowance.
     final estimatedHeight =
         widget.items.length * KrithaDimensions.contextMenuItemHeight +
         (KrithaDimensions.contextMenuEdgeInset *
@@ -193,8 +182,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         case ContextMenuAlign.left:
           left = minLeft;
         case ContextMenuAlign.right:
-          // Right-aligned menus meet their own anchor (the bubble or button)
-          // instead of the viewport, so parent padding stays outside.
+          // Aligns with anchor instead of viewport so parent padding stays outside.
           left = (anchor.position.dx + anchor.size.width - menuWidth)
               .clamp(minLeft, math.max(minLeft, maxLeft))
               .toDouble();
@@ -208,10 +196,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     var top =
         anchor.position.dy + target + KrithaDimensions.contextMenuVerticalGap;
     var flippedAbove = false;
-    // The IME is a separate window above the app on Android, so a menu drawn
-    // into the keyboard's rectangle would be hidden behind it. Keep the whole
-    // menu above the keyboard (ChatGPT-style) instead of clamping halfway into
-    // it, while still not stealing composer focus.
+    // Keeps menu above keyboard without stealing composer focus.
     final keyboard = media.viewInsets.bottom;
     final topLimit = bounds == null
         ? insets.top + KrithaDimensions.contextMenuSafeTop
@@ -240,8 +225,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         .clamp(topLimit, math.max(topLimit, bottomLimit - estimatedHeight))
         .toDouble();
 
-    // Grow out of the corner nearest the press point instead of the centre, so
-    // the menu reads as coming from the bubble/row that opened it.
+    // Expands from corner nearest press point to anchor to trigger.
     final openToRight =
         !widget.fillBounds &&
         (widget.align == ContextMenuAlign.right ||
@@ -305,9 +289,7 @@ class _MenuSurface extends StatelessWidget {
         borderRadius: BorderRadius.circular(KrithaRadius.xl),
         child: Material(
           type: MaterialType.transparency,
-          // Rows fill the surface edge to edge. The first and last rows carry
-          // the outer edge inset themselves, so there is no menu-level gutter
-          // and their press feedback still fills the full rounded surface.
+          // Edge-to-edge rows carry outer insets so press feedback covers rounded corners.
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -402,8 +384,7 @@ class _MenuItemRow extends StatelessWidget {
       ),
     );
 
-    // The whole row is the hit target, including its outer edge inset, so
-    // feedback fills the surface edge to edge with no dead band.
+    // Hit target includes outer inset so press feedback fills edge to edge.
     if (item.disabled) {
       return Opacity(opacity: 0.5, child: row);
     }

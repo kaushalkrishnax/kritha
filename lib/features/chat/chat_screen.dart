@@ -438,8 +438,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           child: _dockedSidebarOpen
                               ? KeyedSubtree(
                                   key: const ValueKey('docked-sidebar'),
-                                  // Stack children get loose constraints; keep
-                                  // the panel at its docked width.
+                                  // Keep docked width against loose Stack constraints.
                                   child: SizedBox(
                                     width: KrithaDimensions.sidebarWidth,
                                     child: sidebar,

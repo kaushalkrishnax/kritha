@@ -46,8 +46,7 @@ class ChatState {
   final List<ChatMessage> messages;
   final bool sending;
 
-  /// Assistant text produced so far for the in-flight reply. Non-null while
-  /// generation is active, including before the first token arrives.
+  /// Assistant text produced so far for the in-flight reply.
   final String? streamingText;
 
   /// The last reply failure for this chat, cleared on the next attempt.
@@ -145,8 +144,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     return latest.id;
   }
 
-  /// Starts an unsaved chat. The row is created with the first prompt so the
-  /// sidebar never fills with empty "New chat" entries.
+  /// Starts an unsaved chat; row is persisted on first prompt to avoid empty entries.
   void newChat() {
     final current = state.value;
     if (current == null) return;
@@ -210,16 +208,14 @@ class ChatController extends AsyncNotifier<ChatState> {
     if (current == null || current.sending) return;
 
     if (_requestActive) {
-      // A canceled request is still unwinding. Let it finish so its cleanup
-      // cannot race the new prompt; an overlapping uncanceled request is a
-      // duplicate send and is ignored.
+      // Let canceled requests unwind before new prompt; duplicate sends are ignored.
       if (!_requestCanceled) return;
       final active = _activeRequest;
       if (active != null) {
         try {
           await active;
         } on Object {
-          // The request reports its own failures through chat state.
+          // Failures are reported via chat state.
         }
       }
       if (_requestActive) return;
@@ -272,8 +268,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     if (current == null) return;
 
     final generation = ++_generation;
-    // A prompt is an explicit action on this chat; a navigation that was still
-    // loading when it started must not replace the transcript afterwards.
+    // Ignore in-flight navigation loading to avoid replacing active transcript.
     _sessionEpoch++;
     final database = ref.read(databaseProvider);
     final now = _nextTimestamp(
@@ -285,7 +280,6 @@ class ChatController extends AsyncNotifier<ChatState> {
     var sessions = current.sessions;
     var messages = current.messages;
 
-    // First prompt in a draft chat creates the session and titles it.
     if (existingSessionId == null) {
       final session = ChatSession(
         id: 'session-${now.microsecondsSinceEpoch}-$_sessionEpoch',
@@ -314,8 +308,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       sessionId = existingSessionId;
     }
 
-    // Editing a prompt restarts the conversation from that turn: the target
-    // and every later message are deleted before the replacement is saved.
+    // Editing a prompt restarts conversation: target and later turns are deleted.
     if (editingMessageId != null) {
       ChatMessage? target;
       for (final message in messages) {
@@ -413,7 +406,7 @@ class ChatController extends AsyncNotifier<ChatState> {
         try {
           await active;
         } on Object {
-          // The request reports its own failures through chat state.
+          // Failures are reported via chat state.
         }
       }
       if (_requestActive) return;
@@ -472,8 +465,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       return;
     }
 
-    // A prior attempt may have committed the reply but failed to update state.
-    // Replaying the persisted transcript is safer than generating a duplicate.
+    // Replay persisted transcript if prior attempt committed reply but failed state update.
     if (persisted.last.role == ChatRole.assistant ||
         persisted.last.id != messages.last.id) {
       state = AsyncData(
@@ -502,7 +494,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     );
   }
 
-  /// Stops native generation. Partial text is discarded and never persisted.
+  /// Stops native generation and discards partial text.
   Future<void> cancelReply() async {
     final current = state.value;
     if (current == null || !current.sending) return;
@@ -518,7 +510,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       try {
         await active;
       } on Object {
-        // The request reports its own failures through chat state.
+        // Failures are reported via chat state.
       }
     }
   }
@@ -545,9 +537,7 @@ class ChatController extends AsyncNotifier<ChatState> {
 
     StreamIterator<AiResponse>? iterator;
     try {
-      // Assignments are authoritative; wait for the persisted selection before
-      // resolving the backend. Runtime-specific file checks happen in the
-      // local engine factory.
+      // Wait for persisted selection before resolving backend; runtime checks happen in factory.
       await ref.read(activeModelsProvider.future);
       if (generation != _generation) return;
       final assignments = ref.read(activeAssignmentsProvider);
@@ -640,8 +630,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       // The reply is persisted; a stale session timestamp is recoverable.
     }
 
-    // A delete can win while the insert is in flight. Do not leave the reply
-    // behind as an orphan when its session no longer exists.
+    // Avoid orphaned reply if session was deleted while insert was in flight.
     var sessionExists = true;
     try {
       sessionExists = await database.sessionById(sessionId) != null;
@@ -794,7 +783,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     try {
       await database.deleteSession(sessionId);
     } on Object {
-      // A failed cleanup leaves an empty session, not a corrupt transcript.
+      // Failed cleanup leaves an empty session rather than corrupting transcript.
     }
   }
 
@@ -839,8 +828,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     return next;
   }
 
-  /// Keeps generated turns strictly ordered even when the platform clock only
-  /// has millisecond resolution.
+  // Keeps generated turns strictly ordered even with millisecond clock resolution.
   static DateTime _nextTimestamp(DateTime? after) {
     final now = DateTime.now();
     if (after != null && !now.isAfter(after)) {
@@ -975,8 +963,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     );
   }
 
-  /// Settings action: wipe every conversation. A fresh install stays empty;
-  /// no fixture is re-created here.
+  /// Wipes every conversation for settings reset; does not recreate fixtures.
   Future<void> clearHistory() async {
     final epoch = ++_sessionEpoch;
     _abortGeneration();
