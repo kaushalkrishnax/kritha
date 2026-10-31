@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
 import 'package:kritha/features/providers/provider_stores.dart';
 
-import 'support/fake_workspace.dart';
+import '../support/fake_workspace.dart';
 
 void main() {
   test(

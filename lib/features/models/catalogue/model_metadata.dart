@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
+import 'model_identifiers.dart';
 
 /// The five metadata groups shown on a model repository.
 enum ModelMetadataCategory {
@@ -34,14 +35,16 @@ class ModelMetadataTag {
 
   /// The untouched Hub identifier used by the API.
   final String raw;
+
+  /// The exact API value; tags are never rewritten for display.
   final String label;
   final ModelMetadataCategory category;
+
+  /// Comparison-only form. Never use this for display.
+  String get normalized => normalizeModelIdentifier(raw);
 }
 
-/// Classifies the Hub metadata returned for a repository.
-///
-/// The Hub mixes prefixed tags (`language:en`, `license:mit`) with bare library
-/// and language identifiers, so both forms are resolved here.
+/// Classifies Hub metadata; tags are prefixed (`language:en`) or bare identifiers.
 List<ModelMetadataTag> classifyModelMetadata({
   required String? pipelineTag,
   required String? libraryName,
@@ -50,22 +53,24 @@ List<ModelMetadataTag> classifyModelMetadata({
   final result = <ModelMetadataTag>[];
   final seen = <String>{};
 
-  void add(String raw, ModelMetadataCategory category, String label) {
+  void add(String raw, ModelMetadataCategory category) {
     final normalized = raw.trim();
-    if (normalized.isEmpty || !seen.add(normalized)) return;
+    if (normalized.isEmpty || !seen.add(normalizeModelIdentifier(normalized))) {
+      return;
+    }
     result.add(
-      ModelMetadataTag(raw: normalized, label: label, category: category),
+      ModelMetadataTag(raw: normalized, label: normalized, category: category),
     );
   }
 
   final task = pipelineTag?.trim();
   if (task != null && task.isNotEmpty) {
-    add(task, ModelMetadataCategory.tasks, _titleIdentifier(task));
+    add(task, ModelMetadataCategory.tasks);
   }
 
   final library = libraryName?.trim();
   if (library != null && library.isNotEmpty) {
-    add(library, ModelMetadataCategory.libraries, _libraryLabel(library));
+    add(library, ModelMetadataCategory.libraries);
   }
 
   for (final tag in tags) {
@@ -74,37 +79,31 @@ List<ModelMetadataTag> classifyModelMetadata({
     if (normalized.startsWith('language:')) {
       final value = normalized.substring('language:'.length).trim();
       if (value.isEmpty) continue;
-      add(normalized, ModelMetadataCategory.languages, _languageLabel(value));
+      add(normalized, ModelMetadataCategory.languages);
       continue;
     }
     if (normalized.startsWith('license:')) {
       final value = normalized.substring('license:'.length).trim();
       if (value.isEmpty) continue;
-      add(normalized, ModelMetadataCategory.licenses, _licenseLabel(value));
+      add(normalized, ModelMetadataCategory.licenses);
       continue;
     }
-    final lower = normalized.toLowerCase();
-    if (_libraryTags.contains(lower)) {
-      add(
-        normalized,
-        ModelMetadataCategory.libraries,
-        _libraryLabel(normalized),
-      );
+    final lower = normalizeModelIdentifier(normalized);
+    if (_normalizedLibraryTags.contains(lower)) {
+      add(normalized, ModelMetadataCategory.libraries);
       continue;
     }
-    final language = _languageNames[lower];
-    if (language != null) {
-      add(normalized, ModelMetadataCategory.languages, language);
+    if (_languageNames.containsKey(lower)) {
+      add(normalized, ModelMetadataCategory.languages);
       continue;
     }
-    add(normalized, ModelMetadataCategory.other, normalized);
+    add(normalized, ModelMetadataCategory.other);
   }
 
   return List.unmodifiable(result);
 }
 
-/// Hub library identifiers, used to classify bare library tags such as
-/// `pytorch` or `transformers` that carry no `library:` prefix.
+/// Hub library identifiers used to classify bare tags such as `pytorch`.
 const _libraryTags = <String>{
   'pytorch',
   'tf',
@@ -162,49 +161,10 @@ const _libraryTags = <String>{
   'univa',
 };
 
-const _libraryNames = <String, String>{
-  'pytorch': 'PyTorch',
-  'tf': 'TensorFlow',
-  'jax': 'JAX',
-  'safetensors': 'Safetensors',
-  'transformers': 'Transformers',
-  'peft': 'PEFT',
-  'gguf': 'GGUF',
-  'onnx': 'ONNX',
-  'mlx': 'MLX',
-  'nemo': 'NeMo',
-  'spacy': 'spaCy',
-  'sklearn': 'scikit-learn',
-  'open_clip': 'OpenCLIP',
-  'openvino': 'OpenVINO',
-  'coreml': 'Core ML',
-  'tflite': 'TensorFlow Lite',
-  'tf-keras': 'TF-Keras',
-  'transformers.js': 'Transformers.js',
-  'sentence-transformers': 'Sentence Transformers',
-  'stable-baselines3': 'Stable-Baselines3',
-  'speechbrain': 'SpeechBrain',
-  'fastai': 'fastai',
-  'timm': 'timm',
-  'keras': 'Keras',
-  'keras-hub': 'KerasHub',
-  'paddleocr': 'PaddleOCR',
-  'paddlenlp': 'PaddleNLP',
+/// Lookup form of [_libraryTags]; separators are not significant.
+final _normalizedLibraryTags = {
+  for (final tag in _libraryTags) normalizeModelIdentifier(tag),
 };
-
-String _libraryLabel(String value) =>
-    _libraryNames[value.toLowerCase()] ?? _titleIdentifier(value);
-
-String _titleIdentifier(String value) => value
-    .split(RegExp(r'[-_\s]+'))
-    .where((part) => part.isNotEmpty)
-    .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-    .join(' ');
-
-String _languageLabel(String code) {
-  final normalized = code.toLowerCase();
-  return _languageNames[normalized] ?? normalized.toUpperCase();
-}
 
 const _languageNames = <String, String>{
   'af': 'Afrikaans',
@@ -283,37 +243,3 @@ const _languageNames = <String, String>{
   'zh': 'Chinese',
   'zu': 'Zulu',
 };
-
-String _licenseLabel(String value) {
-  const acronyms = {
-    'mit',
-    'bsd',
-    'gpl',
-    'lgpl',
-    'agpl',
-    'mpl',
-    'epl',
-    'cc',
-    'cddl',
-    'odc',
-    'wtfpl',
-    'afl',
-    'bsl',
-    'ofl',
-    'isc',
-    'cc0',
-    'gfdl',
-    'zlib',
-  };
-  const clauses = {'by', 'nc', 'sa', 'nd'};
-  return value
-      .split('-')
-      .where((part) => part.isNotEmpty)
-      .map((part) {
-        final lower = part.toLowerCase();
-        if (acronyms.contains(lower)) return lower.toUpperCase();
-        if (clauses.contains(lower)) return lower.toUpperCase();
-        return '${part[0].toUpperCase()}${part.substring(1)}';
-      })
-      .join(' ');
-}

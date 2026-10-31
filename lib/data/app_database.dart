@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
+import '../models/model_configuration_record.dart';
 
 part 'app_database.g.dart';
 
@@ -36,7 +37,52 @@ class ChatEntries extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [ChatSessions, ChatEntries])
+/// A saved local model configuration.
+///
+/// Only wizard-owned configuration data is stored; pre-check results are
+/// re-evaluated on every open and never persisted.
+@DataClassName('ModelConfigurationRow')
+class ModelConfigurations extends Table {
+  TextColumn get id => text()();
+  TextColumn get repositoryId => text()();
+  TextColumn get displayName => text()();
+  TextColumn get runtimeId => text()();
+  TextColumn get branch => text()();
+  TextColumn get commitSha => text().nullable()();
+  TextColumn get rootPath => text()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('ModelConfigurationArtifactRow')
+class ModelConfigurationArtifacts extends Table {
+  TextColumn get id => text()();
+  TextColumn get configurationId => text()();
+  TextColumn get kind => text()();
+  TextColumn get sourceType => text()();
+  TextColumn get repositoryPath => text().nullable()();
+  TextColumn get deviceSourcePath => text().nullable()();
+  TextColumn get targetPath => text()();
+  IntColumn get sizeBytes => integer().nullable()();
+  BoolColumn get selected => boolean().withDefault(const Constant(true))();
+  BoolColumn get downloaded => boolean().withDefault(const Constant(false))();
+  IntColumn get position => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [
+    ChatSessions,
+    ChatEntries,
+    ModelConfigurations,
+    ModelConfigurationArtifacts,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -51,7 +97,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -63,6 +109,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await migrator.createTable(chatSessions);
         await migrator.addColumn(chatEntries, chatEntries.sessionId);
+      }
+      if (from < 4) {
+        await migrator.createTable(modelConfigurations);
+        await migrator.createTable(modelConfigurationArtifacts);
       }
     },
   );
@@ -291,6 +341,140 @@ class AppDatabase extends _$AppDatabase {
       await delete(chatEntries).go();
       await delete(chatSessions).go();
     });
+  }
+
+  /// Inserts or replaces one saved configuration together with its artifacts.
+  /// Replacing a configuration rewrites its artifact rows, never the shared
+  /// rows of another configuration.
+  Future<void> saveModelConfiguration(ConfiguredModel model) async {
+    await transaction(() async {
+      await into(modelConfigurations).insertOnConflictUpdate(
+        ModelConfigurationsCompanion.insert(
+          id: model.id,
+          repositoryId: model.repositoryId,
+          displayName: model.displayName,
+          runtimeId: model.runtimeId,
+          branch: model.branch,
+          commitSha: Value(model.commitSha),
+          rootPath: model.rootPath,
+          createdAt: model.createdAt,
+          updatedAt: model.updatedAt,
+        ),
+      );
+      await (delete(
+        modelConfigurationArtifacts,
+      )..where((row) => row.configurationId.equals(model.id))).go();
+      if (model.artifacts.isEmpty) return;
+      await batch((batch) {
+        batch.insertAll(modelConfigurationArtifacts, [
+          for (final artifact in model.artifacts)
+            ModelConfigurationArtifactsCompanion.insert(
+              id: artifact.id,
+              configurationId: model.id,
+              kind: artifact.kind,
+              sourceType: artifact.sourceType,
+              repositoryPath: Value(artifact.repositoryPath),
+              deviceSourcePath: Value(artifact.deviceSourcePath),
+              targetPath: artifact.targetPath,
+              sizeBytes: Value(artifact.sizeBytes),
+              selected: Value(artifact.selected),
+              downloaded: Value(artifact.downloaded),
+              position: Value(artifact.position),
+            ),
+        ]);
+      });
+    });
+  }
+
+  /// Every saved configuration, newest first, with its artifacts in order.
+  Future<List<ConfiguredModel>> configuredModels() async {
+    final rows = await (select(
+      modelConfigurations,
+    )..orderBy([(row) => OrderingTerm.desc(row.updatedAt)])).get();
+    if (rows.isEmpty) return const [];
+    final artifacts = await _artifactRows();
+    return [
+      for (final row in rows)
+        _mapConfiguredModel(row, artifacts[row.id] ?? const []),
+    ];
+  }
+
+  Future<ConfiguredModel?> configuredModelById(String id) async {
+    final row = await (select(
+      modelConfigurations,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    if (row == null) return null;
+    final artifacts = await _artifactRows(configurationId: id);
+    return _mapConfiguredModel(row, artifacts[id] ?? const []);
+  }
+
+  /// Deletes the configuration row and the artifact rows it owns. The caller
+  /// owns the files on disk.
+  Future<void> deleteModelConfiguration(String id) async {
+    await transaction(() async {
+      await (delete(
+        modelConfigurationArtifacts,
+      )..where((row) => row.configurationId.equals(id))).go();
+      await (delete(
+        modelConfigurations,
+      )..where((row) => row.id.equals(id))).go();
+    });
+  }
+
+  Future<Map<String, List<ConfiguredModelArtifact>>> _artifactRows({
+    String? configurationId,
+  }) async {
+    final query = select(modelConfigurationArtifacts)
+      ..orderBy([
+        (row) => OrderingTerm.asc(row.position),
+        (row) => OrderingTerm.asc(row.id),
+      ]);
+    if (configurationId != null) {
+      query.where((row) => row.configurationId.equals(configurationId));
+    }
+    final rows = await query.get();
+    final grouped = <String, List<ConfiguredModelArtifact>>{};
+    for (final row in rows) {
+      grouped
+          .putIfAbsent(row.configurationId, () => [])
+          .add(_mapConfiguredArtifact(row));
+    }
+    return grouped;
+  }
+
+  ConfiguredModel _mapConfiguredModel(
+    ModelConfigurationRow row,
+    List<ConfiguredModelArtifact> artifacts,
+  ) {
+    return ConfiguredModel(
+      id: row.id,
+      repositoryId: row.repositoryId,
+      displayName: row.displayName,
+      runtimeId: row.runtimeId,
+      branch: row.branch,
+      commitSha: row.commitSha,
+      rootPath: row.rootPath,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      artifacts: List.unmodifiable(artifacts),
+    );
+  }
+
+  ConfiguredModelArtifact _mapConfiguredArtifact(
+    ModelConfigurationArtifactRow row,
+  ) {
+    return ConfiguredModelArtifact(
+      id: row.id,
+      kind: row.kind,
+      sourceType: row.sourceType,
+      repositoryPath: row.repositoryPath,
+      deviceSourcePath: row.deviceSourcePath,
+      targetPath: row.targetPath,
+      sizeBytes: row.sizeBytes,
+      selected: row.selected,
+      downloaded: row.downloaded,
+      position: row.position,
+    );
   }
 
   ChatMessage _mapMessage(ChatEntry row) {

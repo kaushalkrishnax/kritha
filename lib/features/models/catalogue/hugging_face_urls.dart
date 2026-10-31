@@ -12,6 +12,10 @@ abstract final class HuggingFaceUrls {
       '${repository(repositoryId)}/blob/'
       '${Uri.encodeComponent(revision)}/${_path(filePath)}';
 
+  static String raw(String repositoryId, String revision, String filePath) =>
+      '${repository(repositoryId)}/raw/'
+      '${Uri.encodeComponent(revision)}/${_path(filePath)}';
+
   static String tree(
     String repositoryId,
     String revision, [

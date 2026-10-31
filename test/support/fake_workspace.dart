@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:kritha/core/storage/secure_storage_service.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_failure.dart';
+import 'package:kritha/features/models/catalogue/catalogue_filter.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/model_catalogue_repository.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
@@ -52,6 +53,7 @@ class CatalogueSearchCall {
     this.sort = CatalogueSort.downloads,
     this.limit = 24,
     this.cursor,
+    this.filters = CatalogueFilterPresets.defaults,
   });
 
   final String? query;
@@ -59,6 +61,7 @@ class CatalogueSearchCall {
   final CatalogueSort sort;
   final int limit;
   final String? cursor;
+  final List<CatalogueFilter> filters;
 }
 
 class FakeModelCatalogue implements ModelCatalogue {
@@ -86,6 +89,7 @@ class FakeModelCatalogue implements ModelCatalogue {
     CatalogueSort sort = CatalogueSort.downloads,
     int limit = 24,
     String? cursor,
+    List<CatalogueFilter> filters = CatalogueFilterPresets.defaults,
     CancelToken? cancelToken,
   }) async {
     calls.add(
@@ -95,6 +99,7 @@ class FakeModelCatalogue implements ModelCatalogue {
         sort: sort,
         limit: limit,
         cursor: cursor,
+        filters: filters,
       ),
     );
     if (searchFailure != null) throw searchFailure!;

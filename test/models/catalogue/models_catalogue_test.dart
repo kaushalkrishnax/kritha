@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/models/catalogue/catalogue_controller.dart';
 import 'package:kritha/features/models/catalogue/catalogue_failure.dart';
+import 'package:kritha/features/models/catalogue/catalogue_filter.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/catalogue_providers.dart';
 import 'package:kritha/features/models/catalogue/hugging_face_hub_client.dart';
 import 'package:kritha/features/models/catalogue/model_catalogue_repository.dart';
 
-import 'support/fake_workspace.dart';
+import '../../support/fake_workspace.dart';
 
 void main() {
   group('catalogue parsing', () {
@@ -207,8 +208,11 @@ void main() {
       expect(page.nextCursor, 'next-page');
       final request = adapter.requests.single;
       expect(request.path, '/api/models');
+      expect(
+        request.uri.queryParametersAll['filter'],
+        unorderedEquals(<String>['litert-lm', 'text-generation']),
+      );
       expect(request.queryParameters['search'], 'llama');
-      expect(request.queryParameters['filter'], 'text-generation');
       expect(request.queryParameters['sort'], 'likes');
       expect(request.queryParameters['direction'], -1);
       expect(request.queryParameters['limit'], 10);
@@ -230,9 +234,26 @@ void main() {
       );
 
       final request = adapter.requests.single;
-      expect(request.queryParameters['filter'], 'text-generation');
+      expect(
+        request.uri.queryParametersAll['filter'],
+        unorderedEquals(<String>['litert-lm', 'text-generation']),
+      );
       expect(request.queryParameters['sort'], 'trendingScore');
       expect(request.queryParameters['direction'], -1);
+    });
+
+    test('applies the LiteRT-LM filter to the initial listing', () async {
+      final adapter = _FakeHttpAdapter((options) async => _jsonResponse([]));
+      final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+      await client.searchModels();
+
+      final request = adapter.requests.single;
+      expect(request.queryParameters['search'], isNull);
+      expect(
+        request.uri.queryParametersAll['filter'],
+        unorderedEquals(<String>['litert-lm']),
+      );
     });
 
     test('omits the authorization header for public browsing', () async {
@@ -246,6 +267,34 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'sends preset and user filters and can omit the default tag',
+      () async {
+        final adapter = _FakeHttpAdapter((options) async => _jsonResponse([]));
+        final client = HuggingFaceHubClient(_dio(adapter), () async => null);
+
+        await client.searchModels(
+          filters: const [
+            CatalogueFilterPresets.litertLm,
+            CatalogueFilter(value: 'apache-2.0'),
+          ],
+        );
+
+        final request = adapter.requests.single;
+        expect(
+          request.uri.queryParametersAll['filter'],
+          unorderedEquals(<String>['litert-lm', 'apache-2.0']),
+        );
+
+        await client.searchModels(filters: const []);
+
+        expect(
+          adapter.requests.last.queryParameters.containsKey('filter'),
+          isFalse,
+        );
+      },
+    );
 
     test('keeps public browsing working when the token store fails', () async {
       final adapter = _FakeHttpAdapter((options) async => _jsonResponse([]));
@@ -503,6 +552,37 @@ void main() {
       ]);
     });
 
+    test('keeps the selected filters on later pages', () async {
+      final fake = FakeModelCatalogue(
+        pages: const {
+          null: ModelPage(
+            models: [CatalogueModel(id: 'acme/one')],
+            nextCursor: 'c1',
+          ),
+          'c1': ModelPage(models: [CatalogueModel(id: 'acme/two')]),
+        },
+      );
+      final container = ProviderContainer(
+        overrides: [modelCatalogueProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      const filters = [CatalogueFilter(value: 'apache-2.0')];
+      final controller = container.read(catalogueProvider.notifier);
+      expect(
+        container.read(catalogueProvider).filters,
+        CatalogueFilterPresets.defaults,
+      );
+
+      await controller.search(filters: filters);
+      expect(container.read(catalogueProvider).filters, filters);
+      expect(fake.calls.last.filters, filters);
+
+      await controller.loadMore();
+      expect(fake.calls.last.filters, filters);
+      expect(fake.calls.last.cursor, 'c1');
+    });
+
     test('ignores a stale first search when a newer one wins', () async {
       final fake = _DelayedCatalogue();
       final container = ProviderContainer(
@@ -591,6 +671,7 @@ class _DelayedCatalogue implements ModelCatalogue {
     CatalogueSort sort = CatalogueSort.downloads,
     int limit = 24,
     String? cursor,
+    List<CatalogueFilter> filters = CatalogueFilterPresets.defaults,
     CancelToken? cancelToken,
   }) {
     final completer = Completer<ModelPage>();

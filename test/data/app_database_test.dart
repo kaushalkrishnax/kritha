@@ -4,8 +4,9 @@ import 'package:kritha/data/app_database.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
+import 'package:kritha/models/model_configuration_record.dart';
 
-import 'support/seed_fixture.dart';
+import '../support/seed_fixture.dart';
 
 void main() {
   late AppDatabase database;
@@ -221,4 +222,119 @@ void main() {
       hasLength(2),
     );
   });
+
+  test(
+    'saves, reads and deletes a model configuration with artifacts',
+    () async {
+      final now = DateTime(2026, 11, 1, 9);
+      final model = ConfiguredModel(
+        id: 'cfg-1',
+        repositoryId: 'acme/litert',
+        displayName: 'Litert',
+        runtimeId: 'litertlm',
+        branch: 'main',
+        commitSha: 'abc123',
+        rootPath: '/tmp/model_artifacts/acme/litert/cfg-1',
+        createdAt: now,
+        updatedAt: now,
+        artifacts: const [
+          ConfiguredModelArtifact(
+            id: 'a1',
+            kind: 'weights',
+            sourceType: 'repository',
+            repositoryPath: 'model.litertlm',
+            targetPath: 'weights/model.litertlm',
+            selected: true,
+            downloaded: true,
+            position: 0,
+            sizeBytes: 2048,
+          ),
+          ConfiguredModelArtifact(
+            id: 'a2',
+            kind: 'configuration',
+            sourceType: 'device',
+            deviceSourcePath: '/tmp/config.json',
+            targetPath: 'config.json',
+            selected: false,
+            downloaded: false,
+            position: 1,
+          ),
+        ],
+      );
+
+      await database.saveModelConfiguration(model);
+
+      final stored = await database.configuredModels();
+      expect(stored, hasLength(1));
+      expect(stored.single.repositoryId, 'acme/litert');
+      expect(stored.single.rootPath, model.rootPath);
+      expect(stored.single.artifacts.map((artifact) => artifact.id), [
+        'a1',
+        'a2',
+      ]);
+      expect(stored.single.artifacts.first.repositoryPath, 'model.litertlm');
+      expect(stored.single.artifacts.last.deviceSourcePath, '/tmp/config.json');
+      expect(stored.single.selectedArtifacts.single.id, 'a1');
+      expect(stored.single.isReady, isTrue);
+
+      final byId = await database.configuredModelById('cfg-1');
+      expect(byId?.displayName, 'Litert');
+
+      await database.deleteModelConfiguration('cfg-1');
+      expect(await database.configuredModels(), isEmpty);
+      expect(await database.configuredModelById('cfg-1'), isNull);
+    },
+  );
+
+  test(
+    'saving again rewrites the artifact rows of that configuration',
+    () async {
+      final now = DateTime(2026, 11, 1, 9);
+      ConfiguredModel model(List<ConfiguredModelArtifact> artifacts) {
+        return ConfiguredModel(
+          id: 'cfg-2',
+          repositoryId: 'acme/litert',
+          displayName: 'Litert',
+          runtimeId: 'litertlm',
+          branch: 'main',
+          rootPath: '/tmp/model_artifacts/acme/litert/cfg-2',
+          createdAt: now,
+          updatedAt: now,
+          artifacts: artifacts,
+        );
+      }
+
+      await database.saveModelConfiguration(
+        model(const [
+          ConfiguredModelArtifact(
+            id: 'old',
+            kind: 'helper',
+            sourceType: 'repository',
+            repositoryPath: 'tokenizer.model',
+            targetPath: 'tokenizer.model',
+            selected: true,
+            downloaded: false,
+            position: 0,
+          ),
+        ]),
+      );
+      await database.saveModelConfiguration(
+        model(const [
+          ConfiguredModelArtifact(
+            id: 'new',
+            kind: 'weights',
+            sourceType: 'repository',
+            repositoryPath: 'model.litertlm',
+            targetPath: 'model.litertlm',
+            selected: true,
+            downloaded: true,
+            position: 0,
+          ),
+        ]),
+      );
+
+      final stored = await database.configuredModels();
+      expect(stored.single.artifacts.map((artifact) => artifact.id), ['new']);
+    },
+  );
 }

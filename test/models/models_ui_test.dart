@@ -16,6 +16,7 @@ import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/features/intelligence/runtime_ids.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_failure.dart';
+import 'package:kritha/features/models/catalogue/catalogue_filter.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/catalogue_providers.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
@@ -27,8 +28,8 @@ import 'package:kritha/features/providers/provider_stores.dart';
 import 'package:kritha/widgets/create_popup.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
 
 void main() {
   late AppDatabase database;
@@ -177,16 +178,12 @@ void main() {
     await pumpApp(tester, buildApp(catalogue: catalogue));
     await openSidebarEntry(tester, 'Models');
 
-    expect(find.text('Models'), findsOneWidget);
     expect(catalogue.calls.single.sort, CatalogueSort.trending);
-    expect(find.text('Popular on the Hub'), findsNothing);
-    expect(find.text('Recommended'), findsNothing);
+    expect(catalogue.calls.single.filters, CatalogueFilterPresets.defaults);
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
-    expect(find.text('Search Hugging Face models'), findsOneWidget);
     expect(find.text('image-maker'), findsNothing);
     expect(find.text('7B'), findsWidgets);
-    expect(find.text('•'), findsWidgets);
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -298,10 +295,76 @@ void main() {
     expect(catalogue.calls.last.sort, CatalogueSort.likes);
     expect(catalogue.calls.last.query, isEmpty);
     expect(catalogue.calls.last.capability, isNull);
-    expect(find.text('Popular on the Hub'), findsNothing);
-    expect(find.text('Recommended'), findsNothing);
     expect(find.text('alpha'), findsOneWidget);
     expect(find.text('beta'), findsOneWidget);
+  });
+
+  testWidgets('filters can be toggled and extended from the search bar', (
+    tester,
+  ) async {
+    final catalogue = catalogueWithModels();
+    await pumpApp(tester, buildApp(catalogue: catalogue));
+    await openSidebarEntry(tester, 'Models');
+
+    final filterButton = find.byKey(const ValueKey('catalogue-filter-button'));
+    expect(catalogue.calls.last.filters, CatalogueFilterPresets.defaults);
+    expect(
+      tester
+          .widget<KrithaIcon>(
+            find.descendant(
+              of: filterButton,
+              matching: find.byType(KrithaIcon),
+            ),
+          )
+          .icon,
+      HugeIcons.strokeRoundedFilter,
+    );
+
+    await tester.tap(filterButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filters'), findsOneWidget);
+    final preset = find.byKey(const ValueKey('catalogue-preset-litert-lm'));
+    expect(tester.widget<CatalogueFilterChip>(preset).label, 'litert-lm');
+    expect(tester.widget<CatalogueFilterChip>(preset).selected, isTrue);
+    expect(find.text('library=litert-lm'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('catalogue-filter-input')),
+          )
+          .decoration
+          ?.hintText,
+      'Add a filter keyword',
+    );
+
+    await tester.tap(preset);
+    await tester.pump();
+    expect(tester.widget<CatalogueFilterChip>(preset).selected, isFalse);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('catalogue-filter-input')),
+      'apache-2.0',
+    );
+    await tester.tap(find.byKey(const ValueKey('catalogue-filter-add')));
+    await tester.pump();
+    expect(find.text('apache-2.0'), findsOneWidget);
+
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+
+    expect(catalogue.calls.last.filters, [
+      const CatalogueFilter(value: 'apache-2.0'),
+    ]);
+
+    await tester.tap(filterButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('catalogue-custom-apache-2.0')));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+
+    expect(catalogue.calls.last.filters, isEmpty);
   });
 
   testWidgets('category filters keep the trending ranking', (tester) async {
@@ -399,14 +462,33 @@ void main() {
 
     await tester.tap(find.text('alpha'));
     await tester.pumpAndSettle();
-    expect(find.text('Model Overview'), findsOneWidget);
-    expect(find.text('Model Setup'), findsOneWidget);
-    expect(find.text('Model Card'), findsOneWidget);
-    expect(find.text('Model Files'), findsOneWidget);
     expect(find.text('Setup Now'), findsOneWidget);
     expect(find.text('View more'), findsOneWidget);
     expect(find.text('model.litertlm'), findsOneWidget);
     expect(find.textContaining('Alpha model card'), findsOneWidget);
+
+    await tester.ensureVisible(find.byTooltip('Model card options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Model card options'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Download'), findsOneWidget);
+    expect(find.text('Open Raw'), findsOneWidget);
+  });
+
+  testWidgets('Setup Now opens the Model Setup Wizard', (tester) async {
+    await pumpApp(tester, buildApp(catalogue: catalogueWithModels()));
+    await openSidebarEntry(tester, 'Models');
+
+    await tester.tap(find.text('alpha'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Setup Now'));
+    await tester.tap(find.text('Setup Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Model Setup Wizard'), findsOneWidget);
+    expect(find.text('Checking device status'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
   });
 
   testWidgets('repository details collapse long file lists behind View more', (
@@ -473,7 +555,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('3 languages'), findsOneWidget);
-    expect(find.text('English'), findsNothing);
+    expect(find.text('language:en'), findsNothing);
 
     await tester.ensureVisible(find.text('3 languages'));
     await tester.pumpAndSettle();
@@ -481,9 +563,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('3 languages'), findsNothing);
-    expect(find.text('English'), findsOneWidget);
-    expect(find.text('French'), findsOneWidget);
-    expect(find.text('German'), findsOneWidget);
+    expect(find.text('language:en'), findsOneWidget);
+    expect(find.text('language:fr'), findsOneWidget);
+    expect(find.text('language:de'), findsOneWidget);
   });
 
   testWidgets('repository details render honest empty states', (tester) async {

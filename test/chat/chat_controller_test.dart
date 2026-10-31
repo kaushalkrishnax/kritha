@@ -23,9 +23,9 @@ import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
-import 'support/seed_fixture.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
+import '../support/seed_fixture.dart';
 
 void main() {
   late AppDatabase database;

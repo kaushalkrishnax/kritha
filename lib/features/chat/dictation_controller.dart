@@ -180,7 +180,7 @@ class DictationNotifier extends Notifier<DictationState> {
     _reset();
     throw const DictationException(
       'Speech recognition needs a local STT model. None is bundled in this '
-      'foundation build yet.',
+      'build yet.',
     );
   }
 

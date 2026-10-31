@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'catalogue_failure.dart';
+import 'catalogue_filter.dart';
 import 'catalogue_model.dart';
 import 'catalogue_providers.dart';
 
@@ -10,6 +11,7 @@ class CatalogueState {
     this.query = '',
     this.capability,
     this.sort = CatalogueSort.trending,
+    this.filters = CatalogueFilterPresets.defaults,
     this.models = const [],
     this.nextCursor,
     this.loading = false,
@@ -22,6 +24,7 @@ class CatalogueState {
   final String query;
   final ModelCapability? capability;
   final CatalogueSort sort;
+  final List<CatalogueFilter> filters;
   final List<CatalogueModel> models;
   final String? nextCursor;
   final bool loading;
@@ -40,6 +43,7 @@ class CatalogueState {
     String? query,
     ModelCapability? capability,
     CatalogueSort? sort,
+    List<CatalogueFilter>? filters,
     List<CatalogueModel>? models,
     String? nextCursor,
     bool? loading,
@@ -56,6 +60,7 @@ class CatalogueState {
       query: query ?? this.query,
       capability: clearCapability ? null : (capability ?? this.capability),
       sort: sort ?? this.sort,
+      filters: filters ?? this.filters,
       models: models ?? this.models,
       nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
       loading: loading ?? this.loading,
@@ -89,6 +94,7 @@ class CatalogueController extends Notifier<CatalogueState> {
     ModelCapability? capability,
     bool clearCapability = false,
     CatalogueSort? sort,
+    List<CatalogueFilter>? filters,
   }) async {
     final current = state;
     final nextQuery = query ?? current.query;
@@ -96,6 +102,7 @@ class CatalogueController extends Notifier<CatalogueState> {
         ? null
         : (capability ?? current.capability);
     final nextSort = sort ?? current.sort;
+    final nextFilters = filters ?? current.filters;
     final revision = ++_revision;
     _cancel?.cancel();
     final cancel = CancelToken();
@@ -106,6 +113,7 @@ class CatalogueController extends Notifier<CatalogueState> {
       capability: nextCapability,
       clearCapability: clearCapability,
       sort: nextSort,
+      filters: nextFilters,
       models: const [],
       clearCursor: true,
       loading: true,
@@ -122,6 +130,7 @@ class CatalogueController extends Notifier<CatalogueState> {
             query: nextQuery,
             capability: nextCapability,
             sort: nextSort,
+            filters: nextFilters,
             limit: nextSort.sortsByParameters ? 100 : _pageSize,
             cancelToken: cancel,
           );
@@ -164,6 +173,7 @@ class CatalogueController extends Notifier<CatalogueState> {
       capability: current.capability,
       clearCapability: current.capability == null,
       sort: current.sort,
+      filters: current.filters,
     );
   }
 
@@ -195,6 +205,7 @@ class CatalogueController extends Notifier<CatalogueState> {
             query: current.query,
             capability: current.capability,
             sort: current.sort,
+            filters: current.filters,
             limit: _pageSize,
             cursor: cursor,
             cancelToken: cancel,

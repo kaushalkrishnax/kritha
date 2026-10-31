@@ -10,7 +10,7 @@ import 'package:kritha/features/intelligence/models/model_capabilities.dart';
 import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/features/intelligence/runtimes/litertlm_provider.dart';
 
-import 'support/fake_inference.dart';
+import '../support/fake_inference.dart';
 
 void main() {
   late Directory directory;

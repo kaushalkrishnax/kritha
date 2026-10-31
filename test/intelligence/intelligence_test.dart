@@ -22,8 +22,8 @@ import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:litertlm/litertlm.dart' as lite;
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
 
 const _descriptor = ModelDescriptor(
   id: 'test-model',

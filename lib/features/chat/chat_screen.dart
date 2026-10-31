@@ -279,7 +279,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       controller: queryController,
                       autofocus: true,
                       onChanged: (_) => setDialogState(() {}),
-                      decoration: const InputDecoration(
+                      decoration: KrithaInputs.decoration(
                         hintText: 'Search messages',
                       ),
                     ),

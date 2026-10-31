@@ -1,4 +1,5 @@
 import 'hugging_face_urls.dart';
+import 'model_identifiers.dart';
 
 /// A capability a repository advertises or an execution path can serve.
 enum ModelCapability {
@@ -480,7 +481,7 @@ class ModelDetails {
     };
     final found = <String>{};
     for (final entry in known.entries) {
-      if (model.tags.any((tag) => tag.toLowerCase() == entry.key)) {
+      if (model.tags.any((tag) => normalizeModelIdentifier(tag) == entry.key)) {
         found.add(entry.value);
       }
     }

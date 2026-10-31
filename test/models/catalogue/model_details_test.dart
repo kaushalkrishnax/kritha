@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/hugging_face_urls.dart';
+import 'package:kritha/features/models/catalogue/model_identifiers.dart';
 import 'package:kritha/features/models/catalogue/model_metadata.dart';
 
 void main() {
@@ -36,12 +37,12 @@ void main() {
         ModelMetadataCategory.libraries,
         ModelMetadataCategory.other,
       ]);
-      expect(tags[0].label, 'Text Generation');
-      expect(tags[1].label, 'Transformers');
-      expect(tags[2].label, 'English');
-      expect(tags[3].label, 'French');
-      expect(tags[4].label, 'Apache 2.0');
-      expect(tags[5].label, 'Safetensors');
+      expect(tags[0].label, 'text-generation');
+      expect(tags[1].label, 'transformers');
+      expect(tags[2].label, 'language:en');
+      expect(tags[3].label, 'language:fr');
+      expect(tags[4].label, 'license:apache-2.0');
+      expect(tags[5].label, 'safetensors');
     });
 
     test('maps bare language codes and library tags from the Hub', () {
@@ -62,13 +63,13 @@ void main() {
         ModelMetadataCategory.other,
       ]);
       expect(tags.map((tag) => tag.label), [
-        'Automatic Speech Recognition',
-        'NeMo',
-        'PyTorch',
-        'Transformers',
-        'Czech',
-        'English',
-        'Chinese',
+        'automatic-speech-recognition',
+        'nemo',
+        'pytorch',
+        'transformers',
+        'cs',
+        'en',
+        'zh',
         'region:us',
       ]);
     });
@@ -90,6 +91,50 @@ void main() {
       expect(tags, hasLength(2));
       expect(tags.first.raw, 'text-generation');
       expect(tags.last.raw, 'language:en');
+    });
+
+    test(
+      'compares format and library identifiers ignoring case and separators',
+      () {
+        expect(modelIdentifiersMatch('LiteRT-LM', 'litert-lm'), isTrue);
+        expect(modelIdentifiersMatch('litert_lm', 'litertlm'), isTrue);
+        expect(modelIdentifiersMatch('LiteRT LM', 'litert-lm'), isTrue);
+        expect(modelIdentifiersMatch('litert-lm', 'transformers'), isFalse);
+        expect(
+          declaredFormatMatchesLibrary(
+            formats: const ['LiteRT-LM'],
+            libraryName: 'litert-lm',
+          ),
+          isTrue,
+        );
+        expect(
+          declaredFormatMatchesLibrary(
+            formats: const ['GGUF'],
+            libraryName: 'litert-lm',
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test('preserves raw tag text and dedupes normalized duplicates', () {
+      final tags = classifyModelMetadata(
+        pipelineTag: null,
+        libraryName: 'LiteRT-LM',
+        tags: const ['litert-lm'],
+      );
+
+      expect(tags, hasLength(1));
+      expect(tags.single.raw, 'LiteRT-LM');
+      expect(tags.single.label, 'LiteRT-LM');
+      expect(tags.single.normalized, 'litertlm');
+
+      final display = classifyModelMetadata(
+        pipelineTag: null,
+        libraryName: null,
+        tags: const ['litert-lm'],
+      );
+      expect(display.single.label, 'litert-lm');
     });
 
     test('returns no tags for an undeclared repository', () {
@@ -142,6 +187,10 @@ void main() {
         'https://huggingface.co/acme/model/blob/main/folder/my%20file.gguf',
       );
       expect(
+        HuggingFaceUrls.raw('acme/model', 'main', 'README.md'),
+        'https://huggingface.co/acme/model/raw/main/README.md',
+      );
+      expect(
         HuggingFaceUrls.tree('acme/model', 'main', 'folder/nested'),
         'https://huggingface.co/acme/model/tree/main/folder/nested',
       );
@@ -187,6 +236,14 @@ void main() {
       expect(details.repositorySize, 0);
       expect(details.formats, isEmpty);
       expect(details.commitUrl, isNull);
+    });
+
+    test('recognizes the LiteRT-LM tag as a format', () {
+      const details = ModelDetails(
+        model: CatalogueModel(id: 'acme/litert', tags: ['litert-lm']),
+      );
+
+      expect(details.formats, ['LiteRT-LM']);
     });
 
     test('uses declared technical metadata only', () {

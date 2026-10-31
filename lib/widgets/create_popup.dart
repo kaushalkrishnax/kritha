@@ -8,6 +8,7 @@ Future<T?> createPopup<T>({
   required WidgetBuilder builder,
   bool mobileFullScreen = false,
   bool barrierDismissible = true,
+  double maxWidth = 560,
 }) {
   return showGeneralDialog<T>(
     context: context,
@@ -31,7 +32,7 @@ Future<T?> createPopup<T>({
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: fullScreen ? double.infinity : 560,
+                  maxWidth: fullScreen ? double.infinity : maxWidth,
                   maxHeight: fullScreen
                       ? double.infinity
                       : MediaQuery.sizeOf(context).height * 0.86,
@@ -77,6 +78,7 @@ class CreatePopup extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.actions = const [],
+    this.footer,
     this.leading,
   });
 
@@ -84,6 +86,10 @@ class CreatePopup extends StatelessWidget {
   final String? subtitle;
   final Widget child;
   final List<Widget> actions;
+
+  /// Replaces [actions] with a full-width footer, so callers can balance
+  /// leading and trailing action groups.
+  final Widget? footer;
   final Widget? leading;
 
   @override
@@ -139,7 +145,9 @@ class CreatePopup extends StatelessWidget {
           ),
         ),
         Flexible(child: child),
-        if (actions.isNotEmpty) ...[
+        if (footer != null) ...[
+          Padding(padding: EdgeInsets.all(KrithaSpacing.s16), child: footer!),
+        ] else if (actions.isNotEmpty) ...[
           Padding(
             padding: EdgeInsets.all(KrithaSpacing.s16),
             child: Wrap(

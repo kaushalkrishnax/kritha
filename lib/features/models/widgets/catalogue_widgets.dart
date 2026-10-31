@@ -518,7 +518,7 @@ class CapabilityFilterChips extends StatelessWidget {
       child: Row(
         children: [
           for (final item in items) ...[
-            _FilterChip(
+            CatalogueFilterChip(
               label: item.$2,
               selected: selected == item.$1,
               onTap: () => onSelected(item.$1),
@@ -531,16 +531,19 @@ class CapabilityFilterChips extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
+class CatalogueFilterChip extends StatelessWidget {
+  const CatalogueFilterChip({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.onRemove,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -566,15 +569,33 @@ class _FilterChip extends StatelessWidget {
             horizontal: KrithaSpacing.s14,
             vertical: KrithaSpacing.s8,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: KrithaText.sizeXs,
-              fontWeight: FontWeight.w600,
-              color: selected
-                  ? KrithaColors.textOnAccent
-                  : KrithaColors.textSecondary,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: KrithaText.sizeXs,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? KrithaColors.textOnAccent
+                      : KrithaColors.textSecondary,
+                ),
+              ),
+              if (onRemove != null) ...[
+                SizedBox(width: KrithaSpacing.s6),
+                GestureDetector(
+                  onTap: onRemove,
+                  child: KrithaIcon(
+                    icon: HugeIcons.strokeRoundedCancel01,
+                    size: KrithaIcons.xs,
+                    color: selected
+                        ? KrithaColors.textOnAccent
+                        : KrithaColors.textMuted,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

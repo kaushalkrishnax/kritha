@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import 'catalogue_filter.dart';
 import 'catalogue_model.dart';
 import 'hugging_face_hub_client.dart';
 
@@ -11,6 +12,7 @@ abstract interface class ModelCatalogue {
     CatalogueSort sort = CatalogueSort.downloads,
     int limit = 24,
     String? cursor,
+    List<CatalogueFilter> filters = CatalogueFilterPresets.defaults,
     CancelToken? cancelToken,
   });
 
@@ -31,6 +33,7 @@ class ModelCatalogueRepository implements ModelCatalogue {
     CatalogueSort sort = CatalogueSort.downloads,
     int limit = 24,
     String? cursor,
+    List<CatalogueFilter> filters = CatalogueFilterPresets.defaults,
     CancelToken? cancelToken,
   }) async {
     final page = await _client.searchModels(
@@ -39,6 +42,7 @@ class ModelCatalogueRepository implements ModelCatalogue {
       sort: sort,
       limit: limit,
       cursor: cursor,
+      filters: filters,
       cancelToken: cancelToken,
     );
     return ModelPage(

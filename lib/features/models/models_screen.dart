@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../widgets/back_navigation.dart';
 import '../../widgets/context_menu.dart';
 import 'providers.dart';
+import 'widgets/catalogue_filter_dialog.dart';
 import 'widgets/catalogue_widgets.dart';
 import 'widgets/hugging_face_token_dialog.dart';
 import 'widgets/workspace_header.dart';
@@ -76,6 +77,19 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   void _selectSort(CatalogueSort sort) {
     _debounce?.cancel();
     _catalogue.search(query: _searchController.text.trim(), sort: sort);
+  }
+
+  Future<void> _openFilters() async {
+    final selected = await showCatalogueFiltersDialog(
+      context,
+      selected: ref.read(catalogueProvider).filters,
+    );
+    if (!mounted || selected == null) return;
+    _debounce?.cancel();
+    await _catalogue.search(
+      query: _searchController.text.trim(),
+      filters: selected,
+    );
   }
 
   Future<void> _refresh() async {
@@ -169,6 +183,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
                                   onClear: _clearQuery,
                                   sort: catalogue.sort,
                                   onSortSelected: _selectSort,
+                                  onFilterPressed: _openFilters,
                                 ),
                                 SizedBox(height: KrithaSpacing.s12),
                                 CapabilityFilterChips(
@@ -304,6 +319,7 @@ class _SearchRow extends StatelessWidget {
     required this.onClear,
     required this.sort,
     required this.onSortSelected,
+    required this.onFilterPressed,
   });
 
   final TextEditingController controller;
@@ -311,6 +327,7 @@ class _SearchRow extends StatelessWidget {
   final VoidCallback onClear;
   final CatalogueSort sort;
   final ValueChanged<CatalogueSort> onSortSelected;
+  final VoidCallback onFilterPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -355,6 +372,18 @@ class _SearchRow extends StatelessWidget {
                       color: KrithaColors.textMuted,
                     ),
                   ),
+                Builder(
+                  builder: (buttonContext) => IconButton(
+                    key: const ValueKey('catalogue-filter-button'),
+                    tooltip: 'Filter models',
+                    onPressed: onFilterPressed,
+                    icon: KrithaIcon(
+                      icon: HugeIcons.strokeRoundedFilter,
+                      size: KrithaIcons.sm,
+                      color: KrithaColors.textMuted,
+                    ),
+                  ),
+                ),
                 Builder(
                   builder: (buttonContext) => IconButton(
                     tooltip: 'Sort models',

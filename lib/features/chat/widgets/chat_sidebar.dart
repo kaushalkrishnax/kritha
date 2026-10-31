@@ -125,7 +125,7 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
             autofocus: true,
             textInputAction: TextInputAction.done,
             onSubmitted: (value) => Navigator.of(context).pop(value),
-            decoration: const InputDecoration(hintText: 'Chat title'),
+            decoration: KrithaInputs.decoration(hintText: 'Chat title'),
           ),
         ),
       ),
@@ -262,9 +262,8 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   static void _stub(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label is not part of this foundation yet.')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$label is not available yet.')));
   }
 }
 

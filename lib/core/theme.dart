@@ -424,6 +424,35 @@ abstract final class KrithaFonts {
   static const dmSans = 'DMSans';
 }
 
+/// Shared bordered input styling for popups, dialogs and settings forms.
+abstract final class KrithaInputs {
+  static InputDecoration decoration({
+    required String hintText,
+    bool dense = false,
+  }) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(KrithaRadius.base),
+      borderSide: BorderSide(color: KrithaColors.borderSubtle),
+    );
+    return InputDecoration(
+      hintText: hintText,
+      filled: true,
+      fillColor: KrithaColors.bgPrimary,
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s12,
+        vertical: dense ? KrithaSpacing.s8 : KrithaSpacing.s12,
+      ),
+      border: border,
+      enabledBorder: border,
+      disabledBorder: border,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        borderSide: BorderSide(color: KrithaColors.borderAccent),
+      ),
+    );
+  }
+}
+
 /// Keeps [KrithaColors] in sync with the active [Theme] and makes the caller
 /// depend on it. The palette is static, so without an explicit [Theme]
 /// dependency most subtrees keep their previously-built colours after a theme

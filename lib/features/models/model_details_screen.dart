@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/external_links.dart';
@@ -12,6 +15,7 @@ import '../chat/widgets/markdown_view.dart';
 import 'catalogue/hugging_face_urls.dart';
 import 'catalogue/model_metadata.dart';
 import 'providers.dart';
+import 'setup/model_setup_wizard.dart';
 import 'widgets/catalogue_widgets.dart';
 import 'widgets/workspace_header.dart';
 
@@ -86,7 +90,7 @@ class ModelDetailsScreen extends ConsumerWidget {
         ContextMenuItem(
           id: 'hub',
           label: 'Open in HF Hub',
-          icon: HugeIcons.strokeRoundedLink01,
+          icon: HugeIcons.strokeRoundedLinkSquare02,
           disabled: modelId.trim().isEmpty,
         ),
         ContextMenuItem(
@@ -127,13 +131,17 @@ class _DetailsBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const WorkspaceSectionTitle('Model Overview'),
           _ModelOverviewCard(details: details),
           SizedBox(height: KrithaSpacing.s20),
           const WorkspaceSectionTitle('Model Setup'),
           _ModelSetupCard(details: details),
           SizedBox(height: KrithaSpacing.s20),
-          const WorkspaceSectionTitle('Model Card'),
+          WorkspaceSectionTitle(
+            'Model Card',
+            trailing: (details.readme?.trim().isNotEmpty ?? false)
+                ? _ModelCardActions(details: details)
+                : null,
+          ),
           _ModelCardSection(details: details),
           SizedBox(height: KrithaSpacing.s20),
           const WorkspaceSectionTitle('Model Files'),
@@ -159,7 +167,6 @@ class _DetailsSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const WorkspaceSectionTitle('Model Overview'),
           WorkspaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,7 +392,8 @@ class _ModelOverviewCard extends StatelessWidget {
                 ),
               ),
               SizedBox(width: KrithaSpacing.s4),
-              _CopyIconButton(
+              _SectionIconButton(
+                icon: HugeIcons.strokeRoundedCopy01,
                 tooltip: 'Copy repository identifier',
                 onTap: () => copyTextToClipboard(
                   context,
@@ -633,9 +641,14 @@ class _FollowerPill extends StatelessWidget {
   }
 }
 
-class _CopyIconButton extends StatelessWidget {
-  const _CopyIconButton({required this.tooltip, required this.onTap});
+class _SectionIconButton extends StatelessWidget {
+  const _SectionIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
 
+  final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback onTap;
 
@@ -656,7 +669,7 @@ class _CopyIconButton extends StatelessWidget {
             height: 32,
             child: Center(
               child: KrithaIcon(
-                icon: HugeIcons.strokeRoundedCopy01,
+                icon: icon,
                 size: 16,
                 color: KrithaColors.textMuted,
               ),
@@ -866,7 +879,7 @@ class _ModelSetupCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
-              onPressed: () => context.push('/models/active'),
+              onPressed: () => showModelSetupWizard(context, details: details),
               style: FilledButton.styleFrom(
                 backgroundColor: KrithaColors.accentBlue,
                 foregroundColor: KrithaColors.textOnAccent,
@@ -960,6 +973,93 @@ class _SetupFactTile extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ModelCardActions extends StatelessWidget {
+  const _ModelCardActions({required this.details});
+
+  final ModelDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SectionIconButton(
+          icon: HugeIcons.strokeRoundedCopy01,
+          tooltip: 'Copy model card',
+          onTap: () => copyTextToClipboard(
+            context,
+            details.readme ?? '',
+            message: 'Model card copied',
+          ),
+        ),
+        SizedBox(width: KrithaSpacing.s2),
+        Builder(
+          builder: (buttonContext) => _SectionIconButton(
+            icon: HugeIcons.strokeRoundedEllipsis,
+            tooltip: 'Model card options',
+            onTap: () => _openMenu(context, buttonContext),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openMenu(
+    BuildContext context,
+    BuildContext buttonContext,
+  ) async {
+    final selected = await showKrithaContextMenu(
+      context: context,
+      anchor: ContextMenuAnchor.fromContext(buttonContext),
+      align: ContextMenuAlign.right,
+      items: [
+        ContextMenuItem(
+          id: 'download',
+          label: 'Download',
+          icon: HugeIcons.strokeRoundedDownload04,
+        ),
+        ContextMenuItem(
+          id: 'raw',
+          label: 'Open Raw',
+          icon: HugeIcons.strokeRoundedLinkSquare02,
+        ),
+      ],
+    );
+    if (!context.mounted || selected == null) return;
+    if (selected == 'download') {
+      await _download(context);
+    } else if (selected == 'raw') {
+      await openExternalUrl(
+        context,
+        HuggingFaceUrls.raw(details.model.id, details.branch, 'README.md'),
+      );
+    }
+  }
+
+  Future<void> _download(BuildContext context) async {
+    final readme = details.readme?.trim();
+    if (readme == null || readme.isEmpty) return;
+    try {
+      final saved = await FilePicker.saveFile(
+        dialogTitle: 'Save model card',
+        fileName: '${details.model.name}-README.md',
+        bytes: Uint8List.fromList(utf8.encode(readme)),
+        mimeType: 'text/markdown',
+      );
+      if (!context.mounted || saved == null) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Model card downloaded')));
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The model card could not be downloaded.'),
+        ),
+      );
+    }
   }
 }
 

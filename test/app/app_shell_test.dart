@@ -23,9 +23,9 @@ import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
-import 'support/seed_fixture.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
+import '../support/seed_fixture.dart';
 
 class _FakeDictationNotifier extends DictationNotifier {
   @override
@@ -78,7 +78,21 @@ void main() {
       expect(KrithaText.message.color, isNull);
     });
 
-    test('palette tokens match the React Native theme.ts', () {
+    test('popup inputs use a visible outline border', () {
+      final decoration = KrithaInputs.decoration(hintText: 'Search messages');
+      final border = decoration.enabledBorder;
+      expect(border, isA<OutlineInputBorder>());
+      expect(
+        (border! as OutlineInputBorder).borderSide.color,
+        KrithaColors.borderSubtle,
+      );
+      expect(
+        (decoration.focusedBorder! as OutlineInputBorder).borderSide.color,
+        KrithaColors.borderAccent,
+      );
+    });
+
+    test('palette tokens match the design specification', () {
       expect(KrithaColors.bgDeepest, const Color(0xFF000000));
       expect(KrithaColors.bgBase, const Color(0xFF0B0D10));
       expect(KrithaColors.bgSurface, const Color(0xFF111419));
@@ -569,7 +583,7 @@ void main() {
         isTrue,
       );
 
-      // Closing the warning clears the edit state and the draft, like RN.
+      // Closing the warning clears the edit state and the draft.
       await tester.tap(find.byTooltip('Cancel editing'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('editing-warning')), findsNothing);

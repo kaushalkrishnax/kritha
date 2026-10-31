@@ -6,7 +6,7 @@ import 'package:kritha/features/models/catalogue/catalogue_providers.dart';
 import 'package:kritha/features/models/token/hugging_face_token.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
 
-import 'support/fake_workspace.dart';
+import '../../support/fake_workspace.dart';
 
 void main() {
   ProviderContainer buildContainer({

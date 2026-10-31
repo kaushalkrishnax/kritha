@@ -12,8 +12,8 @@ import 'package:kritha/features/intelligence/providers.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
 
 void main() {
   late AppDatabase database;

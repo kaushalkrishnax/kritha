@@ -73,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
                                 .showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Permissions are not part of this foundation yet.',
+                                      'Permissions are not available yet.',
                                     ),
                                   ),
                                 ),

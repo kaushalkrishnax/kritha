@@ -16,8 +16,8 @@ import 'package:kritha/features/providers/provider_connection_tester.dart';
 import 'package:kritha/features/providers/provider_stores.dart';
 import 'package:kritha/features/providers/providers_controller.dart';
 
-import 'support/fake_inference.dart';
-import 'support/fake_workspace.dart';
+import '../support/fake_inference.dart';
+import '../support/fake_workspace.dart';
 
 void main() {
   AiRequest prompt({Map<String, dynamic>? responseSchema}) => AiRequest(
