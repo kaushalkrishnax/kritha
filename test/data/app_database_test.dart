@@ -19,6 +19,17 @@ void main() {
     await database.close();
   });
 
+  test('action preferences round-trip per action key', () async {
+    expect(await database.actionPreference('artifact.delete'), isNull);
+
+    await database.setActionPreference('artifact.delete', 'true');
+    await database.setActionPreference('artifact.replace', 'false');
+
+    expect(await database.actionPreference('artifact.delete'), 'true');
+    expect(await database.actionPreference('artifact.replace'), 'false');
+    expect(await database.actionPreference('artifact.removeRow'), isNull);
+  });
+
   test('seeds the fixture conversation once', () async {
     await database.seedIfEmpty(demoMessages());
     await database.seedIfEmpty(demoMessages());

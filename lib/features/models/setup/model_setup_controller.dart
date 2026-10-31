@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../models/model_configuration_record.dart';
 import '../catalogue/catalogue_model.dart';
+import 'action_preferences.dart';
 import 'configured_model_store.dart';
 import 'model_artifact.dart';
 import 'model_artifact_storage.dart';
@@ -49,6 +50,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     required this.assessor,
     this.downloader,
     this.store,
+    this.actionPreferences,
     ModelArtifactStorageFactory? storageFactory,
     String? configurationId,
   }) : _storageFactory =
@@ -63,6 +65,7 @@ class ModelSetupWizardController extends ChangeNotifier {
   final ModelSetupAssessor assessor;
   final ModelArtifactDownloader? downloader;
   final ConfiguredModelStore? store;
+  final ActionPreferenceStore? actionPreferences;
   final String configurationId;
   final ModelArtifactStorageFactory _storageFactory;
 
@@ -148,6 +151,8 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
   }
 
+  int get artifactCount => _artifacts.length;
+
   int get selectedArtifactCount =>
       _artifacts.where((row) => row.selected).length;
 
@@ -172,6 +177,9 @@ class ModelSetupWizardController extends ChangeNotifier {
 
   bool get hasDownloadableSelection =>
       _artifacts.any((row) => row.selected && row.canDownload);
+
+  bool get hasDownloadedSelection =>
+      _artifacts.any((row) => row.selected && row.hasLocalCopy);
 
   /// Ids of selected rows sharing a target path with another selected row.
   Set<String> get duplicateTargetIds {
@@ -462,6 +470,25 @@ class ModelSetupWizardController extends ChangeNotifier {
     return row;
   }
 
+  ModelArtifactRow? addArtifactRowAfter(String id) {
+    prepareArtifacts();
+    final index = _artifacts.indexWhere((row) => row.id == id);
+    if (index < 0) return null;
+    final row = ModelArtifactRow(
+      id: 'artifact-${_nextRowNumber++}',
+      kind: _artifacts[index].kind,
+      targetPath: '',
+    );
+    _artifacts = List.unmodifiable([
+      ..._artifacts.take(index + 1),
+      row,
+      ..._artifacts.skip(index + 1),
+    ]);
+    _saveError = null;
+    _notify();
+    return row;
+  }
+
   Future<void> removeArtifactRow(String id) async {
     final row = _rowById(id);
     if (row == null) return;
@@ -719,6 +746,35 @@ class ModelSetupWizardController extends ChangeNotifier {
       _downloadAllRunning = false;
       _notify();
     }
+  }
+
+  Future<void> deleteAllArtifacts() async {
+    if (_downloadAllRunning) return;
+    final rows = _artifacts
+        .where((row) => row.selected && row.hasLocalCopy)
+        .toList(growable: false);
+    for (final row in rows) {
+      await _deleteQuietly(row.localPath);
+      _replaceRowById(
+        row.id,
+        (current) => current.copyWith(
+          status: ModelArtifactStatus.idle,
+          progress: null,
+          receivedBytes: null,
+          localPath: null,
+          error: null,
+        ),
+      );
+    }
+    if (rows.isEmpty) return;
+    _notify();
+  }
+
+  Future<bool> confirmationsSuppressed(String actionKey) async =>
+      await actionPreferences?.confirmationSuppressed(actionKey) ?? false;
+
+  Future<void> setConfirmationSuppressed(String actionKey, bool value) async {
+    await actionPreferences?.setConfirmationSuppressed(actionKey, value);
   }
 
   Future<void> deleteArtifactCopy(String id) async {

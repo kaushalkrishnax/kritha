@@ -2084,6 +2084,274 @@ class ModelConfigurationArtifactsCompanion
   }
 }
 
+class $ActionPreferencesTable extends ActionPreferences
+    with TableInfo<$ActionPreferencesTable, ActionPreferenceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActionPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _actionKeyMeta = const VerificationMeta(
+    'actionKey',
+  );
+  @override
+  late final GeneratedColumn<String> actionKey = GeneratedColumn<String>(
+    'action_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [actionKey, value, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'action_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActionPreferenceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('action_key')) {
+      context.handle(
+        _actionKeyMeta,
+        actionKey.isAcceptableOrUnknown(data['action_key']!, _actionKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionKeyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {actionKey};
+  @override
+  ActionPreferenceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActionPreferenceRow(
+      actionKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_key'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ActionPreferencesTable createAlias(String alias) {
+    return $ActionPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class ActionPreferenceRow extends DataClass
+    implements Insertable<ActionPreferenceRow> {
+  final String actionKey;
+  final String value;
+  final DateTime updatedAt;
+  const ActionPreferenceRow({
+    required this.actionKey,
+    required this.value,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['action_key'] = Variable<String>(actionKey);
+    map['value'] = Variable<String>(value);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ActionPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return ActionPreferencesCompanion(
+      actionKey: Value(actionKey),
+      value: Value(value),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ActionPreferenceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActionPreferenceRow(
+      actionKey: serializer.fromJson<String>(json['actionKey']),
+      value: serializer.fromJson<String>(json['value']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'actionKey': serializer.toJson<String>(actionKey),
+      'value': serializer.toJson<String>(value),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ActionPreferenceRow copyWith({
+    String? actionKey,
+    String? value,
+    DateTime? updatedAt,
+  }) => ActionPreferenceRow(
+    actionKey: actionKey ?? this.actionKey,
+    value: value ?? this.value,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ActionPreferenceRow copyWithCompanion(ActionPreferencesCompanion data) {
+    return ActionPreferenceRow(
+      actionKey: data.actionKey.present ? data.actionKey.value : this.actionKey,
+      value: data.value.present ? data.value.value : this.value,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActionPreferenceRow(')
+          ..write('actionKey: $actionKey, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(actionKey, value, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActionPreferenceRow &&
+          other.actionKey == this.actionKey &&
+          other.value == this.value &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ActionPreferencesCompanion extends UpdateCompanion<ActionPreferenceRow> {
+  final Value<String> actionKey;
+  final Value<String> value;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ActionPreferencesCompanion({
+    this.actionKey = const Value.absent(),
+    this.value = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActionPreferencesCompanion.insert({
+    required String actionKey,
+    required String value,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : actionKey = Value(actionKey),
+       value = Value(value),
+       updatedAt = Value(updatedAt);
+  static Insertable<ActionPreferenceRow> custom({
+    Expression<String>? actionKey,
+    Expression<String>? value,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (actionKey != null) 'action_key': actionKey,
+      if (value != null) 'value': value,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActionPreferencesCompanion copyWith({
+    Value<String>? actionKey,
+    Value<String>? value,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ActionPreferencesCompanion(
+      actionKey: actionKey ?? this.actionKey,
+      value: value ?? this.value,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (actionKey.present) {
+      map['action_key'] = Variable<String>(actionKey.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActionPreferencesCompanion(')
+          ..write('actionKey: $actionKey, ')
+          ..write('value: $value, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2093,6 +2361,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ModelConfigurationsTable(this);
   late final $ModelConfigurationArtifactsTable modelConfigurationArtifacts =
       $ModelConfigurationArtifactsTable(this);
+  late final $ActionPreferencesTable actionPreferences =
+      $ActionPreferencesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2102,6 +2372,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     chatEntries,
     modelConfigurations,
     modelConfigurationArtifacts,
+    actionPreferences,
   ];
 }
 
@@ -3224,6 +3495,192 @@ typedef $$ModelConfigurationArtifactsTableProcessedTableManager =
       ModelConfigurationArtifactRow,
       PrefetchHooks Function()
     >;
+typedef $$ActionPreferencesTableCreateCompanionBuilder =
+    ActionPreferencesCompanion Function({
+      required String actionKey,
+      required String value,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ActionPreferencesTableUpdateCompanionBuilder =
+    ActionPreferencesCompanion Function({
+      Value<String> actionKey,
+      Value<String> value,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ActionPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $ActionPreferencesTable> {
+  $$ActionPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get actionKey => $composableBuilder(
+    column: $table.actionKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ActionPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActionPreferencesTable> {
+  $$ActionPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get actionKey => $composableBuilder(
+    column: $table.actionKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ActionPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActionPreferencesTable> {
+  $$ActionPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get actionKey =>
+      $composableBuilder(column: $table.actionKey, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ActionPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActionPreferencesTable,
+          ActionPreferenceRow,
+          $$ActionPreferencesTableFilterComposer,
+          $$ActionPreferencesTableOrderingComposer,
+          $$ActionPreferencesTableAnnotationComposer,
+          $$ActionPreferencesTableCreateCompanionBuilder,
+          $$ActionPreferencesTableUpdateCompanionBuilder,
+          (
+            ActionPreferenceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $ActionPreferencesTable,
+              ActionPreferenceRow
+            >,
+          ),
+          ActionPreferenceRow,
+          PrefetchHooks Function()
+        > {
+  $$ActionPreferencesTableTableManager(
+    _$AppDatabase db,
+    $ActionPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActionPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActionPreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActionPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> actionKey = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActionPreferencesCompanion(
+                actionKey: actionKey,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String actionKey,
+                required String value,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ActionPreferencesCompanion.insert(
+                actionKey: actionKey,
+                value: value,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ActionPreferencesTable, ActionPreferenceRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ActionPreferencesTable,
+                    ActionPreferenceRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ActionPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActionPreferencesTable,
+      ActionPreferenceRow,
+      $$ActionPreferencesTableFilterComposer,
+      $$ActionPreferencesTableOrderingComposer,
+      $$ActionPreferencesTableAnnotationComposer,
+      $$ActionPreferencesTableCreateCompanionBuilder,
+      $$ActionPreferencesTableUpdateCompanionBuilder,
+      (
+        ActionPreferenceRow,
+        BaseReferences<
+          _$AppDatabase,
+          $ActionPreferencesTable,
+          ActionPreferenceRow
+        >,
+      ),
+      ActionPreferenceRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3240,4 +3697,6 @@ class $AppDatabaseManager {
         _db,
         _db.modelConfigurationArtifacts,
       );
+  $$ActionPreferencesTableTableManager get actionPreferences =>
+      $$ActionPreferencesTableTableManager(_db, _db.actionPreferences);
 }

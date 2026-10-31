@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/create_popup.dart';
 import '../catalogue/catalogue_model.dart';
+import 'action_preferences.dart';
 import 'configured_model_store.dart';
 import 'model_artifact_storage.dart';
 import 'model_setup_assessor.dart';
@@ -52,6 +53,7 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
       assessor: ref.read(modelSetupAssessorProvider),
       downloader: ref.read(modelArtifactDownloaderProvider),
       store: ref.read(configuredModelStoreProvider),
+      actionPreferences: ref.read(actionPreferenceStoreProvider),
       configurationId: widget.configurationId,
     );
     // Render neutral checklist on first frame before initiating pre-checks.
@@ -66,6 +68,17 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
     super.dispose();
   }
 
+  String get _title => switch (_controller.stepIndex) {
+    1 => 'Manage Artifacts',
+    _ => 'Model Setup Wizard',
+  };
+
+  String? get _subtitle => switch (_controller.stepIndex) {
+    0 => 'Checking the device, runtime and artifacts required for this model.',
+    1 => 'Review, select and download the files required for this model.',
+    _ => null,
+  };
+
   @override
   Widget build(BuildContext context) {
     watchKrithaPalette(context);
@@ -73,7 +86,8 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
       animation: _controller,
       builder: (context, _) {
         return CreatePopup(
-          title: 'Model Setup Wizard',
+          title: _title,
+          subtitle: _subtitle,
           footer: _WizardFooter(controller: _controller),
           child: Column(
             mainAxisSize: MainAxisSize.min,

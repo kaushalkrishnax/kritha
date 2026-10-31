@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/core/providers.dart';
 import 'package:kritha/core/theme.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
+import 'package:kritha/features/models/setup/action_preferences.dart';
 import 'package:kritha/features/models/setup/configured_model_store.dart';
 import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 import 'package:kritha/features/models/setup/model_setup_assessment.dart';
@@ -59,6 +60,7 @@ void main() {
     ConfiguredModelStore? store,
     String? configurationId,
     ModelArtifactDownloader? downloader,
+    ActionPreferenceStore? preferences,
     double width = 320,
     double height = 680,
   }) {
@@ -69,6 +71,8 @@ void main() {
           configuredModelStoreProvider.overrideWithValue(store),
         if (downloader != null)
           modelArtifactDownloaderProvider.overrideWithValue(downloader),
+        if (preferences != null)
+          actionPreferenceStoreProvider.overrideWithValue(preferences),
       ],
       child: MaterialApp(
         theme: buildKrithaTheme(),
@@ -400,6 +404,44 @@ void main() {
     expect(errorFor('artifact-2'), findsNothing);
   });
 
+  testWidgets('a muted confirmation is skipped next time', (tester) async {
+    tester.view.physicalSize = const Size(320, 680);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final preferences = _FakePreferences();
+    await tester.pumpWidget(
+      buildWizard(
+        Future.value(runtime()),
+        store: _FakeStore(),
+        preferences: preferences,
+        configurationId: 'wizard-muted',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('artifact-remove-artifact-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove config.json?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('dont-ask-again')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('artifact-row-artifact-1')), findsNothing);
+    expect(preferences.values[ActionPreferenceKeys.removeArtifactRow], isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('artifact-remove-artifact-2')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('?'), findsNothing);
+    expect(find.byKey(const ValueKey('artifact-row-artifact-2')), findsNothing);
+  });
+
   testWidgets('download progress can be paused and resumed', (tester) async {
     tester.view.physicalSize = const Size(320, 680);
     tester.view.devicePixelRatio = 1.0;
@@ -525,11 +567,9 @@ void main() {
     expect(find.text('Manage Artifacts'), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Download All'),
-          )
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Delete All'))
           .onPressed,
-      isNull,
+      isNotNull,
     );
     expect(
       tester
@@ -561,6 +601,19 @@ void main() {
     expect(record.artifacts, hasLength(2));
     expect(record.artifacts.every((artifact) => artifact.downloaded), isTrue);
   });
+}
+
+class _FakePreferences implements ActionPreferenceStore {
+  final Map<String, bool> values = {};
+
+  @override
+  Future<bool> confirmationSuppressed(String actionKey) async =>
+      values[actionKey] ?? false;
+
+  @override
+  Future<void> setConfirmationSuppressed(String actionKey, bool value) async {
+    values[actionKey] = value;
+  }
 }
 
 class _FakeStore implements ConfiguredModelStore {

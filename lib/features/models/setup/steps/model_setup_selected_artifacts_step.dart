@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../../core/theme.dart';
 import '../../../../widgets/create_popup.dart';
 import '../../catalogue/catalogue_model.dart';
+import '../action_preferences.dart';
 import '../model_artifact.dart';
 import '../model_setup_assessment.dart';
 import '../model_setup_controller.dart';
@@ -53,11 +54,46 @@ class _ModelSetupSelectedArtifactsStepState
         Padding(
           padding: EdgeInsets.fromLTRB(
             KrithaSpacing.s20,
-            KrithaSpacing.s4,
+            0,
             KrithaSpacing.s20,
-            KrithaSpacing.s16,
+            KrithaSpacing.s12,
           ),
-          child: _ManageArtifactsHeader(controller: controller),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${controller.selectedArtifactCount} of '
+                      '${controller.artifactCount} selected',
+                      key: const ValueKey('artifact-selection-summary'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: KrithaText.sizeXs,
+                        color: KrithaColors.textMuted,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: KrithaSpacing.s12),
+                  _DownloadAllButton(controller: controller),
+                ],
+              ),
+              if (controller.saveError != null) ...[
+                SizedBox(height: KrithaSpacing.s4),
+                Text(
+                  controller.saveError!,
+                  style: TextStyle(
+                    fontSize: KrithaText.size2xs,
+                    color: KrithaColors.error,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -82,58 +118,10 @@ class _ModelSetupSelectedArtifactsStepState
                     repositoryId: controller.details.model.id,
                   ),
                 ],
-                SizedBox(height: KrithaSpacing.s16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _DownloadAllButton(controller: controller),
-                ),
               ],
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _ManageArtifactsHeader extends StatelessWidget {
-  const _ManageArtifactsHeader({required this.controller});
-
-  final ModelSetupWizardController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Manage Artifacts',
-          style: TextStyle(
-            fontSize: KrithaText.sizeLg,
-            fontWeight: FontWeight.w700,
-            color: KrithaColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: KrithaSpacing.s4),
-        Text(
-          'Review, select and download the files required for this model.',
-          style: TextStyle(
-            fontSize: KrithaText.sizeXs,
-            color: KrithaColors.textMuted,
-            height: 1.4,
-          ),
-        ),
-        if (controller.saveError != null) ...[
-          SizedBox(height: KrithaSpacing.s4),
-          Text(
-            controller.saveError!,
-            style: TextStyle(
-              fontSize: KrithaText.size2xs,
-              color: KrithaColors.error,
-              height: 1.4,
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -146,14 +134,25 @@ class _DownloadAllButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled =
-        controller.hasDownloadableSelection && !controller.downloadAllRunning;
+    // Nothing left to download flips the action into clearing the copies.
+    final clearing =
+        !controller.hasDownloadableSelection &&
+        controller.hasDownloadedSelection;
+    final busy = controller.downloadAllRunning;
+    final enabled = !busy && (clearing || controller.hasDownloadableSelection);
+    final foreground = enabled
+        ? KrithaColors.textOnAccent
+        : KrithaColors.textMuted;
     return FilledButton.icon(
-      onPressed: enabled
-          ? () => unawaited(controller.downloadAllArtifacts())
-          : null,
+      onPressed: !enabled
+          ? null
+          : clearing
+          ? () => unawaited(_confirmDeleteAll(context))
+          : () => unawaited(controller.downloadAllArtifacts()),
       style: FilledButton.styleFrom(
-        backgroundColor: KrithaColors.accentBlue,
+        backgroundColor: clearing
+            ? KrithaColors.error
+            : KrithaColors.accentBlue,
         foregroundColor: KrithaColors.textOnAccent,
         disabledBackgroundColor: KrithaColors.bgSecondary,
         disabledForegroundColor: KrithaColors.textMuted,
@@ -164,7 +163,7 @@ class _DownloadAllButton extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
-      icon: controller.downloadAllRunning
+      icon: busy
           ? SizedBox(
               width: 14,
               height: 14,
@@ -174,14 +173,31 @@ class _DownloadAllButton extends StatelessWidget {
               ),
             )
           : KrithaIcon(
-              icon: HugeIcons.strokeRoundedDownload01,
+              icon: clearing
+                  ? HugeIcons.strokeRoundedDelete02
+                  : HugeIcons.strokeRoundedDownload01,
               size: KrithaIcons.xs,
-              color: enabled
-                  ? KrithaColors.textOnAccent
-                  : KrithaColors.textMuted,
+              color: foreground,
             ),
-      label: const Text('Download All'),
+      label: Text(clearing ? 'Delete All' : 'Download All'),
     );
+  }
+
+  Future<void> _confirmDeleteAll(BuildContext context) async {
+    final count = controller.artifacts
+        .where((row) => row.selected && row.hasLocalCopy)
+        .length;
+    final confirmed = await _confirmArtifactAction(
+      context,
+      controller: controller,
+      preferenceKey: ActionPreferenceKeys.deleteAllArtifacts,
+      title: 'Delete all downloaded files?',
+      message:
+          '$count downloaded ${count == 1 ? 'artifact' : 'artifacts'} will be deleted from this configuration.',
+      confirmLabel: 'Delete All',
+    );
+    if (!confirmed) return;
+    await controller.deleteAllArtifacts();
   }
 }
 
@@ -252,25 +268,6 @@ class _ArtifactSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: () => controller.addArtifactRow(kind),
-                  style: TextButton.styleFrom(
-                    foregroundColor: KrithaColors.accentBlue,
-                    minimumSize: const Size(0, 32),
-                    padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s8),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: TextStyle(
-                      fontSize: KrithaText.size2xs,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  icon: KrithaIcon(
-                    icon: HugeIcons.strokeRoundedAdd01,
-                    size: KrithaIcons.xs,
-                    color: KrithaColors.accentBlue,
-                  ),
-                  label: const Text('Add Row'),
-                ),
                 IconButton(
                   tooltip: expanded
                       ? 'Collapse ${kind.sectionTitle}'
@@ -323,13 +320,25 @@ class _ArtifactSection extends StatelessWidget {
                         KrithaSpacing.s4,
                         KrithaSpacing.s6,
                       ),
-                      child: Text(
-                        'No rows added yet. Add a row to get started.',
-                        style: TextStyle(
-                          fontSize: KrithaText.sizeXs,
-                          color: KrithaColors.textMuted,
-                          height: 1.4,
-                        ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'No rows added yet. Add a row to get started.',
+                              style: TextStyle(
+                                fontSize: KrithaText.sizeXs,
+                                color: KrithaColors.textMuted,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: KrithaSpacing.s8),
+                          _InsertRowButton(
+                            key: ValueKey('artifact-add-${kind.name}'),
+                            tooltip: 'Add row',
+                            onPressed: () => controller.addArtifactRow(kind),
+                          ),
+                        ],
                       ),
                     )
                   : _ArtifactTable(
@@ -533,9 +542,12 @@ class _ArtifactKeyValueRow extends StatelessWidget {
                     enabled: active,
                     error: targetError,
                   ),
-                  action: actions.primaryAction(),
-                  // Keep the empty slot so both text actions stay aligned.
-                  trailing: const SizedBox(width: _iconActionSize),
+                  action: actions.primaryAction(context),
+                  trailing: _InsertRowButton(
+                    key: ValueKey('artifact-insert-${row.id}'),
+                    tooltip: 'Add row below',
+                    onPressed: () => controller.addArtifactRowAfter(row.id),
+                  ),
                 ),
               ],
             ),
@@ -568,6 +580,40 @@ class _CompactArtifactLine extends StatelessWidget {
         SizedBox(width: KrithaSpacing.s6),
         trailing,
       ],
+    );
+  }
+}
+
+class _InsertRowButton extends StatelessWidget {
+  const _InsertRowButton({
+    super.key,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      iconSize: 16,
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(_iconActionSize, _iconActionSize),
+        minimumSize: const Size(_iconActionSize, _iconActionSize),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: KrithaColors.accentBlue,
+        backgroundColor: KrithaColors.accentBlue.withValues(alpha: 0.12),
+      ),
+      onPressed: onPressed,
+      icon: KrithaIcon(
+        icon: HugeIcons.strokeRoundedInsertRow,
+        size: KrithaIcons.sm,
+        color: KrithaColors.accentBlue,
+      ),
     );
   }
 }
@@ -815,7 +861,12 @@ class _ArtifactActions {
       runSpacing: KrithaSpacing.s6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        primaryAction(),
+        primaryAction(context),
+        _InsertRowButton(
+          key: ValueKey('artifact-insert-${row.id}'),
+          tooltip: 'Add row below',
+          onPressed: () => controller.addArtifactRowAfter(row.id),
+        ),
         secondaryAction(context),
         removeRowButton(context),
       ],
@@ -838,7 +889,7 @@ class _ArtifactActions {
       ),
       onPressed: () => unawaited(_removeRow(context)),
       icon: KrithaIcon(
-        icon: HugeIcons.strokeRoundedRowDelete,
+        icon: HugeIcons.strokeRoundedDeleteRow,
         size: KrithaIcons.sm,
         color: KrithaColors.error,
       ),
@@ -848,37 +899,31 @@ class _ArtifactActions {
   Future<void> _removeRow(BuildContext context) async {
     if (row.selected) {
       final copy = row.hasLocalCopy ? ' Its local copy will be deleted.' : '';
-      final confirmed = await createPopup<bool>(
-        context: context,
-        builder: (popupContext) => CreatePopup(
-          title: 'Remove ${_fileName(row)}?',
-          actions: [
-            PopupSecondaryButton(
-              label: 'Cancel',
-              onPressed: () => Navigator.of(popupContext).pop(false),
-            ),
-            PopupPrimaryButton(
-              label: 'Remove',
-              destructive: true,
-              onPressed: () => Navigator.of(popupContext).pop(true),
-            ),
-          ],
-          child: Padding(
-            padding: EdgeInsets.all(KrithaSpacing.s20),
-            child: Text(
-              'The selected artifact row will be removed from this configuration.$copy',
-              style: TextStyle(
-                fontSize: KrithaText.sizeXs,
-                color: KrithaColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-          ),
-        ),
+      final confirmed = await _confirmArtifactAction(
+        context,
+        controller: controller,
+        preferenceKey: ActionPreferenceKeys.removeArtifactRow,
+        title: 'Remove ${_fileName(row)}?',
+        message:
+            'The selected artifact row will be removed from this configuration.$copy',
+        confirmLabel: 'Remove',
       );
-      if (confirmed != true || !context.mounted) return;
+      if (!confirmed) return;
     }
     await controller.removeArtifactRow(row.id);
+  }
+
+  Future<void> _deleteCopy(BuildContext context) async {
+    final confirmed = await _confirmArtifactAction(
+      context,
+      controller: controller,
+      preferenceKey: ActionPreferenceKeys.deleteArtifact,
+      title: 'Delete ${_fileName(row)}?',
+      message:
+          'The local copy at ${row.targetPath} will be deleted. The source stays assigned, so it can be downloaded again.',
+    );
+    if (!confirmed) return;
+    await controller.deleteArtifactCopy(row.id);
   }
 
   Widget _action({
@@ -900,7 +945,7 @@ class _ArtifactActions {
     );
   }
 
-  Widget primaryAction() {
+  Widget primaryAction(BuildContext context) {
     if (row.isWorking) {
       return _action(
         label: 'Pause',
@@ -943,7 +988,7 @@ class _ArtifactActions {
         icon: HugeIcons.strokeRoundedDelete02,
         enabled: active,
         destructive: true,
-        onPressed: () => unawaited(controller.deleteArtifactCopy(row.id)),
+        onPressed: () => unawaited(_deleteCopy(context)),
       );
     }
     return _action(
@@ -1029,54 +1074,24 @@ class _ArtifactActions {
     ModelArtifactRow current, {
     required String replacementKind,
     required bool willDownload,
-  }) async {
+  }) {
     final localCopy = current.hasLocalCopy
         ? 'The local copy at ${current.targetPath} will be deleted. '
         : '';
     final acquisition = willDownload
         ? 'The replacement will be downloaded again before setup can continue.'
         : 'The replacement will be copied into this configuration before setup can continue.';
-    final confirmed = await createPopup<bool>(
-      context: context,
-      builder: (popupContext) => CreatePopup(
-        title: 'Replace source?',
-        actions: [
-          PopupSecondaryButton(
-            label: 'Cancel',
-            onPressed: () => Navigator.of(popupContext).pop(false),
-          ),
-          PopupPrimaryButton(
-            label: 'Replace',
-            onPressed: () => Navigator.of(popupContext).pop(true),
-          ),
-        ],
-        child: Padding(
-          padding: EdgeInsets.all(KrithaSpacing.s20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              KrithaIcon(
-                icon: HugeIcons.strokeRoundedAlert02,
-                size: KrithaIcons.sm,
-                color: KrithaColors.warning,
-              ),
-              SizedBox(width: KrithaSpacing.s8),
-              Expanded(
-                child: Text(
-                  '${localCopy}The $replacementKind will replace the current source. $acquisition',
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeXs,
-                    color: KrithaColors.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _confirmArtifactAction(
+      context,
+      controller: controller,
+      preferenceKey: ActionPreferenceKeys.replaceArtifactSource,
+      title: 'Replace source?',
+      message:
+          '${localCopy}The $replacementKind will replace the current source. $acquisition',
+      confirmLabel: 'Replace',
+      destructive: false,
+      warning: true,
     );
-    return confirmed ?? false;
   }
 
   Future<_SourceChoice?> _showSourcePicker(
@@ -1498,6 +1513,120 @@ class _TargetPathFieldState extends State<_TargetPathField> {
           ),
         ),
       ),
+    );
+  }
+}
+
+Future<bool> _confirmArtifactAction(
+  BuildContext context, {
+  required ModelSetupWizardController controller,
+  required String preferenceKey,
+  required String title,
+  required String message,
+  String confirmLabel = 'Delete',
+  bool destructive = true,
+  bool warning = false,
+}) async {
+  if (await controller.confirmationsSuppressed(preferenceKey)) return true;
+  if (!context.mounted) return false;
+  var remember = false;
+  final confirmed = await createPopup<bool>(
+    context: context,
+    builder: (popupContext) => StatefulBuilder(
+      builder: (context, setLocal) => CreatePopup(
+        title: title,
+        actions: [
+          PopupSecondaryButton(
+            label: 'Cancel',
+            onPressed: () => Navigator.of(popupContext).pop(false),
+          ),
+          PopupPrimaryButton(
+            label: confirmLabel,
+            destructive: destructive,
+            onPressed: () => Navigator.of(popupContext).pop(true),
+          ),
+        ],
+        child: Padding(
+          padding: EdgeInsets.all(KrithaSpacing.s20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (warning)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    KrithaIcon(
+                      icon: HugeIcons.strokeRoundedAlert02,
+                      size: KrithaIcons.sm,
+                      color: KrithaColors.warning,
+                    ),
+                    SizedBox(width: KrithaSpacing.s8),
+                    Expanded(child: Text(message, style: _dialogTextStyle)),
+                  ],
+                )
+              else
+                Text(message, style: _dialogTextStyle),
+              SizedBox(height: KrithaSpacing.s12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _DontAskAgain(
+                  value: remember,
+                  onChanged: (value) => setLocal(() => remember = value),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  if (confirmed == true && remember) {
+    await controller.setConfirmationSuppressed(preferenceKey, true);
+  }
+  return confirmed ?? false;
+}
+
+final _dialogTextStyle = TextStyle(
+  fontSize: KrithaText.sizeXs,
+  color: KrithaColors.textSecondary,
+  height: 1.45,
+);
+
+class _DontAskAgain extends StatelessWidget {
+  const _DontAskAgain({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            key: const ValueKey('dont-ask-again'),
+            value: value,
+            onChanged: (next) => onChanged(next ?? false),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            side: BorderSide(color: KrithaColors.borderStrong),
+            activeColor: KrithaColors.accentBlue,
+            checkColor: KrithaColors.textOnAccent,
+          ),
+        ),
+        SizedBox(width: KrithaSpacing.s8),
+        Text(
+          "Don't ask again",
+          style: TextStyle(
+            fontSize: KrithaText.sizeXs,
+            color: KrithaColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

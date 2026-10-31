@@ -72,12 +72,24 @@ class ModelConfigurationArtifacts extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// Per-action user choices, e.g. suppressed confirmation prompts.
+@DataClassName('ActionPreferenceRow')
+class ActionPreferences extends Table {
+  TextColumn get actionKey => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {actionKey};
+}
+
 @DriftDatabase(
   tables: [
     ChatSessions,
     ChatEntries,
     ModelConfigurations,
     ModelConfigurationArtifacts,
+    ActionPreferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -94,7 +106,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +122,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await migrator.createTable(modelConfigurations);
         await migrator.createTable(modelConfigurationArtifacts);
+      }
+      if (from < 5) {
+        await migrator.createTable(actionPreferences);
       }
     },
   );
@@ -409,6 +424,24 @@ class AppDatabase extends _$AppDatabase {
         modelConfigurations,
       )..where((row) => row.id.equals(id))).go();
     });
+  }
+
+  /// Row-per-preference store so new actions need no schema change.
+  Future<String?> actionPreference(String actionKey) async {
+    final row = await (select(
+      actionPreferences,
+    )..where((row) => row.actionKey.equals(actionKey))).getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> setActionPreference(String actionKey, String value) async {
+    await into(actionPreferences).insertOnConflictUpdate(
+      ActionPreferencesCompanion.insert(
+        actionKey: actionKey,
+        value: value,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   Future<Map<String, List<ConfiguredModelArtifact>>> _artifactRows({

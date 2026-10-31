@@ -179,7 +179,8 @@ Sessions are first-class SQLite rows, not temporary UI state:
 Schema v3 adds `chat_sessions` and `chat_entries.sessionId`. Messages written by
 schema v1/v2 are adopted into an “Earlier conversation” session on first open,
 so upgrades do not lose history. Schema v4 adds configuration and artifact rows
-for the Model Setup Wizard.
+for the Model Setup Wizard; schema v5 adds `action_preferences`, a row-per-action
+store for choices such as muted confirmation prompts.
 
 ## Persistence and settings
 
@@ -256,29 +257,35 @@ Active Models surface:
   `LiteRtLmJniBridge` and the runtime probe reports LiteRT-LM as unavailable.
 - Step 2 manages artifact selection per configuration in a table-first layout:
   Config Files, Helper Files and Model Weights are expandable sections with
-  selection-aware round checkboxes (`all`/`partial`/`none`), row checkboxes,
-  and unlabelled rows whose controls explain themselves: source then target
-  split the remaining width equally, then download/delete, choose/replace and
-  the row menu sit in one intrinsic cluster with even gaps. Phones stack source
-  over target and keep the actions beside the path they act on: choose/replace
-  and a red remove-row button beside the source, download/delete and
-  choose-from-device beside the target. Text buttons share one label slot and
-  the icon buttons share one size, so both rows stay aligned.
+  selection-aware round checkboxes (`all`/`partial`/`none`), row checkboxes and
+  a collapse toggle, with no column header. Wide rows put the source on the left
+  and the target path on the right, each taking half the remaining width,
+  followed by an intrinsic action cluster: download/delete, insert-row,
+  replace/choose and a red remove-row icon at uniform gaps. Phones stack source
+  over target and keep the same actions beside the path they act on:
+  replace/choose and remove-row beside the source, download/delete and
+  insert-row beside the target. Text buttons share one label slot and icon
+  buttons share one size, so rows stay aligned; long names use middle
+  truncation with a 14-character tail and reveal the full value on hover.
   Selection and download state are separate; unselected rows keep their
-  metadata and context menu but disable editing and normal actions. Download,
-  Replace, Delete/Choose, Add Row, tri-state section toggles and the three-item
-  row menu are real. Weight setup selects at most one file, preferring an
-  identifiable primary weight, then `fp4`/`int4`, then the smallest sized
-  weight. Every configuration owns its own
-  `model_artifacts/<repository>/<configuration>` root; rows store target paths
-  relative to it, repository downloads land there and device files are copied
-  in. `Download All` and row actions use the real Hugging Face resolve endpoint
-  and report byte progress. Paused downloads keep their partial file and resume
-  with a `Range` request. Only configurations and their artifact rows are
-  persisted, so a future Configured Models screen can list them; pre-check
-  results stay in memory and are re-evaluated on every open. `Test` requires
-  every selected artifact to be downloaded, while `Save` only requires selected
-  rows to have a source and a valid target path.
+  metadata but disable editing and actions. The list header shows
+  `N of M selected` on the left and the bulk action on the right: `Download
+  All`, which flips to a destructive `Delete All` once every selected row is
+  downloaded. Deleting a copy, removing a selected row, replacing a source and
+  deleting every copy all confirm first, and each prompt carries a
+  `Don't ask again` tick persisted per action in `action_preferences`.
+  Duplicate normalized target paths flag both target boxes. Weight setup
+  selects at most one file, preferring an identifiable primary weight, then
+  `fp4`/`int4`, then the smallest sized weight. Every configuration owns its
+  own `model_artifacts/<repository>/<configuration>` root; rows store target
+  paths relative to it, repository downloads land there and device files are
+  copied in. Row actions and `Download All` use the real Hugging Face resolve
+  endpoint and report byte progress. Paused downloads keep their partial file
+  and resume with a `Range` request. Only configurations, their artifact rows
+  and action preferences are persisted, so a future Configured Models screen
+  can list them; pre-check results stay in memory and are re-evaluated on every
+  open. `Test` requires every selected artifact to be downloaded, while `Save`
+  only requires selected rows to have a source and a valid target path.
 - Model Card renders the README Markdown with View more/View less and an
   explicit empty state. Model Files shows the branch and a clickable latest
   commit, then directories and files with sizes; only the first six entries are

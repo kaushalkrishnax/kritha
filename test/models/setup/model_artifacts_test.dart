@@ -465,6 +465,40 @@ void main() {
     expect(File(secondPath).readAsStringSync(), isNot('first configuration'));
   });
 
+  test('deleting all copies clears every downloaded row', () async {
+    final controller = await readyController(downloader: _FakeDownloader());
+    await controller.downloadAllArtifacts();
+    final paths = [
+      for (final row in controller.artifacts)
+        if (row.localPath != null) row.localPath!,
+    ];
+    expect(paths, isNotEmpty);
+
+    await controller.deleteAllArtifacts();
+
+    expect(controller.artifacts.every((row) => row.localPath == null), isTrue);
+    expect(
+      controller.artifacts.every(
+        (row) => row.status == ModelArtifactStatus.idle,
+      ),
+      isTrue,
+    );
+    expect(paths.any((path) => File(path).existsSync()), isFalse);
+  });
+
+  test('a row added below stays in the same section', () async {
+    final controller = await readyController();
+    final config = controller
+        .artifactsFor(ModelArtifactKind.configuration)
+        .single;
+
+    final added = controller.addArtifactRowAfter(config.id)!;
+
+    expect(controller.artifacts[1].id, added.id);
+    expect(added.kind, ModelArtifactKind.configuration);
+    expect(added.targetPath, isEmpty);
+  });
+
   test('artifact target paths cannot escape the configuration root', () {
     expect(normalizeArtifactTarget('../config.json'), isNull);
     expect(normalizeArtifactTarget('nested/../../config.json'), isNull);
