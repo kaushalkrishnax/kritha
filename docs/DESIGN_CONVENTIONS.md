@@ -52,6 +52,7 @@ Related documents:
 | Motion | `KrithaMotion` | `lib/core/theme.dart` | Shared fast/normal/slow/composer/menu durations |
 | Icons | `KrithaIcons` | `lib/core/theme.dart` | 14–28 px; Lucide is the icon family |
 | Font family | `KrithaFonts` | `lib/core/theme.dart` | Bundled DM Sans only |
+| Input styling | `KrithaInputs` | `lib/core/theme.dart` | Shared bordered decoration for popup, dialog and settings fields |
 | Breakpoints | `KrithaBreakpoints`, `viewportOf` | `lib/core/responsive.dart` | Compact `< 600`, medium `600–< 840`, wide `≥ 840` |
 
 `buildKrithaTheme()` applies the family once with `ThemeData.fontFamily` and
@@ -210,7 +211,11 @@ Rules:
 ## 7. Surfaces, borders and elevation
 
 - Default surface: fill + 1 px `borderSubtle` + slightly rounded corners. This
-  is the house style for pills, menus, cards and buttons.
+  is the house style for pills, menus, cards, buttons and text inputs.
+- Text inputs in popups, dialogs and settings use `KrithaInputs.decoration`: a
+  `bgPrimary` fill, `borderSubtle` outline, `borderAccent` focus outline, and
+  `KrithaRadius.base` corners. Search fields embedded in an already-bordered
+  container keep that outer container instead of drawing a second border.
 - Floating surfaces (menus, sheets, composer) get a soft dark shadow and a
   clipped `Material` so ink stays inside the shape.
 - The composer uses `KrithaGlassSurface`: translucent fill, `BackdropFilter`

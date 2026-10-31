@@ -158,8 +158,7 @@ it keeps the blue surface and changes the glyph.
 When editing an earlier user message, show the closable warning above the
 capsule: “Editing this message will restart the conversation from here.” The X
 clears the draft/edit state. Sending deletes the edited turn and every later
-turn, then appends the replacement and a fresh reply. Do not branch history in
-this foundation.
+turn, then appends the replacement and a fresh reply. Do not branch history.
 
 ## 5. Dictation strip
 
@@ -221,7 +220,7 @@ stubs; no STT/TTS runtime is bundled.
 ### Glowing pill
 
 `LiveTalkPill` (`lib/features/chat/widgets/composer/live_talk_pill.dart`) keeps
-the RN gradient palette but renders it as a fluid listening surface:
+the brand gradient palette but renders it as a fluid listening surface:
 
 - Three soft radial blue/cyan blobs drift at different frequencies and blend
   additively inside the clipped capsule.
@@ -303,7 +302,9 @@ popup menus.
 - Do not use a snackbar for a blocking decision (archive/delete/reset); use a
   dialog or menu.
 - Dialogs that contain a text field should autofocus it and keep Save/Cancel in
-  the standard trailing order.
+  the standard trailing order. Use `KrithaInputs.decoration` so the field has a
+  visible `borderSubtle` outline and a `borderAccent` focus outline; never leave
+  a popup input borderless.
 
 ## 9. Keyboard and focus
 
@@ -311,8 +312,7 @@ popup menus.
 - Android back while the IME is open dismisses the keyboard first; the next back
   follows normal route behaviour.
 - Menus and sheets clamp above the IME.
-- Do not move focus to a menu on open; menu navigation is pointer/touch driven
-  in this foundation.
+- Do not move focus to a menu on open; menu navigation is pointer/touch driven.
 - After sending, the composer retains focus unless a dialog/route change
   explicitly takes it.
 
@@ -363,29 +363,40 @@ new class of motion.
 - The first load renders `CatalogueSkeleton` cards that mirror the real card
   height. Keep the inline spinner for appended pages, and show Load more only
   while a cursor exists.
+- The search field keeps the sort menu and a filter action side by side, with
+  the filter icon using the same muted treatment as sorting. The filter popup
+  is keyword-only: presets such as `litert-lm` are toggleable chips that cannot
+  be deleted, and user keywords can be added or removed. The default request
+  applies the preset `filter=litert-lm` tag; the key is never shown in the
+  popup.
 
 ### Model details
 
 - Header: shared back control, the title “Model Details” and one overflow menu
-  with Open in HF Hub and Copy repository URL.
-- Overview: publisher logo, repository identity and a copy action. Render the
+  with Open in HF Hub and Copy repository URL. Use
+  `HugeIcons.strokeRoundedLinkSquare02` for Open in HF Hub.
+- Overview: publisher logo, repository identity and a copy action. The card sits
+  first with no section title. Render the
   `namespace/` prefix as a muted run and the model name as its own run so a wrap
   moves the whole name to the next line instead of splitting it. Below it,
   followers, then likes, then downloads. Do not reintroduce a separate publisher
   heading or verification mark.
 - Metadata chips: Tasks (`error`), Libraries (`accentLightBlue`), Languages
-  (`success`), Licenses (`textPrimary`) and Other (`textMuted`, no icon). Keep
-  raw Hub IDs and humanise only the visible label. Long labels ellipsize inside
-  the chip instead of overflowing.
+  (`success`), Licenses (`textPrimary`) and Other (`textMuted`, no icon). Show
+  the exact Hub tag value; a normalized copy (case and separators ignored) is
+  for comparison only, never for display. Long labels ellipsize inside the chip
+  instead of overflowing.
 - Languages: one language renders directly; two or more collapse to an
   “N languages” chip. Expansion is one-way for that visit. Do not add group
   filter chips above the tags.
 - Setup: published technical facts only, an instruction of at most 20 words and
   a primary action to Active Models. No memory or storage compatibility
   estimates.
-- Card and files: Markdown with View more/View less and an honest empty state;
-  files show the branch, a clickable latest commit, sizes and a six-row View
-  more. Links open the Hub externally.
+- Card and files: Markdown with View more/View less and an honest empty state.
+  The Model Card title carries copy and ellipsis actions; the menu offers
+  Download (saves the Markdown) and Open Raw (raw Hub URL). Files show the
+  branch, a clickable latest commit, sizes and a six-row View more. Links open
+  the Hub externally.
 
 ### Provider cards
 
