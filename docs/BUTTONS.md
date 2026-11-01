@@ -261,7 +261,7 @@ outside the transcript's hit area so it never blocks message taps.
 
 | Property | Value |
 | --- | --- |
-| Size | 44 px high, natural width |
+| Size | 44 px high, natural width; a narrow header may cap it before the title |
 | Shape | Rounded `KrithaRadius.base` |
 | Outlined | `textSecondary` label/icon, 1 px `borderStrong` |
 | Primary | `accentBlue` fill, `textOnAccent` label/icon |
@@ -275,7 +275,8 @@ Rules:
   `Configure`) and the filled variant only for the single primary action in the
   row (`Connect`).
 - Workspace rows keep natural widths; never stretch these controls with
-  `Expanded`.
+  `Expanded`. If a header action competes with the title, cap the action width
+  and let the label ellipsize instead of squeezing the title out.
 - `Test`/`Usage` may stay visible while disabled before a provider is
   configured. Connect/Configure always remain enabled.
 - Busy state swaps the label for a 16 px progress indicator while keeping the

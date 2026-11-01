@@ -2,9 +2,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
-import '../../widgets/back_navigation.dart';
 import '../intelligence/runtime_ids.dart';
 import '../providers/providers_controller.dart';
+import 'models_workspace_scaffold.dart';
 import 'providers.dart';
 import 'selection/model_display.dart';
 import 'selection/model_picker.dart';
@@ -16,41 +16,23 @@ class ActiveModelsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    watchKrithaPalette(context);
     final active = ref.watch(activeModelsProvider);
 
-    return Scaffold(
-      backgroundColor: KrithaColors.bgBase,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: Column(
-              children: [
-                WorkspaceHeader(
-                  title: 'Active models',
-                  onBack: () => goBackOrExit(context),
-                ),
-                Expanded(
-                  child: active.when(
-                    data: (state) => _ActiveBody(state: state),
-                    loading: () => const CatalogueLoading(
-                      label: 'Loading active assignments…',
-                    ),
-                    error: (error, stackTrace) => Padding(
-                      padding: EdgeInsets.all(KrithaSpacing.s16),
-                      child: CatalogueErrorView(
-                        failure: const CatalogueFailure(
-                          kind: CatalogueFailureKind.unknown,
-                          message: 'Active assignments could not be loaded from local storage.',
-                        ),
-                        onRetry: () => ref.invalidate(activeModelsProvider),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return ModelsWorkspaceScaffold(
+      destination: ModelsWorkspaceDestination.active,
+      child: active.when(
+        data: (state) => _ActiveBody(state: state),
+        loading: () =>
+            const CatalogueLoading(label: 'Loading active assignments…'),
+        error: (error, stackTrace) => Padding(
+          padding: EdgeInsets.all(KrithaSpacing.s16),
+          child: CatalogueErrorView(
+            failure: const CatalogueFailure(
+              kind: CatalogueFailureKind.unknown,
+              message:
+                  'Active assignments could not be loaded from local storage.',
             ),
+            onRetry: () => ref.invalidate(activeModelsProvider),
           ),
         ),
       ),
@@ -147,6 +129,8 @@ class _CapabilitySlot extends ConsumerWidget {
   final VoidCallback onChoose;
   final VoidCallback onDeactivate;
 
+  static const _inlineStatusMinWidth = 300.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = state.statusFor(capability);
@@ -160,80 +144,91 @@ class _CapabilitySlot extends ConsumerWidget {
         : null;
     final providerConfigured = provider?.configured ?? false;
     final providerAlias = provider?.alias ?? assignment?.sourceId;
+    final icon = Container(
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: KrithaColors.bgTertiary,
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        border: Border.all(color: KrithaColors.borderSubtle),
+      ),
+      child: KrithaIcon(
+        icon: capabilityIcon(capability),
+        size: KrithaIcons.base,
+        color: status == ActiveAssignmentStatus.active || providerConfigured
+            ? KrithaColors.success
+            : KrithaColors.textMuted,
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          capability.label,
+          style: TextStyle(
+            fontSize: KrithaText.sizeMd,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: 2),
+        Text(
+          capability.description,
+          style: TextStyle(
+            fontSize: KrithaText.sizeXs,
+            color: KrithaColors.textMuted,
+          ),
+        ),
+      ],
+    );
+    final statusChip = _StatusChip(
+      status: status,
+      providerConfigured: providerConfigured,
+    );
     return WorkspaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // The chip takes its natural width; below this it would squeeze the title.
+          final stackStatus = constraints.maxWidth < _inlineStatusMinWidth;
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: KrithaColors.bgTertiary,
-                  borderRadius: BorderRadius.circular(KrithaRadius.base),
-                  border: Border.all(color: KrithaColors.borderSubtle),
-                ),
-                child: KrithaIcon(
-                  icon: capabilityIcon(capability),
-                  size: KrithaIcons.base,
-                  color:
-                      status == ActiveAssignmentStatus.active ||
-                          providerConfigured
-                      ? KrithaColors.success
-                      : KrithaColors.textMuted,
-                ),
-              ),
-              SizedBox(width: KrithaSpacing.s10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      capability.label,
-                      style: TextStyle(
-                        fontSize: KrithaText.sizeMd,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      capability.description,
-                      style: TextStyle(
-                        fontSize: KrithaText.sizeXs,
-                        color: KrithaColors.textMuted,
-                      ),
-                    ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  icon,
+                  SizedBox(width: KrithaSpacing.s10),
+                  Expanded(child: details),
+                  if (!stackStatus) ...[
+                    SizedBox(width: KrithaSpacing.s8),
+                    statusChip,
                   ],
+                ],
+              ),
+              if (stackStatus) ...[
+                SizedBox(height: KrithaSpacing.s8),
+                statusChip,
+              ],
+              SizedBox(height: KrithaSpacing.s12),
+              Text.rich(
+                _message(status, assignment, providerAlias),
+                style: TextStyle(
+                  fontSize: KrithaText.sizeXs,
+                  color: status == ActiveAssignmentStatus.stale
+                      ? KrithaColors.warning
+                      : KrithaColors.textMuted,
+                  height: 1.45,
                 ),
               ),
-              SizedBox(width: KrithaSpacing.s8),
-              _StatusChip(
-                status: status,
-                providerConfigured: providerConfigured,
+              SizedBox(height: KrithaSpacing.s12),
+              Wrap(
+                spacing: KrithaSpacing.s8,
+                runSpacing: KrithaSpacing.s8,
+                children: _actions(assignment),
               ),
             ],
-          ),
-          SizedBox(height: KrithaSpacing.s12),
-          Text.rich(
-            _message(status, assignment, providerAlias),
-            style: TextStyle(
-              fontSize: KrithaText.sizeXs,
-              color: status == ActiveAssignmentStatus.stale
-                  ? KrithaColors.warning
-                  : KrithaColors.textMuted,
-              height: 1.45,
-            ),
-          ),
-          SizedBox(height: KrithaSpacing.s12),
-          Wrap(
-            spacing: KrithaSpacing.s8,
-            runSpacing: KrithaSpacing.s8,
-            children: _actions(assignment),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

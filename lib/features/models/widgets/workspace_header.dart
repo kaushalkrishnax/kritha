@@ -3,6 +3,8 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
 
+const _backButtonSize = 44.0;
+
 class WorkspaceHeader extends StatelessWidget {
   const WorkspaceHeader({
     super.key,
@@ -10,49 +12,143 @@ class WorkspaceHeader extends StatelessWidget {
     required this.onBack,
     this.actions = const [],
     this.backTooltip = 'Back',
+    this.showBack = true,
+    this.onTitleTap,
+    this.titleTooltip,
   });
 
   final String title;
   final VoidCallback onBack;
   final List<Widget> actions;
   final String backTooltip;
+  final bool showBack;
+  final ValueChanged<BuildContext>? onTitleTap;
+  final String? titleTooltip;
+
+  // Long actions may take the row, but the title must stay tappable.
+  static const _minTitleWidth = 88.0;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        KrithaSpacing.s12,
-        KrithaSpacing.s12,
-        KrithaSpacing.s12,
-        KrithaSpacing.s8,
-      ),
-      child: Row(
-        children: [
-          WorkspaceBackButton(tooltip: backTooltip, onTap: onBack),
-          SizedBox(width: KrithaSpacing.s8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeXl,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final reserved =
+            (showBack ? _backButtonSize + KrithaSpacing.s8 : 0.0) +
+            (actions.isNotEmpty ? KrithaSpacing.s8 : 0.0);
+        final actionsMaxWidth =
+            (constraints.maxWidth - reserved - _minTitleWidth).clamp(
+              0.0,
+              double.infinity,
+            );
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            showBack ? KrithaSpacing.s12 : KrithaSpacing.s24,
+            KrithaSpacing.s12,
+            KrithaSpacing.s12,
+            KrithaSpacing.s8,
+          ),
+          child: Row(
+            children: [
+              if (showBack) ...[
+                WorkspaceBackButton(tooltip: backTooltip, onTap: onBack),
+                SizedBox(width: KrithaSpacing.s8),
+              ],
+              Expanded(
+                child: onTitleTap == null
+                    ? Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _titleStyle,
+                      )
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: _WorkspaceTitleButton(
+                          title: title,
+                          tooltip: titleTooltip ?? title,
+                          onTap: onTitleTap!,
+                        ),
+                      ),
+              ),
+              if (actions.isNotEmpty) ...[
+                SizedBox(width: KrithaSpacing.s8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: actionsMaxWidth),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final action in actions) Flexible(child: action),
+                    ],
                   ),
                 ),
               ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static TextStyle get _titleStyle => TextStyle(
+    fontSize: KrithaText.sizeXl,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.2,
+  );
+}
+
+class _WorkspaceTitleButton extends StatelessWidget {
+  const _WorkspaceTitleButton({
+    required this.title,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final String title;
+  final String tooltip;
+  final ValueChanged<BuildContext> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Builder(
+        builder: (buttonContext) => Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const ValueKey('workspace-title-button'),
+            onTap: () => onTap(buttonContext),
+            mouseCursor: SystemMouseCursors.click,
+            borderRadius: BorderRadius.circular(KrithaRadius.base),
+            hoverColor: KrithaColors.contextMenuPressed,
+            focusColor: KrithaColors.contextMenuPressed,
+            splashColor: KrithaColors.contextMenuPressed,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: KrithaSpacing.s6,
+                vertical: KrithaSpacing.s4,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WorkspaceHeader._titleStyle,
+                    ),
+                  ),
+                  SizedBox(width: KrithaSpacing.s6),
+                  KrithaIcon(
+                    icon: HugeIcons.strokeRoundedArrowDown01,
+                    size: KrithaIcons.sm,
+                    color: KrithaColors.textMuted,
+                  ),
+                ],
+              ),
             ),
           ),
-          if (actions.isNotEmpty) ...[
-            SizedBox(width: KrithaSpacing.s8),
-            Row(mainAxisSize: MainAxisSize.min, children: actions),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -84,8 +180,8 @@ class WorkspaceBackButton extends StatelessWidget {
           focusColor: KrithaColors.contextMenuPressed,
           splashColor: KrithaColors.contextMenuPressed,
           child: SizedBox(
-            width: 44,
-            height: 44,
+            width: _backButtonSize,
+            height: _backButtonSize,
             child: KrithaIcon(
               icon: HugeIcons.strokeRoundedArrowLeft02,
               size: KrithaIcons.md,

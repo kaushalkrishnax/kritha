@@ -55,6 +55,20 @@ Workspace action rows keep natural widths. Place quiet utility actions on the
 left and the single primary action on the right; never expand actions to fill
 the row. `WorkspaceOutlinedAction` labels stay single-line with ellipsis.
 
+### Models workspace
+
+Active Models and Provider Models share a management shell. Compact and medium
+headers show back, the current title as a dropdown that switches destination and
+an outlined Explore Models action on the right. Wide screens embed the
+expandable docked sidebar, nest Active Models and Provider Models under Models,
+mark the current destination, and drop the back control. Explore Models is a
+pushed screen with normal history back; do not add underline tabs, bottom
+navigation or extra destination chips.
+
+A long header action may give up width before the title does; keep the title
+button wide enough to tap. On narrow capability cards the status chip moves
+below the title instead of squeezing it.
+
 ### Response actions
 
 Assistant replies end with a quiet action row: Copy, Read aloud, Share and More.

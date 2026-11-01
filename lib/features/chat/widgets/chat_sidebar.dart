@@ -25,11 +25,15 @@ class ChatSidebar extends ConsumerStatefulWidget {
     required this.onNewChat,
     required this.onSettings,
     this.onCollapse,
+    this.onSessionOpen,
+    this.selectedWorkspacePath,
   });
 
   final VoidCallback onNewChat;
   final VoidCallback onSettings;
   final VoidCallback? onCollapse;
+  final VoidCallback? onSessionOpen;
+  final String? selectedWorkspacePath;
 
   static double drawerWidthFor(double screenWidth) {
     return math.min(
@@ -48,8 +52,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   ChatController get _controller => ref.read(chatControllerProvider.notifier);
 
   Future<void> _selectSession(ChatSession session, String? currentId) async {
-    if (session.id == currentId) return;
-    await _controller.selectSession(session.id);
+    if (session.id != currentId) {
+      await _controller.selectSession(session.id);
+    }
+    if (mounted) widget.onSessionOpen?.call();
   }
 
   Future<void> _openSessionMenu(
@@ -182,8 +188,36 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
                       _ActionRow(
                         icon: HugeIcons.strokeRoundedGoogleGemini,
                         label: 'Models',
-                        onTap: () => _openWorkspace(context, '/models'),
+                        selected: widget.selectedWorkspacePath != null,
+                        onTap: widget.selectedWorkspacePath == null
+                            ? () => _openWorkspace(context, '/models/active')
+                            : null,
                       ),
+                      if (widget.onCollapse != null) ...[
+                        _SubActionRow(
+                          label: 'Active Models',
+                          selected:
+                              widget.selectedWorkspacePath == '/models/active',
+                          onTap:
+                              widget.selectedWorkspacePath == '/models/active'
+                              ? null
+                              : () => _openWorkspace(context, '/models/active'),
+                        ),
+                        _SubActionRow(
+                          label: 'Provider Models',
+                          selected:
+                              widget.selectedWorkspacePath ==
+                              '/models/providers',
+                          onTap:
+                              widget.selectedWorkspacePath ==
+                                  '/models/providers'
+                              ? null
+                              : () => _openWorkspace(
+                                  context,
+                                  '/models/providers',
+                                ),
+                        ),
+                      ],
                       _ActionRow(
                         icon: HugeIcons.strokeRoundedPlug02,
                         label: 'Plugins',
@@ -769,44 +803,99 @@ class _ActionRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.selected = false,
   });
 
   final List<List<dynamic>> icon;
   final String label;
   final VoidCallback? onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      hoverColor: KrithaColors.contextMenuPressed,
-      focusColor: KrithaColors.contextMenuPressed,
-      splashColor: KrithaColors.contextMenuPressed,
-      highlightColor: KrithaColors.contextMenuPressed,
-      child: SizedBox(
-        height: KrithaDimensions.sidebarActionRowHeight,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
-          child: Row(
-            children: [
-              KrithaIcon(
-                icon: icon,
-                size: KrithaIcons.lg,
-                color: KrithaColors.textPrimary,
-              ),
-              SizedBox(width: KrithaSpacing.s14),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeMd,
-                    fontWeight: FontWeight.w700,
+    return Material(
+      color: selected ? KrithaColors.bgPrimary : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: KrithaColors.contextMenuPressed,
+        focusColor: KrithaColors.contextMenuPressed,
+        splashColor: KrithaColors.contextMenuPressed,
+        highlightColor: KrithaColors.contextMenuPressed,
+        child: SizedBox(
+          height: KrithaDimensions.sidebarActionRowHeight,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: KrithaSpacing.s24),
+            child: Row(
+              children: [
+                KrithaIcon(
+                  icon: icon,
+                  size: KrithaIcons.lg,
+                  color: KrithaColors.textPrimary,
+                ),
+                SizedBox(width: KrithaSpacing.s14),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: KrithaText.sizeMd,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubActionRow extends StatelessWidget {
+  const _SubActionRow({
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? KrithaColors.bgPrimary : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: KrithaColors.contextMenuPressed,
+        focusColor: KrithaColors.contextMenuPressed,
+        splashColor: KrithaColors.contextMenuPressed,
+        highlightColor: KrithaColors.contextMenuPressed,
+        child: SizedBox(
+          height: KrithaDimensions.sidebarSubActionRowHeight,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: KrithaSpacing.s24 + KrithaIcons.lg + KrithaSpacing.s14,
+              right: KrithaSpacing.s24,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: KrithaText.sizeSm,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? KrithaColors.textPrimary
+                      : KrithaColors.textSecondary,
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

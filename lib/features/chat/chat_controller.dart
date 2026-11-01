@@ -845,6 +845,8 @@ class ChatController extends AsyncNotifier<ChatState> {
       ProviderUnavailableException(:final message) => message,
       UnsupportedCapabilityException() =>
         'The selected model cannot handle this request.',
+      UnsupportedTaskException() =>
+        'The selected task is not available in this build.',
       InvalidRequestException() =>
         'This prompt could not be sent to the selected model.',
       InferenceFailedException() =>
@@ -857,7 +859,9 @@ class ChatController extends AsyncNotifier<ChatState> {
       ProviderUnavailableException(:final cause)
           when cause is UnsupportedError =>
         false,
-      UnsupportedCapabilityException() || InvalidRequestException() => false,
+      UnsupportedCapabilityException() ||
+      UnsupportedTaskException() ||
+      InvalidRequestException() => false,
       ProviderUnavailableException() || InferenceFailedException() => true,
     };
   }

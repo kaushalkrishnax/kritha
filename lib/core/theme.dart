@@ -1,14 +1,11 @@
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
-// Core Palette
-
 abstract final class KrithaColors {
   static bool _lightMode = false;
 
   static void setLightMode(bool value) => _lightMode = value;
 
-  // Backgrounds
   static const _darkBgDeepest = Color(0xFF000000);
   static Color get bgDeepest => _lightMode ? Color(0xFFF8FAFC) : _darkBgDeepest;
   static const _darkBgBase = Color(0xFF0B0D10);
@@ -29,8 +26,7 @@ abstract final class KrithaColors {
   static const _darkBgCard = Color(0xFF1B1F24);
   static Color get bgCard => _lightMode ? Color(0xFFFFFFFF) : _darkBgCard;
   static const _darkBgScrim = Color(0x99000000);
-  static Color get bgScrim =>
-      _lightMode ? Color(0x66000000) : _darkBgScrim;
+  static Color get bgScrim => _lightMode ? Color(0x66000000) : _darkBgScrim;
 
   /// Translucent composer surface used with a backdrop blur.
   static const _darkComposerGlass = Color(0xD11E2228);
@@ -51,7 +47,6 @@ abstract final class KrithaColors {
   static Color get menuShadow =>
       _lightMode ? Color(0x1F0F172A) : Color(0x80000000);
 
-  // Text
   static const _darkTextPrimary = Color(0xFFF4F7FA);
   static Color get textPrimary =>
       _lightMode ? Color(0xFF0F172A) : _darkTextPrimary;
@@ -67,7 +62,6 @@ abstract final class KrithaColors {
   static Color get textOnAccent =>
       _lightMode ? Color(0xFFFFFFFF) : _darkTextOnAccent;
 
-  // Brand / Accent
   static const _darkAccentBlue = Color(0xFF3566F0);
   static Color get accentBlue =>
       _lightMode ? Color(0xFF3566F0) : _darkAccentBlue;
@@ -86,14 +80,12 @@ abstract final class KrithaColors {
   static Color get accentCyanBg =>
       _lightMode ? Color(0xFF164E63) : _darkAccentCyanBg;
 
-  // Semantic
   static const _darkSuccess = Color(0xFF34D399);
   static Color get success => _lightMode ? Color(0xFF34D399) : _darkSuccess;
   static Color get error => _lightMode ? Color(0xFFDC2626) : Color(0xFFFF453A);
   static const _darkWarning = Color(0xFFFBBF24);
   static Color get warning => _lightMode ? Color(0xFFFBBF24) : _darkWarning;
 
-  // Border / Divider
   static const _darkBorderStrong = Color(0xFF3A414A);
   static Color get borderStrong =>
       _lightMode ? Color(0xFF94A3B8) : _darkBorderStrong;
@@ -107,12 +99,10 @@ abstract final class KrithaColors {
   static Color get borderAccent =>
       _lightMode ? Color(0xFF3566F0) : _darkBorderAccent;
 
-  // Context menu pressed overlay
   static const _darkContextMenuPressed = Color(0x17FFFFFF);
   static Color get contextMenuPressed =>
       _lightMode ? Color(0x140F172A) : _darkContextMenuPressed;
 
-  // Message bubbles
   static const _darkUserBubble = Color(0xFF21437D);
   static Color get userBubble =>
       _lightMode ? Color(0xFFDBEAFE) : _darkUserBubble;
@@ -126,7 +116,6 @@ abstract final class KrithaColors {
   static Color get assistantBubbleBorder =>
       _lightMode ? Color(0x403B82F6) : _darkAssistantBubbleBorder;
 
-  // Thinking block
   static const _darkThinkingBorder = Color(0xFF3B82F6);
   static Color get thinkingBorder =>
       _lightMode ? Color(0xFF3B82F6) : _darkThinkingBorder;
@@ -134,7 +123,6 @@ abstract final class KrithaColors {
   static Color get thinkingBg =>
       _lightMode ? Color(0x143B82F6) : _darkThinkingBg;
 
-  // Other semantic surfaces
   static const _darkErrorBubbleBg = Color(0x26F87171);
   static Color get errorBubbleBg =>
       _lightMode ? Color(0x26DC2626) : _darkErrorBubbleBg;
@@ -142,18 +130,15 @@ abstract final class KrithaColors {
   static Color get ttsActiveBg =>
       _lightMode ? Color(0x263B82F6) : _darkTtsActiveBg;
 
-  // Data visualisation
   static const _darkWaveformBar = Color(0xFFC5CBD3);
   static Color get waveformBar =>
       _lightMode ? Color(0xFF64748B) : _darkWaveformBar;
 
-  // Icons
   static const _darkIconMuted = Color(0xFF9AA3AD);
   static Color get iconMuted => _lightMode ? Color(0xFF64748B) : _darkIconMuted;
   static const _darkIconSlate = Color(0xFFC5CBD3);
   static Color get iconSlate => _lightMode ? Color(0xFF475569) : _darkIconSlate;
 
-  // Dracula theme (code blocks)
   static const _darkDraculaCurrentLine = Color(0xFF44475A);
   static Color get draculaCurrentLine =>
       _lightMode ? Color(0xFF44475A) : _darkDraculaCurrentLine;
@@ -162,7 +147,6 @@ abstract final class KrithaColors {
   static Color get draculaForeground =>
       _lightMode ? Color(0xFFF8F8F2) : _darkDraculaForeground;
 
-  // Syntax highlighting (Dracula palette)
   static const _darkSyntaxKeyword = Color(0xFFFF79C6);
   static Color get syntaxKeyword =>
       _lightMode ? Color(0xFFFF79C6) : _darkSyntaxKeyword;
@@ -206,8 +190,6 @@ abstract final class KrithaColors {
       _lightMode ? Color(0xFFF8F8F2) : _darkSyntaxEmbedded;
 }
 
-// Border Radii
-
 abstract final class KrithaRadius {
   static const xs = 4.0;
   static const sm = 8.0;
@@ -218,8 +200,6 @@ abstract final class KrithaRadius {
   static const xl2 = 28.0;
   static const full = 100.0;
 }
-
-// Typography
 
 abstract final class KrithaText {
   static const size2xs = 12.0;
@@ -237,7 +217,6 @@ abstract final class KrithaText {
   static const lineHeightBase = 26.0;
   static const lineHeightRatio = lineHeightBase / sizeBase;
 
-  // Shared text styles
   static const body = TextStyle(
     fontSize: sizeBase,
     height: 1.55,
@@ -260,8 +239,6 @@ abstract final class KrithaText {
   );
 }
 
-// Spacing scale
-
 abstract final class KrithaSpacing {
   static const s2 = 2.0;
   static const s4 = 4.0;
@@ -278,14 +255,11 @@ abstract final class KrithaSpacing {
   static const s30 = 30.0;
   static const s32 = 32.0;
 
-  // Semantic aliases used by more than one surface.
   static const screenPadding = s16;
   static const sidebarPadding = s24;
   static const messageGap = s8;
   static const composerPadding = s12;
 }
-
-// Shared component dimensions
 
 abstract final class KrithaDimensions {
   static const headerHeight = 60.0;
@@ -312,6 +286,7 @@ abstract final class KrithaDimensions {
 
   static const actionButtonSize = 40.0;
   static const sidebarActionRowHeight = 56.0;
+  static const sidebarSubActionRowHeight = 48.0;
   static const sidebarSessionRowHeight = 56.0;
   static const liveTalkCircleSize = 48.0;
   static const liveTalkPillHeight = 50.0;
@@ -352,8 +327,6 @@ abstract final class KrithaMotion {
   static const composer = Duration(milliseconds: 180);
   static const contextMenu = Duration(milliseconds: 180);
 }
-
-// Icon Sizes
 
 abstract final class KrithaIcons {
   static const xs = 14.0;
@@ -440,8 +413,6 @@ abstract final class KrithaInputs {
 void watchKrithaPalette(BuildContext context) {
   KrithaColors.setLightMode(Theme.of(context).brightness == Brightness.light);
 }
-
-// ThemeData builder
 
 ThemeData buildKrithaTheme() {
   final scheme = ColorScheme(

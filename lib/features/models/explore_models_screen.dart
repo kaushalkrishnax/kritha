@@ -14,14 +14,15 @@ import 'widgets/catalogue_widgets.dart';
 import 'widgets/hugging_face_token_dialog.dart';
 import 'widgets/workspace_header.dart';
 
-class ModelsScreen extends ConsumerStatefulWidget {
-  const ModelsScreen({super.key});
+class ExploreModelsScreen extends ConsumerStatefulWidget {
+  const ExploreModelsScreen({super.key});
 
   @override
-  ConsumerState<ModelsScreen> createState() => _ModelsScreenState();
+  ConsumerState<ExploreModelsScreen> createState() =>
+      _ExploreModelsScreenState();
 }
 
-class _ModelsScreenState extends ConsumerState<ModelsScreen> {
+class _ExploreModelsScreenState extends ConsumerState<ExploreModelsScreen> {
   final _searchController = TextEditingController();
   Timer? _debounce;
 
@@ -140,15 +141,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
             child: Column(
               children: [
                 WorkspaceHeader(
-                  title: 'Models',
+                  title: 'Explore Models',
                   onBack: () => goBackOrExit(context),
                   actions: [
-                    WorkspaceIconButton(
-                      icon: HugeIcons.strokeRoundedFilterHorizontal,
-                      tooltip: 'Active models',
-                      onTap: () => context.push('/models/active'),
-                    ),
-                    SizedBox(width: KrithaSpacing.s8),
                     Builder(
                       builder: (buttonContext) => WorkspaceIconButton(
                         icon: HugeIcons.strokeRoundedEllipsisVertical,
