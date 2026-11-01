@@ -45,6 +45,10 @@ final class InvalidRequestException extends IntelligenceException {
   const InvalidRequestException(super.message);
 }
 
+final class UnsupportedTaskException extends IntelligenceException {
+  const UnsupportedTaskException(super.message);
+}
+
 /// The runtime accepted the request but generation failed.
 final class InferenceFailedException extends IntelligenceException {
   const InferenceFailedException(

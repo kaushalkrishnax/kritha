@@ -110,7 +110,7 @@ Release artifacts are built locally under `dist/` and published on the
 | Secrets | Android Keystore / Apple Keychain via secure storage |
 | Local AI | LiteRT-LM · sherpa ONNX |
 | Wake word | Edge Impulse (Android foreground service) |
-| Cloud LLM | OpenAI-compatible APIs · Anthropic Messages · Gemini |
+| Cloud inference | Anthropic Messages · Gemini · xAI · DeepSeek · Qwen/DashScope · Hugging Face · Mistral · custom OpenAI-compatible endpoints |
 | Catalogue | Hugging Face Hub API |
 | Tooling | Dart · Node.js release scripts |
 
@@ -190,13 +190,16 @@ command to create a local tag, and push the tag after reviewing it.
 
 ```bash
 dart format lib test
-flutter analyze
+flutter analyze --no-pub
 flutter test
 ```
 
 The test suite covers the design system, responsive shell, composer, sessions,
 persistence, intelligence contracts, model catalogue and filters, artifact
-setup and downloads, providers, secure storage and shared widgets.
+setup and downloads, provider-specific discovery, task-aware routing, local
+runtime selection, typed modality validation, Active Models persistence,
+providers, secure storage and shared widgets. The current complete suite is
+337 tests.
 
 `pubspec.yaml` pins `shared_preferences_foundation` 2.5.7 because its 2.6.0
 Swift source uses trailing commas that Xcode 16.2's Swift 6.0.3 rejects. Remove

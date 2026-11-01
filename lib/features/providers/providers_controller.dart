@@ -122,7 +122,9 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
       if (isBuiltInProviderId(entry.key)) continue;
       final saved = entry.value;
       final alias = _storedAliasFor(entry.key, saved);
-      final definition = customProviderDefinition(id: entry.key, alias: alias);
+      final definition =
+          legacyProviderDefinitionFor(entry.key) ??
+          customProviderDefinition(id: entry.key, alias: alias);
       final credential = await credentialStore.read(entry.key);
       final hasCredential = credential != null;
       configurations[entry.key] = ProviderConfiguration(

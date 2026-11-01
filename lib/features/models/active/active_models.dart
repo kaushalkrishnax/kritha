@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../intelligence/model_configuration.dart';
 import '../../intelligence/models/model_descriptor.dart';
+import '../../intelligence/models/model_capabilities.dart';
 import '../../intelligence/runtime_ids.dart';
+import '../../intelligence/models/task_registry.dart';
 import '../../providers/provider_definition.dart';
 import '../../providers/providers_controller.dart';
 import '../catalogue/catalogue_model.dart';
@@ -20,6 +22,8 @@ class ActiveModelAssignment {
     required this.runtimeId,
     required this.activatedAt,
     this.sourceId = localProviderId,
+    this.taskId,
+    this.enabledTaskIds = const [],
   });
 
   final ModelCapability capability;
@@ -28,6 +32,16 @@ class ActiveModelAssignment {
   final String runtimeId;
   final DateTime activatedAt;
   final String sourceId;
+  final String? taskId;
+  final List<String> enabledTaskIds;
+
+  bool get isMultimodal => enabledTaskIds.length > 1;
+
+  String get canonicalTaskId =>
+      taskId ??
+      (enabledTaskIds.isEmpty
+          ? _canonicalTaskIdForCapability(capability)
+          : enabledTaskIds.first);
 
   Map<String, dynamic> toJson() => {
     'capability': capability.name,
@@ -36,6 +50,10 @@ class ActiveModelAssignment {
     'runtimeId': runtimeId,
     'activatedAt': activatedAt.toIso8601String(),
     'sourceId': sourceId,
+    'taskId': canonicalTaskId,
+    'enabledTaskIds': enabledTaskIds.isEmpty
+        ? [canonicalTaskId]
+        : enabledTaskIds,
   };
 
   factory ActiveModelAssignment.fromJson(
@@ -62,9 +80,47 @@ class ActiveModelAssignment {
       activatedAt:
           DateTime.tryParse('${json['activatedAt']}') ?? DateTime.now(),
       sourceId: sourceId,
+      taskId: json['taskId'] is String ? json['taskId'] as String : null,
+      enabledTaskIds: _stringList(json['enabledTaskIds']),
     );
   }
 }
+
+List<String> _stringList(Object? value) => value is List
+    ? [
+        for (final item in value)
+          if (item is String && item.isNotEmpty) item,
+      ]
+    : const [];
+
+Set<InferenceCapability> inferenceCapabilitiesForTaskId(String taskId) {
+  final task = AiTaskId.fromId(taskId);
+  return task == null ? const {} : capabilitiesForTask(task);
+}
+
+InferenceCapability? routingCapabilityForTaskId(String taskId) {
+  return switch (AiTaskId.fromId(taskId)) {
+    AiTaskId.textGeneration => InferenceCapability.textGeneration,
+    AiTaskId.imageTextToText => InferenceCapability.imageInput,
+    AiTaskId.videoTextToText => null,
+    AiTaskId.audioUnderstanding ||
+    AiTaskId.automaticSpeechRecognition => InferenceCapability.audioInput,
+    _ => null,
+  };
+}
+
+String _canonicalTaskIdForCapability(ModelCapability capability) =>
+    switch (capability) {
+      ModelCapability.text => AiTaskId.textGeneration.id,
+      ModelCapability.vision => AiTaskId.imageTextToText.id,
+      ModelCapability.imageGeneration => AiTaskId.textToImage.id,
+      ModelCapability.speechRecognition =>
+        AiTaskId.automaticSpeechRecognition.id,
+      ModelCapability.textToSpeech => AiTaskId.textToSpeech.id,
+      ModelCapability.audio => AiTaskId.audioUnderstanding.id,
+      ModelCapability.video => AiTaskId.videoTextToText.id,
+      ModelCapability.embeddings => AiTaskId.embeddings.id,
+    };
 
 String _canonicalSourceId(String? raw) {
   final value = raw?.trim();
@@ -155,8 +211,29 @@ class SharedPreferencesActiveModelStore implements ActiveModelStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return const {};
       final result = <ModelCapability, ActiveModelAssignment>{};
+      final taskAssignments = decoded['tasks'];
+      if (taskAssignments is Map) {
+        for (final entry in taskAssignments.entries) {
+          final taskId = '${entry.key}';
+          final capability = _capabilityForTaskId(taskId);
+          final value = entry.value;
+          if (capability == null || value is! Map) continue;
+          try {
+            result[capability] = ActiveModelAssignment.fromJson(capability, {
+              for (final item in value.entries) '${item.key}': item.value,
+              'taskId': taskId,
+            });
+          } on FormatException {
+            continue;
+          }
+        }
+        if (result.isNotEmpty) return Map.unmodifiable(result);
+      }
+      final legacyAssignments = decoded['assignments'] is Map
+          ? decoded['assignments'] as Map
+          : decoded;
       for (final capability in ModelCapability.values) {
-        final value = decoded[capability.name];
+        final value = legacyAssignments[capability.name];
         if (value is! Map) continue;
         try {
           result[capability] = ActiveModelAssignment.fromJson(capability, {
@@ -181,14 +258,46 @@ class SharedPreferencesActiveModelStore implements ActiveModelStore {
       await preferences.remove(preferenceKey);
       return;
     }
+    final tasks = <String, dynamic>{};
+    for (final entry in assignments.entries) {
+      final assignment = entry.value;
+      final taskIds = assignment.enabledTaskIds.isEmpty
+          ? [assignment.canonicalTaskId]
+          : assignment.enabledTaskIds;
+      for (final taskId in taskIds) {
+        tasks[taskId] = {...assignment.toJson(), 'taskId': taskId};
+      }
+    }
     await preferences.setString(
       preferenceKey,
       jsonEncode({
-        for (final entry in assignments.entries)
-          entry.key.name: entry.value.toJson(),
+        'version': 2,
+        'tasks': tasks,
+        'assignments': {
+          for (final entry in assignments.entries)
+            entry.key.name: entry.value.toJson(),
+        },
       }),
     );
   }
+}
+
+ModelCapability? _capabilityForTaskId(String taskId) {
+  final task = AiTaskId.fromId(taskId);
+  return switch (task) {
+    AiTaskId.textGeneration => ModelCapability.text,
+    AiTaskId.imageTextToText => ModelCapability.vision,
+    AiTaskId.videoTextToText => ModelCapability.video,
+    AiTaskId.audioUnderstanding => ModelCapability.audio,
+    AiTaskId.automaticSpeechRecognition => ModelCapability.speechRecognition,
+    AiTaskId.textToSpeech => ModelCapability.textToSpeech,
+    AiTaskId.textToImage ||
+    AiTaskId.imageEditing => ModelCapability.imageGeneration,
+    AiTaskId.audioGeneration => ModelCapability.audio,
+    AiTaskId.videoGeneration => ModelCapability.video,
+    AiTaskId.embeddings => ModelCapability.embeddings,
+    null => null,
+  };
 }
 
 class ActiveModelException implements Exception {
@@ -311,7 +420,18 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     required String modelId,
     required String displayName,
     required String runtimeId,
+    String? taskId,
+    List<String> enabledTaskIds = const [],
   }) async {
+    final canonicalTaskIds = enabledTaskIds.isEmpty
+        ? [taskId ?? _canonicalTaskIdForCapability(capability)]
+        : [
+            for (final value in enabledTaskIds)
+              if (AiTaskId.fromId(value) != null) value,
+          ];
+    if (canonicalTaskIds.isEmpty) {
+      throw const ActiveModelException('Select at least one supported task.');
+    }
     final canonicalSourceId = _canonicalSourceId(sourceId);
     final canonicalRuntimeId = _canonicalRuntimeId(
       canonicalSourceId,
@@ -347,6 +467,15 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
           'This model is no longer available for that capability.',
         );
       }
+      final discoveredTasks = model.first.tasks;
+      if (discoveredTasks.isNotEmpty &&
+          canonicalTaskIds.any(
+            (taskId) => !discoveredTasks.any((task) => task.task.id == taskId),
+          )) {
+        throw const ActiveModelException(
+          'This model does not explicitly support every selected task.',
+        );
+      }
     }
     final current = state.value;
     if (current == null) return;
@@ -357,6 +486,8 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
       runtimeId: canonicalRuntimeId,
       sourceId: canonicalSourceId,
       activatedAt: DateTime.now(),
+      taskId: canonicalTaskIds.first,
+      enabledTaskIds: List.unmodifiable(canonicalTaskIds),
     );
     final next = Map<ModelCapability, ActiveModelAssignment>.from(
       current.assignments,

@@ -1,6 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'ai_input.dart';
 import 'model_capabilities.dart';
+import 'task_registry.dart';
 
 part 'ai_request.freezed.dart';
 part 'ai_request.g.dart';
@@ -25,7 +27,6 @@ abstract class AiMessage with _$AiMessage {
       AiMessage(role: AiRole.assistant, text: text);
 }
 
-/// Sampling parameters forwarded to the runtime.
 @freezed
 abstract class AiGenerationOptions with _$AiGenerationOptions {
   const factory AiGenerationOptions({
@@ -40,7 +41,6 @@ abstract class AiGenerationOptions with _$AiGenerationOptions {
       _$AiGenerationOptionsFromJson(json);
 }
 
-/// Independent inference request entity uncoupled from persistence.
 @freezed
 abstract class AiRequest with _$AiRequest {
   const AiRequest._();
@@ -50,15 +50,25 @@ abstract class AiRequest with _$AiRequest {
     @Default(AiGenerationOptions()) AiGenerationOptions options,
     Map<String, dynamic>? responseSchema,
     String? modelId,
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(<AiInput>[])
+    List<AiInput> inputs,
     @Default(<String, String>{}) Map<String, String> metadata,
   }) = _AiRequest;
 
   factory AiRequest.fromJson(Map<String, dynamic> json) =>
       _$AiRequestFromJson(json);
 
+  /// Canonical task carried by the request metadata for backwards-compatible
+  /// persistence. Requests without a task remain text-generation requests.
+  AiTaskId? get requestedTask {
+    final value = metadata['task_id'];
+    return value == null ? AiTaskId.textGeneration : AiTaskId.fromId(value);
+  }
+
   /// Capabilities a provider must declare before it may serve this request.
   Set<InferenceCapability> get requiredCapabilities => {
-    InferenceCapability.textGeneration,
+    if (requestedTask != null) ...capabilitiesForTask(requestedTask!),
     if (responseSchema != null) InferenceCapability.structuredOutput,
   };
 }

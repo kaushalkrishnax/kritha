@@ -74,16 +74,6 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
     testPath: null,
   ),
   InferenceProviderDefinition(
-    id: 'openai',
-    runtimeId: openAiRuntimeId,
-    name: 'OpenAI',
-    description: 'GPT models through the OpenAI Chat Completions API.',
-    kind: ProviderKind.cloud,
-    authStyle: ProviderAuthStyle.bearer,
-    defaultBaseUrl: 'https://api.openai.com/v1',
-    requiresCredential: true,
-  ),
-  InferenceProviderDefinition(
     id: 'anthropic',
     runtimeId: anthropicRuntimeId,
     name: 'Anthropic',
@@ -115,17 +105,6 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
     requiresCredential: true,
   ),
   InferenceProviderDefinition(
-    id: 'groq',
-    runtimeId: openAiRuntimeId,
-    name: 'Groq',
-    description:
-        'Fast hosted inference through the Groq OpenAI-compatible API.',
-    kind: ProviderKind.cloud,
-    authStyle: ProviderAuthStyle.bearer,
-    defaultBaseUrl: 'https://api.groq.com/openai/v1',
-    requiresCredential: true,
-  ),
-  InferenceProviderDefinition(
     id: 'deepseek',
     runtimeId: openAiRuntimeId,
     name: 'DeepSeek',
@@ -133,16 +112,6 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
     kind: ProviderKind.cloud,
     authStyle: ProviderAuthStyle.bearer,
     defaultBaseUrl: 'https://api.deepseek.com/v1',
-    requiresCredential: true,
-  ),
-  InferenceProviderDefinition(
-    id: 'perplexity',
-    runtimeId: openAiRuntimeId,
-    name: 'Perplexity AI',
-    description: 'Perplexity models through the OpenAI-compatible API.',
-    kind: ProviderKind.cloud,
-    authStyle: ProviderAuthStyle.bearer,
-    defaultBaseUrl: 'https://api.perplexity.ai',
     requiresCredential: true,
   ),
   InferenceProviderDefinition(
@@ -177,6 +146,44 @@ const builtInInferenceProviders = <InferenceProviderDefinition>[
   ),
 ];
 
+const removedDefaultProviderIds = {'openai', 'groq', 'perplexity'};
+
+InferenceProviderDefinition? legacyProviderDefinitionFor(String id) {
+  return switch (id) {
+    'openai' => const InferenceProviderDefinition(
+      id: 'openai',
+      runtimeId: openAiRuntimeId,
+      name: 'OpenAI (legacy)',
+      description: 'A previously configured OpenAI-compatible provider.',
+      kind: ProviderKind.cloud,
+      authStyle: ProviderAuthStyle.bearer,
+      defaultBaseUrl: 'https://api.openai.com/v1',
+      requiresCredential: true,
+    ),
+    'groq' => const InferenceProviderDefinition(
+      id: 'groq',
+      runtimeId: openAiRuntimeId,
+      name: 'Groq (legacy)',
+      description: 'A previously configured Groq-compatible provider.',
+      kind: ProviderKind.cloud,
+      authStyle: ProviderAuthStyle.bearer,
+      defaultBaseUrl: 'https://api.groq.com/openai/v1',
+      requiresCredential: true,
+    ),
+    'perplexity' => const InferenceProviderDefinition(
+      id: 'perplexity',
+      runtimeId: openAiRuntimeId,
+      name: 'Perplexity (legacy)',
+      description: 'A previously configured Perplexity-compatible provider.',
+      kind: ProviderKind.cloud,
+      authStyle: ProviderAuthStyle.bearer,
+      defaultBaseUrl: 'https://api.perplexity.ai',
+      requiresCredential: true,
+    ),
+    _ => null,
+  };
+}
+
 /// Built-in providers and legacy custom template retained for compatibility.
 const supportedInferenceProviders = <InferenceProviderDefinition>[
   ...builtInInferenceProviders,
@@ -196,7 +203,7 @@ InferenceProviderDefinition? providerDefinitionFor(String id) {
   for (final definition in supportedInferenceProviders) {
     if (definition.id == id) return definition;
   }
-  return null;
+  return legacyProviderDefinitionFor(id);
 }
 
 bool isBuiltInProviderId(String id) {

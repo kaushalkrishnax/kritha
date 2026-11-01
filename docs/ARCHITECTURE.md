@@ -197,31 +197,70 @@ store for choices such as muted confirmation prompts.
 
 ## Intelligence
 
-`lib/features/intelligence/` defines the inference request/response contracts,
-a minimal request router, the application-facing engine, a LiteRT-LM adapter
-and the persisted model selection:
+`lib/features/intelligence/` owns canonical task metadata, typed request
+contracts, provider/runtime selection and lifecycle management. The main
+composition is `IntelligenceEngine` -> `RequestRouter` -> an
+`InferenceProvider`; the router never retries or silently selects another
+model.
 
-- Settings stores a validated `.litertlm` path (present, regular file,
-  non-empty) and reports the file separately from the loaded engine. Selecting
-  a file does not load weights. On mobile, the platform picker may hand back a
-  cached copy; the saved path is revalidated before every request.
-- `ChatController.send` delegates persisted-history mapping to
-  `ConversationContextBuilder`, streams the reply through the engine and only
-  saves the assistant turn after a successful completion. Cancelling stops
-  native generation and discards the partial text; retrying regenerates for the
-  existing user turn without saving it again.
-- Model loading happens on the first request. Settings combines file validation
-  with an explicit engine lifecycle (file ready, loading, loaded, failed,
-  released) and never initializes the runtime just to render diagnostics.
-- Attachments are persisted but not sent to the model; a text prompt is
-  required. LiteRT-LM conversations are created per request because reuse across
-  turns has no verified reset/cancel lifecycle.
+### Tasks and metadata
+
+`models/task_registry.dart` is the canonical task registry. `AiTaskId` exposes
+stable string identifiers such as `text_generation`, `image_text_to_text`,
+`automatic_speech_recognition` and `embeddings`. A task definition keeps its
+display name, description, input/output modalities and whether Kritha currently
+has an executable pipeline. Tasks, modalities and features are separate:
+features include reasoning, tool calling and structured output, while
+modalities include text, image, audio and video.
+
+The registry distinguishes a recognised task from an architecture-supported
+task and from an executable task. Text generation is currently the only
+executable task. Other registered tasks can be identified and validated, but
+return `UnsupportedTaskException` before inference when no request pipeline
+exists.
+
+`TaskDeclaration` records metadata confidence (`explicit`, `partial` or
+`unknown`), source (`provider`, `huggingFace` or `manual`), upstream values and
+refresh time. Missing provider metadata remains unknown; it is never promoted
+to text support. `CatalogueModel` maps Hugging Face pipeline tags through this
+registry and preserves the original upstream tag.
+
+### Requests, validation and routing
+
+`AiRequest` retains the existing text-chat message contract and can carry typed
+`AiInput` values: `AiTextInput`, `AiImageInput`, `AiAudioInput` and
+`AiVideoInput` (bytes or a reference). Binary content is not placed in string
+metadata. `AiRequestValidator` checks message order, sampler bounds, requested
+task, required modalities and binary input validity. The current text pipeline
+rejects binary media, while recognised non-text tasks fail explicitly because
+their execution pipelines are not implemented.
+
+`RequestRouter` resolves the canonical task's Active Models target, provider
+and exact model identity, then verifies declared capabilities. When Active
+Models has task assignments, an unassigned task is unavailable rather than
+falling through to another model. `AiResponse` streams cumulative text
+snapshots; normal stream completion, cancellation and stream errors remain
+distinct. Providers release resources on completion, cancellation, failure or
+disposal.
+
+### Persistence and chat lifecycle
+
+Settings persists and revalidates a non-empty `.litertlm` path before execution.
+`ChatController` maps stored history into a request, starts loading lazily on
+the first request, saves the assistant turn only after successful completion,
+and discards partial output on cancellation. LiteRT-LM conversations are
+created per request because reuse has no verified reset/cancel lifecycle.
 
 ## Models workspace
 
-`lib/features/models/` provides a Hub-backed discovery workspace and a separate
-Active Models surface:
+`lib/features/models/` provides a three-destination workspace. Active Models and
+Provider Models share a management scaffold; Explore opens the Hub-backed
+discovery surface:
 
+- On compact and medium screens Active Models and Provider Models use a tappable
+  title menu to switch destinations and keep a right-aligned Explore Models
+  action in the header. Back pops the route. Wide screens nest both destinations
+  under Models in the expandable docked sidebar and omit the back control.
 - Explore searches `https://huggingface.co/api/models` with capability filters,
   sort order, an editable list of Hub filters and `Link`-header cursor
   pagination. The default `filter=litert-lm` tag keeps the catalogue focused
@@ -294,10 +333,16 @@ Active Models surface:
 - A dedicated Dio client sends an optional Hugging Face token as a Bearer
   header. It has no request logging, and the token is stored in platform secure
   storage, never shown after saving, and can be replaced or removed.
-- Active Models persists capability assignments in SharedPreferences. Local
-  inventory and connected provider models can be assigned per capability; only
-  the validated local LiteRT-LM text path has an execution path in this build,
-  so provider-hosted routing and non-text execution are not claimed.
+- Active Models persists versioned canonical task assignments in
+  SharedPreferences. Legacy capability-keyed records are read and migrated; a
+  legacy mirror remains for older installations. Assignments retain
+  provider-aware model identity, a single task or an individually enabled
+  multimodal task set. Multimodal assignments take priority for enabled tasks,
+  while invalid or stale records remain diagnosable instead of being silently
+  discarded. The existing UI still presents capability-oriented slots while
+  the backend stores canonical task IDs.
+- Provider Models lists normalized discovery records grouped by configured
+  provider. It does not cache or invent model capabilities.
 - Custom catalogue is a gated Pro explanation screen only. It does not configure
   or contact an endpoint.
 
@@ -306,10 +351,30 @@ Active Models surface:
 `lib/features/providers/` configures inference connections independently of the
 Hub catalogue:
 
-- Entries cover the local LiteRT-LM runtime plus OpenAI, Anthropic, Google
-  Gemini, xAI, Groq, DeepSeek, Perplexity, Qwen, Hugging Face, Mistral and
-  user-created OpenAI-compatible endpoints. All but Anthropic use a shared
-  OpenAI-compatible adapter; Anthropic keeps its Messages API adapter.
+- Entries cover the local LiteRT-LM runtime plus Anthropic, Google Gemini, xAI,
+  DeepSeek, Qwen/DashScope, Hugging Face, Mistral and user-created
+  OpenAI-compatible endpoints. OpenAI, Groq and Perplexity are not default
+  built-ins. Legacy saved records for those IDs can still be restored through
+  legacy definitions without appearing in the default provider list.
+- Discovery is independent from inference. Anthropic uses native `GET /v1/models`
+  with `x-api-key` and `anthropic-version` headers and follows `has_more` /
+  `after_id`. Gemini uses native `GET
+  https://generativelanguage.googleapis.com/v1beta/models` with an API-key
+  query parameter and `nextPageToken`. xAI queries separate native language,
+  image-generation and video-generation catalogues. DeepSeek uses
+  `https://api.deepseek.com/models`, independent of the `/v1` inference base
+  URL. Qwen uses the configured DashScope regional host and paged native
+  `/api/v1/models`. Hugging Face uses
+  `https://router.huggingface.co/v1/models` for chat models while the Hub
+  catalogue remains the broader task source. Mistral uses its native `/v1/models`
+  listing with bearer authentication.
+- Discovery normalizes model identity, display name, task declarations,
+  modalities, features, context/output limits, raw provider metadata,
+  provenance and confidence. Missing declarations remain unknown; partial and
+  explicit unsupported task fields are preserved. Native provider metadata is
+  not replaced by a generic `/models` assumption. The custom OpenAI-compatible
+  provider supports the generic models/chat shape only and does not gain native
+  provider metadata or unsupported task pipelines.
 - The first settings load renders provider-shaped skeletons; only screen-level
   content is skeletonized, never individual buttons or labels.
 - Every provider card keeps one action row at natural width: Test and Usage on
@@ -318,9 +383,9 @@ Hub catalogue:
   primary action; Configure uses the neutral outlined treatment of Test/Usage.
 - Credentials live in secure storage under provider-specific keys; the Hub token
   is a separate secret. Saved keys are never rendered back into the UI.
-- Connection tests perform real HTTP requests to each provider's models
-  endpoint and report the actual status. They do not route chat through the
-  provider or claim inference success.
+- Connection tests and discovery perform real HTTP requests and report actual
+  status/model metadata. They do not route chat through the provider or claim
+  unsupported inference success.
 - Usage is a local request counter per provider stored in SharedPreferences.
   The popup reports only recorded counts; it never estimates spend or claims
   remote billing figures.
@@ -351,7 +416,7 @@ lib/
       widgets/                 Header, sidebar, message list, Markdown,
                                attachments, response actions, composer/
     models/                    Hub catalogue, filters, token, details,
-                               Active Models, Model Setup Wizard
+                               Active/Provider/Explore Models, Model Setup Wizard
     providers/                 Inference connections, credentials, tests
     settings/                  Runtime probes, model selection and history controls
     intelligence/              Inference contracts, router, engine, LiteRT-LM
@@ -378,10 +443,11 @@ These are deliberate scope boundaries, not hidden stubs:
   Files, Plugins and Think harder; only Photos and Files are enabled. Camera,
   Plugins and Think harder are disabled rather than shown as dead actions.
   Read-aloud is a visible TTS stub.
-- **Real assistant engine** — the chat flow is wired to the intelligence layer
-  and a persisted `.litertlm` path, but no model ships with the app and no real
-  generation has been verified in this workspace. Text-only prompts are
-  supported; attachment contents are not sent to the model.
+- **Real assistant engine** — the chat flow is wired to the unified local
+  provider and registered LiteRT-LM runtime, but no model ships with the app
+  and no production-weight generation has been verified in this workspace.
+  Text generation is executable; registered non-text tasks return an explicit
+  unsupported-task result.
 - **Conversation reuse** — each request creates a fresh LiteRT-LM conversation
   and replays the persisted history. Reusing one native conversation per chat is
   deferred until reset/cancel lifecycle behaviour is verified on a device.
@@ -398,12 +464,12 @@ These are deliberate scope boundaries, not hidden stubs:
 - **Hub model download and activation** — Explore, search, filters, details,
   files and model cards use the real Hub API. A Hub repository is never treated
   as downloaded or runtime-compatible; only an already validated local
-  `.litertlm` file can be assigned to the text capability.
-- **Hosted provider routing** — providers can be connected, configured and
-  tested with real HTTP requests, but chat still uses the local intelligence
-  engine.
-- **Active model routing** — capability assignments are persisted and shown with
-  honest status, but the single local text model is still selected in Settings.
-  Multi-model routing and non-text execution paths are not implemented.
+  `.litertlm` artifact can be selected for the local text runtime.
+- **Hosted provider execution** — retained providers have normalized discovery
+  and existing inference adapters, but remote execution still depends on a
+  configured adapter/model route and does not make unsupported tasks runnable.
+- **Multimodal execution** — typed image/audio/video inputs, task metadata and
+  validation are implemented, but no corresponding production request pipeline
+  is implemented yet.
 - **Custom catalogue** — the entry is a gated Pro explanation screen; endpoint
   configuration, response schemas and billing are not implemented.

@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/intelligence_exception.dart';
+import 'package:kritha/features/intelligence/models/ai_input.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
 import 'package:kritha/features/intelligence/request_validation.dart';
 
@@ -141,4 +144,35 @@ void main() {
       returnsNormally,
     );
   });
+
+  test(
+    'validates typed modality inputs without routing binary media as text',
+    () {
+      final imageRequest = AiRequest(
+        messages: [AiMessage.user('Describe this image')],
+        metadata: {'task_id': 'image_text_to_text'},
+        inputs: [
+          AiImageInput(
+            bytes: Uint8List.fromList([1, 2, 3]),
+            mimeType: 'image/png',
+          ),
+        ],
+      );
+      expect(
+        () => validator.validate(imageRequest),
+        throwsA(isA<UnsupportedTaskException>()),
+      );
+
+      final binaryTextRequest = AiRequest(
+        messages: [AiMessage.user('Hello')],
+        inputs: [
+          AiAudioInput(bytes: Uint8List.fromList([1]), mimeType: 'audio/wav'),
+        ],
+      );
+      expect(
+        () => validator.validate(binaryTextRequest),
+        throwsA(isA<UnsupportedTaskException>()),
+      );
+    },
+  );
 }

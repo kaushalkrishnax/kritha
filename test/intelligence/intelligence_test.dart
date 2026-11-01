@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/intelligence/inference_provider.dart';
 import 'package:kritha/features/intelligence/intelligence_engine.dart';
 import 'package:kritha/features/intelligence/intelligence_exception.dart';
+import 'package:kritha/features/intelligence/local_inference_provider.dart';
 import 'package:kritha/features/intelligence/model_configuration.dart';
 import 'package:kritha/features/intelligence/model_lifecycle.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
@@ -945,7 +946,10 @@ void main() {
         await container.read(modelConfigurationProvider.future);
         final provider = container.read(inferenceProvidersProvider).single;
 
-        await expectLater(provider.initialize(), throwsA(isA<StateError>()));
+        await expectLater(
+          provider.initialize(),
+          throwsA(isA<ProviderUnavailableException>()),
+        );
 
         final failed = container.read(modelLifecycleProvider);
         expect(failed.stage, ModelLifecycleStage.initializationFailed);
@@ -1173,7 +1177,7 @@ void main() {
       expect(response.text, 'Assigned local answer.');
       expect(
         container.read(inferenceProvidersProvider).single,
-        isA<LiteRtLmProvider>(),
+        isA<LocalInferenceProvider>(),
       );
     });
 

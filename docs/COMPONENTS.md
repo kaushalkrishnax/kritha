@@ -38,24 +38,29 @@ ChatComposer
        └─ DictationBar → recording_waveform.dart → transcribe seam
             (no audio attachment; the temp file is deleted)
 
-Intelligence (wired to chat; no model bundled)
-  intelligenceEngineProvider → RequestRouter → LiteRtLmProvider
-    └─ NativeLiteRtLmEngine → litertlm Engine/Conversation
-         (configuredModelProvider comes from the validated Settings selection;
+Intelligence (task-aware; no model bundled)
+  intelligenceEngineProvider → RequestRouter → InferenceProvider
+    ├─ LocalInferenceProvider → RuntimeRegistry → LiteRtLmRuntime
+    │    └─ NativeLiteRtLmEngine → litertlm Engine/Conversation
+    └─ retained remote adapters (Anthropic or OpenAI-compatible protocol)
+         (configuredModelProvider supplies the validated local artifact;
           nothing loads until the first request)
 
-Models (Hub discovery, no runtime claim)
-  ModelsScreen → catalogueProvider → ModelCatalogue → HuggingFaceHubClient
-    ├─ modelDetailsProvider (record, file tree, README)
-    ├─ publisherAvatarProvider (one cached avatar lookup per publisher)
-    └─ huggingFaceTokenProvider → SecureStorageService
-         (Bearer only to the Hub; separate Hugging Face key)
+Models workspace (Hub discovery, no runtime claim)
+  ModelsWorkspaceScaffold → Active Models | Provider Models
+    └─ Explore Models action → ExploreModelsScreen
+         → catalogueProvider → ModelCatalogue → HuggingFaceHubClient
+         ├─ modelDetailsProvider (record, file tree, README)
+         ├─ publisherAvatarProvider (one cached avatar lookup per publisher)
+         └─ huggingFaceTokenProvider → SecureStorageService
+              (Bearer only to the Hub; separate Hugging Face key)
 
 Active Models
-  activeModelsProvider → ActiveModelStore (SharedPreferences)
-    └─ status is derived from local inventory and connected providers
+  activeModelsProvider → ActiveModelStore (versioned SharedPreferences)
+    ├─ canonical task assignments and legacy capability migration
+    └─ multimodal priority → task-specific routing targets
 
-Providers (configuration, not routing)
+Providers (discovery, configuration and routing inputs)
   providersControllerProvider → ProviderSettingsStore (SharedPreferences)
     ├─ ProviderCredentialStore → SecureStorageService (per-provider keys)
     ├─ providerUsageProvider → ProviderUsageStore (local request counts)
@@ -75,7 +80,7 @@ which point the session row is created with a title derived from that prompt.
 | `KrithaApp` | `lib/app.dart` | Real | Theme, router wiring. |
 | `ChatScreen` | `lib/features/chat/chat_screen.dart` | Real | Responsive shell, drawer/docked sidebar, session-change scroll, empty-chat state, loading/error screens, floating frosted composer and scroll-to-bottom arrow. `_KeyboardBackGuard` dismisses the IME before allowing a route pop. |
 | `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer; **wake-word runtime is a stub**. |
-| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows in the order New chat, Library, Models, Providers, Plugins, More (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the compact rail repeats the same order as icon buttons. |
+| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows in the order New chat, Library, Models, Providers, Plugins, More (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the docked Models row expands to Active Models and Provider Models and marks the current destination; the compact rail repeats the same order as icon buttons. |
 | `ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. Also opened from Settings → Privacy. |
 | `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and confirmed history clearing are real. The model card validates the file and reports it separately from the loaded engine. Clearing history leaves an empty install empty. Privacy groups Archived chats and the Permissions stub. The back control is the shared borderless `WorkspaceBackButton`. The remaining settings toggles are not implemented (**gap**). |
 | `_EmptyChat` | `chat_screen.dart` | Real | Shown for a new, unsaved chat. |
@@ -138,26 +143,29 @@ which point the session row is created with a title derived from that prompt.
 | `DeviceProbe` | `lib/services/device_probe.dart` | Real | Reports platform, OS version, ABI, processor count and locale without a platform plugin. |
 | `databaseProvider`, `runtimeStatusProvider`, `dioProvider` | `lib/core/providers.dart` | Real | `dioProvider` is configured but unused by design. |
 
-## Intelligence (Phase 2 wiring)
+## Intelligence backend
 
-Chat sends through the engine when a validated model file is configured. No
-model ships with the app, nothing loads at startup, and no real generation has
-been verified in this workspace.
+Chat sends through the task-aware engine when an assignment and validated
+provider/runtime are available. No model ships with the app, nothing loads at
+startup, and production-weight generation has not been verified in this
+workspace. Text generation is executable; registered non-text tasks remain
+explicit unsupported-task results.
 
 | Component | File | Status | Notes |
 | --- | --- | --- | --- |
-| `AiMessage`, `AiRole`, `AiGenerationOptions`, `AiRequest` | `lib/features/intelligence/models/ai_request.dart` | Real (contract) | Freezed + JSON. Text turns, sampler options, optional response schema, optional `modelId`, string metadata. `requiredCapabilities` derives text + structured output. |
+| `AiMessage`, `AiRole`, `AiGenerationOptions`, `AiRequest` | `lib/features/intelligence/models/ai_request.dart` | Real (contract) | Freezed + JSON for chat fields, sampler options, response schema, model identity and task metadata. Typed runtime inputs are `AiTextInput`, `AiImageInput`, `AiAudioInput` and `AiVideoInput` from `ai_input.dart`; binary inputs are not stored in string metadata. |
 | `AiResponse` | `lib/features/intelligence/models/ai_response.dart` | Real (contract) | Text, model id, measured latency, string metadata. Unary generation returns a completed response; stream events are cumulative partial snapshots and only a normally closed stream signals completion. No runtime types, no invented token counts. |
 | `ModelCapabilities` | `lib/features/intelligence/models/model_capabilities.dart` | Real (contract) | Declared, not probed. Empty by default; `textOnly` is the only shipped declaration. LiteRT-LM 0.0.14 cannot introspect modality support. |
 | `ModelDescriptor` | `lib/features/intelligence/models/model_descriptor.dart` | Real (contract) | Identity, display name, runtime id, capabilities and optional path. No handles, engine or download state. |
-| `IntelligenceException` hierarchy | `lib/features/intelligence/intelligence_exception.dart` | Real | Sealed `Exception` types: unavailable provider, unsupported capability, invalid request, failed inference. |
+| `IntelligenceException` hierarchy | `lib/features/intelligence/intelligence_exception.dart` | Real | Sealed failures for unavailable providers, unsupported capabilities/tasks, invalid requests and failed inference. |
 | `InferenceProvider`, `EngineLifecycle` | `lib/features/intelligence/inference_provider.dart` | Real (contract) | `id`, `descriptor`, observable lifecycle, `isInitialized`, `initialize/generate/stream/dispose`. Lifecycle distinguishes file-ready, initializing, loaded, failed, unavailable and disposed without implying inference success. Stream events carry cumulative text; cancelling the subscription stops generation. |
-| `AiRequestValidator` | `lib/features/intelligence/request_validation.dart` | Real | Checks message presence, non-empty text, system-message ordering, final user turn, optional model id and sampler bounds before routing or native execution. Capability checks stay in the router and provider. |
-| `RequestRouter` | `lib/features/intelligence/request_router.dart` | Real | Empty list → unavailable; optional `modelId` match; first provider declaring every required capability wins. No fallback or retry. |
+| `AiRequestValidator` | `lib/features/intelligence/request_validation.dart` | Real | Checks message order, sampler bounds, canonical task, typed input validity and required modalities before routing. Binary media is rejected by the current text-only executable pipeline. |
+| `RequestRouter` | `lib/features/intelligence/request_router.dart` | Real | Resolves task-specific Active Models targets, exact provider/model identity and declared capabilities. No fallback or retry; an unassigned task is unavailable. |
 | `IntelligenceEngine`, `IntelligenceStatus` | `lib/features/intelligence/intelligence_engine.dart` | Real (contract) | Runs `AiRequestValidator`, then delegates unary and streaming calls to the router. Status reports configured/loaded and the engine lifecycle only, never successful inference. |
 | `ModelLifecycle` | `lib/features/intelligence/model_lifecycle.dart` | Real (derived) | Combines file validation with the engine lifecycle for Settings. Reports checking, not configured, file unavailable, file ready, loading, loaded, initialization failed, unavailable and released; never claims a successful generation. |
 | `ModelConfiguration`, `ModelConfigurationController`, `ModelConfigStore` | `lib/features/intelligence/model_configuration.dart` | Real | Persists the picked path in SharedPreferences; distinguishes not configured, missing, invalid, unavailable and ready. Validates extension, file type and non-empty size before the runtime sees it. Serializes writes and revision-guards slow reads. No download or marketplace. |
-| `LiteRtLmProvider`, `NativeLiteRtLmEngine` | `lib/features/intelligence/runtimes/litertlm_provider.dart` | Adapter, unverified with weights | All `litertlm` imports live here. Validates request invariants, model selection and declared capabilities before native work; rejects structured output explicitly. Lazy engine init, explicit lifecycle, one conversation per request, sampler/role mapping, cumulative streaming, immediate cancellation through explicit stream controllers, typed error translation, engine discarded after failure. Never exercised with a real model. |
+| `LocalInferenceProvider`, `RuntimeRegistry` | `lib/features/intelligence/local_inference_provider.dart`, `lib/features/intelligence/runtime_registry.dart` | Real contracts | Resolves a compatible runtime from model identity, task, artifact set, platform and availability. Runtime registrations are deterministic and extensible without changing routing. |
+| `LiteRtLmRuntime`, `LiteRtLmProvider`, `NativeLiteRtLmEngine` | `lib/features/intelligence/runtimes/litertlm_provider.dart` | Runtime adapter | All `litertlm` imports and native objects stay here. LiteRT-LM is registered through `RuntimeRegistry`, initializes lazily, streams cumulative output, translates failures and disposes resources. No second production runtime is implemented. |
 | `modelConfigStoreProvider`, `modelConfigurationProvider`, `configuredModelProvider`, `liteRtLmEngineFactoryProvider`, `inferenceProvidersProvider`, `requestRouterProvider`, `intelligenceEngineProvider`, `modelLifecycleProvider`, `intelligenceStatusProvider` | `lib/features/intelligence/providers.dart` | Real | Model is validated before it reaches the router; engine factory is overridable so tests never load native code. Diagnostics observe provider lifecycles without initializing a runtime. |
 
 ## Models and Providers
@@ -173,22 +181,24 @@ does not download, load or verify a Hub repository.
 | `ModelCatalogue`, `ModelCatalogueRepository` | `lib/features/models/catalogue/model_catalogue_repository.dart` | Real | UI-facing search/details/validation surface, separate from widgets and inference providers. |
 | `CatalogueController`, `modelDetailsProvider` | `lib/features/models/catalogue/catalogue_controller.dart` | Real | Search state, append pagination, retry, cancellation and stale-response revision guards. `modelDetailsProvider` loads one repository record, its tree and README. |
 | `HuggingFaceTokenStore`, `HuggingFaceTokenController` | `lib/features/models/token/` | Real | Uses the shared platform secure-storage service. Saves only after validation; a rejected token is not stored, an offline validation saves with an explicit unverified notice. State never contains the token. |
-| `ActiveModelAssignment`, `ActiveModelsController` | `lib/features/models/active/active_models.dart` | Real | SharedPreferences assignments keyed by capability, sourced from local inventory or a connected provider. Only the validated local LiteRT-LM text path has an execution path; provider-hosted assignments are saved without claiming chat routing. Stale assignments remain visible with remove/choose actions. Chat still uses the Settings selection; multi-model routing is not implemented. |
-| `ModelsScreen` | `lib/features/models/models_screen.dart` | Real | Explore default, search debounce, capability chips, an anchored sort menu in the search field, compact model cards with publisher avatar, task/parameter/updated/download/like metadata, pagination and offline/rate-limit/unauthorized/empty states. A filter icon left of sorting opens a popup with toggleable preset filters and user-added keyword filters; presets such as `litert-lm` cannot be deleted but can be deselected. The default request sends `filter=litert-lm` so only LiteRT-LM repositories appear. The initial load uses `CatalogueSkeleton`; appended pages keep the inline loading row. The header filter action opens Active Models; the ellipsis menu opens the token dialog and the disabled Pro custom-catalogue entry. |
+| `ActiveModelAssignment`, `ActiveModelsController` | `lib/features/models/active/active_models.dart` | Real | Versioned SharedPreferences assignments use canonical task IDs, migrate legacy capability-keyed records and retain a compatibility mirror. Assignments may enable one task or a multimodal task set; multimodal targets take priority, provider identity is part of the selection, and stale/invalid records remain diagnosable. The existing UI still exposes capability-oriented slots. |
+| `ExploreModelsScreen` | `lib/features/models/explore_models_screen.dart` | Real | Hub exploration opened from the Active Models and Provider Models headers: search debounce, capability chips, an anchored sort menu in the search field, compact model cards with publisher avatar, task/parameter/updated/download/like metadata, pagination and offline/rate-limit/unauthorized/empty states. A filter icon left of sorting opens a popup with toggleable preset filters and user-added keyword filters; presets such as `litert-lm` cannot be deleted but can be deselected. The default request sends `filter=litert-lm` so only LiteRT-LM repositories appear. The initial load uses `CatalogueSkeleton`; appended pages keep the inline loading row. The header uses normal history back; the ellipsis menu opens the token dialog and the disabled Pro custom-catalogue entry. |
 | `ModelDetailsScreen` | `lib/features/models/model_details_screen.dart` | Real | Header with back, title and an overflow menu for Open in HF Hub / Copy repository URL. Sections: overview card (publisher logo, repository name, copy, followers/likes/downloads, grouped metadata with collapsible languages; no section title), Model Setup (published technical facts only), Model Card (Markdown with View more/View less, a copy action and a Download / Open Raw menu, plus an empty state) and Model Files (branch, latest commit link, directories/files with sizes, six-row View more). Loading uses `_DetailsSkeleton`; discovery is explicitly separated from verified runtime compatibility, and activation remains unavailable until a file is local and validated. Setup Now opens the Model Setup Wizard. |
 | `ModelSetupWizard`, `ModelSetupWizardController`, `ModelSetupAssessor` | `lib/features/models/setup/` | Steps 1–2 real; Step 3 placeholder | Shared `CreatePopup` shell whose header carries the step title and subtitle instead of a progress bar (`Model Setup Wizard` plus a pre-check summary on Step 1, `Manage Artifacts` on Step 2), an 900px modal and a Cancel/Next footer on Step 1, Back/Test/Save on Step 2. Step 1 runs the fixed seven pre-check stages against `runtimeStatusProvider`, `DeviceProbe` and the already-loaded Hub details: device status, runtime constraints, artifact mapping, artifact assessment, device compatibility and artifact finalization. Results preserve device, runtime, model, repository, configuration/helper/weight artifacts, artifact assessments and compatibility checks for later steps. The only write is a tiny application-storage probe; no weights are downloaded, loaded or executed. Step 2 is a table-first Manage Artifacts surface: Config Files, Helper Files and Model Weights expand independently; each header has a reactive round tri-state checkbox and a collapse toggle; rows show selection, source and target-location controls without column headings, with source and target sharing the free width equally and the action cluster sized to its buttons at uniform gaps; phones stack source over target and keep equally sized action buttons beside each path (choose/replace plus a red remove-row button on the source, download/delete plus the insert-row icon on the target). Every row exposes Download/Delete, an insert-row icon that adds a same-kind row directly below, Replace/Choose and a red remove-row icon (device picking lives inside the Replace/Choose popup); removing a selected row, deleting a local copy and replacing a source all confirm first, each with a `Don't ask again` tick persisted per action in the `action_preferences` table, and two selected rows sharing a target path flag both boxes. The header row of the file list shows `N of M selected` on the left and the bulk action on the right: `Download All`, flipping to a destructive `Delete All` (confirmed) once every selected row is downloaded. Repository/device/unassigned sources remain distinct, and unselected rows retain metadata but disable editing/actions. Downloads report real byte progress and pause/resume with HTTP Range requests. Weight setup auto-selects at most one file (primary, then fp4/int4, then smallest sized). Test unlocks only when every selected artifact is downloaded; Save persists the configuration and artifact rows to Drift and never writes pre-check data. Step 3 remains a placeholder. |
-| `ActiveModelsScreen` | `lib/features/models/active_models_screen.dart` | Real | Per-capability slots with assigned/ready/stale/not-assigned status, assignment actions and a clear no-download/no-load notice. |
+| `ModelsWorkspaceScaffold` | `lib/features/models/models_workspace_scaffold.dart` | Real | Shared shell for Active Models and Provider Models. Compact and medium layouts show the back control, a tappable title menu that switches destinations and an Explore Models action; wide layouts embed the collapsible docked `ChatSidebar`, nest both destinations under Models and omit the back control. |
+| `ProviderModelsScreen` | `lib/features/models/provider_models_screen.dart` | Real | Search over the existing provider configuration, then provider-grouped model lists from `providerModelsProvider` with per-group loading, error, empty and no-match states. Empty and error states link to the Providers workspace; it adds no fetching, caching or persistence beyond the existing provider controller. |
+| `ActiveModelsScreen` | `lib/features/models/active_models_screen.dart` | Real | Per-capability slots with assigned/ready/stale/not-assigned status, assignment actions and a clear no-download/no-load notice. Uses the shared Models scaffold for navigation; the status chip moves below the capability title on narrow cards. |
 | `CustomCatalogueScreen` | `lib/features/models/custom_catalogue_screen.dart` | Stub (gated) | Pro explanation only; no endpoint, schema or billing logic. |
 
 Providers configure inference connections separately from Hub discovery.
 
 | Component | File | Status | Notes |
 | --- | --- | --- | --- |
-| `InferenceProviderDefinition`, `supportedInferenceProviders` | `lib/features/providers/provider_definition.dart` | Real (registry) | Local LiteRT-LM, OpenAI, Anthropic, Google Gemini, xAI, Groq, DeepSeek, Perplexity, Qwen, Hugging Face, Mistral and a custom OpenAI-compatible endpoint. All hosted entries share the OpenAI-compatible runtime except Anthropic, which keeps its Messages API adapter. |
+| `InferenceProviderDefinition`, `supportedInferenceProviders` | `lib/features/providers/provider_definition.dart` | Real (registry) | Local LiteRT-LM, Anthropic, Google Gemini, xAI, DeepSeek, Qwen/DashScope, Hugging Face, Mistral and a custom OpenAI-compatible endpoint. OpenAI, Groq and Perplexity are not defaults; legacy saved records use non-default compatibility definitions. |
 | `ProviderSettingsStore`, `ProviderCredentialStore` | `lib/features/providers/provider_stores.dart` | Real | Endpoints and a configured flag in SharedPreferences; credentials use the shared secure-storage service under provider-specific keys. Hub tokens retain a different store and key. |
 | `ProviderUsage`, `ProviderUsageController`, `ProviderUsageStore` | `lib/features/providers/provider_usage.dart`, `lib/features/intelligence/usage_tracking_provider.dart` | Real | Adds a decorator around each provider that records one settled request (success or failure) per provider. Counts persist in SharedPreferences and surface through the Usage popup; no spend or remote billing estimate is derived. |
-| `HttpProviderConnectionTester` | `lib/features/providers/provider_connection_tester.dart` | Real | Performs a real GET to the provider's models endpoint and reports status, model count or a user-safe failure. No response body or credential is echoed. |
-| `ProvidersController`, `ProvidersState` | `lib/features/providers/providers_controller.dart` | Real | Derived connection state, endpoint edits, credential save/remove, local model check and connection-test results. Provider routing into chat is not implemented. |
+| `HttpProviderConnectionTester` | `lib/features/providers/provider_connection_tester.dart` | Real | Performs provider-specific native discovery requests, authentication and pagination, then normalizes identity, tasks, modalities, features, limits, provenance/confidence and raw metadata. Missing declarations remain unknown; no generic `/models` assumption is applied to every provider. |
+| `ProvidersController`, `ProvidersState` | `lib/features/providers/providers_controller.dart` | Real | Derived connection state, endpoint edits, credential save/remove, local model check and discovery results. Its configuration feeds inference composition, while protocol-specific request execution remains in the intelligence adapters. |
 | `ProvidersScreen` | `lib/features/providers/providers_screen.dart` | Real | Compact provider cards in one natural-width action row: Test and Usage on the left (visible but disabled until required credentials exist), Connect (filled primary) or Configure (neutral outlined) on the right. The first settings load uses provider-shaped skeleton cards. Connect/Configure dialogs, a header action for the custom endpoint, test results and the local usage popup. Saved secrets are never repopulated into fields. |
 
 ## Working interactions (manual checklist)

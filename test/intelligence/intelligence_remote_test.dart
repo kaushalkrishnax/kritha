@@ -266,10 +266,18 @@ void main() {
       }),
     );
     tester.models['custom-a'] = const [
-      ProviderModelInfo(id: 'shared:model', name: 'Shared'),
+      ProviderModelInfo(
+        id: 'shared:model',
+        name: 'Shared',
+        capabilities: [ModelCapability.text],
+      ),
     ];
     tester.models['custom-b'] = const [
-      ProviderModelInfo(id: 'shared:model', name: 'Shared'),
+      ProviderModelInfo(
+        id: 'shared:model',
+        name: 'Shared',
+        capabilities: [ModelCapability.text],
+      ),
     ];
 
     final first = await container
@@ -855,7 +863,7 @@ void main() {
 
     await expectLater(
       container.read(intelligenceEngineProvider).generate(prompt()),
-      throwsA(isA<UnsupportedCapabilityException>()),
+      throwsA(isA<ProviderUnavailableException>()),
     );
     expect(requests, isEmpty);
   });

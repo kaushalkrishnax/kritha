@@ -80,6 +80,28 @@ void main() {
     expect(assignment.runtimeId, localRuntimeId);
   });
 
+  test('persists canonical task identity and multimodal task selections', () {
+    final assignment = ActiveModelAssignment(
+      capability: ModelCapability.vision,
+      modelId: 'gemini-vision',
+      displayName: 'Gemini Vision',
+      runtimeId: 'openai-compatible',
+      sourceId: 'google',
+      activatedAt: DateTime(2026),
+      enabledTaskIds: const ['text_generation', 'image_text_to_text'],
+    );
+
+    final json = assignment.toJson();
+    final restored = ActiveModelAssignment.fromJson(
+      ModelCapability.vision,
+      json,
+    );
+
+    expect(restored.canonicalTaskId, 'text_generation');
+    expect(restored.enabledTaskIds, ['text_generation', 'image_text_to_text']);
+    expect(restored.isMultimodal, isTrue);
+  });
+
   test('normalizes remote assignment runtime identifiers', () {
     final assignment = ActiveModelAssignment.fromJson(ModelCapability.text, {
       'modelId': 'gemini-2.0-flash',
@@ -256,11 +278,15 @@ void main() {
       final activeStore = InMemoryActiveModelStore();
       final recentStore = InMemoryRecentModelStore();
       final credentialStore = InMemoryProviderCredentialStore({
-        'openai': 'key',
+        'mistral': 'key',
       });
       final modelTester = FakeProviderConnectionTester()
-        ..models['openai'] = const [
-          ProviderModelInfo(id: 'gpt-4o', name: 'GPT-4o'),
+        ..models['mistral'] = const [
+          ProviderModelInfo(
+            id: 'mistral-large',
+            name: 'Mistral Large',
+            capabilities: [ModelCapability.text],
+          ),
         ];
       final container = ProviderContainer(
         overrides: [
@@ -271,8 +297,8 @@ void main() {
           ),
           providerSettingsStoreProvider.overrideWithValue(
             InMemoryProviderSettingsStore({
-              'openai': const StoredProviderSettings(
-                baseUrl: 'https://api.openai.com/v1',
+              'mistral': const StoredProviderSettings(
+                baseUrl: 'https://api.mistral.ai/v1',
                 configured: true,
               ),
             }),
@@ -289,19 +315,22 @@ void main() {
           .read(activeModelsProvider.notifier)
           .assignModel(
             capability: ModelCapability.text,
-            sourceId: 'openai',
-            modelId: 'gpt-4o',
-            displayName: 'GPT-4o',
-            runtimeId: 'openai',
+            sourceId: 'mistral',
+            modelId: 'mistral-large',
+            displayName: 'Mistral Large',
+            runtimeId: 'openai-compatible',
           );
 
       final state = container.read(activeModelsProvider).value!;
-      expect(activeStore.assignments[ModelCapability.text]!.sourceId, 'openai');
+      expect(
+        activeStore.assignments[ModelCapability.text]!.sourceId,
+        'mistral',
+      );
       expect(
         state.statusFor(ModelCapability.text),
         ActiveAssignmentStatus.assigned,
       );
-      expect(state.recents.single.modelId, 'gpt-4o');
+      expect(state.recents.single.modelId, 'mistral-large');
       expect(modelTester.testedProviderIds, isEmpty);
     },
   );

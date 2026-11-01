@@ -571,7 +571,7 @@ as int?,
 /// @nodoc
 mixin _$AiRequest {
 
- List<AiMessage> get messages; AiGenerationOptions get options; Map<String, dynamic>? get responseSchema; String? get modelId; Map<String, String> get metadata;
+ List<AiMessage> get messages; AiGenerationOptions get options; Map<String, dynamic>? get responseSchema; String? get modelId;@JsonKey(includeFromJson: false, includeToJson: false) List<AiInput> get inputs; Map<String, String> get metadata;
 /// Create a copy of AiRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -585,20 +585,20 @@ $AiRequestCopyWith<AiRequest> get copyWith => _$AiRequestCopyWithImpl<AiRequest>
 @override
 bool operator ==(Object other) {
   final _this = this as AiRequest;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiRequest&&const DeepCollectionEquality().equals(other.messages, _this.messages)&&(identical(other.options, _this.options) || other.options == _this.options)&&const DeepCollectionEquality().equals(other.responseSchema, _this.responseSchema)&&(identical(other.modelId, _this.modelId) || other.modelId == _this.modelId)&&const DeepCollectionEquality().equals(other.metadata, _this.metadata));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AiRequest&&const DeepCollectionEquality().equals(other.messages, _this.messages)&&(identical(other.options, _this.options) || other.options == _this.options)&&const DeepCollectionEquality().equals(other.responseSchema, _this.responseSchema)&&(identical(other.modelId, _this.modelId) || other.modelId == _this.modelId)&&const DeepCollectionEquality().equals(other.inputs, _this.inputs)&&const DeepCollectionEquality().equals(other.metadata, _this.metadata));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as AiRequest;
-  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.messages),_this.options,const DeepCollectionEquality().hash(_this.responseSchema),_this.modelId,const DeepCollectionEquality().hash(_this.metadata));
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.messages),_this.options,const DeepCollectionEquality().hash(_this.responseSchema),_this.modelId,const DeepCollectionEquality().hash(_this.inputs),const DeepCollectionEquality().hash(_this.metadata));
 }
 
 @override
 String toString() {
   final _this = this as AiRequest;
-  return 'AiRequest(messages: ${_this.messages}, options: ${_this.options}, responseSchema: ${_this.responseSchema}, modelId: ${_this.modelId}, metadata: ${_this.metadata})';
+  return 'AiRequest(messages: ${_this.messages}, options: ${_this.options}, responseSchema: ${_this.responseSchema}, modelId: ${_this.modelId}, inputs: ${_this.inputs}, metadata: ${_this.metadata})';
 }
 
 
@@ -609,7 +609,7 @@ abstract mixin class $AiRequestCopyWith<$Res>  {
   factory $AiRequestCopyWith(AiRequest value, $Res Function(AiRequest) _then) = _$AiRequestCopyWithImpl;
 @useResult
 $Res call({
- List<AiMessage> messages, AiGenerationOptions options, Map<String, dynamic>? responseSchema, String? modelId, Map<String, String> metadata
+ List<AiMessage> messages, AiGenerationOptions options, Map<String, dynamic>? responseSchema, String? modelId,@JsonKey(includeFromJson: false, includeToJson: false) List<AiInput> inputs, Map<String, String> metadata
 });
 
 
@@ -626,13 +626,14 @@ class _$AiRequestCopyWithImpl<$Res>
 
 /// Create a copy of AiRequest
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? messages = null,Object? options = null,Object? responseSchema = freezed,Object? modelId = freezed,Object? metadata = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? messages = null,Object? options = null,Object? responseSchema = freezed,Object? modelId = freezed,Object? inputs = null,Object? metadata = null,}) {
   return _then(AiRequest(
 messages: null == messages ? _self.messages : messages // ignore: cast_nullable_to_non_nullable
 as List<AiMessage>,options: null == options ? _self.options : options // ignore: cast_nullable_to_non_nullable
 as AiGenerationOptions,responseSchema: freezed == responseSchema ? _self.responseSchema : responseSchema // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>?,modelId: freezed == modelId ? _self.modelId : modelId // ignore: cast_nullable_to_non_nullable
-as String?,metadata: null == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
+as String?,inputs: null == inputs ? _self.inputs : inputs // ignore: cast_nullable_to_non_nullable
+as List<AiInput>,metadata: null == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,
   ));
 }
@@ -727,10 +728,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId,  Map<String, String> metadata)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId, @JsonKey(includeFromJson: false, includeToJson: false)  List<AiInput> inputs,  Map<String, String> metadata)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AiRequest() when $default != null:
-return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.metadata);case _:
+return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.inputs,_that.metadata);case _:
   return orElse();
 
 }
@@ -748,10 +749,10 @@ return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId,  Map<String, String> metadata)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId, @JsonKey(includeFromJson: false, includeToJson: false)  List<AiInput> inputs,  Map<String, String> metadata)  $default,) {final _that = this;
 switch (_that) {
 case _AiRequest():
-return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.metadata);case _:
+return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.inputs,_that.metadata);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -768,10 +769,10 @@ return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId,  Map<String, String> metadata)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<AiMessage> messages,  AiGenerationOptions options,  Map<String, dynamic>? responseSchema,  String? modelId, @JsonKey(includeFromJson: false, includeToJson: false)  List<AiInput> inputs,  Map<String, String> metadata)?  $default,) {final _that = this;
 switch (_that) {
 case _AiRequest() when $default != null:
-return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.metadata);case _:
+return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,_that.inputs,_that.metadata);case _:
   return null;
 
 }
@@ -783,7 +784,7 @@ return $default(_that.messages,_that.options,_that.responseSchema,_that.modelId,
 @JsonSerializable()
 
 class _AiRequest extends AiRequest {
-  const _AiRequest({required  List<AiMessage> messages, this.options = const AiGenerationOptions(),  Map<String, dynamic>? responseSchema, this.modelId,  Map<String, String> metadata = const <String, String>{}}): _messages = messages,_responseSchema = responseSchema,_metadata = metadata,super._();
+  const _AiRequest({required  List<AiMessage> messages, this.options = const AiGenerationOptions(),  Map<String, dynamic>? responseSchema, this.modelId, @JsonKey(includeFromJson: false, includeToJson: false)  List<AiInput> inputs = const <AiInput>[],  Map<String, String> metadata = const <String, String>{}}): _messages = messages,_responseSchema = responseSchema,_inputs = inputs,_metadata = metadata,super._();
   factory _AiRequest.fromJson(Map<String, dynamic> json) => _$AiRequestFromJson(json);
 
  final  List<AiMessage> _messages;
@@ -804,6 +805,13 @@ class _AiRequest extends AiRequest {
 }
 
 @override final  String? modelId;
+ final  List<AiInput> _inputs;
+@override@JsonKey(includeFromJson: false, includeToJson: false) List<AiInput> get inputs {
+  if (_inputs is EqualUnmodifiableListView) return _inputs;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_inputs);
+}
+
  final  Map<String, String> _metadata;
 @override@JsonKey() Map<String, String> get metadata {
   if (_metadata is EqualUnmodifiableMapView) return _metadata;
@@ -825,18 +833,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiRequest&&const DeepCollectionEquality().equals(other.messages, _messages)&&(identical(other.options, options) || other.options == options)&&const DeepCollectionEquality().equals(other.responseSchema, _responseSchema)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other.metadata, _metadata));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _AiRequest&&const DeepCollectionEquality().equals(other.messages, _messages)&&(identical(other.options, options) || other.options == options)&&const DeepCollectionEquality().equals(other.responseSchema, _responseSchema)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other.inputs, _inputs)&&const DeepCollectionEquality().equals(other.metadata, _metadata));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_messages),options,const DeepCollectionEquality().hash(_responseSchema),modelId,const DeepCollectionEquality().hash(_metadata));
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_messages),options,const DeepCollectionEquality().hash(_responseSchema),modelId,const DeepCollectionEquality().hash(_inputs),const DeepCollectionEquality().hash(_metadata));
 }
 
 @override
 String toString() {
-    return 'AiRequest(messages: $messages, options: $options, responseSchema: $responseSchema, modelId: $modelId, metadata: $metadata)';
+    return 'AiRequest(messages: $messages, options: $options, responseSchema: $responseSchema, modelId: $modelId, inputs: $inputs, metadata: $metadata)';
 }
 
 
@@ -847,7 +855,7 @@ abstract mixin class _$AiRequestCopyWith<$Res> implements $AiRequestCopyWith<$Re
   factory _$AiRequestCopyWith(_AiRequest value, $Res Function(_AiRequest) _then) = __$AiRequestCopyWithImpl;
 @override @useResult
 $Res call({
- List<AiMessage> messages, AiGenerationOptions options, Map<String, dynamic>? responseSchema, String? modelId, Map<String, String> metadata
+ List<AiMessage> messages, AiGenerationOptions options, Map<String, dynamic>? responseSchema, String? modelId,@JsonKey(includeFromJson: false, includeToJson: false) List<AiInput> inputs, Map<String, String> metadata
 });
 
 
@@ -864,13 +872,14 @@ class __$AiRequestCopyWithImpl<$Res>
 
 /// Create a copy of AiRequest
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? messages = null,Object? options = null,Object? responseSchema = freezed,Object? modelId = freezed,Object? metadata = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? messages = null,Object? options = null,Object? responseSchema = freezed,Object? modelId = freezed,Object? inputs = null,Object? metadata = null,}) {
   return _then(_AiRequest(
 messages: null == messages ? _self._messages : messages // ignore: cast_nullable_to_non_nullable
 as List<AiMessage>,options: null == options ? _self.options : options // ignore: cast_nullable_to_non_nullable
 as AiGenerationOptions,responseSchema: freezed == responseSchema ? _self._responseSchema : responseSchema // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>?,modelId: freezed == modelId ? _self.modelId : modelId // ignore: cast_nullable_to_non_nullable
-as String?,metadata: null == metadata ? _self._metadata : metadata // ignore: cast_nullable_to_non_nullable
+as String?,inputs: null == inputs ? _self._inputs : inputs // ignore: cast_nullable_to_non_nullable
+as List<AiInput>,metadata: null == metadata ? _self._metadata : metadata // ignore: cast_nullable_to_non_nullable
 as Map<String, String>,
   ));
 }

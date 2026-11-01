@@ -11,6 +11,7 @@ import '../models/model_capabilities.dart';
 import '../models/model_descriptor.dart';
 import '../request_validation.dart';
 import '../runtime_ids.dart';
+import '../runtime_registry.dart';
 
 /// Engine-level seam over litertlm to test mappings and errors without native libs.
 abstract interface class LiteRtLmEngine {
@@ -529,4 +530,133 @@ class LiteRtLmProvider implements InferenceProvider {
     }
     if (!_disposed) _publish(EngineLifecycle(stage, message: message));
   }
+}
+
+RuntimeRegistration liteRtLmRuntimeRegistration({
+  required LiteRtLmEngine Function(ModelDescriptor) createEngine,
+}) {
+  return RuntimeRegistration(
+    id: localRuntimeId,
+    displayName: 'LiteRT-LM',
+    tasks: const {InferenceCapability.textGeneration},
+    modalities: const {'text'},
+    platforms: const {'android', 'ios', 'macos', 'windows', 'linux'},
+    formats: const {'litertlm'},
+    isAvailable: () => true,
+    compatibility: (model, request, artifacts) {
+      if (model.runtimeId != localRuntimeId) {
+        return const RuntimeCompatibility.incompatible(
+          'The model is owned by a different runtime.',
+        );
+      }
+      if (!request.requiredCapabilities.contains(
+            InferenceCapability.textGeneration,
+          ) ||
+          request.requiredCapabilities.length != 1) {
+        return const RuntimeCompatibility.incompatible(
+          'LiteRT-LM supports text generation only.',
+        );
+      }
+      if (model.modelPath == null || model.modelPath!.trim().isEmpty) {
+        return const RuntimeCompatibility.incompatible(
+          'The model artifact path is missing.',
+        );
+      }
+      if (artifacts.isEmpty ||
+          artifacts.every((artifact) => artifact.path != model.modelPath)) {
+        return const RuntimeCompatibility.incompatible(
+          'The selected LiteRT-LM artifact is unavailable.',
+        );
+      }
+      return const RuntimeCompatibility.ok();
+    },
+    create: (model, _) =>
+        LiteRtLmRuntime(model: model, engine: createEngine(model)),
+  );
+}
+
+class LiteRtLmRuntime implements LocalRuntime {
+  LiteRtLmRuntime({required this.model, required this.engine});
+
+  final ModelDescriptor model;
+  final LiteRtLmEngine engine;
+
+  @override
+  Future<void> initialize() async {
+    try {
+      await engine.initialize();
+    } on UnsupportedError catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        ProviderUnavailableException(
+          'This platform cannot run LiteRT-LM.',
+          providerId: localProviderId,
+          cause: error,
+        ),
+        stackTrace,
+      );
+    }
+  }
+
+  @override
+  Future<String> generate(AiRequest request) async {
+    try {
+      return await engine.complete(
+        conversation: _conversationFor(request),
+        message: _messageFor(request.messages.last),
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        InferenceFailedException(
+          'LiteRT-LM could not complete the request.',
+          providerId: localProviderId,
+          cause: error,
+        ),
+        stackTrace,
+      );
+    }
+  }
+
+  @override
+  Stream<String> stream(AiRequest request) => engine.stream(
+    conversation: _conversationFor(request),
+    message: _messageFor(request.messages.last),
+  );
+
+  @override
+  Future<void> dispose() => engine.dispose();
+
+  lite.ConversationConfig _conversationFor(AiRequest request) {
+    final systemText = [
+      for (final message in request.messages)
+        if (message.role == AiRole.system) message.text.trim(),
+    ].where((text) => text.isNotEmpty).join('\n\n');
+    final turns = request.messages
+        .where((message) => message.role != AiRole.system)
+        .toList(growable: false);
+    return lite.ConversationConfig(
+      systemMessage: systemText.isEmpty
+          ? null
+          : lite.Message.system(systemText),
+      initialMessages: [
+        for (final message in turns.take(turns.length - 1))
+          _messageFor(message),
+      ],
+      automaticToolCalling: false,
+      sessionConfig: lite.SessionConfig(
+        maxOutputTokens: request.options.maxOutputTokens,
+        samplerConfig: lite.SamplerConfig(
+          topK: request.options.topK,
+          topP: request.options.topP,
+          temperature: request.options.temperature,
+          seed: request.options.seed,
+        ),
+      ),
+    );
+  }
+
+  lite.Message _messageFor(AiMessage message) => switch (message.role) {
+    AiRole.system => lite.Message.system(message.text),
+    AiRole.user => lite.Message.user(message.text),
+    AiRole.assistant => lite.Message.modelText(message.text),
+  };
 }

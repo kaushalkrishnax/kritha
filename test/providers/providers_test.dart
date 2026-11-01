@@ -58,11 +58,9 @@ void main() {
         final state = await container.read(providersControllerProvider.future);
 
         expect(state.configurationFor('local-litertlm')!.configured, isTrue);
-        expect(state.configurationFor('openai')!.configured, isFalse);
-        expect(
-          state.configurationFor('openai')!.baseUrl,
-          'https://api.openai.com/v1',
-        );
+        expect(state.configurationFor('openai'), isNull);
+        expect(state.configurationFor('groq'), isNull);
+        expect(state.configurationFor('perplexity'), isNull);
         expect(
           state.configurationFor('mistral')!.baseUrl,
           'https://api.mistral.ai/v1',
@@ -70,16 +68,25 @@ void main() {
       },
     );
 
-    test('registers Groq after xAI as an OpenAI-compatible provider', () {
+    test('retains the supported cloud provider catalogue', () {
       final ids = [
         for (final definition in builtInInferenceProviders) definition.id,
       ];
-      expect(ids.indexOf('groq'), ids.indexOf('xai') + 1);
-      final groq = providerDefinitionFor('groq')!;
-      expect(groq.name, 'Groq');
-      expect(groq.runtimeId, openAiRuntimeId);
-      expect(groq.defaultBaseUrl, 'https://api.groq.com/openai/v1');
-      expect(groq.requiresCredential, isTrue);
+      expect(
+        ids,
+        containsAll([
+          'anthropic',
+          'google',
+          'xai',
+          'deepseek',
+          'qwen',
+          'huggingface',
+          'mistral',
+        ]),
+      );
+      expect(ids, isNot(contains('openai')));
+      expect(ids, isNot(contains('groq')));
+      expect(ids, isNot(contains('perplexity')));
     });
 
     test('persists endpoint changes without credentials', () async {
@@ -119,29 +126,29 @@ void main() {
         await container.read(providersControllerProvider.future);
         final controller = container.read(providersControllerProvider.notifier);
 
-        await controller.saveCredential('openai', '  sk-test  ');
+        await controller.saveCredential('mistral', '  sk-test  ');
 
-        expect(credentials.credentials['openai'], 'sk-test');
-        expect(settings.settings['openai']!.configured, isTrue);
+        expect(credentials.credentials['mistral'], 'sk-test');
+        expect(settings.settings['mistral']!.configured, isTrue);
         final state = container.read(providersControllerProvider).value!;
-        expect(state.configurationFor('openai')!.hasCredential, isTrue);
+        expect(state.configurationFor('mistral')!.hasCredential, isTrue);
         expect(
-          state.configurationFor('openai')!.hasRequiredCredentials,
+          state.configurationFor('mistral')!.hasRequiredCredentials,
           isTrue,
         );
-        expect(state.configurationFor('openai')!.configured, isTrue);
+        expect(state.configurationFor('mistral')!.configured, isTrue);
         expect(state.toString(), isNot(contains('sk-test')));
 
-        await controller.removeCredential('openai');
-        expect(credentials.credentials.containsKey('openai'), isFalse);
+        await controller.removeCredential('mistral');
+        expect(credentials.credentials.containsKey('mistral'), isFalse);
         final removed = container
             .read(providersControllerProvider)
             .value!
-            .configurationFor('openai')!;
+            .configurationFor('mistral')!;
         expect(removed.hasCredential, isFalse);
         expect(removed.hasRequiredCredentials, isFalse);
         expect(removed.configured, isFalse);
-        expect(settings.settings.containsKey('openai'), isTrue);
+        expect(settings.settings.containsKey('mistral'), isTrue);
       },
     );
 
@@ -155,7 +162,7 @@ void main() {
 
         final result = await container
             .read(providersControllerProvider.notifier)
-            .testConnection('openai');
+            .testConnection('mistral');
 
         expect(result.ok, isFalse);
         expect(result.message, contains('before testing'));
@@ -166,7 +173,7 @@ void main() {
     test('stores a real connection-test result', () async {
       final tester = FakeProviderConnectionTester();
       final credentials = InMemoryProviderCredentialStore({
-        'openai': 'sk-test',
+        'mistral': 'sk-test',
       });
       final container = buildContainer(
         tester: tester,
@@ -177,12 +184,12 @@ void main() {
 
       final result = await container
           .read(providersControllerProvider.notifier)
-          .testConnection('openai');
+          .testConnection('mistral');
 
       expect(result.ok, isTrue);
-      expect(tester.testedProviderIds, ['openai']);
+      expect(tester.testedProviderIds, ['mistral']);
       final state = container.read(providersControllerProvider).value!;
-      expect(state.testResults['openai']!.ok, isTrue);
+      expect(state.testResults['mistral']!.ok, isTrue);
       expect(state.testing, isEmpty);
     });
 
@@ -190,17 +197,17 @@ void main() {
       'configured provider models are exposed to the shared model picker',
       () async {
         final tester = FakeProviderConnectionTester()
-          ..models['openai'] = const [
-            ProviderModelInfo(id: 'gpt-4o', name: 'GPT-4o'),
+          ..models['mistral'] = const [
+            ProviderModelInfo(id: 'mistral-large', name: 'Mistral Large'),
           ];
         final settings = InMemoryProviderSettingsStore({
-          'openai': const StoredProviderSettings(
-            baseUrl: 'https://api.openai.com/v1',
+          'mistral': const StoredProviderSettings(
+            baseUrl: 'https://api.mistral.ai/v1',
             configured: true,
           ),
         });
         final credentials = InMemoryProviderCredentialStore({
-          'openai': 'sk-test',
+          'mistral': 'sk-test',
         });
         final container = buildContainer(
           settings: settings,
@@ -210,10 +217,10 @@ void main() {
         addTearDown(container.dispose);
 
         final models = await container.read(
-          providerModelsProvider('openai').future,
+          providerModelsProvider('mistral').future,
         );
 
-        expect(models.single.id, 'gpt-4o');
+        expect(models.single.id, 'mistral-large');
         expect(tester.testedProviderIds, isEmpty);
       },
     );
@@ -264,19 +271,19 @@ void main() {
       expect(await container.read(providerUsageProvider.future), isEmpty);
 
       final controller = container.read(providerUsageProvider.notifier);
-      await controller.record('openai', ok: true);
-      await controller.record('openai', ok: true);
-      await controller.record('openai', ok: false);
+      await controller.record('mistral', ok: true);
+      await controller.record('mistral', ok: true);
+      await controller.record('mistral', ok: false);
       await controller.record('anthropic', ok: true);
 
       final usage = container.read(providerUsageProvider).value!;
-      expect(usage['openai']!.requests, 3);
-      expect(usage['openai']!.successes, 2);
-      expect(usage['openai']!.failures, 1);
+      expect(usage['mistral']!.requests, 3);
+      expect(usage['mistral']!.successes, 2);
+      expect(usage['mistral']!.failures, 1);
       expect(usage['anthropic']!.requests, 1);
       expect(usage['anthropic']!.successes, 1);
       expect(usage['anthropic']!.failures, 0);
-      expect(store.usage['openai']!.requests, 3);
+      expect(store.usage['mistral']!.requests, 3);
     });
 
     test('tracks settled generate and stream requests', () async {
@@ -352,7 +359,7 @@ void main() {
         await expectLater(
           controller.createCustomProvider(
             baseUrl: 'https://another.example.com/v1',
-            alias: 'openai',
+            alias: 'mistral',
           ),
           throwsA(isA<ProviderConfigurationException>()),
         );
@@ -470,7 +477,7 @@ void main() {
 
   group('HTTP connection tester', () {
     test(
-      'reports a reachable OpenAI-compatible endpoint and model count',
+      'reports a reachable retained provider endpoint and model count',
       () async {
         final adapter = _FakeHttpAdapter(
           (options) async => _jsonResponse({
@@ -482,8 +489,8 @@ void main() {
         final tester = HttpProviderConnectionTester(_dio(adapter));
 
         final result = await tester.test(
-          providerDefinitionFor('openai')!,
-          baseUrl: 'https://api.openai.com/v1',
+          providerDefinitionFor('mistral')!,
+          baseUrl: 'https://api.mistral.ai/v1',
           credential: 'sk-test',
         );
 
@@ -491,7 +498,7 @@ void main() {
         expect(result.modelCount, 1);
         expect(result.message, contains('1 model'));
         final request = adapter.requests.single;
-        expect(request.uri.toString(), 'https://api.openai.com/v1/models');
+        expect(request.uri.toString(), 'https://api.mistral.ai/v1/models');
         expect(request.headers['authorization'], 'Bearer sk-test');
       },
     );
@@ -500,7 +507,7 @@ void main() {
       final adapter = _FakeHttpAdapter(
         (options) async => _jsonResponse({
           'data': [
-            {'id': 'gpt-4o', 'pipeline_tag': 'text-generation'},
+            {'id': 'mistral-large', 'pipeline_tag': 'text-generation'},
             {'id': 'whisper', 'task': 'automatic-speech-recognition'},
             {'id': 'image-model', 'task': 'text-to-image'},
           ],
@@ -508,8 +515,8 @@ void main() {
       );
       final models = await HttpProviderConnectionTester(_dio(adapter))
           .listModels(
-            providerDefinitionFor('openai')!,
-            baseUrl: 'https://api.openai.com/v1',
+            providerDefinitionFor('mistral')!,
+            baseUrl: 'https://api.mistral.ai/v1',
             credential: 'sk-test',
           );
 
@@ -566,8 +573,8 @@ void main() {
       final tester = HttpProviderConnectionTester(_dio(adapter));
 
       final result = await tester.test(
-        providerDefinitionFor('openai')!,
-        baseUrl: 'https://api.openai.com/v1',
+        providerDefinitionFor('mistral')!,
+        baseUrl: 'https://api.mistral.ai/v1',
         credential: 'bad',
       );
 
@@ -606,6 +613,83 @@ void main() {
 
       expect(result.ok, isFalse);
       expect(result.message, contains('Enter an endpoint URL'));
+    });
+
+    test('discovers retained providers through native endpoints', () async {
+      final adapter = _FakeHttpAdapter((options) async {
+        final path = options.uri.path;
+        if (path.endsWith('/language-models')) {
+          return _jsonResponse({
+            'models': [
+              {'id': 'grok-native'},
+            ],
+          });
+        }
+        if (path.endsWith('/image-generation-models')) {
+          return _jsonResponse({
+            'models': [
+              {'id': 'image-native'},
+            ],
+          });
+        }
+        if (path.endsWith('/video-generation-models')) {
+          return _jsonResponse({
+            'models': [
+              {'id': 'video-native'},
+            ],
+          });
+        }
+        if (path.contains('generativelanguage.googleapis.com')) {
+          return _jsonResponse({
+            'models': [
+              {
+                'name': 'models/gemini-2',
+                'displayName': 'Gemini 2',
+                'supportedGenerationMethods': ['generateContent'],
+                'inputTokenLimit': 1000,
+                'outputTokenLimit': 200,
+              },
+            ],
+          });
+        }
+        return _jsonResponse({
+          'data': [
+            {'id': 'native-model', 'pipeline_tag': 'text-generation'},
+          ],
+        });
+      });
+      final tester = HttpProviderConnectionTester(_dio(adapter));
+      final definitions = <String, String>{
+        'anthropic': 'https://api.anthropic.com/v1',
+        'google': 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        'xai': 'https://api.x.ai/v1',
+        'deepseek': 'https://api.deepseek.com/v1',
+        'qwen': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'huggingface': 'https://router.huggingface.co/v1',
+        'mistral': 'https://api.mistral.ai/v1',
+      };
+
+      for (final entry in definitions.entries) {
+        final models = await tester.listModels(
+          providerDefinitionFor(entry.key)!,
+          baseUrl: entry.value,
+          credential: 'secret',
+        );
+        expect(models, isNotEmpty, reason: entry.key);
+        expect(models.first.rawMetadata['_discovery_catalogue'], isNotNull);
+      }
+
+      expect(
+        adapter.requests.any(
+          (request) =>
+              request.uri.toString() == 'https://api.deepseek.com/models',
+        ),
+        isTrue,
+      );
+      final googleRequest = adapter.requests.firstWhere(
+        (request) => request.uri.host.contains('generativelanguage'),
+      );
+      expect(googleRequest.queryParameters['key'], 'secret');
     });
   });
 }

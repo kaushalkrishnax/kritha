@@ -10,14 +10,17 @@ import 'capability_mapping.dart';
 import 'inference_provider.dart';
 import 'intelligence_engine.dart';
 import 'intelligence_exception.dart';
+import 'local_inference_provider.dart';
 import 'model_configuration.dart';
 import 'model_lifecycle.dart';
 import 'models/model_capabilities.dart';
 import 'models/model_descriptor.dart';
+import 'models/task_registry.dart';
 import 'remote/anthropic_provider.dart';
 import 'remote/openai_compatible_provider.dart';
 import 'request_router.dart';
 import 'runtime_ids.dart';
+import 'runtime_registry.dart';
 import 'runtimes/litertlm_provider.dart';
 import 'runtimes/unavailable_provider.dart';
 import 'usage_tracking_provider.dart';
@@ -51,6 +54,13 @@ final liteRtLmEngineFactoryProvider =
       };
     });
 
+final localRuntimeRegistryProvider = Provider<RuntimeRegistry>((ref) {
+  final createEngine = ref.watch(liteRtLmEngineFactoryProvider);
+  return RuntimeRegistry(
+    registrations: [liteRtLmRuntimeRegistration(createEngine: createEngine)],
+  );
+});
+
 /// Transport factory for remote adapters. Tests inject mocked HTTP clients.
 final inferenceHttpClientFactoryProvider = Provider<http.Client Function()>(
   (ref) => http.Client.new,
@@ -69,18 +79,36 @@ final activeAssignmentsProvider =
     });
 
 /// Active model/provider pairs keyed by the inference capability they serve.
-///
-/// A validated local model is exposed as a legacy text assignment when no text
-/// assignment exists. This is an explicit migration policy, not a fallback for
-/// a stale or broken assignment.
 final activeInferenceTargetsProvider =
     Provider<Map<InferenceCapability, ActiveInferenceTarget>>((ref) {
       final assignments = ref.watch(activeAssignmentsProvider);
       final legacyLocal = ref.watch(configuredModelProvider);
 
       final result = <InferenceCapability, ActiveInferenceTarget>{};
-      for (final entry in assignments.entries) {
-        for (final capability in inferenceCapabilitiesFor(entry.key)) {
+      final entries = assignments.entries.toList()
+        ..sort(
+          (left, right) =>
+              (right.value.isMultimodal ? 1 : 0) -
+              (left.value.isMultimodal ? 1 : 0),
+        );
+      for (final entry in entries) {
+        final taskIds = entry.value.enabledTaskIds.isEmpty
+            ? [entry.value.canonicalTaskId]
+            : entry.value.enabledTaskIds;
+        final capabilities = <InferenceCapability>{};
+        for (final taskId in taskIds) {
+          final routingCapability = routingCapabilityForTaskId(taskId);
+          if (routingCapability != null) {
+            capabilities.add(routingCapability);
+          }
+        }
+        if (capabilities.isEmpty) {
+          capabilities.addAll(inferenceCapabilitiesFor(entry.key));
+        }
+        for (final capability in capabilities) {
+          if (!entry.value.isMultimodal && result.containsKey(capability)) {
+            continue;
+          }
           result[capability] = ActiveInferenceTarget(
             providerId: entry.value.sourceId,
             modelId: entry.value.modelId,
@@ -98,10 +126,6 @@ final activeInferenceTargetsProvider =
     });
 
 /// Every backend the router may select, built from Active Models.
-///
-/// Assignments are authoritative. A stale local file, removed provider or
-/// unsupported capability produces an unavailable placeholder rather than a
-/// different model.
 final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
   final persisted = ref.watch(activeAssignmentsProvider);
   final legacyLocal = ref.watch(configuredModelProvider);
@@ -112,7 +136,6 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
       ? ref.watch(providersControllerProvider)
       : null;
   final providersState = providersAsync?.value;
-  final createEngine = ref.watch(liteRtLmEngineFactoryProvider);
   final clientFactory = ref.watch(inferenceHttpClientFactoryProvider);
   final credentials = ref.read(providerCredentialStoreProvider);
 
@@ -132,11 +155,14 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
   final providers = <InferenceProvider>[];
   for (final entry in assignments.entries) {
     final assignment = entry.value;
-    final capabilities = modelCapabilitiesFor(assignment.capability);
+    final capabilities = _modelCapabilitiesForAssignment(assignment, entry.key);
 
     if (assignment.sourceId == localProviderId) {
       final model = legacyLocal;
       if (entry.key != ModelCapability.text ||
+          assignment.enabledTaskIds.any(
+            (taskId) => taskId != AiTaskId.textGeneration.id,
+          ) ||
           model == null ||
           assignment.modelId != model.id ||
           assignment.runtimeId != model.runtimeId) {
@@ -156,9 +182,14 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
         );
         continue;
       }
-      final provider = LiteRtLmProvider(
+      final registry = ref.watch(localRuntimeRegistryProvider);
+      final provider = LocalInferenceProvider(
         descriptor: model,
-        createEngine: () => createEngine(model),
+        providerId: localProviderId,
+        registry: registry,
+        artifacts: [
+          LocalModelArtifact(path: model.modelPath!, format: 'litertlm'),
+        ],
       );
       ref.onDispose(provider.dispose);
       providers.add(provider);
@@ -242,6 +273,23 @@ final inferenceProvidersProvider = Provider<List<InferenceProvider>>((ref) {
   return List<InferenceProvider>.unmodifiable(providers);
 });
 
+ModelCapabilities _modelCapabilitiesForAssignment(
+  ActiveModelAssignment assignment,
+  ModelCapability legacyCapability,
+) {
+  final taskIds = assignment.enabledTaskIds.isEmpty
+      ? [assignment.canonicalTaskId]
+      : assignment.enabledTaskIds;
+  final capabilities = <InferenceCapability>{};
+  for (final taskId in taskIds) {
+    capabilities.addAll(inferenceCapabilitiesForTaskId(taskId));
+  }
+  if (capabilities.isEmpty) {
+    capabilities.addAll(inferenceCapabilitiesFor(legacyCapability));
+  }
+  return ModelCapabilities(supported: capabilities);
+}
+
 final requestRouterProvider = Provider<RequestRouter>(
   (ref) => RequestRouter(
     providers: ref.watch(inferenceProvidersProvider),
@@ -307,7 +355,6 @@ class ModelLifecycleNotifier extends Notifier<ModelLifecycle> {
 }
 
 final intelligenceStatusProvider = Provider<IntelligenceStatus>((ref) {
-  // Rebuild when engine lifecycle changes, not just configuration.
   ref.watch(modelLifecycleProvider);
   return ref.watch(intelligenceEngineProvider).status;
 });

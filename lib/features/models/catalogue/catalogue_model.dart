@@ -1,4 +1,5 @@
 import 'hugging_face_urls.dart';
+import '../../intelligence/models/task_registry.dart';
 import 'model_identifiers.dart';
 
 /// A capability a repository advertises or an execution path can serve.
@@ -54,38 +55,22 @@ enum ModelCapability {
   final String description;
   final String pipelineTag;
 
-  static const Map<String, ModelCapability> _byPipelineTag = {
-    'text-generation': ModelCapability.text,
-    'text2text-generation': ModelCapability.text,
-    'text-classification': ModelCapability.text,
-    'token-classification': ModelCapability.text,
-    'question-answering': ModelCapability.text,
-    'summarization': ModelCapability.text,
-    'translation': ModelCapability.text,
-    'fill-mask': ModelCapability.text,
-    'image-text-to-text': ModelCapability.vision,
-    'image-to-text': ModelCapability.vision,
-    'visual-question-answering': ModelCapability.vision,
-    'image-classification': ModelCapability.vision,
-    'object-detection': ModelCapability.vision,
-    'image-segmentation': ModelCapability.vision,
-    'depth-estimation': ModelCapability.vision,
-    'text-to-image': ModelCapability.imageGeneration,
-    'image-to-image': ModelCapability.imageGeneration,
-    'unconditional-image-generation': ModelCapability.imageGeneration,
-    'automatic-speech-recognition': ModelCapability.speechRecognition,
-    'audio-classification': ModelCapability.audio,
-    'text-to-speech': ModelCapability.textToSpeech,
-    'voice-activity-detection': ModelCapability.audio,
-    'video-classification': ModelCapability.video,
-    'video-text-to-text': ModelCapability.video,
-    'feature-extraction': ModelCapability.embeddings,
-    'sentence-similarity': ModelCapability.embeddings,
-  };
-
   static ModelCapability? fromPipelineTag(String? tag) {
-    if (tag == null) return null;
-    return _byPipelineTag[tag.trim().toLowerCase()];
+    final task = taskFromPipelineTag(tag);
+    return switch (task) {
+      AiTaskId.textGeneration => ModelCapability.text,
+      AiTaskId.imageTextToText => ModelCapability.vision,
+      AiTaskId.videoTextToText => ModelCapability.video,
+      AiTaskId.automaticSpeechRecognition => ModelCapability.speechRecognition,
+      AiTaskId.audioUnderstanding => ModelCapability.audio,
+      AiTaskId.textToSpeech => ModelCapability.textToSpeech,
+      AiTaskId.audioGeneration => ModelCapability.audio,
+      AiTaskId.textToImage => ModelCapability.imageGeneration,
+      AiTaskId.imageEditing => ModelCapability.imageGeneration,
+      AiTaskId.videoGeneration => ModelCapability.video,
+      AiTaskId.embeddings => ModelCapability.embeddings,
+      null => null,
+    };
   }
 
   static List<ModelCapability> fromTags(
@@ -221,6 +206,8 @@ class CatalogueModel {
 
   List<ModelCapability> get capabilities =>
       ModelCapability.fromTags(pipelineTag, tags);
+
+  AiTaskId? get canonicalTask => taskFromPipelineTag(declaredTask);
 
   bool get hasCapabilities => capabilities.isNotEmpty;
 

@@ -2,6 +2,7 @@ import 'inference_provider.dart';
 import 'intelligence_exception.dart';
 import 'models/ai_request.dart';
 import 'models/model_capabilities.dart';
+import 'models/task_registry.dart';
 
 /// Persisted Active Models choice for one inference capability.
 class ActiveInferenceTarget {
@@ -24,6 +25,17 @@ class RequestRouter {
   final Map<InferenceCapability, ActiveInferenceTarget> activeModels;
 
   InferenceProvider resolve(AiRequest request) {
+    final task = request.requestedTask;
+    if (task == null) {
+      throw const UnsupportedTaskException(
+        'The requested task is not recognised by Kritha.',
+      );
+    }
+    if (!task.executable) {
+      throw UnsupportedTaskException(
+        'The ${task.displayName} task has no executable pipeline yet.',
+      );
+    }
     if (providers.isEmpty) {
       throw const ProviderUnavailableException(
         'No active model is assigned for this request.',
@@ -31,7 +43,7 @@ class RequestRouter {
     }
 
     final requestedModel = request.modelId;
-    final active = activeModels[InferenceCapability.textGeneration];
+    final active = _activeTargetFor(request);
     final List<InferenceProvider> candidates;
 
     if (requestedModel != null) {
@@ -48,6 +60,8 @@ class RequestRouter {
       }
     } else if (active != null) {
       candidates = _forTarget(active);
+    } else if (activeModels.isNotEmpty) {
+      candidates = const [];
     } else {
       candidates = providers;
     }
@@ -90,5 +104,18 @@ class RequestRouter {
               provider.descriptor.id == target.modelId,
         )
         .toList(growable: false);
+  }
+
+  ActiveInferenceTarget? _activeTargetFor(AiRequest request) {
+    final capability = switch (request.requestedTask) {
+      AiTaskId.imageTextToText => InferenceCapability.imageInput,
+      AiTaskId.videoTextToText => null,
+      AiTaskId.audioUnderstanding ||
+      AiTaskId.automaticSpeechRecognition => InferenceCapability.audioInput,
+      _ => InferenceCapability.textGeneration,
+    };
+    if (capability == null) return null;
+    return activeModels[capability] ??
+        activeModels[InferenceCapability.textGeneration];
   }
 }
