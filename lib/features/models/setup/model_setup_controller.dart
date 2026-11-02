@@ -3,10 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../models/model_configuration_record.dart';
+import '../../../models/model_record.dart';
 import '../catalogue/catalogue_model.dart';
+import '../catalogue/model_task_derivation.dart';
 import 'action_preferences.dart';
-import 'configured_model_store.dart';
+import 'model_record_store.dart';
 import 'model_artifact.dart';
 import 'model_artifact_storage.dart';
 import 'model_setup_assessment.dart';
@@ -64,7 +65,7 @@ class ModelSetupWizardController extends ChangeNotifier {
   final ModelDetails details;
   final ModelSetupAssessor assessor;
   final ModelArtifactDownloader? downloader;
-  final ConfiguredModelStore? store;
+  final ModelRecordStore? store;
   final ActionPreferenceStore? actionPreferences;
   final String configurationId;
   final ModelArtifactStorageFactory _storageFactory;
@@ -297,8 +298,7 @@ class ModelSetupWizardController extends ChangeNotifier {
           _assessment?.runtimeConstraints?.storagePath ??
           _assessment?.runtime?.documentsPath ??
           '',
-      repositoryId: details.model.id,
-      configurationId: configurationId,
+      modelId: details.model.id,
     );
     _storage = null;
 
@@ -793,13 +793,13 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
   }
 
-  /// Upserts configuration and artifact rows; pre-checks remain transient.
+  /// Upserts one unified model row and its model-owned artifact rows.
   Future<bool> saveConfiguration() async {
     if (!canSaveConfiguration) return false;
     prepareArtifacts();
     final store = this.store;
     if (store == null) {
-      _saveError = 'Saved configurations are unavailable in this build.';
+      _saveError = 'Model persistence is unavailable in this build.';
       _notify();
       return false;
     }
@@ -808,24 +808,24 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
     try {
       final now = DateTime.now();
-      final id = _savedConfigurationId ?? configurationId;
+      final id = modelRecordId('huggingface', details.model.id);
       final created = _createdAt ??= now;
+      final taskMetadata = deriveTaskMetadata(details.model);
       await store.save(
-        ConfiguredModel(
+        ModelRecord(
           id: id,
-          repositoryId: details.model.id,
+          sourceId: 'huggingface',
+          externalModelId: details.model.id,
           displayName: details.model.name,
-          runtimeId: runtimeId,
-          branch: details.branch,
-          commitSha: details.commitSha,
-          rootPath: artifactRootPath,
+          publisher: details.model.publisher,
+          tasks: taskMetadata.declarations,
           createdAt: created,
           updatedAt: now,
-          artifacts: [
-            for (var index = 0; index < _artifacts.length; index++)
-              _artifactRecord(_artifacts[index], id, index),
-          ],
         ),
+        [
+          for (var index = 0; index < _artifacts.length; index++)
+            _artifactRecord(_artifacts[index], id, index),
+        ],
       );
       _savedConfigurationId = id;
       return true;
@@ -838,22 +838,26 @@ class ModelSetupWizardController extends ChangeNotifier {
     }
   }
 
-  ConfiguredModelArtifact _artifactRecord(
+  ModelArtifactRecord _artifactRecord(
     ModelArtifactRow row,
-    String configurationId,
+    String modelId,
     int position,
   ) {
-    return ConfiguredModelArtifact(
-      id: '${configurationId}_${row.id}',
+    return ModelArtifactRecord(
+      id: '${modelId}_${position}_${row.id}',
+      modelId: modelId,
+      externalPath: row.repositoryFile?.path ?? row.deviceSourcePath ?? row.targetPath,
+      fileName: row.displayName,
       kind: row.kind.name,
       sourceType: row.sourceType.name,
       repositoryPath: row.repositoryFile?.path,
       deviceSourcePath: row.deviceSourcePath,
       targetPath: row.targetPath.trim(),
       sizeBytes: row.sizeBytes,
-      selected: row.selected,
-      downloaded: row.isReady,
+      enabled: row.selected,
       position: position,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
   }
 

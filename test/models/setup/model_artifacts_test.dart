@@ -6,13 +6,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/hugging_face_hub_client.dart';
-import 'package:kritha/features/models/setup/configured_model_store.dart';
+import 'package:kritha/features/models/setup/model_record_store.dart';
 import 'package:kritha/features/models/setup/model_artifact.dart';
 import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 import 'package:kritha/features/models/setup/model_setup_assessment.dart';
 import 'package:kritha/features/models/setup/model_setup_assessor.dart';
 import 'package:kritha/features/models/setup/model_setup_controller.dart';
-import 'package:kritha/models/model_configuration_record.dart';
+import 'package:kritha/models/model_record.dart';
 import 'package:kritha/services/runtime_probe.dart';
 
 void main() {
@@ -59,7 +59,7 @@ void main() {
   Future<ModelSetupWizardController> readyController({
     ModelArtifactDownloader? downloader,
     String? configurationId,
-    ConfiguredModelStore? store,
+    ModelRecordStore? store,
     ModelDetails? source,
   }) async {
     final controller = ModelSetupWizardController(
@@ -434,7 +434,7 @@ void main() {
     expect(controller.artifactsComplete, isFalse);
   });
 
-  test('each configuration owns a separate artifact root', () async {
+  test('a model uses a stable model-id artifact root', () async {
     final downloader = _FakeDownloader();
     final first = await readyController(
       downloader: downloader,
@@ -445,7 +445,7 @@ void main() {
       configurationId: 'configuration-b',
     );
 
-    expect(first.artifactRootPath, isNot(second.artifactRootPath));
+    expect(first.artifactRootPath, second.artifactRootPath);
     expect(first.artifactRootPath, startsWith(tempDir.path));
     expect(second.artifactRootPath, startsWith(tempDir.path));
 
@@ -457,12 +457,9 @@ void main() {
         .firstWhere((row) => row.id == firstWeight.id)
         .localPath!;
     final secondPath = second.artifacts
-        .firstWhere((row) => row.id == secondWeight.id)
-        .localPath!;
-    expect(firstPath, isNot(secondPath));
-
-    File(firstPath).writeAsStringSync('first configuration');
-    expect(File(secondPath).readAsStringSync(), isNot('first configuration'));
+      .firstWhere((row) => row.id == secondWeight.id)
+      .localPath!;
+    expect(firstPath, secondPath);
   });
 
   test('deleting all copies clears every downloaded row', () async {
@@ -538,19 +535,16 @@ void main() {
       expect(await controller.saveConfiguration(), isTrue);
 
       final saved = store.saved.single;
-      expect(saved.id, 'configuration-save');
-      expect(saved.repositoryId, 'acme/litert');
+      expect(saved.id, 'huggingface:acme/litert');
+      expect(saved.externalModelId, 'acme/litert');
       expect(saved.displayName, details.model.name);
-      expect(saved.runtimeId, isNotEmpty);
-      expect(saved.rootPath, controller.artifactRootPath);
-      expect(saved.artifacts, hasLength(3));
-      expect(saved.artifacts.every((artifact) => artifact.downloaded), isTrue);
-      expect(saved.artifacts.every((artifact) => artifact.selected), isTrue);
+      expect(store.artifacts, hasLength(3));
+      expect(store.artifacts.every((artifact) => artifact.enabled), isTrue);
       expect(
-        saved.artifacts.map((artifact) => artifact.targetPath),
+        store.artifacts.map((artifact) => artifact.targetPath),
         containsAll(['config.json', 'tokenizer.model', 'model.litertlm']),
       );
-      expect(controller.savedConfigurationId, 'configuration-save');
+      expect(controller.savedConfigurationId, isNotNull);
       expect(controller.saveError, isNull);
     },
   );
@@ -595,25 +589,29 @@ void main() {
       await controller.saveConfiguration();
 
       expect(store.saved, hasLength(1));
-      expect(store.saved.single.id, 'configuration-repeat');
+      expect(store.saved.single.id, 'huggingface:acme/litert');
     },
   );
 }
 
-class _FakeStore implements ConfiguredModelStore {
-  final List<ConfiguredModel> saved = [];
+class _FakeStore implements ModelRecordStore {
+  final List<ModelRecord> saved = [];
+  final List<ModelArtifactRecord> artifacts = [];
 
   @override
-  Future<void> save(ConfiguredModel model) async {
+  Future<void> save(ModelRecord model, List<ModelArtifactRecord> modelArtifacts) async {
     saved.removeWhere((item) => item.id == model.id);
     saved.add(model);
+    artifacts
+      ..removeWhere((item) => item.modelId == model.id)
+      ..addAll(modelArtifacts);
   }
 
   @override
-  Future<List<ConfiguredModel>> all() async => List.unmodifiable(saved);
+  Future<List<ModelRecord>> all() async => List.unmodifiable(saved);
 
   @override
-  Future<ConfiguredModel?> find(String id) async {
+  Future<ModelRecord?> find(String id) async {
     for (final model in saved) {
       if (model.id == id) return model;
     }

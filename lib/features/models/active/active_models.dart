@@ -1,8 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers.dart';
+import '../../../data/app_database.dart';
 import '../../intelligence/model_configuration.dart';
 import '../../intelligence/models/model_descriptor.dart';
 import '../../intelligence/models/model_capabilities.dart';
@@ -11,6 +14,7 @@ import '../../intelligence/models/task_registry.dart';
 import '../../providers/provider_definition.dart';
 import '../../providers/providers_controller.dart';
 import '../catalogue/catalogue_model.dart';
+import '../../../models/model_record.dart';
 
 enum ActiveAssignmentStatus { noModel, ready, active, assigned, stale }
 
@@ -142,6 +146,88 @@ abstract interface class ActiveModelStore {
   Future<Map<ModelCapability, ActiveModelAssignment>> read();
 
   Future<void> write(Map<ModelCapability, ActiveModelAssignment> assignments);
+}
+
+class DatabaseActiveModelStore implements ActiveModelStore {
+  const DatabaseActiveModelStore(this.database, this.legacyStore);
+
+  final AppDatabase database;
+  final SharedPreferencesActiveModelStore legacyStore;
+
+  @override
+  Future<Map<ModelCapability, ActiveModelAssignment>> read() async {
+    List<ActiveModelAssignmentRecord> records;
+    try {
+      records = await database.allActiveModelAssignments();
+    } on Object {
+      return legacyStore.read();
+    }
+    if (records.isEmpty) return legacyStore.read();
+    final result = <ModelCapability, ActiveModelAssignment>{};
+    for (final record in records) {
+      final capability = _capabilityForTaskId(record.taskId);
+      if (capability == null) continue;
+      final metadata = record.metadata;
+        final sourceId = metadata['sourceId'] is String
+          ? metadata['sourceId'] as String
+          : localProviderId;
+      result[capability] = ActiveModelAssignment(
+        capability: capability,
+        modelId: record.modelId,
+        displayName: metadata['displayName'] is String
+            ? metadata['displayName'] as String
+            : record.modelId,
+        runtimeId: metadata['runtimeId'] is String
+            ? metadata['runtimeId'] as String
+          : _canonicalRuntimeId(sourceId, null),
+        sourceId: sourceId,
+        taskId: record.taskId,
+        enabledTaskIds: [record.taskId],
+        activatedAt: record.updatedAt,
+      );
+    }
+    return Map.unmodifiable(result);
+  }
+
+  @override
+  Future<void> write(
+    Map<ModelCapability, ActiveModelAssignment> assignments,
+  ) async {
+    try {
+      for (final assignment in assignments.values) {
+        final taskIds = assignment.enabledTaskIds.isEmpty
+            ? [assignment.canonicalTaskId]
+            : assignment.enabledTaskIds;
+        for (final taskId in taskIds) {
+          final now = DateTime.now();
+          await database.saveActiveModelAssignment(
+            ActiveModelAssignmentRecord(
+              id: assignmentRecordId(
+                assignment.modelId,
+                taskId,
+                assignment.isMultimodal ? 'multimodal' : 'single',
+              ),
+              modelId: assignment.modelId,
+              taskId: taskId,
+              priority: assignment.isMultimodal ? 100 : 10,
+              assignmentType: assignment.isMultimodal ? 'multimodal' : 'single',
+              enabled: true,
+              metadata: {
+                'displayName': assignment.displayName,
+                'runtimeId': assignment.runtimeId,
+                'sourceId': assignment.sourceId,
+              },
+              createdAt: assignment.activatedAt,
+              updatedAt: now,
+            ),
+          );
+        }
+      }
+    } on Object {
+      // SharedPreferences remains the compatibility path when SQLite is unavailable.
+    }
+    await legacyStore.write(assignments);
+  }
 }
 
 abstract interface class RecentModelStore {
@@ -535,7 +621,17 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
 }
 
 final activeModelStoreProvider = Provider<ActiveModelStore>(
-  (ref) => const SharedPreferencesActiveModelStore(),
+  (ref) {
+    try {
+      ServicesBinding.instance;
+    } on Object {
+      return const SharedPreferencesActiveModelStore();
+    }
+    return DatabaseActiveModelStore(
+      ref.watch(databaseProvider),
+      const SharedPreferencesActiveModelStore(),
+    );
+  },
 );
 
 final recentModelStoreProvider = Provider<RecentModelStore>(

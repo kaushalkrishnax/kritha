@@ -180,7 +180,11 @@ Schema v3 adds `chat_sessions` and `chat_entries.sessionId`. Messages written by
 schema v1/v2 are adopted into an “Earlier conversation” session on first open,
 so upgrades do not lose history. Schema v4 adds configuration and artifact rows
 for the Model Setup Wizard; schema v5 adds `action_preferences`, a row-per-action
-store for choices such as muted confirmation prompts.
+store for choices such as muted confirmation prompts. The active model schema
+uses one source-scoped `models` table for base records and user-created,
+self-referencing variants. `model_artifacts` and `model_settings` reference
+model records directly, and child artifact reads inherit parent artifacts
+without duplicating inventory rows.
 
 ## Persistence and settings
 
@@ -194,6 +198,20 @@ store for choices such as muted confirmation prompts.
   not in the chat header.
 - Secrets use the shared `SecureStorageService`. Hub tokens and inference
   provider credentials have separate keys and validation rules.
+
+Model identity is `sourceId + externalModelId`; display names are never
+identifiers. A base model has no parent or suffix. A user-created variant is a
+normal model row with `parentModelId` pointing to the root model, the same
+`externalModelId`, and an exact user-entered suffix. Suffixes are validated as
+path-safe, unique among siblings, and never inferred from files or formats.
+Artifacts belong directly to model records, while local configuration rows
+retain installation-specific selection, download and target-path state.
+
+Active assignments are mirrored to the normalized database with model ID,
+canonical task, priority and assignment type. Provider identity remains in the
+assignment metadata used by the existing routing adapter. Model-specific
+inference options are persisted against the exact model ID using the existing
+`AiGenerationOptions` contract.
 
 ## Intelligence
 
@@ -224,6 +242,11 @@ exists.
 refresh time. Missing provider metadata remains unknown; it is never promoted
 to text support. `CatalogueModel` maps Hugging Face pipeline tags through this
 registry and preserves the original upstream tag.
+
+`deriveTaskMetadata` retains explicit canonical declarations with provenance
+and keeps unknown upstream values as raw metadata. Repository file formats do
+not create model variants or task declarations; variants are user-created
+model records only.
 
 ### Requests, validation and routing
 

@@ -7,7 +7,7 @@ import '../../../core/theme.dart';
 import '../../../widgets/create_popup.dart';
 import '../catalogue/catalogue_model.dart';
 import 'action_preferences.dart';
-import 'configured_model_store.dart';
+import 'model_record_store.dart';
 import 'model_artifact_storage.dart';
 import 'model_setup_assessor.dart';
 import 'model_setup_controller.dart';
@@ -52,7 +52,7 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
       details: widget.details,
       assessor: ref.read(modelSetupAssessorProvider),
       downloader: ref.read(modelArtifactDownloaderProvider),
-      store: ref.read(configuredModelStoreProvider),
+      store: ref.read(modelRecordStoreProvider),
       actionPreferences: ref.read(actionPreferenceStoreProvider),
       configurationId: widget.configurationId,
     );

@@ -22,7 +22,7 @@ Status legend:
 ```
 ChatScreen
   └─ chatControllerProvider (AsyncNotifier<ChatState>)
-       ├─ AppDatabase (Drift / SQLite, schema v5)
+      ├─ AppDatabase (Drift / SQLite, schema v6)
        │    ├─ chat_sessions: id, title, timestamps, pinned, archived
        │    ├─ chat_entries: id, sessionId, role, content, createdAt,
        │    │                 attachmentsJson
@@ -135,7 +135,7 @@ which point the session row is created with a title derived from that prompt.
 
 | Component | File | Status | Notes |
 | --- | --- | --- | --- |
-| `AppDatabase` | `lib/data/app_database.dart` | Real | Drift schema v5; v2→v3 adds `chat_sessions` and `chat_entries.sessionId` (orphan messages are adopted into “Earlier conversation”), v4 adds saved model configurations and their artifact rows, v5 adds `action_preferences` for per-action choices such as muted confirmation prompts. |
+| `AppDatabase` | `lib/data/app_database.dart` | Real | Drift schema v6; v2→v3 adds `chat_sessions` and `chat_entries.sessionId`, v4 adds saved model configurations and artifact rows, and v5 adds `action_preferences`. The active model schema uses one source-scoped `models` table for base records and user-created self-referencing variants. `model_artifacts`, `model_settings` and active assignments reference model records directly; child artifact reads inherit parent artifacts without duplicating rows. |
 | `ChatSession` | `lib/models/chat_session.dart` | Real | Plain model for a sidebar session. |
 | `ChatMessage` | `lib/models/chat_message.dart` | Real | Freezed + JSON; role, text, timestamp, attachments. |
 | `ChatAttachment` | `lib/models/chat_attachment.dart` | Real | Image/file kind, path, size, MIME, readable size. |

@@ -210,3 +210,15 @@ Set<InferenceCapability> capabilitiesForTask(AiTaskId task) => switch (task) {
   AiTaskId.automaticSpeechRecognition => {InferenceCapability.audioInput},
   _ => const {},
 };
+
+bool qualifiesAsMultimodal(Iterable<AiTaskId> tasks) {
+  final values = tasks.toSet();
+  if (values.length < 2) return false;
+  final modalities = <AiModality>{};
+  for (final task in values) {
+    modalities
+      ..addAll(task.inputModalities)
+      ..addAll(task.outputModalities);
+  }
+  return modalities.any((modality) => modality != AiModality.text);
+}

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue_providers.dart';
 import '../catalogue/hugging_face_hub_client.dart';
+import '../../../models/model_record.dart';
 
 /// Manages isolated storage root and relative paths for one model configuration.
 abstract interface class ModelArtifactStorage {
@@ -27,19 +28,48 @@ class FileModelArtifactStorage implements ModelArtifactStorage {
 
   static String rootFor({
     required String documentsPath,
-    required String repositoryId,
-    required String configurationId,
+    required String modelId,
+    String? suffix,
   }) {
     final base = documentsPath.trim();
     if (base.isEmpty) return '';
-    final repository = _safeSegment(repositoryId);
-    final configuration = _safeSegment(configurationId);
+    final model = _safeSegment(modelId);
+    final variant = suffix == null || suffix.trim().isEmpty
+        ? 'default'
+        : validateModelSuffix(suffix);
     return [
       base,
       'model_artifacts',
-      repository,
-      configuration,
+      model,
+      variant,
     ].join(Platform.pathSeparator);
+  }
+
+  static Future<void> renameRoot({
+    required String documentsPath,
+    required String modelId,
+    required String oldSuffix,
+    required String newSuffix,
+  }) async {
+    final oldRoot = rootFor(
+      documentsPath: documentsPath,
+      modelId: modelId,
+      suffix: oldSuffix,
+    );
+    final newRoot = rootFor(
+      documentsPath: documentsPath,
+      modelId: modelId,
+      suffix: newSuffix,
+    );
+    if (oldRoot == newRoot) return;
+    final source = Directory(oldRoot);
+    if (!await source.exists()) return;
+    final destination = Directory(newRoot);
+    if (await destination.exists()) {
+      throw const FileSystemException('The destination model directory already exists.');
+    }
+    await destination.parent.create(recursive: true);
+    await source.rename(destination.path);
   }
 
   @override

@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/data/app_database.dart';
 import 'package:kritha/models/chat_attachment.dart';
 import 'package:kritha/models/chat_message.dart';
 import 'package:kritha/models/chat_session.dart';
-import 'package:kritha/models/model_configuration_record.dart';
+import 'package:kritha/models/model_record.dart';
+import 'package:kritha/features/intelligence/models/ai_request.dart';
+import 'package:kritha/features/intelligence/models/task_registry.dart';
+import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 
 import '../support/seed_fixture.dart';
 
@@ -234,118 +239,227 @@ void main() {
     );
   });
 
-  test(
-    'saves, reads and deletes a model configuration with artifacts',
-    () async {
-      final now = DateTime(2026, 11, 1, 9);
-      final model = ConfiguredModel(
-        id: 'cfg-1',
-        repositoryId: 'acme/litert',
-        displayName: 'Litert',
-        runtimeId: 'litertlm',
-        branch: 'main',
-        commitSha: 'abc123',
-        rootPath: '/tmp/model_artifacts/acme/litert/cfg-1',
+  test('stores base models and user-created variants in one model table', () async {
+    final now = DateTime(2026, 11, 1, 10);
+    final modelId = modelRecordId('huggingface', 'acme/vision-model');
+    const variantId = 'user-variant-1';
+    await database.saveModelRecord(
+      ModelRecord(
+        id: modelId,
+        sourceId: 'huggingface',
+        externalModelId: 'acme/vision-model',
+        displayName: 'Vision model',
         createdAt: now,
         updatedAt: now,
-        artifacts: const [
-          ConfiguredModelArtifact(
-            id: 'a1',
-            kind: 'weights',
-            sourceType: 'repository',
-            repositoryPath: 'model.litertlm',
-            targetPath: 'weights/model.litertlm',
-            selected: true,
-            downloaded: true,
-            position: 0,
-            sizeBytes: 2048,
-          ),
-          ConfiguredModelArtifact(
-            id: 'a2',
-            kind: 'configuration',
-            sourceType: 'device',
-            deviceSourcePath: '/tmp/config.json',
-            targetPath: 'config.json',
-            selected: false,
-            downloaded: false,
-            position: 1,
+        tasks: [
+          TaskDeclaration(
+            task: AiTaskId.imageTextToText,
+            confidence: TaskMetadataConfidence.explicit,
+            source: TaskMetadataSource.huggingFace,
+            upstreamValue: 'image-text-to-text',
           ),
         ],
-      );
+      ),
+    );
+    await database.saveModelRecord(
+      ModelRecord(
+        id: variantId,
+        sourceId: 'huggingface',
+        externalModelId: 'acme/vision-model',
+        parentModelId: modelId,
+        suffix: 'studio',
+        displayName: 'Vision model studio',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelArtifact(
+      ModelArtifactRecord(
+        id: 'artifact-1',
+        modelId: modelId,
+        externalPath: 'config.json',
+        fileName: 'config.json',
+        kind: 'configuration',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelArtifact(
+      ModelArtifactRecord(
+        id: 'artifact-2',
+        modelId: variantId,
+        externalPath: 'weights.bin',
+        fileName: 'weights.bin',
+        kind: 'weights',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    final storedModel = await database.modelRecordById(modelId);
+    expect(storedModel?.tasks.single.task, AiTaskId.imageTextToText);
+    expect((await database.childModelsOf(modelId)).single.suffix, 'studio');
+    expect((await database.artifactsForModel(variantId)).map((item) => item.id),
+        ['artifact-1', 'artifact-2']);
+  });
 
-      await database.saveModelConfiguration(model);
+  test('scopes settings and assignments to exact model records', () async {
+    final now = DateTime(2026, 11, 1, 11);
+    const modelId = 'mistral:mistral-small';
+    await database.saveModelInferenceSettings(
+      ModelSettingsRecord(
+        id: modelSettingsRecordId(modelId),
+        modelId: modelId,
+        options: const AiGenerationOptions(temperature: 0.4, topK: 20),
+        updatedAt: now,
+      ),
+    );
+    await database.saveActiveModelAssignment(
+      ActiveModelAssignmentRecord(
+        id: assignmentRecordId(modelId, AiTaskId.textGeneration.id, 'single'),
+        modelId: modelId,
+        taskId: AiTaskId.textGeneration.id,
+        priority: 10,
+        assignmentType: 'single',
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    final settings = await database.modelSettingsFor(modelId);
+    expect(settings?.options.temperature, 0.4);
+    expect(settings?.options.topK, 20);
+    expect(
+      (await database.activeModelAssignmentsForTask(
+        AiTaskId.textGeneration.id,
+      )).single.modelId,
+      modelId,
+    );
+  });
 
-      final stored = await database.configuredModels();
-      expect(stored, hasLength(1));
-      expect(stored.single.repositoryId, 'acme/litert');
-      expect(stored.single.rootPath, model.rootPath);
-      expect(stored.single.artifacts.map((artifact) => artifact.id), [
-        'a1',
-        'a2',
-      ]);
-      expect(stored.single.artifacts.first.repositoryPath, 'model.litertlm');
-      expect(stored.single.artifacts.last.deviceSourcePath, '/tmp/config.json');
-      expect(stored.single.selectedArtifacts.single.id, 'a1');
-      expect(stored.single.isReady, isTrue);
+  test('updates a variant suffix and renames its storage directory', () async {
+    final now = DateTime(2026, 11, 2);
+    const baseId = 'user:base';
+    const variantId = 'user:variant';
+    await database.saveModelRecord(
+      ModelRecord(
+        id: baseId,
+        sourceId: 'user',
+        externalModelId: 'base-model',
+        displayName: 'Base model',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelRecord(
+      ModelRecord(
+        id: variantId,
+        sourceId: 'user',
+        externalModelId: 'base-model',
+        parentModelId: baseId,
+        suffix: 'draft',
+        displayName: 'Base model draft',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    final root = await Directory.systemTemp.createTemp('kritha-model-root-');
+    addTearDown(() => root.delete(recursive: true));
+    final oldDirectory = Directory(
+      FileModelArtifactStorage.rootFor(
+        documentsPath: root.path,
+        modelId: variantId,
+        suffix: 'draft',
+      ),
+    )..createSync(recursive: true);
+    File('${oldDirectory.path}/weights.bin').writeAsStringSync('weights');
 
-      final byId = await database.configuredModelById('cfg-1');
-      expect(byId?.displayName, 'Litert');
+    await FileModelArtifactStorage.renameRoot(
+      documentsPath: root.path,
+      modelId: variantId,
+      oldSuffix: 'draft',
+      newSuffix: 'release',
+    );
+    await database.updateModelSuffix(variantId, 'release');
 
-      await database.deleteModelConfiguration('cfg-1');
-      expect(await database.configuredModels(), isEmpty);
-      expect(await database.configuredModelById('cfg-1'), isNull);
-    },
-  );
+    expect(await oldDirectory.exists(), isFalse);
+    final newDirectory = Directory(
+      FileModelArtifactStorage.rootFor(
+        documentsPath: root.path,
+        modelId: variantId,
+        suffix: 'release',
+      ),
+    );
+    expect(await newDirectory.exists(), isTrue);
+    expect(await File('${newDirectory.path}/weights.bin').readAsString(), 'weights');
+    expect((await database.modelRecordById(variantId))?.suffix, 'release');
+  });
 
-  test(
-    'saving again rewrites the artifact rows of that configuration',
-    () async {
-      final now = DateTime(2026, 11, 1, 9);
-      ConfiguredModel model(List<ConfiguredModelArtifact> artifacts) {
-        return ConfiguredModel(
-          id: 'cfg-2',
-          repositoryId: 'acme/litert',
-          displayName: 'Litert',
-          runtimeId: 'litertlm',
-          branch: 'main',
-          rootPath: '/tmp/model_artifacts/acme/litert/cfg-2',
-          createdAt: now,
-          updatedAt: now,
-          artifacts: artifacts,
-        );
-      }
+  test('inherits base artifacts and deletes only a variant record', () async {
+    final now = DateTime(2026, 11, 2);
+    const baseId = 'user:base-artifacts';
+    const variantId = 'user:variant-artifacts';
+    await database.saveModelRecord(
+      ModelRecord(
+        id: baseId,
+        sourceId: 'user',
+        externalModelId: 'artifact-model',
+        displayName: 'Artifact model',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelRecord(
+      ModelRecord(
+        id: variantId,
+        sourceId: 'user',
+        externalModelId: 'artifact-model',
+        parentModelId: baseId,
+        suffix: 'custom',
+        displayName: 'Artifact model custom',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelArtifact(
+      ModelArtifactRecord(
+        id: 'base-config',
+        modelId: baseId,
+        externalPath: 'config.json',
+        fileName: 'config.json',
+        kind: 'configuration',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await database.saveModelArtifact(
+      ModelArtifactRecord(
+        id: 'variant-weights',
+        modelId: variantId,
+        externalPath: 'weights.bin',
+        fileName: 'weights.bin',
+        kind: 'weights',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
 
-      await database.saveModelConfiguration(
-        model(const [
-          ConfiguredModelArtifact(
-            id: 'old',
-            kind: 'helper',
-            sourceType: 'repository',
-            repositoryPath: 'tokenizer.model',
-            targetPath: 'tokenizer.model',
-            selected: true,
-            downloaded: false,
-            position: 0,
-          ),
-        ]),
-      );
-      await database.saveModelConfiguration(
-        model(const [
-          ConfiguredModelArtifact(
-            id: 'new',
-            kind: 'weights',
-            sourceType: 'repository',
-            repositoryPath: 'model.litertlm',
-            targetPath: 'model.litertlm',
-            selected: true,
-            downloaded: true,
-            position: 0,
-          ),
-        ]),
-      );
+    final resolved = await database.artifactsForModel(variantId);
+    expect(resolved.map((artifact) => artifact.id), [
+      'base-config',
+      'variant-weights',
+    ]);
+    expect(
+      await (database.select(database.modelArtifacts)).get(),
+      hasLength(2),
+    );
 
-      final stored = await database.configuredModels();
-      expect(stored.single.artifacts.map((artifact) => artifact.id), ['new']);
-    },
-  );
+    await database.deleteModelRecord(variantId);
+    expect(await database.modelRecordById(variantId), isNull);
+    expect(await database.modelRecordById(baseId), isNotNull);
+    expect(await database.artifactsForModel(baseId), hasLength(1));
+    expect(
+      await (database.select(database.modelArtifacts)).get(),
+      hasLength(1),
+    );
+  });
 }

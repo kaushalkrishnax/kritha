@@ -8,7 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import '../models/chat_attachment.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
-import '../models/model_configuration_record.dart';
+import '../models/model_record.dart';
+import '../features/intelligence/models/ai_request.dart';
+import '../features/intelligence/models/task_registry.dart';
 
 part 'app_database.g.dart';
 
@@ -37,41 +39,6 @@ class ChatEntries extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-/// Saved local model configuration; pre-checks are evaluated dynamically.
-@DataClassName('ModelConfigurationRow')
-class ModelConfigurations extends Table {
-  TextColumn get id => text()();
-  TextColumn get repositoryId => text()();
-  TextColumn get displayName => text()();
-  TextColumn get runtimeId => text()();
-  TextColumn get branch => text()();
-  TextColumn get commitSha => text().nullable()();
-  TextColumn get rootPath => text()();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => {id};
-}
-
-@DataClassName('ModelConfigurationArtifactRow')
-class ModelConfigurationArtifacts extends Table {
-  TextColumn get id => text()();
-  TextColumn get configurationId => text()();
-  TextColumn get kind => text()();
-  TextColumn get sourceType => text()();
-  TextColumn get repositoryPath => text().nullable()();
-  TextColumn get deviceSourcePath => text().nullable()();
-  TextColumn get targetPath => text()();
-  IntColumn get sizeBytes => integer().nullable()();
-  BoolColumn get selected => boolean().withDefault(const Constant(true))();
-  BoolColumn get downloaded => boolean().withDefault(const Constant(false))();
-  IntColumn get position => integer().withDefault(const Constant(0))();
-
-  @override
-  Set<Column<Object>> get primaryKey => {id};
-}
-
 /// Per-action user choices, e.g. suppressed confirmation prompts.
 @DataClassName('ActionPreferenceRow')
 class ActionPreferences extends Table {
@@ -83,13 +50,88 @@ class ActionPreferences extends Table {
   Set<Column<Object>> get primaryKey => {actionKey};
 }
 
+class Models extends Table {
+  TextColumn get id => text()();
+  TextColumn get sourceId => text()();
+  TextColumn get externalModelId => text()();
+  TextColumn get displayName => text()();
+  TextColumn get parentModelId => text().nullable()();
+  TextColumn get suffix => text().nullable()();
+  TextColumn get publisher => text().nullable()();
+  TextColumn get sourceType => text().withDefault(const Constant('unknown'))();
+  TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
+  TextColumn get taskJson => text().withDefault(const Constant('[]'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class ModelArtifacts extends Table {
+  TextColumn get id => text()();
+  TextColumn get modelId => text()();
+  TextColumn get externalPath => text()();
+  TextColumn get fileName => text()();
+  TextColumn get kind => text().withDefault(const Constant('other'))();
+  TextColumn get sourceType => text().withDefault(const Constant('repository'))();
+  TextColumn get repositoryPath => text().nullable()();
+  TextColumn get deviceSourcePath => text().nullable()();
+  TextColumn get targetPath => text().nullable()();
+  TextColumn get format => text().nullable()();
+  IntColumn get sizeBytes => integer().nullable()();
+  BoolColumn get isLfs => boolean().withDefault(const Constant(false))();
+  TextColumn get oid => text().nullable()();
+  TextColumn get revision => text().nullable()();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  IntColumn get position => integer().withDefault(const Constant(0))();
+  TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class ModelSettings extends Table {
+  TextColumn get id => text()();
+  TextColumn get modelId => text()();
+  IntColumn get version => integer().withDefault(const Constant(1))();
+  TextColumn get optionsJson => text().withDefault(const Constant('{}'))();
+  TextColumn get overridesJson => text().withDefault(const Constant('{}'))();
+  IntColumn get maxThinkingTokens => integer().nullable()();
+  TextColumn get thinkingConfigJson => text().withDefault(const Constant('{}'))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('ActiveModelAssignmentRow')
+class ActiveModelAssignments extends Table {
+  TextColumn get id => text()();
+  TextColumn get modelId => text()();
+  TextColumn get taskId => text()();
+  IntColumn get priority => integer().withDefault(const Constant(0))();
+  TextColumn get assignmentType => text().withDefault(const Constant('single'))();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     ChatSessions,
     ChatEntries,
-    ModelConfigurations,
-    ModelConfigurationArtifacts,
     ActionPreferences,
+    Models,
+    ModelArtifacts,
+    ModelSettings,
+    ActiveModelAssignments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -106,7 +148,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,12 +161,14 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(chatSessions);
         await migrator.addColumn(chatEntries, chatEntries.sessionId);
       }
-      if (from < 4) {
-        await migrator.createTable(modelConfigurations);
-        await migrator.createTable(modelConfigurationArtifacts);
-      }
       if (from < 5) {
         await migrator.createTable(actionPreferences);
+      }
+      if (from < 6) {
+        await migrator.createTable(models);
+        await migrator.createTable(modelArtifacts);
+        await migrator.createTable(modelSettings);
+        await migrator.createTable(activeModelAssignments);
       }
     },
   );
@@ -351,79 +395,210 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Inserts or replaces a saved configuration and rewrites its artifact rows.
-  Future<void> saveModelConfiguration(ConfiguredModel model) async {
+  Future<List<ModelRecord>> allModelRecords() async {
+    final rows = await (select(models)
+          ..orderBy([(row) => OrderingTerm.asc(row.displayName)]))
+        .get();
+    return [for (final row in rows) _mapModelRecord(row)];
+  }
+
+  Future<ModelRecord?> modelRecordById(String id) async {
+    final row = await (select(models)..where((item) => item.id.equals(id)))
+        .getSingleOrNull();
+    return row == null ? null : _mapModelRecord(row);
+  }
+
+  Future<void> deleteArtifactsForModel(String modelId) async {
+    await (delete(modelArtifacts)..where((row) => row.modelId.equals(modelId))).go();
+  }
+
+  Future<void> deleteModelRecord(String id) async {
     await transaction(() async {
-      await into(modelConfigurations).insertOnConflictUpdate(
-        ModelConfigurationsCompanion.insert(
-          id: model.id,
-          repositoryId: model.repositoryId,
-          displayName: model.displayName,
-          runtimeId: model.runtimeId,
-          branch: model.branch,
-          commitSha: Value(model.commitSha),
-          rootPath: model.rootPath,
-          createdAt: model.createdAt,
-          updatedAt: model.updatedAt,
-        ),
-      );
-      await (delete(
-        modelConfigurationArtifacts,
-      )..where((row) => row.configurationId.equals(model.id))).go();
-      if (model.artifacts.isEmpty) return;
-      await batch((batch) {
-        batch.insertAll(modelConfigurationArtifacts, [
-          for (final artifact in model.artifacts)
-            ModelConfigurationArtifactsCompanion.insert(
-              id: artifact.id,
-              configurationId: model.id,
-              kind: artifact.kind,
-              sourceType: artifact.sourceType,
-              repositoryPath: Value(artifact.repositoryPath),
-              deviceSourcePath: Value(artifact.deviceSourcePath),
-              targetPath: artifact.targetPath,
-              sizeBytes: Value(artifact.sizeBytes),
-              selected: Value(artifact.selected),
-              downloaded: Value(artifact.downloaded),
-              position: Value(artifact.position),
-            ),
-        ]);
-      });
+      await deleteArtifactsForModel(id);
+      await (delete(modelSettings)..where((row) => row.modelId.equals(id))).go();
+      await (delete(activeModelAssignments)..where((row) => row.modelId.equals(id))).go();
+      await (delete(models)..where((row) => row.id.equals(id))).go();
     });
   }
 
-  /// Every saved configuration, newest first, with ordered artifacts.
-  Future<List<ConfiguredModel>> configuredModels() async {
-    final rows = await (select(
-      modelConfigurations,
-    )..orderBy([(row) => OrderingTerm.desc(row.updatedAt)])).get();
-    if (rows.isEmpty) return const [];
-    final artifacts = await _artifactRows();
-    return [
-      for (final row in rows)
-        _mapConfiguredModel(row, artifacts[row.id] ?? const []),
-    ];
+  Future<void> updateModelSuffix(String modelId, String suffix) async {
+    final model = await modelRecordById(modelId);
+    if (model == null || model.parentModelId == null) {
+      throw const FormatException('Only a variant model can have a suffix');
+    }
+    final validated = validateModelSuffix(suffix);
+    final siblings = await childModelsOf(model.parentModelId!);
+    if (siblings.any((item) => item.id != modelId && item.suffix == validated)) {
+      throw const FormatException('Variant suffix already exists for this model');
+    }
+    await (update(models)..where((row) => row.id.equals(modelId))).write(
+      ModelsCompanion(suffix: Value(validated), updatedAt: Value(DateTime.now())),
+    );
   }
 
-  Future<ConfiguredModel?> configuredModelById(String id) async {
-    final row = await (select(
-      modelConfigurations,
-    )..where((row) => row.id.equals(id))).getSingleOrNull();
-    if (row == null) return null;
-    final artifacts = await _artifactRows(configurationId: id);
-    return _mapConfiguredModel(row, artifacts[id] ?? const []);
+  Future<List<ModelRecord>> childModelsOf(String parentModelId) async {
+    final rows = await (select(models)
+          ..where((row) => row.parentModelId.equals(parentModelId))
+          ..orderBy([(row) => OrderingTerm.asc(row.suffix)]))
+        .get();
+    return [for (final row in rows) _mapModelRecord(row)];
   }
 
-  /// Deletes configuration and owned artifact rows; caller owns files on disk.
-  Future<void> deleteModelConfiguration(String id) async {
-    await transaction(() async {
-      await (delete(
-        modelConfigurationArtifacts,
-      )..where((row) => row.configurationId.equals(id))).go();
-      await (delete(
-        modelConfigurations,
-      )..where((row) => row.id.equals(id))).go();
-    });
+  Future<ModelRecord?> baseModelFor(String modelId) async {
+    final model = await modelRecordById(modelId);
+    if (model == null) return null;
+    return model.parentModelId == null
+        ? model
+        : modelRecordById(model.parentModelId!);
+  }
+
+  Future<List<ModelArtifactRecord>> artifactsForModel(String modelId) async {
+    final model = await modelRecordById(modelId);
+    if (model == null) return const [];
+    final rows = await (select(modelArtifacts)
+          ..where((row) => row.modelId.equals(modelId))
+          ..orderBy([
+            (row) => OrderingTerm.asc(row.position),
+            (row) => OrderingTerm.asc(row.fileName),
+          ]))
+        .get();
+    final own = [for (final row in rows) _mapModelArtifact(row)];
+    if (model.parentModelId == null) return own;
+    final inherited = await artifactsForModel(model.parentModelId!);
+    return [...inherited, ...own];
+  }
+
+  Future<ModelSettingsRecord?> modelSettingsFor(String modelId) async {
+    final row = await (select(modelSettings)
+          ..where((item) => item.modelId.equals(modelId)))
+        .getSingleOrNull();
+    return row == null ? null : _mapModelSettings(row);
+  }
+
+  Future<List<ActiveModelAssignmentRecord>> activeModelAssignmentsForTask(
+    String taskId,
+  ) async {
+    final rows = await (select(activeModelAssignments)
+          ..where((row) => row.taskId.equals(taskId) & row.enabled.equals(true))
+          ..orderBy([(row) => OrderingTerm.desc(row.priority)]))
+        .get();
+    return [for (final row in rows) _mapAssignment(row)];
+  }
+
+  Future<List<ActiveModelAssignmentRecord>> allActiveModelAssignments() async {
+    final rows = await (select(activeModelAssignments)
+          ..where((row) => row.enabled.equals(true))
+          ..orderBy([(row) => OrderingTerm.desc(row.priority)]))
+        .get();
+    return [for (final row in rows) _mapAssignment(row)];
+  }
+
+  Future<void> saveModelRecord(ModelRecord model) async {
+    if (model.isVariant) {
+      final parent = await modelRecordById(model.parentModelId!);
+      if (parent == null || parent.parentModelId != null) {
+        throw const FormatException('A variant must reference a base model');
+      }
+      if (parent.sourceId != model.sourceId ||
+          parent.externalModelId != model.externalModelId) {
+        throw const FormatException(
+          'A variant must retain its base model source and external ID',
+        );
+      }
+      validateModelSuffix(model.suffix!);
+      final siblings = await childModelsOf(parent.id);
+      if (siblings.any((item) => item.suffix == model.suffix && item.id != model.id)) {
+        throw const FormatException('Variant suffix already exists for this model');
+      }
+    } else if (model.suffix != null || model.parentModelId != null) {
+      throw const FormatException('Base models cannot have a parent or suffix');
+    }
+    await into(models).insertOnConflictUpdate(
+      ModelsCompanion.insert(
+        id: model.id,
+        sourceId: model.sourceId,
+        externalModelId: model.externalModelId,
+        displayName: model.displayName,
+        parentModelId: Value(model.parentModelId),
+        suffix: Value(model.suffix),
+        publisher: Value(model.publisher),
+        sourceType: Value(model.sourceType),
+        metadataJson: Value(jsonEncode(model.metadata)),
+        taskJson: Value(jsonEncode([
+          for (final declaration in model.tasks)
+            {
+              'taskId': declaration.task.id,
+              'confidence': declaration.confidence.name,
+              'source': declaration.source.name,
+              'upstreamValue': declaration.upstreamValue,
+              'refreshedAt': declaration.refreshedAt?.toIso8601String(),
+            },
+        ])),
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+      ),
+    );
+  }
+
+  Future<void> saveModelArtifact(ModelArtifactRecord artifact) async {
+    await into(modelArtifacts).insertOnConflictUpdate(
+      ModelArtifactsCompanion.insert(
+        id: artifact.id,
+        modelId: artifact.modelId,
+        externalPath: artifact.externalPath,
+        fileName: artifact.fileName,
+        kind: Value(artifact.kind),
+        sourceType: Value(artifact.sourceType),
+        repositoryPath: Value(artifact.repositoryPath),
+        deviceSourcePath: Value(artifact.deviceSourcePath),
+        targetPath: Value(artifact.targetPath),
+        format: Value(artifact.format),
+        sizeBytes: Value(artifact.sizeBytes),
+        isLfs: Value(artifact.isLfs),
+        oid: Value(artifact.oid),
+        revision: Value(artifact.revision),
+        enabled: Value(artifact.enabled),
+        position: Value(artifact.position),
+        metadataJson: Value(jsonEncode(artifact.metadata)),
+        createdAt: artifact.createdAt,
+        updatedAt: artifact.updatedAt,
+      ),
+    );
+  }
+
+  Future<void> saveModelInferenceSettings(
+    ModelSettingsRecord settings,
+  ) async {
+    await into(modelSettings).insertOnConflictUpdate(
+      ModelSettingsCompanion.insert(
+        id: settings.id,
+        modelId: settings.modelId,
+        version: Value(settings.version),
+        optionsJson: Value(jsonEncode(settings.options.toJson())),
+        overridesJson: Value(jsonEncode(settings.overrides)),
+        maxThinkingTokens: Value(settings.maxThinkingTokens),
+        thinkingConfigJson: Value(jsonEncode(settings.thinkingConfig)),
+        updatedAt: settings.updatedAt,
+      ),
+    );
+  }
+
+  Future<void> saveActiveModelAssignment(
+    ActiveModelAssignmentRecord assignment,
+  ) async {
+    await into(activeModelAssignments).insertOnConflictUpdate(
+      ActiveModelAssignmentsCompanion.insert(
+        id: assignment.id,
+        modelId: assignment.modelId,
+        taskId: assignment.taskId,
+        priority: Value(assignment.priority),
+        assignmentType: Value(assignment.assignmentType),
+        enabled: Value(assignment.enabled),
+        metadataJson: Value(jsonEncode(assignment.metadata)),
+        createdAt: assignment.createdAt,
+        updatedAt: assignment.updatedAt,
+      ),
+    );
   }
 
   /// Row-per-preference store so new actions need no schema change.
@@ -444,60 +619,118 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<Map<String, List<ConfiguredModelArtifact>>> _artifactRows({
-    String? configurationId,
-  }) async {
-    final query = select(modelConfigurationArtifacts)
-      ..orderBy([
-        (row) => OrderingTerm.asc(row.position),
-        (row) => OrderingTerm.asc(row.id),
-      ]);
-    if (configurationId != null) {
-      query.where((row) => row.configurationId.equals(configurationId));
-    }
-    final rows = await query.get();
-    final grouped = <String, List<ConfiguredModelArtifact>>{};
-    for (final row in rows) {
-      grouped
-          .putIfAbsent(row.configurationId, () => [])
-          .add(_mapConfiguredArtifact(row));
-    }
-    return grouped;
-  }
-
-  ConfiguredModel _mapConfiguredModel(
-    ModelConfigurationRow row,
-    List<ConfiguredModelArtifact> artifacts,
-  ) {
-    return ConfiguredModel(
+  ModelRecord _mapModelRecord(Model row) {
+    final rawTasks = _decodeList(row.taskJson);
+    return ModelRecord(
       id: row.id,
-      repositoryId: row.repositoryId,
+      sourceId: row.sourceId,
+      externalModelId: row.externalModelId,
       displayName: row.displayName,
-      runtimeId: row.runtimeId,
-      branch: row.branch,
-      commitSha: row.commitSha,
-      rootPath: row.rootPath,
+      parentModelId: row.parentModelId,
+      suffix: row.suffix,
+      publisher: row.publisher,
+      sourceType: row.sourceType,
+      metadata: _decodeMap(row.metadataJson),
+      tasks: _decodeTaskDeclarations(rawTasks),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      artifacts: List.unmodifiable(artifacts),
     );
   }
 
-  ConfiguredModelArtifact _mapConfiguredArtifact(
-    ModelConfigurationArtifactRow row,
-  ) {
-    return ConfiguredModelArtifact(
-      id: row.id,
-      kind: row.kind,
-      sourceType: row.sourceType,
-      repositoryPath: row.repositoryPath,
-      deviceSourcePath: row.deviceSourcePath,
-      targetPath: row.targetPath,
-      sizeBytes: row.sizeBytes,
-      selected: row.selected,
-      downloaded: row.downloaded,
-      position: row.position,
+  ModelArtifactRecord _mapModelArtifact(ModelArtifact row) => ModelArtifactRecord(
+    id: row.id,
+    modelId: row.modelId,
+    externalPath: row.externalPath,
+    fileName: row.fileName,
+    kind: row.kind,
+    sourceType: row.sourceType,
+    repositoryPath: row.repositoryPath,
+    deviceSourcePath: row.deviceSourcePath,
+    targetPath: row.targetPath,
+    format: row.format,
+    sizeBytes: row.sizeBytes,
+    isLfs: row.isLfs,
+    oid: row.oid,
+    revision: row.revision,
+    enabled: row.enabled,
+    position: row.position,
+    metadata: _decodeMap(row.metadataJson),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  );
+
+  ModelSettingsRecord _mapModelSettings(ModelSetting row) => ModelSettingsRecord(
+    id: row.id,
+    modelId: row.modelId,
+    version: row.version,
+    options: AiGenerationOptions.fromJson(_decodeMap(row.optionsJson)),
+    overrides: _decodeMap(row.overridesJson),
+    maxThinkingTokens: row.maxThinkingTokens,
+    thinkingConfig: _decodeMap(row.thinkingConfigJson),
+    updatedAt: row.updatedAt,
+  );
+
+  ActiveModelAssignmentRecord _mapAssignment(ActiveModelAssignmentRow row) =>
+      ActiveModelAssignmentRecord(
+        id: row.id,
+        modelId: row.modelId,
+        taskId: row.taskId,
+        priority: row.priority,
+        assignmentType: row.assignmentType,
+        enabled: row.enabled,
+        metadata: _decodeMap(row.metadataJson),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      );
+
+  TaskDeclaration? _decodeTaskDeclaration(Map<String, dynamic> json) {
+    final task = AiTaskId.fromId(json['taskId'] as String?);
+    if (task == null) return null;
+    final confidence = TaskMetadataConfidence.values.firstWhere(
+      (item) => item.name == json['confidence'],
+      orElse: () => TaskMetadataConfidence.unknown,
     );
+    final source = TaskMetadataSource.values.firstWhere(
+      (item) => item.name == json['source'],
+      orElse: () => TaskMetadataSource.provider,
+    );
+    return TaskDeclaration(
+      task: task,
+      confidence: confidence,
+      source: source,
+      upstreamValue: json['upstreamValue'] as String?,
+      refreshedAt: DateTime.tryParse('${json['refreshedAt']}'),
+    );
+  }
+
+  List<TaskDeclaration> _decodeTaskDeclarations(List<dynamic> raw) {
+    final declarations = <TaskDeclaration>[];
+    for (final item in raw) {
+      if (item is! Map<String, dynamic>) continue;
+      final declaration = _decodeTaskDeclaration(item);
+      if (declaration != null) declarations.add(declaration);
+    }
+    return declarations;
+  }
+
+  Map<String, dynamic> _decodeMap(String raw) {
+    try {
+      final value = jsonDecode(raw);
+      return value is Map
+          ? {for (final entry in value.entries) '${entry.key}': entry.value}
+          : <String, dynamic>{};
+    } on Object {
+      return <String, dynamic>{};
+    }
+  }
+
+  List<dynamic> _decodeList(String raw) {
+    try {
+      final value = jsonDecode(raw);
+      return value is List ? value : const [];
+    } on Object {
+      return const [];
+    }
   }
 
   ChatMessage _mapMessage(ChatEntry row) {

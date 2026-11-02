@@ -7,11 +7,11 @@ import 'package:kritha/core/providers.dart';
 import 'package:kritha/core/theme.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/setup/action_preferences.dart';
-import 'package:kritha/features/models/setup/configured_model_store.dart';
+import 'package:kritha/features/models/setup/model_record_store.dart';
 import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 import 'package:kritha/features/models/setup/model_setup_assessment.dart';
 import 'package:kritha/features/models/setup/model_setup_wizard.dart';
-import 'package:kritha/models/model_configuration_record.dart';
+import 'package:kritha/models/model_record.dart';
 import 'package:kritha/services/runtime_probe.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -57,7 +57,7 @@ void main() {
 
   Widget buildWizard(
     Future<RuntimeStatus> runtimeFuture, {
-    ConfiguredModelStore? store,
+    ModelRecordStore? store,
     String? configurationId,
     ModelArtifactDownloader? downloader,
     ActionPreferenceStore? preferences,
@@ -68,7 +68,7 @@ void main() {
       overrides: [
         runtimeStatusProvider.overrideWith((ref) => runtimeFuture),
         if (store != null)
-          configuredModelStoreProvider.overrideWithValue(store),
+          modelRecordStoreProvider.overrideWithValue(store),
         if (downloader != null)
           modelArtifactDownloaderProvider.overrideWithValue(downloader),
         if (preferences != null)
@@ -544,8 +544,7 @@ void main() {
     const configurationId = 'wizard-ready';
     final root = FileModelArtifactStorage.rootFor(
       documentsPath: tempDir.path,
-      repositoryId: details.model.id,
-      configurationId: configurationId,
+      modelId: details.model.id,
     );
     for (final name in ['config.json', 'model.litertlm']) {
       File('$root/$name')
@@ -596,10 +595,10 @@ void main() {
 
     expect(store.saved, hasLength(1));
     final record = store.saved.single;
-    expect(record.id, configurationId);
-    expect(record.repositoryId, 'acme/litert');
-    expect(record.artifacts, hasLength(2));
-    expect(record.artifacts.every((artifact) => artifact.downloaded), isTrue);
+    expect(record.id, 'huggingface:acme/litert');
+    expect(record.externalModelId, 'acme/litert');
+    expect(store.artifacts, hasLength(2));
+    expect(store.artifacts.every((artifact) => artifact.enabled), isTrue);
   });
 }
 
@@ -616,20 +615,24 @@ class _FakePreferences implements ActionPreferenceStore {
   }
 }
 
-class _FakeStore implements ConfiguredModelStore {
-  final List<ConfiguredModel> saved = [];
+class _FakeStore implements ModelRecordStore {
+  final List<ModelRecord> saved = [];
+  final List<ModelArtifactRecord> artifacts = [];
 
   @override
-  Future<void> save(ConfiguredModel model) async {
+  Future<void> save(ModelRecord model, List<ModelArtifactRecord> modelArtifacts) async {
     saved.removeWhere((item) => item.id == model.id);
     saved.add(model);
+    artifacts
+      ..removeWhere((item) => item.modelId == model.id)
+      ..addAll(modelArtifacts);
   }
 
   @override
-  Future<List<ConfiguredModel>> all() async => List.unmodifiable(saved);
+  Future<List<ModelRecord>> all() async => List.unmodifiable(saved);
 
   @override
-  Future<ConfiguredModel?> find(String id) async {
+  Future<ModelRecord?> find(String id) async {
     for (final model in saved) {
       if (model.id == id) return model;
     }
