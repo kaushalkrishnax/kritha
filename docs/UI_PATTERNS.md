@@ -57,13 +57,27 @@ the row. `WorkspaceOutlinedAction` labels stay single-line with ellipsis.
 
 ### Models workspace
 
-Active Models and Provider Models share a management shell. Compact and medium
-headers show back, the current title as a dropdown that switches destination and
-an outlined Explore Models action on the right. Wide screens embed the
-expandable docked sidebar, nest Active Models and Provider Models under Models,
+Active Models and Provider Models share one route shell. The current title is a
+dropdown that switches destination in place; compact and medium layouts also show
+back, and an outlined Explore Models action sits on the right. Wide screens embed
+the expandable docked sidebar, nest Active Models and Provider Models under Models,
 mark the current destination, and drop the back control. Explore Models is a
 pushed screen with normal history back; do not add underline tabs, bottom
 navigation or extra destination chips.
+
+Active Models separates Multimodal from Single Models. Multimodal routes one
+model across two or more capabilities; single slots cover the remaining
+capabilities as fallbacks. Cards stretch to the content width in both sections.
+
+Provider Models always opens with a Local Provider section sourced from the same
+model records and artifacts as Active Models. List a saved local model as soon as
+it has one confirmed artifact entry, even when weights are still pending, and use
+existing setup/download state rather than a separate local store.
+
+Model downloads stay alive while the app is minimized. Each active file owns one
+persistent notification with model and file names, live byte progress and
+Pause/Resume/Cancel actions wired to the real transfer; multiple downloads keep
+separate notifications. Do not claim continuation after the process is killed.
 
 A long header action may give up width before the title does; keep the title
 button wide enough to tap. On narrow capability cards the status chip moves

@@ -1,9 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../catalogue/catalogue_providers.dart';
 import '../catalogue/hugging_face_hub_client.dart';
 import '../../../models/model_record.dart';
 
@@ -66,7 +63,9 @@ class FileModelArtifactStorage implements ModelArtifactStorage {
     if (!await source.exists()) return;
     final destination = Directory(newRoot);
     if (await destination.exists()) {
-      throw const FileSystemException('The destination model directory already exists.');
+      throw const FileSystemException(
+        'The destination model directory already exists.',
+      );
     }
     await destination.parent.create(recursive: true);
     await source.rename(destination.path);
@@ -127,6 +126,73 @@ class FileModelArtifactStorage implements ModelArtifactStorage {
   }
 }
 
+/// Resolved artifact together with filesystem readiness.
+class ResolvedModelArtifactFile {
+  const ResolvedModelArtifactFile({
+    required this.resolved,
+    required this.absolutePath,
+    required this.exists,
+  });
+
+  final ResolvedModelArtifact resolved;
+  final String absolutePath;
+  final bool exists;
+
+  ModelArtifactRecord get artifact => resolved.record;
+  bool get selected => artifact.enabled;
+  bool get ready => selected && absolutePath.isNotEmpty && exists;
+}
+
+/// Resolves model-owned and inherited artifacts to absolute storage paths.
+class ModelArtifactStorageResolver {
+  const ModelArtifactStorageResolver(this.documentsPath);
+
+  final String documentsPath;
+
+  String modelRoot({required String modelId, String? suffix}) =>
+      FileModelArtifactStorage.rootFor(
+        documentsPath: documentsPath,
+        modelId: modelId,
+        suffix: suffix,
+      );
+
+  List<ResolvedModelArtifactFile> resolve(
+    List<ResolvedModelArtifact> artifacts,
+  ) {
+    return List.unmodifiable([
+      for (final artifact in artifacts) _resolveOne(artifact),
+    ]);
+  }
+
+  ResolvedModelArtifactFile _resolveOne(ResolvedModelArtifact artifact) {
+    final root = modelRoot(
+      modelId: artifact.storageKey ?? artifact.ownerModelId,
+      suffix: artifact.ownerSuffix,
+    );
+    final target = artifact.record.targetPath;
+    final relative = target == null ? null : normalizeArtifactTarget(target);
+    if (root.isEmpty || relative == null) {
+      return ResolvedModelArtifactFile(
+        resolved: artifact,
+        absolutePath: '',
+        exists: false,
+      );
+    }
+    final path = [root, relative].join(Platform.pathSeparator);
+    var exists = false;
+    try {
+      exists = File(path).existsSync();
+    } on FileSystemException {
+      exists = false;
+    }
+    return ResolvedModelArtifactFile(
+      resolved: artifact,
+      absolutePath: path,
+      exists: exists,
+    );
+  }
+}
+
 /// Normalizes path relative to configuration root; returns null if path escapes root.
 String? normalizeArtifactTarget(String raw) {
   final normalized = raw.trim().replaceAll('\\', '/');
@@ -150,6 +216,15 @@ abstract interface class ModelArtifactDownload {
   void pause();
 
   void resume();
+
+  void cancel();
+}
+
+class DownloadCancelledException implements Exception {
+  const DownloadCancelledException();
+
+  @override
+  String toString() => 'The download was cancelled.';
 }
 
 abstract interface class ModelArtifactDownloader {
@@ -207,7 +282,9 @@ class _HubDownload implements ModelArtifactDownload {
 
   late final Future<void> _done;
   bool _paused = false;
+  bool _cancelled = false;
   Completer<void>? _resume;
+  HubDownloadChunk? _chunk;
 
   @override
   Future<void> get done => _done;
@@ -225,6 +302,21 @@ class _HubDownload implements ModelArtifactDownload {
   void resume() {
     if (!_paused) return;
     _paused = false;
+    _completeResume();
+  }
+
+  @override
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    _chunk?.cancel();
+    if (_paused) {
+      _paused = false;
+      _completeResume();
+    }
+  }
+
+  void _completeResume() {
     final pending = _resume;
     _resume = null;
     if (pending != null && !pending.isCompleted) pending.complete();
@@ -237,6 +329,7 @@ class _HubDownload implements ModelArtifactDownload {
 
     int? total;
     while (true) {
+      if (_cancelled) throw const DownloadCancelledException();
       if (_paused) {
         await _waitForResume();
         continue;
@@ -249,6 +342,7 @@ class _HubDownload implements ModelArtifactDownload {
         path: path,
         offset: offset,
       );
+      _chunk = chunk;
       if (chunk.totalBytes != null && chunk.totalBytes! > 0) {
         total = chunk.totalBytes;
       }
@@ -265,16 +359,20 @@ class _HubDownload implements ModelArtifactDownload {
       var written = 0;
       try {
         await for (final bytes in chunk.stream) {
-          if (_paused) break;
+          if (_cancelled || _paused) break;
           await sink.writeFrom(bytes);
           written += bytes.length;
           onProgress(start + written, total ?? start + written);
         }
+      } on Object {
+        if (!_cancelled) rethrow;
       } finally {
+        _chunk = null;
         await sink.close();
         chunk.cancel();
       }
 
+      if (_cancelled) throw const DownloadCancelledException();
       if (_paused) continue;
       final received = start + written;
       if (total != null && received >= total) return;
@@ -302,9 +400,3 @@ class _HubDownload implements ModelArtifactDownload {
     }
   }
 }
-
-final modelArtifactDownloaderProvider = Provider<ModelArtifactDownloader>((
-  ref,
-) {
-  return HubArtifactDownloader(ref.watch(huggingFaceHubClientProvider));
-});

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'inference_provider.dart';
 import 'models/ai_request.dart';
 import 'models/ai_response.dart';
-import 'models/model_descriptor.dart';
 
 /// Decorator recording usage events without coupling adapters to persistence.
 class UsageTrackingInferenceProvider implements InferenceProvider {
@@ -16,10 +15,10 @@ class UsageTrackingInferenceProvider implements InferenceProvider {
   final void Function(bool ok) onRequestSettled;
 
   @override
-  String get id => inner.id;
+  String get alias => inner.alias;
 
   @override
-  ModelDescriptor get descriptor => inner.descriptor;
+  ProviderConfig get config => inner.config;
 
   @override
   ValueListenable<EngineLifecycle> get lifecycle => inner.lifecycle;
@@ -31,9 +30,15 @@ class UsageTrackingInferenceProvider implements InferenceProvider {
   Future<void> initialize() => inner.initialize();
 
   @override
-  Future<AiResponse> generate(AiRequest request) async {
+  Future<List<DiscoveredModel>> discoverModels() => inner.discoverModels();
+
+  @override
+  Future<ProviderTestResult> test() => inner.test();
+
+  @override
+  Future<AiResponse> generate(AiRequest request, ProviderModel model) async {
     try {
-      final response = await inner.generate(request);
+      final response = await inner.generate(request, model);
       onRequestSettled(true);
       return response;
     } on Object {
@@ -43,10 +48,10 @@ class UsageTrackingInferenceProvider implements InferenceProvider {
   }
 
   @override
-  Stream<AiResponse> stream(AiRequest request) async* {
+  Stream<AiResponse> stream(AiRequest request, ProviderModel model) async* {
     var settled = false;
     try {
-      await for (final response in inner.stream(request)) {
+      await for (final response in inner.stream(request, model)) {
         yield response;
       }
       settled = true;

@@ -6,7 +6,7 @@ import '../intelligence/models/ai_request.dart';
 class ConversationContextBuilder {
   const ConversationContextBuilder();
 
-  AiRequest build(List<ChatMessage> messages) {
+  AiRequest build(List<ChatMessage> messages, {String? modelId}) {
     final turns = <AiMessage>[
       for (final message in messages)
         if (message.text.trim().isNotEmpty)
@@ -20,6 +20,6 @@ class ConversationContextBuilder {
         'A chat request must end with a user turn.',
       );
     }
-    return AiRequest(messages: turns);
+    return AiRequest(messages: turns, modelId: modelId);
   }
 }

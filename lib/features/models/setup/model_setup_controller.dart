@@ -2,16 +2,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../data/app_database.dart';
 import '../../../models/model_record.dart';
 import '../catalogue/catalogue_model.dart';
 import '../catalogue/model_task_derivation.dart';
 import 'action_preferences.dart';
-import 'model_record_store.dart';
+import '../model_record_store.dart';
 import 'model_artifact.dart';
 import 'model_artifact_storage.dart';
 import 'model_setup_assessment.dart';
 import 'model_setup_assessor.dart';
+import 'notifying_artifact_downloader.dart';
 
 enum ModelSetupStageState { pending, running, completed, failed }
 
@@ -54,9 +57,11 @@ class ModelSetupWizardController extends ChangeNotifier {
     this.actionPreferences,
     ModelArtifactStorageFactory? storageFactory,
     String? configurationId,
+    this.managedModel,
   }) : _storageFactory =
            storageFactory ?? ((rootPath) => FileModelArtifactStorage(rootPath)),
-       configurationId = configurationId ?? _newConfigurationId(details),
+       configurationId =
+           configurationId ?? managedModel?.id ?? _newConfigurationId(details),
        _stages = [
          for (final stage in ModelSetupStage.values)
            ModelSetupStageProgress(stage: stage),
@@ -65,10 +70,13 @@ class ModelSetupWizardController extends ChangeNotifier {
   final ModelDetails details;
   final ModelSetupAssessor assessor;
   final ModelArtifactDownloader? downloader;
-  final ModelRecordStore? store;
+  final ModelRepository? store;
   final ActionPreferenceStore? actionPreferences;
   final String configurationId;
   final ModelArtifactStorageFactory _storageFactory;
+
+  /// Existing local model opened through Manage Setup; null for new setups.
+  final ModelRecord? managedModel;
 
   static String _newConfigurationId(ModelDetails details) {
     final base = (details.commitSha ?? details.branch).trim();
@@ -96,6 +104,7 @@ class ModelSetupWizardController extends ChangeNotifier {
   String? _saveError;
   String? _savedConfigurationId;
   DateTime? _createdAt;
+  List<ModelArtifactRecord> _managedArtifacts = const [];
 
   List<ModelSetupStageProgress> get stages => List.unmodifiable(_stages);
   ModelSetupAssessment? get assessment => _assessment;
@@ -222,6 +231,8 @@ class ModelSetupWizardController extends ChangeNotifier {
         ModelArtifactSourceType.repository => row.repositoryFile == null,
         ModelArtifactSourceType.device =>
           row.deviceSourcePath?.trim().isEmpty ?? true,
+        ModelArtifactSourceType.saved =>
+          row.deviceSourcePath?.trim().isEmpty ?? true,
       };
       if (missingSource) return 'Every selected row needs a source file.';
     }
@@ -249,6 +260,7 @@ class ModelSetupWizardController extends ChangeNotifier {
     _saveError = null;
     _savedConfigurationId = null;
     _createdAt = null;
+    _managedArtifacts = const [];
     _stages = [
       for (final stage in ModelSetupStage.values)
         ModelSetupStageProgress(stage: stage),
@@ -282,6 +294,33 @@ class ModelSetupWizardController extends ChangeNotifier {
       _running = false;
       _notify();
     }
+    if (managedModel != null && _succeeded) {
+      await prepareManagedArtifacts();
+      _stepIndex = 1;
+      _notify();
+    }
+  }
+
+  /// Loads artifact rows from the saved model instead of Hub defaults.
+  Future<void> prepareManagedArtifacts() async {
+    final model = managedModel;
+    if (model == null) {
+      prepareArtifacts();
+      return;
+    }
+    if (_artifactsPrepared) return;
+    if (store != null) {
+      try {
+        final resolved = await store!.artifactsFor(model.id);
+        _managedArtifacts = [
+          for (final artifact in resolved)
+            if (!artifact.inherited) artifact.record,
+        ];
+      } on Object {
+        _managedArtifacts = const [];
+      }
+    }
+    prepareArtifacts();
   }
 
   void updateAssessment(ModelSetupAssessment assessment) {
@@ -293,14 +332,25 @@ class ModelSetupWizardController extends ChangeNotifier {
   void prepareArtifacts() {
     if (_artifactsPrepared) return;
     _artifactsPrepared = true;
+    final managed = managedModel;
     _artifactRootPath = FileModelArtifactStorage.rootFor(
       documentsPath:
           _assessment?.runtimeConstraints?.storagePath ??
           _assessment?.runtime?.documentsPath ??
           '',
-      modelId: details.model.id,
+      modelId: managed?.externalModelId ?? details.model.id,
+      suffix: managed?.suffix,
     );
     _storage = null;
+
+    if (managed != null && _managedArtifacts.isNotEmpty) {
+      final storage = _storageFor(rootPath: _artifactRootPath ?? '');
+      _artifacts = List.unmodifiable([
+        for (final record in _managedArtifacts)
+          _artifactRowFromRecord(record, storage),
+      ]);
+      return;
+    }
 
     final selection = _assessment?.selection;
     if (selection == null) return;
@@ -360,6 +410,53 @@ class ModelSetupWizardController extends ChangeNotifier {
     } on FileSystemException {
       return row;
     }
+  }
+
+  ModelArtifactRow _artifactRowFromRecord(
+    ModelArtifactRecord record,
+    ModelArtifactStorage? storage,
+  ) {
+    ModelArtifactKind kind = ModelArtifactKind.helper;
+    for (final value in ModelArtifactKind.values) {
+      if (value.name == record.kind) {
+        kind = value;
+        break;
+      }
+    }
+    ModelArtifactSourceType sourceType = ModelArtifactSourceType.saved;
+    if (record.sourceType == ModelArtifactSourceType.repository.name) {
+      sourceType = ModelArtifactSourceType.repository;
+    } else if (record.sourceType == ModelArtifactSourceType.device.name) {
+      sourceType = ModelArtifactSourceType.device;
+    }
+    ModelFile? repositoryFile;
+    if (sourceType == ModelArtifactSourceType.repository) {
+      for (final file in details.files) {
+        if (file.path == record.externalPath) {
+          repositoryFile = file;
+          break;
+        }
+      }
+      // A saved record without a matching Hub file keeps its stored source.
+      if (repositoryFile == null) {
+        sourceType = ModelArtifactSourceType.saved;
+      }
+    }
+    return _restoreExistingCopy(
+      ModelArtifactRow(
+        id: record.id,
+        kind: kind,
+        sourceType: sourceType,
+        repositoryFile: repositoryFile,
+        deviceSourcePath: sourceType == ModelArtifactSourceType.repository
+            ? null
+            : record.externalPath,
+        targetPath: record.targetPath ?? record.externalPath,
+        selected: record.enabled,
+        sizeBytes: record.sizeBytes,
+      ),
+      storage,
+    );
   }
 
   String _defaultTarget(
@@ -676,6 +773,10 @@ class ModelSetupWizardController extends ChangeNotifier {
       },
     );
     _activeDownloads[id] = download;
+    if (download is NotifyingArtifactDownload) {
+      download.pauseHandler = () => pauseArtifactDownload(id);
+      download.resumeHandler = () => resumeArtifactDownload(id);
+    }
     try {
       await download.done;
       final downloaded = File(destination);
@@ -693,6 +794,18 @@ class ModelSetupWizardController extends ChangeNotifier {
           receivedBytes: downloadedSize ?? current.receivedBytes,
           localPath: destination,
           sizeBytes: downloadedSize ?? current.sizeBytes,
+          error: null,
+        ),
+      );
+    } on DownloadCancelledException {
+      await _deleteQuietly(destination);
+      _replaceRowById(
+        id,
+        (current) => current.copyWith(
+          status: ModelArtifactStatus.idle,
+          progress: null,
+          receivedBytes: null,
+          localPath: null,
           error: null,
         ),
       );
@@ -808,21 +921,31 @@ class ModelSetupWizardController extends ChangeNotifier {
     _notify();
     try {
       final now = DateTime.now();
-      final id = modelRecordId('huggingface', details.model.id);
-      final created = _createdAt ??= now;
+      final managed = managedModel;
+      final existingId = _savedConfigurationId ?? managed?.id;
+      final id = existingId ?? const Uuid().v4();
+      final created = _createdAt ??= managed?.createdAt ?? now;
       final taskMetadata = deriveTaskMetadata(details.model);
-      await store.save(
+      await store.saveModel(
         ModelRecord(
           id: id,
-          sourceId: 'huggingface',
-          externalModelId: details.model.id,
-          displayName: details.model.name,
-          publisher: details.model.publisher,
-          tasks: taskMetadata.declarations,
+          providerId: managed?.providerId ?? localLitertlmProviderId,
+          externalModelId: managed?.externalModelId ?? details.model.id,
+          displayName: managed?.displayName ?? details.model.name,
+          parentModelId: managed?.parentModelId,
+          suffix: managed?.suffix,
+          publisher: managed?.publisher ?? details.model.publisher,
+          metadata: {
+            if (managed != null) ...managed.metadata,
+            'repositoryId': details.model.id,
+          },
+          tasks: managed != null && managed.tasks.isNotEmpty
+              ? managed.tasks
+              : taskMetadata.declarations,
           createdAt: created,
           updatedAt: now,
         ),
-        [
+        artifacts: [
           for (var index = 0; index < _artifacts.length; index++)
             _artifactRecord(_artifacts[index], id, index),
         ],
@@ -843,21 +966,22 @@ class ModelSetupWizardController extends ChangeNotifier {
     String modelId,
     int position,
   ) {
+    final now = DateTime.now();
+    final target = row.targetPath.trim();
+    final prefix = '${modelId}_';
     return ModelArtifactRecord(
-      id: '${modelId}_${position}_${row.id}',
+      id: row.id.startsWith(prefix) ? row.id : '$prefix${row.id}',
       modelId: modelId,
-      externalPath: row.repositoryFile?.path ?? row.deviceSourcePath ?? row.targetPath,
-      fileName: row.displayName,
+      externalPath: row.repositoryFile?.path ?? row.deviceSourcePath ?? target,
       kind: row.kind.name,
       sourceType: row.sourceType.name,
-      repositoryPath: row.repositoryFile?.path,
-      deviceSourcePath: row.deviceSourcePath,
-      targetPath: row.targetPath.trim(),
+      targetPath: target.isEmpty ? null : target,
+      format: artifactFormatFor(target.isEmpty ? null : target),
       sizeBytes: row.sizeBytes,
       enabled: row.selected,
       position: position,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
     );
   }
 

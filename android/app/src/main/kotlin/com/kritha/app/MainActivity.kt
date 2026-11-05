@@ -2,6 +2,7 @@ package com.kritha.app
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import com.kritha.app.downloads.DownloadNotificationBridge
 import com.kritha.app.wakeword.WakeWordBridge
 import com.kritha.app.wakeword.WakeWordEvents
 
@@ -13,6 +14,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         WakeWordBridge(this).register(flutterEngine)
+        DownloadNotificationBridge(flutterEngine.dartExecutor.binaryMessenger, this).register()
         intent?.takeIf { it.hasExtra(EXTRA_WAKE_WORD_CONFIDENCE) }?.let {
             WakeWordEvents.emitDetected(it.getFloatExtra(EXTRA_WAKE_WORD_CONFIDENCE, 0f))
             it.removeExtra(EXTRA_WAKE_WORD_CONFIDENCE)

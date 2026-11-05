@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'models/ai_request.dart';
-import 'models/ai_response.dart';
-import 'models/model_descriptor.dart';
+export 'providers/provider.dart';
 
 /// Native lifecycle state of an inference provider.
 enum EngineLifecycleStage {
@@ -56,26 +54,4 @@ class EngineLifecycle {
 
   @override
   String toString() => 'EngineLifecycle(${stage.name})';
-}
-
-/// Runtime executing inference for one model with managed native resources.
-abstract interface class InferenceProvider {
-  String get id;
-
-  ModelDescriptor get descriptor;
-
-  /// Observable lifecycle; safe to inspect without loading model.
-  ValueListenable<EngineLifecycle> get lifecycle;
-
-  /// Whether runtime and model are loaded in memory.
-  bool get isInitialized;
-
-  Future<void> initialize();
-
-  Future<AiResponse> generate(AiRequest request);
-
-  /// Streams cumulative partial snapshots; cancelling subscription stops native generation.
-  Stream<AiResponse> stream(AiRequest request);
-
-  Future<void> dispose();
 }

@@ -191,7 +191,7 @@ void main() {
       expect(assessment.helperFiles.single.path, 'tokenizer.model');
       expect(assessment.weightFiles.single.path, 'model.litertlm');
       expect(assessment.selection?.weightFiles.single.path, 'model.litertlm');
-      expect(assessment.selection?.runtimeId, 'litertlm');
+      expect(assessment.selection?.runtimeId, 'local-litertlm');
 
       controller.nextStep();
       expect(controller.stepIndex, 1);

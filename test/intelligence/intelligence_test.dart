@@ -1,40 +1,27 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:kritha/features/intelligence/inference_provider.dart';
-import 'package:kritha/features/intelligence/intelligence_engine.dart';
 import 'package:kritha/features/intelligence/intelligence_exception.dart';
-import 'package:kritha/features/intelligence/local_inference_provider.dart';
-import 'package:kritha/features/intelligence/model_configuration.dart';
-import 'package:kritha/features/intelligence/model_lifecycle.dart';
 import 'package:kritha/features/intelligence/models/ai_request.dart';
 import 'package:kritha/features/intelligence/models/ai_response.dart';
 import 'package:kritha/features/intelligence/models/model_capabilities.dart';
-import 'package:kritha/features/intelligence/models/model_descriptor.dart';
-import 'package:kritha/features/intelligence/providers.dart';
-import 'package:kritha/features/intelligence/request_router.dart';
-import 'package:kritha/features/intelligence/runtime_ids.dart';
-import 'package:kritha/features/intelligence/runtimes/litertlm_provider.dart';
-import 'package:kritha/features/models/active/active_models.dart';
-import 'package:kritha/features/models/catalogue/catalogue_model.dart';
+import 'package:kritha/features/intelligence/providers/local/litertlm_provider.dart';
+import 'package:kritha/features/intelligence/providers/provider_registry.dart';
+import 'package:kritha/features/intelligence/providers/remote/anthropic_provider.dart';
+import 'package:kritha/features/intelligence/providers/remote/google_gemini_provider.dart';
+import 'package:kritha/features/intelligence/providers/remote/mistral_provider.dart';
+import 'package:kritha/features/intelligence/providers/remote/oai_spec_provider.dart';
+import 'package:kritha/features/intelligence/providers/remote/xai_provider.dart';
+import 'package:kritha/features/intelligence/usage_tracking_provider.dart';
 import 'package:litertlm/litertlm.dart' as lite;
 
-import '../support/fake_inference.dart';
-import '../support/fake_workspace.dart';
 
-const _descriptor = ModelDescriptor(
-  id: 'test-model',
-  displayName: 'Test model',
-  runtimeId: LiteRtLmProvider.providerId,
-  capabilities: ModelCapabilities.textOnly,
-  modelPath: '/models/test.litertlm',
-);
-
-AiRequest _prompt(String text) => AiRequest(messages: [AiMessage.user(text)]);
+const _localProviderId = '11111111-1111-1111-1111-111111111101';
+const _geminiProviderId = '11111111-1111-1111-1111-111111111102';
 
 class _FakeLiteRtLmEngine implements LiteRtLmEngine {
   _FakeLiteRtLmEngine({
@@ -108,22 +95,25 @@ class _FakeLiteRtLmEngine implements LiteRtLmEngine {
 }
 
 class _FakeInferenceProvider implements InferenceProvider {
-  _FakeInferenceProvider({
-    this.descriptor = _descriptor,
-    this.result = 'Fake answer.',
-  });
+  _FakeInferenceProvider({this.error});
 
-  @override
-  final ModelDescriptor descriptor;
-
-  final String result;
+  String get providerAlias => 'test-provider';
+  String get result => 'Fake answer.';
+  final Object? error;
   AiRequest? lastRequest;
+  ProviderModel? lastModel;
   final ValueNotifier<EngineLifecycle> _lifecycle = ValueNotifier(
     const EngineLifecycle.fileReady(),
   );
 
   @override
-  String get id => descriptor.runtimeId;
+  String get alias => providerAlias;
+
+  @override
+  ProviderConfig get config => ProviderConfig(
+    id: 'test-provider-id',
+    alias: alias,
+  );
 
   @override
   ValueListenable<EngineLifecycle> get lifecycle => _lifecycle;
@@ -137,20 +127,30 @@ class _FakeInferenceProvider implements InferenceProvider {
   }
 
   @override
-  Future<AiResponse> generate(AiRequest request) async {
+  Future<List<DiscoveredModel>> discoverModels() async => const [];
+
+  @override
+  Future<ProviderTestResult> test() async =>
+      const ProviderTestResult(ok: true, message: 'ok');
+
+  @override
+  Future<AiResponse> generate(AiRequest request, ProviderModel model) async {
     lastRequest = request;
+    lastModel = model;
     await initialize();
+    if (error != null) throw error!;
     return AiResponse(
       text: result,
-      modelId: descriptor.id,
+      modelId: model.id,
       latency: Duration.zero,
     );
   }
 
   @override
-  Stream<AiResponse> stream(AiRequest request) async* {
+  Stream<AiResponse> stream(AiRequest request, ProviderModel model) async* {
     lastRequest = request;
-    yield await generate(request);
+    lastModel = model;
+    yield await generate(request, model);
   }
 
   @override
@@ -163,7 +163,10 @@ void main() {
   group('request and response contracts', () {
     test('AiRequest round-trips and derives text capability', () {
       final request = AiRequest(
-        messages: [AiMessage.system('Be brief.'), AiMessage.user('Hello')],
+        messages: [
+          AiMessage.system('Be brief.'),
+          AiMessage.user('Hello'),
+        ],
         options: const AiGenerationOptions(
           temperature: 0.2,
           maxOutputTokens: 64,
@@ -245,169 +248,16 @@ void main() {
         ),
         isFalse,
       );
-      expect(
-        ModelCapabilities.textOnly.supportsAll({
-          InferenceCapability.textGeneration,
-        }),
-        isTrue,
-      );
-      expect(
-        ModelCapabilities.textOnly.supportsAll({
-          InferenceCapability.textGeneration,
-          InferenceCapability.structuredOutput,
-        }),
-        isFalse,
-      );
-    });
-  });
-
-  group('request routing', () {
-    test('an empty provider list is unavailable', () async {
-      const router = RequestRouter(providers: []);
-      final engine = IntelligenceEngine(router: router);
-
-      await expectLater(
-        engine.generate(_prompt('Hello')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-      expect(engine.status.hasProvider, isFalse);
-    });
-
-    test('routes to a capable provider and honours modelId', () {
-      final provider = _FakeInferenceProvider();
-      final router = RequestRouter(providers: [provider]);
-
-      expect(router.resolve(_prompt('Hello')), same(provider));
-      expect(
-        () => router.resolve(_prompt('Hello').copyWith(modelId: 'other')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-    });
-
-    test('rejects a capability the model does not declare', () {
-      final provider = _FakeInferenceProvider();
-      final router = RequestRouter(providers: [provider]);
-      final request = AiRequest(
-        messages: [AiMessage.user('Return JSON')],
-        responseSchema: {'type': 'object'},
-      );
-
-      expect(
-        () => router.resolve(request),
-        throwsA(
-          isA<UnsupportedCapabilityException>().having(
-            (error) =>
-                error.missing.contains(InferenceCapability.structuredOutput),
-            'missing structured output',
-            isTrue,
-          ),
-        ),
-      );
-    });
-
-    test('selects the provider that declares the needed capability', () {
-      const jsonModel = ModelDescriptor(
-        id: 'json-model',
-        displayName: 'JSON model',
-        runtimeId: 'fake',
-        capabilities: ModelCapabilities(
-          supported: {
-            InferenceCapability.textGeneration,
-            InferenceCapability.structuredOutput,
-          },
-        ),
-      );
-      final textOnly = _FakeInferenceProvider();
-      final json = _FakeInferenceProvider(descriptor: jsonModel);
-      final router = RequestRouter(providers: [textOnly, json]);
-      final request = AiRequest(
-        messages: [AiMessage.user('Return JSON')],
-        responseSchema: {'type': 'object'},
-      );
-
-      expect(router.resolve(request), same(json));
-    });
-  });
-
-  group('intelligence engine', () {
-    test('rejects malformed requests before routing', () async {
-      final provider = _FakeInferenceProvider();
-      final engine = IntelligenceEngine(
-        router: RequestRouter(providers: [provider]),
-      );
-
-      await expectLater(
-        engine.generate(const AiRequest(messages: [])),
-        throwsA(isA<InvalidRequestException>()),
-      );
-      await expectLater(
-        engine.generate(
-          AiRequest(messages: [AiMessage.assistant('Not a prompt')]),
-        ),
-        throwsA(isA<InvalidRequestException>()),
-      );
-      await expectLater(
-        engine.generate(_prompt('   ')),
-        throwsA(isA<InvalidRequestException>()),
-      );
-      await expectLater(
-        engine.generate(
-          AiRequest(
-            messages: [AiMessage.user('Hello')],
-            options: const AiGenerationOptions(temperature: -1),
-          ),
-        ),
-        throwsA(isA<InvalidRequestException>()),
-      );
-      expect(provider.lastRequest, isNull);
-    });
-
-    test('delegates a valid request to the selected provider', () async {
-      final provider = _FakeInferenceProvider(result: 'Answer.');
-      final engine = IntelligenceEngine(
-        router: RequestRouter(providers: [provider]),
-      );
-
-      final response = await engine.generate(_prompt('Hello'));
-
-      expect(response.text, 'Answer.');
-      expect(provider.lastRequest?.messages.single.text, 'Hello');
-    });
-
-    test('streams through the same validation and routing', () async {
-      final provider = _FakeInferenceProvider(result: 'Streamed.');
-      final engine = IntelligenceEngine(
-        router: RequestRouter(providers: [provider]),
-      );
-
-      final events = await engine.stream(_prompt('Hello')).toList();
-
-      expect(events.single.text, 'Streamed.');
-      expect(provider.lastRequest?.messages.single.text, 'Hello');
-      expect(
-        () => engine.stream(const AiRequest(messages: [])),
-        throwsA(isA<InvalidRequestException>()),
-      );
-    });
-
-    test('status reports configuration and loading, never inference', () {
-      final provider = _FakeInferenceProvider();
-      final engine = IntelligenceEngine(
-        router: RequestRouter(providers: [provider]),
-      );
-
-      expect(engine.status.hasConfiguredModel, isTrue);
-      expect(engine.status.hasLoadedModel, isFalse);
-      expect(engine.status.providers.single.modelId, _descriptor.id);
     });
   });
 
   group('LiteRT-LM adapter', () {
     test('does not initialize until asked', () async {
       final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
       );
 
       expect(provider.isInitialized, isFalse);
@@ -416,15 +266,28 @@ void main() {
       await provider.initialize();
       await provider.initialize();
 
-      expect(provider.isInitialized, isTrue);
-      expect(engine.initializeCalls, 1);
+      expect(provider.isInitialized, isFalse);
+      expect(engine.initializeCalls, 0);
     });
 
     test('maps history, sampler options and the final turn', () async {
       final engine = _FakeLiteRtLmEngine(text: 'Local answer.');
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
+      );
+
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: '/models/test.litertlm',
+        artifacts: const [],
+        metadata: const {},
       );
 
       final response = await provider.generate(
@@ -442,11 +305,13 @@ void main() {
             seed: 7,
             maxOutputTokens: 32,
           ),
+          modelId: model.id,
         ),
+        model,
       );
 
       expect(response.text, 'Local answer.');
-      expect(response.modelId, _descriptor.id);
+      expect(response.modelId, model.id);
       expect(response.latency, isA<Duration>());
 
       final conversation = engine.conversation!;
@@ -474,15 +339,31 @@ void main() {
 
     test('streams deltas as cumulative responses', () async {
       final engine = _FakeLiteRtLmEngine(chunks: const ['Hel', 'lo']);
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
       );
 
-      final events = await provider.stream(_prompt('Hi')).toList();
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: '/models/test.litertlm',
+        artifacts: const [],
+        metadata: const {},
+      );
+
+      final events = await provider.stream(
+        AiRequest(messages: [AiMessage.user('Hi')], modelId: model.id),
+        model,
+      ).toList();
 
       expect(events.map((event) => event.text), ['Hel', 'Hello']);
-      expect(events.last.modelId, _descriptor.id);
+      expect(events.last.modelId, model.id);
       expect(engine.message!.text, 'Hi');
       expect(provider.isInitialized, isTrue);
     });
@@ -490,12 +371,28 @@ void main() {
     test('cancellation stops the engine stream and keeps the model', () async {
       final controller = StreamController<String>();
       final engine = _FakeLiteRtLmEngine()..streamController = controller;
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
       );
 
-      final subscription = provider.stream(_prompt('Hi')).listen((_) {});
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: '/models/test.litertlm',
+        artifacts: const [],
+        metadata: const {},
+      );
+
+      final subscription = provider.stream(
+        AiRequest(messages: [AiMessage.user('Hi')], modelId: model.id),
+        model,
+      ).listen((_) {});
       await pumpEventQueue();
 
       controller.add('Hel');
@@ -508,54 +405,24 @@ void main() {
       expect(provider.isInitialized, isTrue);
     });
 
-    test('a stream failure is typed and the engine is discarded', () async {
-      final engine = _FakeLiteRtLmEngine()
-        ..streamError = const lite.LiteRtLmException('boom');
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
-      );
-
-      await expectLater(
-        provider.stream(_prompt('Hello')),
-        emitsError(
-          isA<InferenceFailedException>().having(
-            (error) => error.cause,
-            'cause',
-            isA<lite.LiteRtLmException>(),
-          ),
-        ),
-      );
-      expect(provider.isInitialized, isFalse);
-      expect(provider.lifecycle.value.stage, EngineLifecycleStage.unavailable);
-    });
-
-    test(
-      'a stream initialization failure stays an initialization failure',
-      () async {
-        final engine = _FakeLiteRtLmEngine()
-          ..initializeError = UnsupportedError('No native runtime');
-        final provider = LiteRtLmProvider(
-          descriptor: _descriptor,
-          createEngine: () => engine,
-        );
-
-        await expectLater(
-          provider.stream(_prompt('Hello')),
-          emitsError(isA<ProviderUnavailableException>()),
-        );
-        expect(
-          provider.lifecycle.value.stage,
-          EngineLifecycleStage.initializationFailed,
-        );
-      },
-    );
-
     test('rejects structured output without touching the engine', () async {
       final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
+      );
+
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: '/models/test.litertlm',
+        artifacts: const [],
+        metadata: const {},
       );
 
       await expectLater(
@@ -563,144 +430,73 @@ void main() {
           AiRequest(
             messages: [AiMessage.user('Return JSON')],
             responseSchema: {'type': 'object'},
+            modelId: model.id,
           ),
+          model,
         ),
         throwsA(isA<UnsupportedCapabilityException>()),
       );
       expect(engine.initializeCalls, 0);
     });
 
-    test(
-      'rejects structured output even when a descriptor over-declares it',
-      () async {
-        const overDeclared = ModelDescriptor(
-          id: 'json-model',
-          displayName: 'JSON model',
-          runtimeId: LiteRtLmProvider.providerId,
-          capabilities: ModelCapabilities(
-            supported: {
-              InferenceCapability.textGeneration,
-              InferenceCapability.structuredOutput,
-            },
-          ),
-        );
-        final engine = _FakeLiteRtLmEngine();
-        final provider = LiteRtLmProvider(
-          descriptor: overDeclared,
-          createEngine: () => engine,
-        );
-
-        await expectLater(
-          provider.generate(
-            AiRequest(
-              messages: [AiMessage.user('Return JSON')],
-              responseSchema: {'type': 'object'},
-            ),
-          ),
-          throwsA(isA<UnsupportedCapabilityException>()),
-        );
-        expect(engine.initializeCalls, 0);
-      },
-    );
-
-    test('rejects a request for another model before initialization', () async {
-      final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+    test('an unconfigured model path never builds an engine', () async {
+      var created = 0;
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) {
+          created += 1;
+          return _FakeLiteRtLmEngine();
+        },
+        localModels: () async => [],
       );
 
-      await expectLater(
-        provider.generate(_prompt('Hello').copyWith(modelId: 'other')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-      expect(engine.initializeCalls, 0);
-    });
-
-    test('rejects invalid options before initialization', () async {
-      final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: null,
+        artifacts: const [],
+        metadata: const {},
       );
 
       await expectLater(
         provider.generate(
-          _prompt('Hello')
-              .copyWith(options: const AiGenerationOptions(temperature: -1)),
+          AiRequest(messages: [AiMessage.user('Hello')], modelId: model.id),
+          model,
         ),
-        throwsA(isA<InvalidRequestException>()),
-      );
-      expect(engine.initializeCalls, 0);
-    });
-
-    test('an unconfigured model path never builds an engine', () async {
-      var created = 0;
-      final provider = LiteRtLmProvider(
-        descriptor: const ModelDescriptor(
-          id: 'missing',
-          displayName: 'Missing',
-          runtimeId: LiteRtLmProvider.providerId,
-          capabilities: ModelCapabilities.textOnly,
-        ),
-        createEngine: () {
-          created += 1;
-          return _FakeLiteRtLmEngine();
-        },
-      );
-
-      await expectLater(
-        provider.generate(_prompt('Hello')),
         throwsA(isA<ProviderUnavailableException>()),
       );
       expect(created, 0);
     });
 
-    test('a native failure is typed and the engine is discarded', () async {
-      final engine = _FakeLiteRtLmEngine()
-        ..completeError = const lite.LiteRtLmException('boom');
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
-      );
-
-      await expectLater(
-        provider.generate(_prompt('Hello')),
-        throwsA(
-          isA<InferenceFailedException>().having(
-            (error) => error.cause,
-            'cause',
-            isA<lite.LiteRtLmException>(),
-          ),
-        ),
-      );
-      expect(provider.isInitialized, isFalse);
-      expect(engine.disposeCalls, greaterThanOrEqualTo(1));
-    });
-
-    test('an unsupported platform is reported as unavailable', () async {
-      final engine = _FakeLiteRtLmEngine()
-        ..initializeError = UnsupportedError('No native runtime');
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
-      );
-
-      await expectLater(
-        provider.generate(_prompt('Hello')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-      expect(provider.isInitialized, isFalse);
-    });
-
     test('dispose releases the engine once', () async {
       final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
+      );
+
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: _localProviderId,
+        externalModelId: 'local-test',
+        displayName: 'Local test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        modelPath: '/models/test.litertlm',
+        artifacts: const [],
+        metadata: const {},
       );
 
       await provider.initialize();
+      await provider.generate(
+        AiRequest(messages: [AiMessage.user('Hello')], modelId: model.id),
+        model,
+      );
       await provider.dispose();
       await provider.dispose();
 
@@ -708,499 +504,159 @@ void main() {
       expect(engine.disposeCalls, 1);
     });
 
-    test('concurrent initialization loads the engine once', () async {
-      final gate = Completer<void>();
-      final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
-      );
-
-      final first = provider.initialize();
-      final second = provider.initialize();
-      await pumpEventQueue();
-      expect(engine.initializeCalls, 1);
-
-      gate.complete();
-      await Future.wait([first, second]);
-      expect(provider.isInitialized, isTrue);
-      expect(engine.initializeCalls, 1);
-    });
-
-    test(
-      'disposing during initialization cannot leave a loaded engine',
-      () async {
-        final gate = Completer<void>();
-        final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
-        final provider = LiteRtLmProvider(
-          descriptor: _descriptor,
-          createEngine: () => engine,
-        );
-
-        final initialization = provider.initialize();
-        await pumpEventQueue();
-        final disposal = provider.dispose();
-        gate.complete();
-
-        await expectLater(
-          initialization,
-          throwsA(isA<ProviderUnavailableException>()),
-        );
-        await disposal;
-        expect(provider.isInitialized, isFalse);
-        expect(provider.lifecycle.value.stage, EngineLifecycleStage.disposed);
-        expect(engine.disposeCalls, 1);
-      },
-    );
-
-    test('requests after disposal fail with a typed error', () async {
+    test('local test does not contact a remote URL', () async {
       final engine = _FakeLiteRtLmEngine();
-      final provider = LiteRtLmProvider(
-        descriptor: _descriptor,
-        createEngine: () => engine,
+      final provider = LiteRtLmLocalProvider(
+        config: ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+        createEngine: (path) => engine,
+        localModels: () async => [],
       );
-      await provider.initialize();
-      await provider.dispose();
 
-      await expectLater(
-        provider.generate(_prompt('Hello')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-      expect(
-        () => provider.stream(_prompt('Hello')),
-        throwsA(isA<ProviderUnavailableException>()),
-      );
+      final result = await provider.test();
+
+      expect(result.ok, isTrue);
     });
   });
 
-  group('model lifecycle', () {
-    late Directory directory;
+  group('provider registry resolution', () {
+    test('resolves every default provider alias', () {
+      final registry = ProviderRegistry(factories: {
+        'local-litertlm': (config) => LiteRtLmLocalProvider(
+          config: config,
+          createEngine: (path) => _FakeLiteRtLmEngine(),
+          localModels: () async => [],
+        ),
+        'google-gemini': (config) => GoogleGeminiProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+        'anthropic': (config) => AnthropicProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+        'xai': (config) => XaiProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+        'mistral': (config) => MistralProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+        'openai': (config) => OaiSpecProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+      });
 
-    setUp(() {
-      directory = Directory.systemTemp.createTempSync('kritha-lifecycle-');
+      expect(registry.isRegistered('local-litertlm'), isTrue);
+      expect(registry.isRegistered('google-gemini'), isTrue);
+      expect(registry.isRegistered('anthropic'), isTrue);
+      expect(registry.isRegistered('xai'), isTrue);
+      expect(registry.isRegistered('mistral'), isTrue);
+      expect(registry.isRegistered('openai'), isTrue);
+
+      final gemini = registry.createProvider(
+        ProviderConfig(id: _geminiProviderId, alias: 'google-gemini'),
+      );
+      expect(gemini, isA<GoogleGeminiProvider>());
+      expect(gemini.alias, 'google-gemini');
+
+      final local = registry.createProvider(
+        ProviderConfig(id: _localProviderId, alias: 'local-litertlm'),
+      );
+      expect(local, isA<LiteRtLmLocalProvider>());
+      expect(local.alias, 'local-litertlm');
     });
 
-    tearDown(() {
-      directory.deleteSync(recursive: true);
-    });
-
-    File writeModel(String name) {
-      final file = File('${directory.path}/$name');
-      file.writeAsBytesSync([1, 2, 3]);
-      return file;
-    }
-
-    ProviderContainer containerFor({
-      required String? path,
-      required LiteRtLmEngine Function(ModelDescriptor) factory,
-    }) {
-      final container = ProviderContainer(
-        overrides: [
-          modelConfigStoreProvider.overrideWithValue(
-            InMemoryModelConfigStore(path),
-          ),
-          liteRtLmEngineFactoryProvider.overrideWithValue(factory),
-        ],
-      );
-      addTearDown(container.dispose);
-      return container;
-    }
-
-    test(
-      'inspection reports file readiness without loading the engine',
-      () async {
-        final file = writeModel('lifecycle.litertlm');
-        final engine = _FakeLiteRtLmEngine();
-        final container = containerFor(
-          path: file.path,
-          factory: (model) => engine,
-        );
-
-        await container.read(modelConfigurationProvider.future);
-
-        expect(
-          container.read(modelLifecycleProvider).stage,
-          ModelLifecycleStage.fileReady,
-        );
-        expect(
-          container.read(intelligenceStatusProvider).hasLoadedModel,
-          isFalse,
-        );
-        expect(engine.initializeCalls, 0);
-      },
-    );
-
-    test('initialization moves through loading to loaded', () async {
-      final file = writeModel('lifecycle.litertlm');
-      final gate = Completer<void>();
-      final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
-      final container = containerFor(
-        path: file.path,
-        factory: (model) => engine,
-      );
-      await container.read(modelConfigurationProvider.future);
-      final provider = container.read(inferenceProvidersProvider).single;
-
-      final initialization = provider.initialize();
-      await pumpEventQueue();
-
+    test('throws for unknown alias', () {
+      final registry = ProviderRegistry(factories: const {});
       expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.initializing,
-      );
-      expect(
-        container.read(intelligenceStatusProvider).hasLoadedModel,
-        isFalse,
-      );
-
-      gate.complete();
-      await initialization;
-
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.initialized,
-      );
-      expect(container.read(intelligenceStatusProvider).hasLoadedModel, isTrue);
-      expect(engine.initializeCalls, 1);
-    });
-
-    test('an initialization failure is explicit and recoverable', () async {
-      final file = writeModel('lifecycle.litertlm');
-      final engine = _FakeLiteRtLmEngine()
-        ..initializeError = UnsupportedError('No native runtime');
-      final container = containerFor(
-        path: file.path,
-        factory: (model) => engine,
-      );
-      await container.read(modelConfigurationProvider.future);
-      final provider = container.read(inferenceProvidersProvider).single;
-
-      await expectLater(
-        provider.generate(_prompt('Hello')),
+        () => registry.createProvider(
+          ProviderConfig(id: 'unknown', alias: 'no-such-provider'),
+        ),
         throwsA(isA<ProviderUnavailableException>()),
       );
-
-      final failed = container.read(modelLifecycleProvider);
-      expect(failed.stage, ModelLifecycleStage.initializationFailed);
-      expect(failed.message, isNot(contains('No native runtime')));
-      expect(provider.isInitialized, isFalse);
-
-      engine.initializeError = null;
-      final response = await provider.generate(_prompt('Hello'));
-
-      expect(response.text, 'Local answer.');
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.initialized,
-      );
-      expect(engine.initializeCalls, 2);
     });
 
-    test('clearing during initialization disposes the old engine', () async {
-      final file = writeModel('lifecycle.litertlm');
-      final gate = Completer<void>();
-      final engine = _FakeLiteRtLmEngine()..initializeGate = gate;
-      final container = containerFor(
-        path: file.path,
-        factory: (model) => engine,
+    test('custom providers use the OpenAI spec implementation', () {
+      final customRegistry = ProviderRegistry(factories: {
+        'My Custom Endpoint': (config) => OaiSpecProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+      });
+      final custom = customRegistry.createProvider(
+        ProviderConfig(
+          id: 'custom-1',
+          alias: 'My Custom Endpoint',
+          baseUrl: 'https://api.example.com/v1',
+        ),
       );
-      await container.read(modelConfigurationProvider.future);
-      final provider = container.read(inferenceProvidersProvider).single;
-
-      final initialization = provider.initialize();
-      await pumpEventQueue();
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.initializing,
-      );
-
-      await container.read(modelConfigurationProvider.notifier).clear();
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        isNot(ModelLifecycleStage.initializing),
-      );
-      await pumpEventQueue();
-      gate.complete();
-
-      await expectLater(
-        initialization,
-        throwsA(isA<ProviderUnavailableException>()),
-      );
-      expect(provider.lifecycle.value.stage, EngineLifecycleStage.disposed);
-      expect(engine.disposeCalls, 1);
-      expect(container.read(inferenceProvidersProvider), isEmpty);
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.notConfigured,
-      );
-    });
-
-    test(
-      'a factory failure does not leave a permanent loading state',
-      () async {
-        final file = writeModel('lifecycle.litertlm');
-        final container = containerFor(
-          path: file.path,
-          factory: (model) => throw StateError('secret native detail'),
-        );
-        await container.read(modelConfigurationProvider.future);
-        final provider = container.read(inferenceProvidersProvider).single;
-
-        await expectLater(
-          provider.initialize(),
-          throwsA(isA<ProviderUnavailableException>()),
-        );
-
-        final failed = container.read(modelLifecycleProvider);
-        expect(failed.stage, ModelLifecycleStage.initializationFailed);
-        expect(failed.message, isNot(contains('secret native detail')));
-      },
-    );
-
-    test(
-      'a generation failure releases the engine and reports unavailable',
-      () async {
-        final file = writeModel('lifecycle.litertlm');
-        final engine = _FakeLiteRtLmEngine()
-          ..completeError = const lite.LiteRtLmException('boom');
-        final container = containerFor(
-          path: file.path,
-          factory: (model) => engine,
-        );
-        await container.read(modelConfigurationProvider.future);
-        final provider = container.read(inferenceProvidersProvider).single;
-
-        await expectLater(
-          provider.generate(_prompt('Hello')),
-          throwsA(isA<InferenceFailedException>()),
-        );
-
-        expect(
-          container.read(modelLifecycleProvider).stage,
-          ModelLifecycleStage.unavailable,
-        );
-        expect(provider.isInitialized, isFalse);
-        expect(engine.disposeCalls, greaterThanOrEqualTo(1));
-
-        engine.completeError = null;
-        await provider.generate(_prompt('Hello'));
-
-        expect(
-          container.read(modelLifecycleProvider).stage,
-          ModelLifecycleStage.initialized,
-        );
-      },
-    );
-
-    test('invalid configuration never creates an engine', () async {
-      final container = containerFor(
-        path: '${directory.path}/missing.litertlm',
-        factory: (model) => _FakeLiteRtLmEngine(),
-      );
-      await container.read(modelConfigurationProvider.future);
-
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.configurationUnavailable,
-      );
-      expect(container.read(inferenceProvidersProvider), isEmpty);
-    });
-
-    test('no selection is distinct from an unavailable file', () async {
-      final container = containerFor(
-        path: null,
-        factory: (model) => _FakeLiteRtLmEngine(),
-      );
-      await container.read(modelConfigurationProvider.future);
-
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.notConfigured,
-      );
-      expect(container.read(inferenceProvidersProvider), isEmpty);
+      expect(custom, isA<OaiSpecProvider>());
+      expect(custom.alias, 'My Custom Endpoint');
+      expect(custom.config.baseUrl, 'https://api.example.com/v1');
     });
   });
 
-  group('Riverpod wiring', () {
-    test('the default graph has no provider and fails predictably', () async {
-      final container = ProviderContainer(
-        overrides: [
-          modelConfigStoreProvider.overrideWithValue(
-            InMemoryModelConfigStore(),
-          ),
-        ],
+  group('usage tracking', () {
+    test('tracks settled generate and stream requests', () async {
+      final inner = _FakeInferenceProvider();
+      final results = <bool>[];
+      final tracked = UsageTrackingInferenceProvider(
+        inner: inner,
+        onRequestSettled: results.add,
       );
-      addTearDown(container.dispose);
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: 'provider-1',
+        externalModelId: 'test-model',
+        displayName: 'Test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        artifacts: const [],
+        metadata: const {},
+      );
+      final request = AiRequest(
+        messages: [AiMessage.user('Hello')],
+        modelId: model.id,
+      );
 
-      final engine = container.read(intelligenceEngineProvider);
-      expect(engine.router.providers, isEmpty);
-      expect(container.read(intelligenceStatusProvider).hasProvider, isFalse);
+      await tracked.generate(request, model);
+      await tracked.stream(request, model).toList();
+      expect(results, [true, true]);
+    });
+
+    test('records failures', () async {
+      final results = <bool>[];
+      final model = ProviderModel(
+        id: 'model-1',
+        providerId: 'provider-1',
+        externalModelId: 'test-model',
+        displayName: 'Test',
+        capabilities: const {InferenceCapability.textGeneration},
+        tasks: const [],
+        artifacts: const [],
+        metadata: const {},
+      );
+      final request = AiRequest(
+        messages: [AiMessage.user('Hello')],
+        modelId: model.id,
+      );
+
+      // Use a provider that always fails to verify failure tracking.
+      final failingInner = _FakeInferenceProvider(
+        error: StateError('provider failed'),
+      );
+      final failingTracked = UsageTrackingInferenceProvider(
+        inner: failingInner,
+        onRequestSettled: results.add,
+      );
 
       await expectLater(
-        engine.generate(_prompt('Hello')),
-        throwsA(isA<ProviderUnavailableException>()),
+        failingTracked.generate(request, model),
+        throwsA(isA<StateError>()),
       );
-    });
-
-    test('a fake engine can be injected through the graph', () async {
-      final engine = _FakeLiteRtLmEngine(text: 'Injected answer.');
-      final container = ProviderContainer(
-        overrides: [
-          configuredModelProvider.overrideWithValue(_descriptor),
-          liteRtLmEngineFactoryProvider.overrideWithValue((model) => engine),
-        ],
-      );
-
-      final response = await container
-          .read(intelligenceEngineProvider)
-          .generate(_prompt('Hello'));
-
-      expect(response.text, 'Injected answer.');
-      expect(
-        container.read(inferenceProvidersProvider).single.isInitialized,
-        isTrue,
-      );
-      expect(container.read(intelligenceStatusProvider).hasLoadedModel, isTrue);
-
-      container.dispose();
-      expect(engine.disposeCalls, 1);
-    });
-
-    test('clearing the selection disposes a loaded engine', () async {
-      final directory = Directory.systemTemp.createTempSync('kritha-wiring-');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final file = File('${directory.path}/model.litertlm')
-        ..writeAsBytesSync([1]);
-      final store = InMemoryModelConfigStore(file.path);
-      final engine = _FakeLiteRtLmEngine();
-      final container = ProviderContainer(
-        overrides: [
-          modelConfigStoreProvider.overrideWithValue(store),
-          liteRtLmEngineFactoryProvider.overrideWithValue((model) => engine),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final configuration = await container.read(
-        modelConfigurationProvider.future,
-      );
-      expect(configuration.isReady, isTrue);
-      await container.read(inferenceProvidersProvider).single.initialize();
-      expect(container.read(intelligenceStatusProvider).hasLoadedModel, isTrue);
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.initialized,
-      );
-
-      await container.read(modelConfigurationProvider.notifier).clear();
-
-      expect(container.read(inferenceProvidersProvider), isEmpty);
-      final status = container.read(intelligenceStatusProvider);
-      expect(status.hasProvider, isFalse);
-      expect(status.hasLoadedModel, isFalse);
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.notConfigured,
-      );
-      expect(engine.disposeCalls, 1);
-    });
-
-    test('removing the file disposes the loaded engine', () async {
-      final directory = Directory.systemTemp.createTempSync('kritha-wiring-');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final file = File('${directory.path}/model.litertlm')
-        ..writeAsBytesSync([1]);
-      final store = InMemoryModelConfigStore(file.path);
-      final engine = _FakeLiteRtLmEngine();
-      final container = ProviderContainer(
-        overrides: [
-          modelConfigStoreProvider.overrideWithValue(store),
-          liteRtLmEngineFactoryProvider.overrideWithValue((model) => engine),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await container.read(modelConfigurationProvider.future);
-      await container.read(inferenceProvidersProvider).single.initialize();
-      file.deleteSync();
-
-      await container.read(modelConfigurationProvider.notifier).revalidate();
-
-      expect(container.read(inferenceProvidersProvider), isEmpty);
-      expect(
-        container.read(intelligenceStatusProvider).hasLoadedModel,
-        isFalse,
-      );
-      expect(
-        container.read(modelLifecycleProvider).stage,
-        ModelLifecycleStage.configurationUnavailable,
-      );
-      expect(engine.disposeCalls, 1);
-    });
-
-    test('an active local assignment resolves to the local runtime', () async {
-      final directory = Directory.systemTemp.createTempSync('kritha-local-');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final file = File('${directory.path}/assigned-local.litertlm')
-        ..writeAsBytesSync([1]);
-      final engine = _FakeLiteRtLmEngine(text: 'Assigned local answer.');
-      final container = ProviderContainer(
-        overrides: [
-          activeModelStoreProvider.overrideWithValue(
-            InMemoryActiveModelStore({
-              ModelCapability.text: ActiveModelAssignment(
-                capability: ModelCapability.text,
-                modelId: 'local:assigned-local',
-                displayName: 'assigned-local',
-                runtimeId: localRuntimeId,
-                sourceId: localProviderId,
-                activatedAt: DateTime(2026),
-              ),
-            }),
-          ),
-          recentModelStoreProvider.overrideWithValue(
-            InMemoryRecentModelStore(),
-          ),
-          modelConfigStoreProvider.overrideWithValue(
-            InMemoryModelConfigStore(file.path),
-          ),
-          liteRtLmEngineFactoryProvider.overrideWithValue((model) => engine),
-        ],
-      );
-      addTearDown(container.dispose);
-      await container.read(activeModelsProvider.future);
-
-      final response = await container
-          .read(intelligenceEngineProvider)
-          .generate(_prompt('Hello'));
-
-      expect(response.text, 'Assigned local answer.');
-      expect(
-        container.read(inferenceProvidersProvider).single,
-        isA<LocalInferenceProvider>(),
-      );
-    });
-
-    test('a fake provider can replace the whole registry', () async {
-      final provider = _FakeInferenceProvider(result: 'Overridden answer.');
-      final container = ProviderContainer(
-        overrides: [
-          inferenceProvidersProvider.overrideWithValue([provider]),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final engine = container.read(intelligenceEngineProvider);
-      final response = await engine.generate(_prompt('Hello'));
-
-      expect(response.text, 'Overridden answer.');
-      expect(provider.lastRequest?.messages.single.text, 'Hello');
-      expect(engine.status.hasConfiguredModel, isTrue);
-      expect(engine.status.hasLoadedModel, isTrue);
-      expect(
-        engine.status.providers.single.lifecycle.stage,
-        EngineLifecycleStage.initialized,
-      );
+      expect(results, [false]);
     });
   });
 }

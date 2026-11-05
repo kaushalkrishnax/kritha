@@ -4,11 +4,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
+import '../../../models/model_record.dart';
 import '../../../widgets/create_popup.dart';
 import '../catalogue/catalogue_model.dart';
+import '../active/active_models.dart';
 import 'action_preferences.dart';
-import 'model_record_store.dart';
-import 'model_artifact_storage.dart';
+import '../model_record_store.dart';
+import 'notifying_artifact_downloader.dart';
 import 'model_setup_assessor.dart';
 import 'model_setup_controller.dart';
 import 'steps/model_setup_pre_checks_step.dart';
@@ -18,11 +20,13 @@ import 'steps/model_setup_testing_step.dart';
 Future<void> showModelSetupWizard(
   BuildContext context, {
   required ModelDetails details,
+  ModelRecord? managedModel,
 }) {
   return createPopup<void>(
     context: context,
     maxWidth: 900,
-    builder: (_) => ModelSetupWizard(details: details),
+    builder: (_) =>
+        ModelSetupWizard(details: details, managedModel: managedModel),
   );
 }
 
@@ -31,12 +35,16 @@ class ModelSetupWizard extends ConsumerStatefulWidget {
     super.key,
     required this.details,
     this.configurationId,
+    this.managedModel,
   });
 
   final ModelDetails details;
 
   /// Stable identity for configuration being edited; null when creating.
   final String? configurationId;
+
+  /// Existing local model edited through Manage Setup; null when creating.
+  final ModelRecord? managedModel;
 
   @override
   ConsumerState<ModelSetupWizard> createState() => _ModelSetupWizardState();
@@ -52,9 +60,10 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
       details: widget.details,
       assessor: ref.read(modelSetupAssessorProvider),
       downloader: ref.read(modelArtifactDownloaderProvider),
-      store: ref.read(modelRecordStoreProvider),
+      store: ref.read(modelRepositoryProvider),
       actionPreferences: ref.read(actionPreferenceStoreProvider),
       configurationId: widget.configurationId,
+      managedModel: widget.managedModel,
     );
     // Render neutral checklist on first frame before initiating pre-checks.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,13 +129,13 @@ class _ModelSetupWizardState extends ConsumerState<ModelSetupWizard> {
   }
 }
 
-class _WizardFooter extends StatelessWidget {
+class _WizardFooter extends ConsumerWidget {
   const _WizardFooter({required this.controller});
 
   final ModelSetupWizardController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final step = controller.stepIndex;
     final leading = step == 0
         ? PopupSecondaryButton(
@@ -152,14 +161,14 @@ class _WizardFooter extends StatelessWidget {
             PopupSecondaryButton(
               label: 'Test',
               onPressed: controller.canTestArtifacts
-                  ? () => unawaited(_test())
+                  ? () => unawaited(_test(ref))
                   : null,
             ),
             SizedBox(width: KrithaSpacing.s8),
             PopupPrimaryButton(
               label: 'Save',
               onPressed: controller.canSaveConfiguration
-                  ? () => unawaited(_save(context))
+                  ? () => unawaited(_save(context, ref))
                   : null,
             ),
           ],
@@ -169,16 +178,18 @@ class _WizardFooter extends StatelessWidget {
     );
   }
 
-  Future<void> _test() async {
+  Future<void> _test(WidgetRef ref) async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (!await controller.saveConfiguration()) return;
+    ref.invalidate(activeModelsProvider);
     controller.nextStep();
   }
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _save(BuildContext context, WidgetRef ref) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final saved = await controller.saveConfiguration();
     if (!context.mounted || !saved) return;
+    ref.invalidate(activeModelsProvider);
     Navigator.of(context).pop();
   }
 }

@@ -1088,6 +1088,418 @@ class ActionPreferencesCompanion extends UpdateCompanion<ActionPreferenceRow> {
   }
 }
 
+class $ProvidersTable extends Providers
+    with TableInfo<$ProvidersTable, ProviderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProvidersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _aliasMeta = const VerificationMeta('alias');
+  @override
+  late final GeneratedColumn<String> alias = GeneratedColumn<String>(
+    'alias',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _baseUrlMeta = const VerificationMeta(
+    'baseUrl',
+  );
+  @override
+  late final GeneratedColumn<String> baseUrl = GeneratedColumn<String>(
+    'base_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _apiKeyMeta = const VerificationMeta('apiKey');
+  @override
+  late final GeneratedColumn<String> apiKey = GeneratedColumn<String>(
+    'api_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    alias,
+    baseUrl,
+    apiKey,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'providers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProviderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('alias')) {
+      context.handle(
+        _aliasMeta,
+        alias.isAcceptableOrUnknown(data['alias']!, _aliasMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_aliasMeta);
+    }
+    if (data.containsKey('base_url')) {
+      context.handle(
+        _baseUrlMeta,
+        baseUrl.isAcceptableOrUnknown(data['base_url']!, _baseUrlMeta),
+      );
+    }
+    if (data.containsKey('api_key')) {
+      context.handle(
+        _apiKeyMeta,
+        apiKey.isAcceptableOrUnknown(data['api_key']!, _apiKeyMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {alias},
+  ];
+  @override
+  ProviderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProviderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      alias: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alias'],
+      )!,
+      baseUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}base_url'],
+      ),
+      apiKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}api_key'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ProvidersTable createAlias(String alias) {
+    return $ProvidersTable(attachedDatabase, alias);
+  }
+}
+
+class ProviderRow extends DataClass implements Insertable<ProviderRow> {
+  final String id;
+  final String alias;
+  final String? baseUrl;
+  final String? apiKey;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const ProviderRow({
+    required this.id,
+    required this.alias,
+    this.baseUrl,
+    this.apiKey,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['alias'] = Variable<String>(alias);
+    if (!nullToAbsent || baseUrl != null) {
+      map['base_url'] = Variable<String>(baseUrl);
+    }
+    if (!nullToAbsent || apiKey != null) {
+      map['api_key'] = Variable<String>(apiKey);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ProvidersCompanion toCompanion(bool nullToAbsent) {
+    return ProvidersCompanion(
+      id: Value(id),
+      alias: Value(alias),
+      baseUrl: baseUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(baseUrl),
+      apiKey: apiKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(apiKey),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ProviderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProviderRow(
+      id: serializer.fromJson<String>(json['id']),
+      alias: serializer.fromJson<String>(json['alias']),
+      baseUrl: serializer.fromJson<String?>(json['baseUrl']),
+      apiKey: serializer.fromJson<String?>(json['apiKey']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'alias': serializer.toJson<String>(alias),
+      'baseUrl': serializer.toJson<String?>(baseUrl),
+      'apiKey': serializer.toJson<String?>(apiKey),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ProviderRow copyWith({
+    String? id,
+    String? alias,
+    Value<String?> baseUrl = const Value.absent(),
+    Value<String?> apiKey = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => ProviderRow(
+    id: id ?? this.id,
+    alias: alias ?? this.alias,
+    baseUrl: baseUrl.present ? baseUrl.value : this.baseUrl,
+    apiKey: apiKey.present ? apiKey.value : this.apiKey,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ProviderRow copyWithCompanion(ProvidersCompanion data) {
+    return ProviderRow(
+      id: data.id.present ? data.id.value : this.id,
+      alias: data.alias.present ? data.alias.value : this.alias,
+      baseUrl: data.baseUrl.present ? data.baseUrl.value : this.baseUrl,
+      apiKey: data.apiKey.present ? data.apiKey.value : this.apiKey,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProviderRow(')
+          ..write('id: $id, ')
+          ..write('alias: $alias, ')
+          ..write('baseUrl: $baseUrl, ')
+          ..write('apiKey: $apiKey, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, alias, baseUrl, apiKey, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProviderRow &&
+          other.id == this.id &&
+          other.alias == this.alias &&
+          other.baseUrl == this.baseUrl &&
+          other.apiKey == this.apiKey &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ProvidersCompanion extends UpdateCompanion<ProviderRow> {
+  final Value<String> id;
+  final Value<String> alias;
+  final Value<String?> baseUrl;
+  final Value<String?> apiKey;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ProvidersCompanion({
+    this.id = const Value.absent(),
+    this.alias = const Value.absent(),
+    this.baseUrl = const Value.absent(),
+    this.apiKey = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProvidersCompanion.insert({
+    required String id,
+    required String alias,
+    this.baseUrl = const Value.absent(),
+    this.apiKey = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       alias = Value(alias),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ProviderRow> custom({
+    Expression<String>? id,
+    Expression<String>? alias,
+    Expression<String>? baseUrl,
+    Expression<String>? apiKey,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (alias != null) 'alias': alias,
+      if (baseUrl != null) 'base_url': baseUrl,
+      if (apiKey != null) 'api_key': apiKey,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProvidersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? alias,
+    Value<String?>? baseUrl,
+    Value<String?>? apiKey,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ProvidersCompanion(
+      id: id ?? this.id,
+      alias: alias ?? this.alias,
+      baseUrl: baseUrl ?? this.baseUrl,
+      apiKey: apiKey ?? this.apiKey,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (alias.present) {
+      map['alias'] = Variable<String>(alias.value);
+    }
+    if (baseUrl.present) {
+      map['base_url'] = Variable<String>(baseUrl.value);
+    }
+    if (apiKey.present) {
+      map['api_key'] = Variable<String>(apiKey.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProvidersCompanion(')
+          ..write('id: $id, ')
+          ..write('alias: $alias, ')
+          ..write('baseUrl: $baseUrl, ')
+          ..write('apiKey: $apiKey, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -1102,16 +1514,19 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
-    'sourceId',
+  static const VerificationMeta _providerIdMeta = const VerificationMeta(
+    'providerId',
   );
   @override
-  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
-    'source_id',
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+    'provider_id',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES providers (id)',
+    ),
   );
   static const VerificationMeta _externalModelIdMeta = const VerificationMeta(
     'externalModelId',
@@ -1145,6 +1560,9 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES models (id)',
+    ),
   );
   static const VerificationMeta _suffixMeta = const VerificationMeta('suffix');
   @override
@@ -1165,18 +1583,6 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-  );
-  static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
-    'sourceType',
-  );
-  @override
-  late final GeneratedColumn<String> sourceType = GeneratedColumn<String>(
-    'source_type',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('unknown'),
   );
   static const VerificationMeta _metadataJsonMeta = const VerificationMeta(
     'metadataJson',
@@ -1227,13 +1633,12 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    sourceId,
+    providerId,
     externalModelId,
     displayName,
     parentModelId,
     suffix,
     publisher,
-    sourceType,
     metadataJson,
     taskJson,
     createdAt,
@@ -1256,13 +1661,13 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('source_id')) {
+    if (data.containsKey('provider_id')) {
       context.handle(
-        _sourceIdMeta,
-        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+        _providerIdMeta,
+        providerId.isAcceptableOrUnknown(data['provider_id']!, _providerIdMeta),
       );
     } else if (isInserting) {
-      context.missing(_sourceIdMeta);
+      context.missing(_providerIdMeta);
     }
     if (data.containsKey('external_model_id')) {
       context.handle(
@@ -1307,12 +1712,6 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
         publisher.isAcceptableOrUnknown(data['publisher']!, _publisherMeta),
       );
     }
-    if (data.containsKey('source_type')) {
-      context.handle(
-        _sourceTypeMeta,
-        sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
-      );
-    }
     if (data.containsKey('metadata_json')) {
       context.handle(
         _metadataJsonMeta,
@@ -1350,6 +1749,10 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {providerId, externalModelId, suffix},
+  ];
+  @override
   Model map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Model(
@@ -1357,9 +1760,9 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      sourceId: attachedDatabase.typeMapping.read(
+      providerId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}source_id'],
+        data['${effectivePrefix}provider_id'],
       )!,
       externalModelId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1381,10 +1784,6 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
         DriftSqlType.string,
         data['${effectivePrefix}publisher'],
       ),
-      sourceType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}source_type'],
-      )!,
       metadataJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}metadata_json'],
@@ -1412,26 +1811,24 @@ class $ModelsTable extends Models with TableInfo<$ModelsTable, Model> {
 
 class Model extends DataClass implements Insertable<Model> {
   final String id;
-  final String sourceId;
+  final String providerId;
   final String externalModelId;
   final String displayName;
   final String? parentModelId;
   final String? suffix;
   final String? publisher;
-  final String sourceType;
   final String metadataJson;
   final String taskJson;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Model({
     required this.id,
-    required this.sourceId,
+    required this.providerId,
     required this.externalModelId,
     required this.displayName,
     this.parentModelId,
     this.suffix,
     this.publisher,
-    required this.sourceType,
     required this.metadataJson,
     required this.taskJson,
     required this.createdAt,
@@ -1441,7 +1838,7 @@ class Model extends DataClass implements Insertable<Model> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['source_id'] = Variable<String>(sourceId);
+    map['provider_id'] = Variable<String>(providerId);
     map['external_model_id'] = Variable<String>(externalModelId);
     map['display_name'] = Variable<String>(displayName);
     if (!nullToAbsent || parentModelId != null) {
@@ -1453,7 +1850,6 @@ class Model extends DataClass implements Insertable<Model> {
     if (!nullToAbsent || publisher != null) {
       map['publisher'] = Variable<String>(publisher);
     }
-    map['source_type'] = Variable<String>(sourceType);
     map['metadata_json'] = Variable<String>(metadataJson);
     map['task_json'] = Variable<String>(taskJson);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -1464,7 +1860,7 @@ class Model extends DataClass implements Insertable<Model> {
   ModelsCompanion toCompanion(bool nullToAbsent) {
     return ModelsCompanion(
       id: Value(id),
-      sourceId: Value(sourceId),
+      providerId: Value(providerId),
       externalModelId: Value(externalModelId),
       displayName: Value(displayName),
       parentModelId: parentModelId == null && nullToAbsent
@@ -1476,7 +1872,6 @@ class Model extends DataClass implements Insertable<Model> {
       publisher: publisher == null && nullToAbsent
           ? const Value.absent()
           : Value(publisher),
-      sourceType: Value(sourceType),
       metadataJson: Value(metadataJson),
       taskJson: Value(taskJson),
       createdAt: Value(createdAt),
@@ -1491,13 +1886,12 @@ class Model extends DataClass implements Insertable<Model> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Model(
       id: serializer.fromJson<String>(json['id']),
-      sourceId: serializer.fromJson<String>(json['sourceId']),
+      providerId: serializer.fromJson<String>(json['providerId']),
       externalModelId: serializer.fromJson<String>(json['externalModelId']),
       displayName: serializer.fromJson<String>(json['displayName']),
       parentModelId: serializer.fromJson<String?>(json['parentModelId']),
       suffix: serializer.fromJson<String?>(json['suffix']),
       publisher: serializer.fromJson<String?>(json['publisher']),
-      sourceType: serializer.fromJson<String>(json['sourceType']),
       metadataJson: serializer.fromJson<String>(json['metadataJson']),
       taskJson: serializer.fromJson<String>(json['taskJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1509,13 +1903,12 @@ class Model extends DataClass implements Insertable<Model> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'sourceId': serializer.toJson<String>(sourceId),
+      'providerId': serializer.toJson<String>(providerId),
       'externalModelId': serializer.toJson<String>(externalModelId),
       'displayName': serializer.toJson<String>(displayName),
       'parentModelId': serializer.toJson<String?>(parentModelId),
       'suffix': serializer.toJson<String?>(suffix),
       'publisher': serializer.toJson<String?>(publisher),
-      'sourceType': serializer.toJson<String>(sourceType),
       'metadataJson': serializer.toJson<String>(metadataJson),
       'taskJson': serializer.toJson<String>(taskJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1525,20 +1918,19 @@ class Model extends DataClass implements Insertable<Model> {
 
   Model copyWith({
     String? id,
-    String? sourceId,
+    String? providerId,
     String? externalModelId,
     String? displayName,
     Value<String?> parentModelId = const Value.absent(),
     Value<String?> suffix = const Value.absent(),
     Value<String?> publisher = const Value.absent(),
-    String? sourceType,
     String? metadataJson,
     String? taskJson,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Model(
     id: id ?? this.id,
-    sourceId: sourceId ?? this.sourceId,
+    providerId: providerId ?? this.providerId,
     externalModelId: externalModelId ?? this.externalModelId,
     displayName: displayName ?? this.displayName,
     parentModelId: parentModelId.present
@@ -1546,7 +1938,6 @@ class Model extends DataClass implements Insertable<Model> {
         : this.parentModelId,
     suffix: suffix.present ? suffix.value : this.suffix,
     publisher: publisher.present ? publisher.value : this.publisher,
-    sourceType: sourceType ?? this.sourceType,
     metadataJson: metadataJson ?? this.metadataJson,
     taskJson: taskJson ?? this.taskJson,
     createdAt: createdAt ?? this.createdAt,
@@ -1555,7 +1946,9 @@ class Model extends DataClass implements Insertable<Model> {
   Model copyWithCompanion(ModelsCompanion data) {
     return Model(
       id: data.id.present ? data.id.value : this.id,
-      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      providerId: data.providerId.present
+          ? data.providerId.value
+          : this.providerId,
       externalModelId: data.externalModelId.present
           ? data.externalModelId.value
           : this.externalModelId,
@@ -1567,9 +1960,6 @@ class Model extends DataClass implements Insertable<Model> {
           : this.parentModelId,
       suffix: data.suffix.present ? data.suffix.value : this.suffix,
       publisher: data.publisher.present ? data.publisher.value : this.publisher,
-      sourceType: data.sourceType.present
-          ? data.sourceType.value
-          : this.sourceType,
       metadataJson: data.metadataJson.present
           ? data.metadataJson.value
           : this.metadataJson,
@@ -1583,13 +1973,12 @@ class Model extends DataClass implements Insertable<Model> {
   String toString() {
     return (StringBuffer('Model(')
           ..write('id: $id, ')
-          ..write('sourceId: $sourceId, ')
+          ..write('providerId: $providerId, ')
           ..write('externalModelId: $externalModelId, ')
           ..write('displayName: $displayName, ')
           ..write('parentModelId: $parentModelId, ')
           ..write('suffix: $suffix, ')
           ..write('publisher: $publisher, ')
-          ..write('sourceType: $sourceType, ')
           ..write('metadataJson: $metadataJson, ')
           ..write('taskJson: $taskJson, ')
           ..write('createdAt: $createdAt, ')
@@ -1601,13 +1990,12 @@ class Model extends DataClass implements Insertable<Model> {
   @override
   int get hashCode => Object.hash(
     id,
-    sourceId,
+    providerId,
     externalModelId,
     displayName,
     parentModelId,
     suffix,
     publisher,
-    sourceType,
     metadataJson,
     taskJson,
     createdAt,
@@ -1618,13 +2006,12 @@ class Model extends DataClass implements Insertable<Model> {
       identical(this, other) ||
       (other is Model &&
           other.id == this.id &&
-          other.sourceId == this.sourceId &&
+          other.providerId == this.providerId &&
           other.externalModelId == this.externalModelId &&
           other.displayName == this.displayName &&
           other.parentModelId == this.parentModelId &&
           other.suffix == this.suffix &&
           other.publisher == this.publisher &&
-          other.sourceType == this.sourceType &&
           other.metadataJson == this.metadataJson &&
           other.taskJson == this.taskJson &&
           other.createdAt == this.createdAt &&
@@ -1633,13 +2020,12 @@ class Model extends DataClass implements Insertable<Model> {
 
 class ModelsCompanion extends UpdateCompanion<Model> {
   final Value<String> id;
-  final Value<String> sourceId;
+  final Value<String> providerId;
   final Value<String> externalModelId;
   final Value<String> displayName;
   final Value<String?> parentModelId;
   final Value<String?> suffix;
   final Value<String?> publisher;
-  final Value<String> sourceType;
   final Value<String> metadataJson;
   final Value<String> taskJson;
   final Value<DateTime> createdAt;
@@ -1647,13 +2033,12 @@ class ModelsCompanion extends UpdateCompanion<Model> {
   final Value<int> rowid;
   const ModelsCompanion({
     this.id = const Value.absent(),
-    this.sourceId = const Value.absent(),
+    this.providerId = const Value.absent(),
     this.externalModelId = const Value.absent(),
     this.displayName = const Value.absent(),
     this.parentModelId = const Value.absent(),
     this.suffix = const Value.absent(),
     this.publisher = const Value.absent(),
-    this.sourceType = const Value.absent(),
     this.metadataJson = const Value.absent(),
     this.taskJson = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1662,33 +2047,31 @@ class ModelsCompanion extends UpdateCompanion<Model> {
   });
   ModelsCompanion.insert({
     required String id,
-    required String sourceId,
+    required String providerId,
     required String externalModelId,
     required String displayName,
     this.parentModelId = const Value.absent(),
     this.suffix = const Value.absent(),
     this.publisher = const Value.absent(),
-    this.sourceType = const Value.absent(),
     this.metadataJson = const Value.absent(),
     this.taskJson = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       sourceId = Value(sourceId),
+       providerId = Value(providerId),
        externalModelId = Value(externalModelId),
        displayName = Value(displayName),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
   static Insertable<Model> custom({
     Expression<String>? id,
-    Expression<String>? sourceId,
+    Expression<String>? providerId,
     Expression<String>? externalModelId,
     Expression<String>? displayName,
     Expression<String>? parentModelId,
     Expression<String>? suffix,
     Expression<String>? publisher,
-    Expression<String>? sourceType,
     Expression<String>? metadataJson,
     Expression<String>? taskJson,
     Expression<DateTime>? createdAt,
@@ -1697,13 +2080,12 @@ class ModelsCompanion extends UpdateCompanion<Model> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (sourceId != null) 'source_id': sourceId,
+      if (providerId != null) 'provider_id': providerId,
       if (externalModelId != null) 'external_model_id': externalModelId,
       if (displayName != null) 'display_name': displayName,
       if (parentModelId != null) 'parent_model_id': parentModelId,
       if (suffix != null) 'suffix': suffix,
       if (publisher != null) 'publisher': publisher,
-      if (sourceType != null) 'source_type': sourceType,
       if (metadataJson != null) 'metadata_json': metadataJson,
       if (taskJson != null) 'task_json': taskJson,
       if (createdAt != null) 'created_at': createdAt,
@@ -1714,13 +2096,12 @@ class ModelsCompanion extends UpdateCompanion<Model> {
 
   ModelsCompanion copyWith({
     Value<String>? id,
-    Value<String>? sourceId,
+    Value<String>? providerId,
     Value<String>? externalModelId,
     Value<String>? displayName,
     Value<String?>? parentModelId,
     Value<String?>? suffix,
     Value<String?>? publisher,
-    Value<String>? sourceType,
     Value<String>? metadataJson,
     Value<String>? taskJson,
     Value<DateTime>? createdAt,
@@ -1729,13 +2110,12 @@ class ModelsCompanion extends UpdateCompanion<Model> {
   }) {
     return ModelsCompanion(
       id: id ?? this.id,
-      sourceId: sourceId ?? this.sourceId,
+      providerId: providerId ?? this.providerId,
       externalModelId: externalModelId ?? this.externalModelId,
       displayName: displayName ?? this.displayName,
       parentModelId: parentModelId ?? this.parentModelId,
       suffix: suffix ?? this.suffix,
       publisher: publisher ?? this.publisher,
-      sourceType: sourceType ?? this.sourceType,
       metadataJson: metadataJson ?? this.metadataJson,
       taskJson: taskJson ?? this.taskJson,
       createdAt: createdAt ?? this.createdAt,
@@ -1750,8 +2130,8 @@ class ModelsCompanion extends UpdateCompanion<Model> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (sourceId.present) {
-      map['source_id'] = Variable<String>(sourceId.value);
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
     }
     if (externalModelId.present) {
       map['external_model_id'] = Variable<String>(externalModelId.value);
@@ -1767,9 +2147,6 @@ class ModelsCompanion extends UpdateCompanion<Model> {
     }
     if (publisher.present) {
       map['publisher'] = Variable<String>(publisher.value);
-    }
-    if (sourceType.present) {
-      map['source_type'] = Variable<String>(sourceType.value);
     }
     if (metadataJson.present) {
       map['metadata_json'] = Variable<String>(metadataJson.value);
@@ -1793,13 +2170,12 @@ class ModelsCompanion extends UpdateCompanion<Model> {
   String toString() {
     return (StringBuffer('ModelsCompanion(')
           ..write('id: $id, ')
-          ..write('sourceId: $sourceId, ')
+          ..write('providerId: $providerId, ')
           ..write('externalModelId: $externalModelId, ')
           ..write('displayName: $displayName, ')
           ..write('parentModelId: $parentModelId, ')
           ..write('suffix: $suffix, ')
           ..write('publisher: $publisher, ')
-          ..write('sourceType: $sourceType, ')
           ..write('metadataJson: $metadataJson, ')
           ..write('taskJson: $taskJson, ')
           ..write('createdAt: $createdAt, ')
@@ -1835,6 +2211,9 @@ class $ModelArtifactsTable extends ModelArtifacts
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES models (id)',
+    ),
   );
   static const VerificationMeta _externalPathMeta = const VerificationMeta(
     'externalPath',
@@ -1842,17 +2221,6 @@ class $ModelArtifactsTable extends ModelArtifacts
   @override
   late final GeneratedColumn<String> externalPath = GeneratedColumn<String>(
     'external_path',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _fileNameMeta = const VerificationMeta(
-    'fileName',
-  );
-  @override
-  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
-    'file_name',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -1879,28 +2247,6 @@ class $ModelArtifactsTable extends ModelArtifacts
     type: DriftSqlType.string,
     requiredDuringInsert: false,
     defaultValue: const Constant('repository'),
-  );
-  static const VerificationMeta _repositoryPathMeta = const VerificationMeta(
-    'repositoryPath',
-  );
-  @override
-  late final GeneratedColumn<String> repositoryPath = GeneratedColumn<String>(
-    'repository_path',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _deviceSourcePathMeta = const VerificationMeta(
-    'deviceSourcePath',
-  );
-  @override
-  late final GeneratedColumn<String> deviceSourcePath = GeneratedColumn<String>(
-    'device_source_path',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
   );
   static const VerificationMeta _targetPathMeta = const VerificationMeta(
     'targetPath',
@@ -1933,39 +2279,6 @@ class $ModelArtifactsTable extends ModelArtifacts
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _isLfsMeta = const VerificationMeta('isLfs');
-  @override
-  late final GeneratedColumn<bool> isLfs = GeneratedColumn<bool>(
-    'is_lfs',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_lfs" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _oidMeta = const VerificationMeta('oid');
-  @override
-  late final GeneratedColumn<String> oid = GeneratedColumn<String>(
-    'oid',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _revisionMeta = const VerificationMeta(
-    'revision',
-  );
-  @override
-  late final GeneratedColumn<String> revision = GeneratedColumn<String>(
-    'revision',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _enabledMeta = const VerificationMeta(
     'enabled',
   );
@@ -1992,18 +2305,6 @@ class $ModelArtifactsTable extends ModelArtifacts
     type: DriftSqlType.int,
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _metadataJsonMeta = const VerificationMeta(
-    'metadataJson',
-  );
-  @override
-  late final GeneratedColumn<String> metadataJson = GeneratedColumn<String>(
-    'metadata_json',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('{}'),
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -2032,20 +2333,13 @@ class $ModelArtifactsTable extends ModelArtifacts
     id,
     modelId,
     externalPath,
-    fileName,
     kind,
     sourceType,
-    repositoryPath,
-    deviceSourcePath,
     targetPath,
     format,
     sizeBytes,
-    isLfs,
-    oid,
-    revision,
     enabled,
     position,
-    metadataJson,
     createdAt,
     updatedAt,
   ];
@@ -2085,14 +2379,6 @@ class $ModelArtifactsTable extends ModelArtifacts
     } else if (isInserting) {
       context.missing(_externalPathMeta);
     }
-    if (data.containsKey('file_name')) {
-      context.handle(
-        _fileNameMeta,
-        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_fileNameMeta);
-    }
     if (data.containsKey('kind')) {
       context.handle(
         _kindMeta,
@@ -2103,24 +2389,6 @@ class $ModelArtifactsTable extends ModelArtifacts
       context.handle(
         _sourceTypeMeta,
         sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
-      );
-    }
-    if (data.containsKey('repository_path')) {
-      context.handle(
-        _repositoryPathMeta,
-        repositoryPath.isAcceptableOrUnknown(
-          data['repository_path']!,
-          _repositoryPathMeta,
-        ),
-      );
-    }
-    if (data.containsKey('device_source_path')) {
-      context.handle(
-        _deviceSourcePathMeta,
-        deviceSourcePath.isAcceptableOrUnknown(
-          data['device_source_path']!,
-          _deviceSourcePathMeta,
-        ),
       );
     }
     if (data.containsKey('target_path')) {
@@ -2141,24 +2409,6 @@ class $ModelArtifactsTable extends ModelArtifacts
         sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
       );
     }
-    if (data.containsKey('is_lfs')) {
-      context.handle(
-        _isLfsMeta,
-        isLfs.isAcceptableOrUnknown(data['is_lfs']!, _isLfsMeta),
-      );
-    }
-    if (data.containsKey('oid')) {
-      context.handle(
-        _oidMeta,
-        oid.isAcceptableOrUnknown(data['oid']!, _oidMeta),
-      );
-    }
-    if (data.containsKey('revision')) {
-      context.handle(
-        _revisionMeta,
-        revision.isAcceptableOrUnknown(data['revision']!, _revisionMeta),
-      );
-    }
     if (data.containsKey('enabled')) {
       context.handle(
         _enabledMeta,
@@ -2169,15 +2419,6 @@ class $ModelArtifactsTable extends ModelArtifacts
       context.handle(
         _positionMeta,
         position.isAcceptableOrUnknown(data['position']!, _positionMeta),
-      );
-    }
-    if (data.containsKey('metadata_json')) {
-      context.handle(
-        _metadataJsonMeta,
-        metadataJson.isAcceptableOrUnknown(
-          data['metadata_json']!,
-          _metadataJsonMeta,
-        ),
       );
     }
     if (data.containsKey('created_at')) {
@@ -2217,10 +2458,6 @@ class $ModelArtifactsTable extends ModelArtifacts
         DriftSqlType.string,
         data['${effectivePrefix}external_path'],
       )!,
-      fileName: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}file_name'],
-      )!,
       kind: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}kind'],
@@ -2229,14 +2466,6 @@ class $ModelArtifactsTable extends ModelArtifacts
         DriftSqlType.string,
         data['${effectivePrefix}source_type'],
       )!,
-      repositoryPath: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}repository_path'],
-      ),
-      deviceSourcePath: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}device_source_path'],
-      ),
       targetPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}target_path'],
@@ -2249,18 +2478,6 @@ class $ModelArtifactsTable extends ModelArtifacts
         DriftSqlType.int,
         data['${effectivePrefix}size_bytes'],
       ),
-      isLfs: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_lfs'],
-      )!,
-      oid: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}oid'],
-      ),
-      revision: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}revision'],
-      ),
       enabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}enabled'],
@@ -2268,10 +2485,6 @@ class $ModelArtifactsTable extends ModelArtifacts
       position: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}position'],
-      )!,
-      metadataJson: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}metadata_json'],
       )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
@@ -2294,40 +2507,26 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
   final String id;
   final String modelId;
   final String externalPath;
-  final String fileName;
   final String kind;
   final String sourceType;
-  final String? repositoryPath;
-  final String? deviceSourcePath;
   final String? targetPath;
   final String? format;
   final int? sizeBytes;
-  final bool isLfs;
-  final String? oid;
-  final String? revision;
   final bool enabled;
   final int position;
-  final String metadataJson;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ModelArtifact({
     required this.id,
     required this.modelId,
     required this.externalPath,
-    required this.fileName,
     required this.kind,
     required this.sourceType,
-    this.repositoryPath,
-    this.deviceSourcePath,
     this.targetPath,
     this.format,
     this.sizeBytes,
-    required this.isLfs,
-    this.oid,
-    this.revision,
     required this.enabled,
     required this.position,
-    required this.metadataJson,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -2337,15 +2536,8 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
     map['id'] = Variable<String>(id);
     map['model_id'] = Variable<String>(modelId);
     map['external_path'] = Variable<String>(externalPath);
-    map['file_name'] = Variable<String>(fileName);
     map['kind'] = Variable<String>(kind);
     map['source_type'] = Variable<String>(sourceType);
-    if (!nullToAbsent || repositoryPath != null) {
-      map['repository_path'] = Variable<String>(repositoryPath);
-    }
-    if (!nullToAbsent || deviceSourcePath != null) {
-      map['device_source_path'] = Variable<String>(deviceSourcePath);
-    }
     if (!nullToAbsent || targetPath != null) {
       map['target_path'] = Variable<String>(targetPath);
     }
@@ -2355,16 +2547,8 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
     if (!nullToAbsent || sizeBytes != null) {
       map['size_bytes'] = Variable<int>(sizeBytes);
     }
-    map['is_lfs'] = Variable<bool>(isLfs);
-    if (!nullToAbsent || oid != null) {
-      map['oid'] = Variable<String>(oid);
-    }
-    if (!nullToAbsent || revision != null) {
-      map['revision'] = Variable<String>(revision);
-    }
     map['enabled'] = Variable<bool>(enabled);
     map['position'] = Variable<int>(position);
-    map['metadata_json'] = Variable<String>(metadataJson);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -2375,15 +2559,8 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
       id: Value(id),
       modelId: Value(modelId),
       externalPath: Value(externalPath),
-      fileName: Value(fileName),
       kind: Value(kind),
       sourceType: Value(sourceType),
-      repositoryPath: repositoryPath == null && nullToAbsent
-          ? const Value.absent()
-          : Value(repositoryPath),
-      deviceSourcePath: deviceSourcePath == null && nullToAbsent
-          ? const Value.absent()
-          : Value(deviceSourcePath),
       targetPath: targetPath == null && nullToAbsent
           ? const Value.absent()
           : Value(targetPath),
@@ -2393,14 +2570,8 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
       sizeBytes: sizeBytes == null && nullToAbsent
           ? const Value.absent()
           : Value(sizeBytes),
-      isLfs: Value(isLfs),
-      oid: oid == null && nullToAbsent ? const Value.absent() : Value(oid),
-      revision: revision == null && nullToAbsent
-          ? const Value.absent()
-          : Value(revision),
       enabled: Value(enabled),
       position: Value(position),
-      metadataJson: Value(metadataJson),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2415,20 +2586,13 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
       id: serializer.fromJson<String>(json['id']),
       modelId: serializer.fromJson<String>(json['modelId']),
       externalPath: serializer.fromJson<String>(json['externalPath']),
-      fileName: serializer.fromJson<String>(json['fileName']),
       kind: serializer.fromJson<String>(json['kind']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
-      repositoryPath: serializer.fromJson<String?>(json['repositoryPath']),
-      deviceSourcePath: serializer.fromJson<String?>(json['deviceSourcePath']),
       targetPath: serializer.fromJson<String?>(json['targetPath']),
       format: serializer.fromJson<String?>(json['format']),
       sizeBytes: serializer.fromJson<int?>(json['sizeBytes']),
-      isLfs: serializer.fromJson<bool>(json['isLfs']),
-      oid: serializer.fromJson<String?>(json['oid']),
-      revision: serializer.fromJson<String?>(json['revision']),
       enabled: serializer.fromJson<bool>(json['enabled']),
       position: serializer.fromJson<int>(json['position']),
-      metadataJson: serializer.fromJson<String>(json['metadataJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2440,20 +2604,13 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
       'id': serializer.toJson<String>(id),
       'modelId': serializer.toJson<String>(modelId),
       'externalPath': serializer.toJson<String>(externalPath),
-      'fileName': serializer.toJson<String>(fileName),
       'kind': serializer.toJson<String>(kind),
       'sourceType': serializer.toJson<String>(sourceType),
-      'repositoryPath': serializer.toJson<String?>(repositoryPath),
-      'deviceSourcePath': serializer.toJson<String?>(deviceSourcePath),
       'targetPath': serializer.toJson<String?>(targetPath),
       'format': serializer.toJson<String?>(format),
       'sizeBytes': serializer.toJson<int?>(sizeBytes),
-      'isLfs': serializer.toJson<bool>(isLfs),
-      'oid': serializer.toJson<String?>(oid),
-      'revision': serializer.toJson<String?>(revision),
       'enabled': serializer.toJson<bool>(enabled),
       'position': serializer.toJson<int>(position),
-      'metadataJson': serializer.toJson<String>(metadataJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2463,44 +2620,26 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
     String? id,
     String? modelId,
     String? externalPath,
-    String? fileName,
     String? kind,
     String? sourceType,
-    Value<String?> repositoryPath = const Value.absent(),
-    Value<String?> deviceSourcePath = const Value.absent(),
     Value<String?> targetPath = const Value.absent(),
     Value<String?> format = const Value.absent(),
     Value<int?> sizeBytes = const Value.absent(),
-    bool? isLfs,
-    Value<String?> oid = const Value.absent(),
-    Value<String?> revision = const Value.absent(),
     bool? enabled,
     int? position,
-    String? metadataJson,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => ModelArtifact(
     id: id ?? this.id,
     modelId: modelId ?? this.modelId,
     externalPath: externalPath ?? this.externalPath,
-    fileName: fileName ?? this.fileName,
     kind: kind ?? this.kind,
     sourceType: sourceType ?? this.sourceType,
-    repositoryPath: repositoryPath.present
-        ? repositoryPath.value
-        : this.repositoryPath,
-    deviceSourcePath: deviceSourcePath.present
-        ? deviceSourcePath.value
-        : this.deviceSourcePath,
     targetPath: targetPath.present ? targetPath.value : this.targetPath,
     format: format.present ? format.value : this.format,
     sizeBytes: sizeBytes.present ? sizeBytes.value : this.sizeBytes,
-    isLfs: isLfs ?? this.isLfs,
-    oid: oid.present ? oid.value : this.oid,
-    revision: revision.present ? revision.value : this.revision,
     enabled: enabled ?? this.enabled,
     position: position ?? this.position,
-    metadataJson: metadataJson ?? this.metadataJson,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2511,30 +2650,17 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
       externalPath: data.externalPath.present
           ? data.externalPath.value
           : this.externalPath,
-      fileName: data.fileName.present ? data.fileName.value : this.fileName,
       kind: data.kind.present ? data.kind.value : this.kind,
       sourceType: data.sourceType.present
           ? data.sourceType.value
           : this.sourceType,
-      repositoryPath: data.repositoryPath.present
-          ? data.repositoryPath.value
-          : this.repositoryPath,
-      deviceSourcePath: data.deviceSourcePath.present
-          ? data.deviceSourcePath.value
-          : this.deviceSourcePath,
       targetPath: data.targetPath.present
           ? data.targetPath.value
           : this.targetPath,
       format: data.format.present ? data.format.value : this.format,
       sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
-      isLfs: data.isLfs.present ? data.isLfs.value : this.isLfs,
-      oid: data.oid.present ? data.oid.value : this.oid,
-      revision: data.revision.present ? data.revision.value : this.revision,
       enabled: data.enabled.present ? data.enabled.value : this.enabled,
       position: data.position.present ? data.position.value : this.position,
-      metadataJson: data.metadataJson.present
-          ? data.metadataJson.value
-          : this.metadataJson,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2546,20 +2672,13 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
           ..write('id: $id, ')
           ..write('modelId: $modelId, ')
           ..write('externalPath: $externalPath, ')
-          ..write('fileName: $fileName, ')
           ..write('kind: $kind, ')
           ..write('sourceType: $sourceType, ')
-          ..write('repositoryPath: $repositoryPath, ')
-          ..write('deviceSourcePath: $deviceSourcePath, ')
           ..write('targetPath: $targetPath, ')
           ..write('format: $format, ')
           ..write('sizeBytes: $sizeBytes, ')
-          ..write('isLfs: $isLfs, ')
-          ..write('oid: $oid, ')
-          ..write('revision: $revision, ')
           ..write('enabled: $enabled, ')
           ..write('position: $position, ')
-          ..write('metadataJson: $metadataJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2571,20 +2690,13 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
     id,
     modelId,
     externalPath,
-    fileName,
     kind,
     sourceType,
-    repositoryPath,
-    deviceSourcePath,
     targetPath,
     format,
     sizeBytes,
-    isLfs,
-    oid,
-    revision,
     enabled,
     position,
-    metadataJson,
     createdAt,
     updatedAt,
   );
@@ -2595,20 +2707,13 @@ class ModelArtifact extends DataClass implements Insertable<ModelArtifact> {
           other.id == this.id &&
           other.modelId == this.modelId &&
           other.externalPath == this.externalPath &&
-          other.fileName == this.fileName &&
           other.kind == this.kind &&
           other.sourceType == this.sourceType &&
-          other.repositoryPath == this.repositoryPath &&
-          other.deviceSourcePath == this.deviceSourcePath &&
           other.targetPath == this.targetPath &&
           other.format == this.format &&
           other.sizeBytes == this.sizeBytes &&
-          other.isLfs == this.isLfs &&
-          other.oid == this.oid &&
-          other.revision == this.revision &&
           other.enabled == this.enabled &&
           other.position == this.position &&
-          other.metadataJson == this.metadataJson &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2617,20 +2722,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
   final Value<String> id;
   final Value<String> modelId;
   final Value<String> externalPath;
-  final Value<String> fileName;
   final Value<String> kind;
   final Value<String> sourceType;
-  final Value<String?> repositoryPath;
-  final Value<String?> deviceSourcePath;
   final Value<String?> targetPath;
   final Value<String?> format;
   final Value<int?> sizeBytes;
-  final Value<bool> isLfs;
-  final Value<String?> oid;
-  final Value<String?> revision;
   final Value<bool> enabled;
   final Value<int> position;
-  final Value<String> metadataJson;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -2638,20 +2736,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
     this.id = const Value.absent(),
     this.modelId = const Value.absent(),
     this.externalPath = const Value.absent(),
-    this.fileName = const Value.absent(),
     this.kind = const Value.absent(),
     this.sourceType = const Value.absent(),
-    this.repositoryPath = const Value.absent(),
-    this.deviceSourcePath = const Value.absent(),
     this.targetPath = const Value.absent(),
     this.format = const Value.absent(),
     this.sizeBytes = const Value.absent(),
-    this.isLfs = const Value.absent(),
-    this.oid = const Value.absent(),
-    this.revision = const Value.absent(),
     this.enabled = const Value.absent(),
     this.position = const Value.absent(),
-    this.metadataJson = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2660,47 +2751,32 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
     required String id,
     required String modelId,
     required String externalPath,
-    required String fileName,
     this.kind = const Value.absent(),
     this.sourceType = const Value.absent(),
-    this.repositoryPath = const Value.absent(),
-    this.deviceSourcePath = const Value.absent(),
     this.targetPath = const Value.absent(),
     this.format = const Value.absent(),
     this.sizeBytes = const Value.absent(),
-    this.isLfs = const Value.absent(),
-    this.oid = const Value.absent(),
-    this.revision = const Value.absent(),
     this.enabled = const Value.absent(),
     this.position = const Value.absent(),
-    this.metadataJson = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        modelId = Value(modelId),
        externalPath = Value(externalPath),
-       fileName = Value(fileName),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
   static Insertable<ModelArtifact> custom({
     Expression<String>? id,
     Expression<String>? modelId,
     Expression<String>? externalPath,
-    Expression<String>? fileName,
     Expression<String>? kind,
     Expression<String>? sourceType,
-    Expression<String>? repositoryPath,
-    Expression<String>? deviceSourcePath,
     Expression<String>? targetPath,
     Expression<String>? format,
     Expression<int>? sizeBytes,
-    Expression<bool>? isLfs,
-    Expression<String>? oid,
-    Expression<String>? revision,
     Expression<bool>? enabled,
     Expression<int>? position,
-    Expression<String>? metadataJson,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2709,20 +2785,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
       if (id != null) 'id': id,
       if (modelId != null) 'model_id': modelId,
       if (externalPath != null) 'external_path': externalPath,
-      if (fileName != null) 'file_name': fileName,
       if (kind != null) 'kind': kind,
       if (sourceType != null) 'source_type': sourceType,
-      if (repositoryPath != null) 'repository_path': repositoryPath,
-      if (deviceSourcePath != null) 'device_source_path': deviceSourcePath,
       if (targetPath != null) 'target_path': targetPath,
       if (format != null) 'format': format,
       if (sizeBytes != null) 'size_bytes': sizeBytes,
-      if (isLfs != null) 'is_lfs': isLfs,
-      if (oid != null) 'oid': oid,
-      if (revision != null) 'revision': revision,
       if (enabled != null) 'enabled': enabled,
       if (position != null) 'position': position,
-      if (metadataJson != null) 'metadata_json': metadataJson,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2733,20 +2802,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
     Value<String>? id,
     Value<String>? modelId,
     Value<String>? externalPath,
-    Value<String>? fileName,
     Value<String>? kind,
     Value<String>? sourceType,
-    Value<String?>? repositoryPath,
-    Value<String?>? deviceSourcePath,
     Value<String?>? targetPath,
     Value<String?>? format,
     Value<int?>? sizeBytes,
-    Value<bool>? isLfs,
-    Value<String?>? oid,
-    Value<String?>? revision,
     Value<bool>? enabled,
     Value<int>? position,
-    Value<String>? metadataJson,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -2755,20 +2817,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
       id: id ?? this.id,
       modelId: modelId ?? this.modelId,
       externalPath: externalPath ?? this.externalPath,
-      fileName: fileName ?? this.fileName,
       kind: kind ?? this.kind,
       sourceType: sourceType ?? this.sourceType,
-      repositoryPath: repositoryPath ?? this.repositoryPath,
-      deviceSourcePath: deviceSourcePath ?? this.deviceSourcePath,
       targetPath: targetPath ?? this.targetPath,
       format: format ?? this.format,
       sizeBytes: sizeBytes ?? this.sizeBytes,
-      isLfs: isLfs ?? this.isLfs,
-      oid: oid ?? this.oid,
-      revision: revision ?? this.revision,
       enabled: enabled ?? this.enabled,
       position: position ?? this.position,
-      metadataJson: metadataJson ?? this.metadataJson,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2787,20 +2842,11 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
     if (externalPath.present) {
       map['external_path'] = Variable<String>(externalPath.value);
     }
-    if (fileName.present) {
-      map['file_name'] = Variable<String>(fileName.value);
-    }
     if (kind.present) {
       map['kind'] = Variable<String>(kind.value);
     }
     if (sourceType.present) {
       map['source_type'] = Variable<String>(sourceType.value);
-    }
-    if (repositoryPath.present) {
-      map['repository_path'] = Variable<String>(repositoryPath.value);
-    }
-    if (deviceSourcePath.present) {
-      map['device_source_path'] = Variable<String>(deviceSourcePath.value);
     }
     if (targetPath.present) {
       map['target_path'] = Variable<String>(targetPath.value);
@@ -2811,23 +2857,11 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
     if (sizeBytes.present) {
       map['size_bytes'] = Variable<int>(sizeBytes.value);
     }
-    if (isLfs.present) {
-      map['is_lfs'] = Variable<bool>(isLfs.value);
-    }
-    if (oid.present) {
-      map['oid'] = Variable<String>(oid.value);
-    }
-    if (revision.present) {
-      map['revision'] = Variable<String>(revision.value);
-    }
     if (enabled.present) {
       map['enabled'] = Variable<bool>(enabled.value);
     }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
-    }
-    if (metadataJson.present) {
-      map['metadata_json'] = Variable<String>(metadataJson.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2847,20 +2881,13 @@ class ModelArtifactsCompanion extends UpdateCompanion<ModelArtifact> {
           ..write('id: $id, ')
           ..write('modelId: $modelId, ')
           ..write('externalPath: $externalPath, ')
-          ..write('fileName: $fileName, ')
           ..write('kind: $kind, ')
           ..write('sourceType: $sourceType, ')
-          ..write('repositoryPath: $repositoryPath, ')
-          ..write('deviceSourcePath: $deviceSourcePath, ')
           ..write('targetPath: $targetPath, ')
           ..write('format: $format, ')
           ..write('sizeBytes: $sizeBytes, ')
-          ..write('isLfs: $isLfs, ')
-          ..write('oid: $oid, ')
-          ..write('revision: $revision, ')
           ..write('enabled: $enabled, ')
           ..write('position: $position, ')
-          ..write('metadataJson: $metadataJson, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -2894,6 +2921,9 @@ class $ModelSettingsTable extends ModelSettings
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES models (id)',
+    ),
   );
   static const VerificationMeta _versionMeta = const VerificationMeta(
     'version',
@@ -3399,576 +3429,6 @@ class ModelSettingsCompanion extends UpdateCompanion<ModelSetting> {
   }
 }
 
-class $ActiveModelAssignmentsTable extends ActiveModelAssignments
-    with TableInfo<$ActiveModelAssignmentsTable, ActiveModelAssignmentRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $ActiveModelAssignmentsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _modelIdMeta = const VerificationMeta(
-    'modelId',
-  );
-  @override
-  late final GeneratedColumn<String> modelId = GeneratedColumn<String>(
-    'model_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
-  @override
-  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
-    'task_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _priorityMeta = const VerificationMeta(
-    'priority',
-  );
-  @override
-  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
-    'priority',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _assignmentTypeMeta = const VerificationMeta(
-    'assignmentType',
-  );
-  @override
-  late final GeneratedColumn<String> assignmentType = GeneratedColumn<String>(
-    'assignment_type',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('single'),
-  );
-  static const VerificationMeta _enabledMeta = const VerificationMeta(
-    'enabled',
-  );
-  @override
-  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
-    'enabled',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("enabled" IN (0, 1))',
-    ),
-    defaultValue: const Constant(true),
-  );
-  static const VerificationMeta _metadataJsonMeta = const VerificationMeta(
-    'metadataJson',
-  );
-  @override
-  late final GeneratedColumn<String> metadataJson = GeneratedColumn<String>(
-    'metadata_json',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('{}'),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-    'updated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    modelId,
-    taskId,
-    priority,
-    assignmentType,
-    enabled,
-    metadataJson,
-    createdAt,
-    updatedAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'active_model_assignments';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<ActiveModelAssignmentRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('model_id')) {
-      context.handle(
-        _modelIdMeta,
-        modelId.isAcceptableOrUnknown(data['model_id']!, _modelIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_modelIdMeta);
-    }
-    if (data.containsKey('task_id')) {
-      context.handle(
-        _taskIdMeta,
-        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_taskIdMeta);
-    }
-    if (data.containsKey('priority')) {
-      context.handle(
-        _priorityMeta,
-        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
-      );
-    }
-    if (data.containsKey('assignment_type')) {
-      context.handle(
-        _assignmentTypeMeta,
-        assignmentType.isAcceptableOrUnknown(
-          data['assignment_type']!,
-          _assignmentTypeMeta,
-        ),
-      );
-    }
-    if (data.containsKey('enabled')) {
-      context.handle(
-        _enabledMeta,
-        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
-      );
-    }
-    if (data.containsKey('metadata_json')) {
-      context.handle(
-        _metadataJsonMeta,
-        metadataJson.isAcceptableOrUnknown(
-          data['metadata_json']!,
-          _metadataJsonMeta,
-        ),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(
-        _updatedAtMeta,
-        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_updatedAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  ActiveModelAssignmentRow map(
-    Map<String, dynamic> data, {
-    String? tablePrefix,
-  }) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return ActiveModelAssignmentRow(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      modelId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}model_id'],
-      )!,
-      taskId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}task_id'],
-      )!,
-      priority: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}priority'],
-      )!,
-      assignmentType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}assignment_type'],
-      )!,
-      enabled: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}enabled'],
-      )!,
-      metadataJson: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}metadata_json'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-      updatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}updated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $ActiveModelAssignmentsTable createAlias(String alias) {
-    return $ActiveModelAssignmentsTable(attachedDatabase, alias);
-  }
-}
-
-class ActiveModelAssignmentRow extends DataClass
-    implements Insertable<ActiveModelAssignmentRow> {
-  final String id;
-  final String modelId;
-  final String taskId;
-  final int priority;
-  final String assignmentType;
-  final bool enabled;
-  final String metadataJson;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  const ActiveModelAssignmentRow({
-    required this.id,
-    required this.modelId,
-    required this.taskId,
-    required this.priority,
-    required this.assignmentType,
-    required this.enabled,
-    required this.metadataJson,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['model_id'] = Variable<String>(modelId);
-    map['task_id'] = Variable<String>(taskId);
-    map['priority'] = Variable<int>(priority);
-    map['assignment_type'] = Variable<String>(assignmentType);
-    map['enabled'] = Variable<bool>(enabled);
-    map['metadata_json'] = Variable<String>(metadataJson);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    return map;
-  }
-
-  ActiveModelAssignmentsCompanion toCompanion(bool nullToAbsent) {
-    return ActiveModelAssignmentsCompanion(
-      id: Value(id),
-      modelId: Value(modelId),
-      taskId: Value(taskId),
-      priority: Value(priority),
-      assignmentType: Value(assignmentType),
-      enabled: Value(enabled),
-      metadataJson: Value(metadataJson),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-    );
-  }
-
-  factory ActiveModelAssignmentRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return ActiveModelAssignmentRow(
-      id: serializer.fromJson<String>(json['id']),
-      modelId: serializer.fromJson<String>(json['modelId']),
-      taskId: serializer.fromJson<String>(json['taskId']),
-      priority: serializer.fromJson<int>(json['priority']),
-      assignmentType: serializer.fromJson<String>(json['assignmentType']),
-      enabled: serializer.fromJson<bool>(json['enabled']),
-      metadataJson: serializer.fromJson<String>(json['metadataJson']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'modelId': serializer.toJson<String>(modelId),
-      'taskId': serializer.toJson<String>(taskId),
-      'priority': serializer.toJson<int>(priority),
-      'assignmentType': serializer.toJson<String>(assignmentType),
-      'enabled': serializer.toJson<bool>(enabled),
-      'metadataJson': serializer.toJson<String>(metadataJson),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-    };
-  }
-
-  ActiveModelAssignmentRow copyWith({
-    String? id,
-    String? modelId,
-    String? taskId,
-    int? priority,
-    String? assignmentType,
-    bool? enabled,
-    String? metadataJson,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) => ActiveModelAssignmentRow(
-    id: id ?? this.id,
-    modelId: modelId ?? this.modelId,
-    taskId: taskId ?? this.taskId,
-    priority: priority ?? this.priority,
-    assignmentType: assignmentType ?? this.assignmentType,
-    enabled: enabled ?? this.enabled,
-    metadataJson: metadataJson ?? this.metadataJson,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-  ActiveModelAssignmentRow copyWithCompanion(
-    ActiveModelAssignmentsCompanion data,
-  ) {
-    return ActiveModelAssignmentRow(
-      id: data.id.present ? data.id.value : this.id,
-      modelId: data.modelId.present ? data.modelId.value : this.modelId,
-      taskId: data.taskId.present ? data.taskId.value : this.taskId,
-      priority: data.priority.present ? data.priority.value : this.priority,
-      assignmentType: data.assignmentType.present
-          ? data.assignmentType.value
-          : this.assignmentType,
-      enabled: data.enabled.present ? data.enabled.value : this.enabled,
-      metadataJson: data.metadataJson.present
-          ? data.metadataJson.value
-          : this.metadataJson,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ActiveModelAssignmentRow(')
-          ..write('id: $id, ')
-          ..write('modelId: $modelId, ')
-          ..write('taskId: $taskId, ')
-          ..write('priority: $priority, ')
-          ..write('assignmentType: $assignmentType, ')
-          ..write('enabled: $enabled, ')
-          ..write('metadataJson: $metadataJson, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    modelId,
-    taskId,
-    priority,
-    assignmentType,
-    enabled,
-    metadataJson,
-    createdAt,
-    updatedAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is ActiveModelAssignmentRow &&
-          other.id == this.id &&
-          other.modelId == this.modelId &&
-          other.taskId == this.taskId &&
-          other.priority == this.priority &&
-          other.assignmentType == this.assignmentType &&
-          other.enabled == this.enabled &&
-          other.metadataJson == this.metadataJson &&
-          other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
-}
-
-class ActiveModelAssignmentsCompanion
-    extends UpdateCompanion<ActiveModelAssignmentRow> {
-  final Value<String> id;
-  final Value<String> modelId;
-  final Value<String> taskId;
-  final Value<int> priority;
-  final Value<String> assignmentType;
-  final Value<bool> enabled;
-  final Value<String> metadataJson;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> updatedAt;
-  final Value<int> rowid;
-  const ActiveModelAssignmentsCompanion({
-    this.id = const Value.absent(),
-    this.modelId = const Value.absent(),
-    this.taskId = const Value.absent(),
-    this.priority = const Value.absent(),
-    this.assignmentType = const Value.absent(),
-    this.enabled = const Value.absent(),
-    this.metadataJson = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  ActiveModelAssignmentsCompanion.insert({
-    required String id,
-    required String modelId,
-    required String taskId,
-    this.priority = const Value.absent(),
-    this.assignmentType = const Value.absent(),
-    this.enabled = const Value.absent(),
-    this.metadataJson = const Value.absent(),
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       modelId = Value(modelId),
-       taskId = Value(taskId),
-       createdAt = Value(createdAt),
-       updatedAt = Value(updatedAt);
-  static Insertable<ActiveModelAssignmentRow> custom({
-    Expression<String>? id,
-    Expression<String>? modelId,
-    Expression<String>? taskId,
-    Expression<int>? priority,
-    Expression<String>? assignmentType,
-    Expression<bool>? enabled,
-    Expression<String>? metadataJson,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? updatedAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (modelId != null) 'model_id': modelId,
-      if (taskId != null) 'task_id': taskId,
-      if (priority != null) 'priority': priority,
-      if (assignmentType != null) 'assignment_type': assignmentType,
-      if (enabled != null) 'enabled': enabled,
-      if (metadataJson != null) 'metadata_json': metadataJson,
-      if (createdAt != null) 'created_at': createdAt,
-      if (updatedAt != null) 'updated_at': updatedAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  ActiveModelAssignmentsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? modelId,
-    Value<String>? taskId,
-    Value<int>? priority,
-    Value<String>? assignmentType,
-    Value<bool>? enabled,
-    Value<String>? metadataJson,
-    Value<DateTime>? createdAt,
-    Value<DateTime>? updatedAt,
-    Value<int>? rowid,
-  }) {
-    return ActiveModelAssignmentsCompanion(
-      id: id ?? this.id,
-      modelId: modelId ?? this.modelId,
-      taskId: taskId ?? this.taskId,
-      priority: priority ?? this.priority,
-      assignmentType: assignmentType ?? this.assignmentType,
-      enabled: enabled ?? this.enabled,
-      metadataJson: metadataJson ?? this.metadataJson,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (modelId.present) {
-      map['model_id'] = Variable<String>(modelId.value);
-    }
-    if (taskId.present) {
-      map['task_id'] = Variable<String>(taskId.value);
-    }
-    if (priority.present) {
-      map['priority'] = Variable<int>(priority.value);
-    }
-    if (assignmentType.present) {
-      map['assignment_type'] = Variable<String>(assignmentType.value);
-    }
-    if (enabled.present) {
-      map['enabled'] = Variable<bool>(enabled.value);
-    }
-    if (metadataJson.present) {
-      map['metadata_json'] = Variable<String>(metadataJson.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ActiveModelAssignmentsCompanion(')
-          ..write('id: $id, ')
-          ..write('modelId: $modelId, ')
-          ..write('taskId: $taskId, ')
-          ..write('priority: $priority, ')
-          ..write('assignmentType: $assignmentType, ')
-          ..write('enabled: $enabled, ')
-          ..write('metadataJson: $metadataJson, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3976,11 +3436,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ChatEntriesTable chatEntries = $ChatEntriesTable(this);
   late final $ActionPreferencesTable actionPreferences =
       $ActionPreferencesTable(this);
+  late final $ProvidersTable providers = $ProvidersTable(this);
   late final $ModelsTable models = $ModelsTable(this);
   late final $ModelArtifactsTable modelArtifacts = $ModelArtifactsTable(this);
   late final $ModelSettingsTable modelSettings = $ModelSettingsTable(this);
-  late final $ActiveModelAssignmentsTable activeModelAssignments =
-      $ActiveModelAssignmentsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3989,10 +3448,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     chatSessions,
     chatEntries,
     actionPreferences,
+    providers,
     models,
     modelArtifacts,
     modelSettings,
-    activeModelAssignments,
   ];
 }
 
@@ -4637,15 +4096,330 @@ typedef $$ActionPreferencesTableProcessedTableManager =
       ActionPreferenceRow,
       PrefetchHooks Function()
     >;
+typedef $$ProvidersTableCreateCompanionBuilder = ProvidersCompanion Function({
+  required String id,
+  required String alias,
+  Value<String?> baseUrl,
+  Value<String?> apiKey,
+  required DateTime createdAt,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$ProvidersTableUpdateCompanionBuilder = ProvidersCompanion Function({
+  Value<String> id,
+  Value<String> alias,
+  Value<String?> baseUrl,
+  Value<String?> apiKey,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+final class $$ProvidersTableReferences
+    extends BaseReferences<_$AppDatabase, $ProvidersTable, ProviderRow> {
+  $$ProvidersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$ModelsTable, List<Model>> _modelsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.models,
+    aliasName: 'providers__id__models__provider_id',
+  );
+
+  $$ModelsTableProcessedTableManager get modelsRefs {
+    final manager = $$ModelsTableTableManager(
+      $_db,
+      $_db.models,
+    ).filter((f) => f.providerId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_modelsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ProvidersTableFilterComposer
+    extends Composer<_$AppDatabase, $ProvidersTable> {
+  $$ProvidersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get alias => $composableBuilder(
+    column: $table.alias,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baseUrl => $composableBuilder(
+    column: $table.baseUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get apiKey => $composableBuilder(
+    column: $table.apiKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> modelsRefs(
+    Expression<bool> Function($$ModelsTableFilterComposer f) f,
+  ) {
+    final $$ModelsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.providerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableFilterComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ProvidersTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProvidersTable> {
+  $$ProvidersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get alias => $composableBuilder(
+    column: $table.alias,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baseUrl => $composableBuilder(
+    column: $table.baseUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get apiKey => $composableBuilder(
+    column: $table.apiKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProvidersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProvidersTable> {
+  $$ProvidersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get alias =>
+      $composableBuilder(column: $table.alias, builder: (column) => column);
+
+  GeneratedColumn<String> get baseUrl =>
+      $composableBuilder(column: $table.baseUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get apiKey =>
+      $composableBuilder(column: $table.apiKey, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> modelsRefs<T extends Object>(
+    Expression<T> Function($$ModelsTableAnnotationComposer a) f,
+  ) {
+    final $$ModelsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.providerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ProvidersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProvidersTable,
+          ProviderRow,
+          $$ProvidersTableFilterComposer,
+          $$ProvidersTableOrderingComposer,
+          $$ProvidersTableAnnotationComposer,
+          $$ProvidersTableCreateCompanionBuilder,
+          $$ProvidersTableUpdateCompanionBuilder,
+          (ProviderRow, $$ProvidersTableReferences),
+          ProviderRow,
+          PrefetchHooks Function({bool modelsRefs})
+        > {
+  $$ProvidersTableTableManager(_$AppDatabase db, $ProvidersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProvidersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProvidersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProvidersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> alias = const Value.absent(),
+                Value<String?> baseUrl = const Value.absent(),
+                Value<String?> apiKey = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProvidersCompanion(
+                id: id,
+                alias: alias,
+                baseUrl: baseUrl,
+                apiKey: apiKey,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String alias,
+                Value<String?> baseUrl = const Value.absent(),
+                Value<String?> apiKey = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ProvidersCompanion.insert(
+                id: id,
+                alias: alias,
+                baseUrl: baseUrl,
+                apiKey: apiKey,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProvidersTable, ProviderRow>(table),
+                  $$ProvidersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({modelsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (modelsRefs) db.models],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (modelsRefs)
+                    await $_getPrefetchedDataByColumns<
+                      ProviderRow,
+                      $ProvidersTable,
+                      Model,
+                      $ModelsTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ProvidersTableReferences
+                          ._modelsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ProvidersTableReferences(db, table, p0).modelsRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'provider_id',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ProvidersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProvidersTable,
+      ProviderRow,
+      $$ProvidersTableFilterComposer,
+      $$ProvidersTableOrderingComposer,
+      $$ProvidersTableAnnotationComposer,
+      $$ProvidersTableCreateCompanionBuilder,
+      $$ProvidersTableUpdateCompanionBuilder,
+      (ProviderRow, $$ProvidersTableReferences),
+      ProviderRow,
+      PrefetchHooks Function({bool modelsRefs})
+    >;
 typedef $$ModelsTableCreateCompanionBuilder = ModelsCompanion Function({
   required String id,
-  required String sourceId,
+  required String providerId,
   required String externalModelId,
   required String displayName,
   Value<String?> parentModelId,
   Value<String?> suffix,
   Value<String?> publisher,
-  Value<String> sourceType,
   Value<String> metadataJson,
   Value<String> taskJson,
   required DateTime createdAt,
@@ -4654,19 +4428,93 @@ typedef $$ModelsTableCreateCompanionBuilder = ModelsCompanion Function({
 });
 typedef $$ModelsTableUpdateCompanionBuilder = ModelsCompanion Function({
   Value<String> id,
-  Value<String> sourceId,
+  Value<String> providerId,
   Value<String> externalModelId,
   Value<String> displayName,
   Value<String?> parentModelId,
   Value<String?> suffix,
   Value<String?> publisher,
-  Value<String> sourceType,
   Value<String> metadataJson,
   Value<String> taskJson,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
+
+final class $$ModelsTableReferences
+    extends BaseReferences<_$AppDatabase, $ModelsTable, Model> {
+  $$ModelsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $ProvidersTable _providerIdTable(_$AppDatabase db) =>
+      db.providers.createAlias('models__provider_id__providers__id');
+
+  $$ProvidersTableProcessedTableManager get providerId {
+    final $_column = $_itemColumn<String>('provider_id')!;
+
+    final manager = $$ProvidersTableTableManager(
+      $_db,
+      $_db.providers,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_providerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ModelsTable _parentModelIdTable(_$AppDatabase db) =>
+      db.models.createAlias('models__parent_model_id__models__id');
+
+  $$ModelsTableProcessedTableManager? get parentModelId {
+    final $_column = $_itemColumn<String>('parent_model_id');
+    if ($_column == null) return null;
+    final manager = $$ModelsTableTableManager(
+      $_db,
+      $_db.models,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_parentModelIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$ModelArtifactsTable, List<ModelArtifact>>
+  _modelArtifactsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.modelArtifacts,
+    aliasName: 'models__id__model_artifacts__model_id',
+  );
+
+  $$ModelArtifactsTableProcessedTableManager get modelArtifactsRefs {
+    final manager = $$ModelArtifactsTableTableManager(
+      $_db,
+      $_db.modelArtifacts,
+    ).filter((f) => f.modelId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_modelArtifactsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ModelSettingsTable, List<ModelSetting>>
+  _modelSettingsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.modelSettings,
+    aliasName: 'models__id__model_settings__model_id',
+  );
+
+  $$ModelSettingsTableProcessedTableManager get modelSettingsRefs {
+    final manager = $$ModelSettingsTableTableManager(
+      $_db,
+      $_db.modelSettings,
+    ).filter((f) => f.modelId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_modelSettingsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$ModelsTableFilterComposer
     extends Composer<_$AppDatabase, $ModelsTable> {
@@ -4682,11 +4530,6 @@ class $$ModelsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get sourceId => $composableBuilder(
-    column: $table.sourceId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get externalModelId => $composableBuilder(
     column: $table.externalModelId,
     builder: (column) => ColumnFilters(column),
@@ -4697,11 +4540,6 @@ class $$ModelsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get parentModelId => $composableBuilder(
-    column: $table.parentModelId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get suffix => $composableBuilder(
     column: $table.suffix,
     builder: (column) => ColumnFilters(column),
@@ -4709,11 +4547,6 @@ class $$ModelsTableFilterComposer
 
   ColumnFilters<String> get publisher => $composableBuilder(
     column: $table.publisher,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get sourceType => $composableBuilder(
-    column: $table.sourceType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4736,6 +4569,102 @@ class $$ModelsTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$ProvidersTableFilterComposer get providerId {
+    final $$ProvidersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.providerId,
+      referencedTable: $db.providers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProvidersTableFilterComposer(
+            $db: $db,
+            $table: $db.providers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ModelsTableFilterComposer get parentModelId {
+    final $$ModelsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentModelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableFilterComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> modelArtifactsRefs(
+    Expression<bool> Function($$ModelArtifactsTableFilterComposer f) f,
+  ) {
+    final $$ModelArtifactsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.modelArtifacts,
+      getReferencedColumn: (t) => t.modelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelArtifactsTableFilterComposer(
+            $db: $db,
+            $table: $db.modelArtifacts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> modelSettingsRefs(
+    Expression<bool> Function($$ModelSettingsTableFilterComposer f) f,
+  ) {
+    final $$ModelSettingsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.modelSettings,
+      getReferencedColumn: (t) => t.modelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelSettingsTableFilterComposer(
+            $db: $db,
+            $table: $db.modelSettings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ModelsTableOrderingComposer
@@ -4752,11 +4681,6 @@ class $$ModelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get sourceId => $composableBuilder(
-    column: $table.sourceId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get externalModelId => $composableBuilder(
     column: $table.externalModelId,
     builder: (column) => ColumnOrderings(column),
@@ -4767,11 +4691,6 @@ class $$ModelsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get parentModelId => $composableBuilder(
-    column: $table.parentModelId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get suffix => $composableBuilder(
     column: $table.suffix,
     builder: (column) => ColumnOrderings(column),
@@ -4779,11 +4698,6 @@ class $$ModelsTableOrderingComposer
 
   ColumnOrderings<String> get publisher => $composableBuilder(
     column: $table.publisher,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get sourceType => $composableBuilder(
-    column: $table.sourceType,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4806,6 +4720,52 @@ class $$ModelsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$ProvidersTableOrderingComposer get providerId {
+    final $$ProvidersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.providerId,
+      referencedTable: $db.providers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProvidersTableOrderingComposer(
+            $db: $db,
+            $table: $db.providers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ModelsTableOrderingComposer get parentModelId {
+    final $$ModelsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentModelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableOrderingComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelsTableAnnotationComposer
@@ -4820,9 +4780,6 @@ class $$ModelsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get sourceId =>
-      $composableBuilder(column: $table.sourceId, builder: (column) => column);
-
   GeneratedColumn<String> get externalModelId => $composableBuilder(
     column: $table.externalModelId,
     builder: (column) => column,
@@ -4833,21 +4790,11 @@ class $$ModelsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get parentModelId => $composableBuilder(
-    column: $table.parentModelId,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<String> get suffix =>
       $composableBuilder(column: $table.suffix, builder: (column) => column);
 
   GeneratedColumn<String> get publisher =>
       $composableBuilder(column: $table.publisher, builder: (column) => column);
-
-  GeneratedColumn<String> get sourceType => $composableBuilder(
-    column: $table.sourceType,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get metadataJson => $composableBuilder(
     column: $table.metadataJson,
@@ -4862,6 +4809,102 @@ class $$ModelsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ProvidersTableAnnotationComposer get providerId {
+    final $$ProvidersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.providerId,
+      referencedTable: $db.providers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProvidersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.providers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ModelsTableAnnotationComposer get parentModelId {
+    final $$ModelsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentModelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> modelArtifactsRefs<T extends Object>(
+    Expression<T> Function($$ModelArtifactsTableAnnotationComposer a) f,
+  ) {
+    final $$ModelArtifactsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.modelArtifacts,
+      getReferencedColumn: (t) => t.modelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelArtifactsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.modelArtifacts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> modelSettingsRefs<T extends Object>(
+    Expression<T> Function($$ModelSettingsTableAnnotationComposer a) f,
+  ) {
+    final $$ModelSettingsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.modelSettings,
+      getReferencedColumn: (t) => t.modelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelSettingsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.modelSettings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ModelsTableTableManager
@@ -4875,9 +4918,14 @@ class $$ModelsTableTableManager
           $$ModelsTableAnnotationComposer,
           $$ModelsTableCreateCompanionBuilder,
           $$ModelsTableUpdateCompanionBuilder,
-          (Model, BaseReferences<_$AppDatabase, $ModelsTable, Model>),
+          (Model, $$ModelsTableReferences),
           Model,
-          PrefetchHooks Function()
+          PrefetchHooks Function({
+            bool providerId,
+            bool parentModelId,
+            bool modelArtifactsRefs,
+            bool modelSettingsRefs,
+          })
         > {
   $$ModelsTableTableManager(_$AppDatabase db, $ModelsTable table)
     : super(
@@ -4893,13 +4941,12 @@ class $$ModelsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> sourceId = const Value.absent(),
+                Value<String> providerId = const Value.absent(),
                 Value<String> externalModelId = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
                 Value<String?> parentModelId = const Value.absent(),
                 Value<String?> suffix = const Value.absent(),
                 Value<String?> publisher = const Value.absent(),
-                Value<String> sourceType = const Value.absent(),
                 Value<String> metadataJson = const Value.absent(),
                 Value<String> taskJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -4907,13 +4954,12 @@ class $$ModelsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => ModelsCompanion(
                 id: id,
-                sourceId: sourceId,
+                providerId: providerId,
                 externalModelId: externalModelId,
                 displayName: displayName,
                 parentModelId: parentModelId,
                 suffix: suffix,
                 publisher: publisher,
-                sourceType: sourceType,
                 metadataJson: metadataJson,
                 taskJson: taskJson,
                 createdAt: createdAt,
@@ -4923,13 +4969,12 @@ class $$ModelsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                required String sourceId,
+                required String providerId,
                 required String externalModelId,
                 required String displayName,
                 Value<String?> parentModelId = const Value.absent(),
                 Value<String?> suffix = const Value.absent(),
                 Value<String?> publisher = const Value.absent(),
-                Value<String> sourceType = const Value.absent(),
                 Value<String> metadataJson = const Value.absent(),
                 Value<String> taskJson = const Value.absent(),
                 required DateTime createdAt,
@@ -4937,13 +4982,12 @@ class $$ModelsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => ModelsCompanion.insert(
                 id: id,
-                sourceId: sourceId,
+                providerId: providerId,
                 externalModelId: externalModelId,
                 displayName: displayName,
                 parentModelId: parentModelId,
                 suffix: suffix,
                 publisher: publisher,
-                sourceType: sourceType,
                 metadataJson: metadataJson,
                 taskJson: taskJson,
                 createdAt: createdAt,
@@ -4954,15 +4998,110 @@ class $$ModelsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ModelsTable, Model>(table),
-                  BaseReferences<_$AppDatabase, $ModelsTable, Model>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$ModelsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({
+                providerId = false,
+                parentModelId = false,
+                modelArtifactsRefs = false,
+                modelSettingsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (modelArtifactsRefs) db.modelArtifacts,
+                    if (modelSettingsRefs) db.modelSettings,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (providerId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.providerId,
+                            referencedTable: $$ModelsTableReferences
+                                ._providerIdTable(db),
+                            referencedColumn: $$ModelsTableReferences
+                                ._providerIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (parentModelId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.parentModelId,
+                            referencedTable: $$ModelsTableReferences
+                                ._parentModelIdTable(db),
+                            referencedColumn: $$ModelsTableReferences
+                                ._parentModelIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (modelArtifactsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Model,
+                          $ModelsTable,
+                          ModelArtifact,
+                          $ModelArtifactsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ModelsTableReferences
+                              ._modelArtifactsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ModelsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).modelArtifactsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'model_id',
+                          typedResults: items,
+                        ),
+                      if (modelSettingsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          Model,
+                          $ModelsTable,
+                          ModelSetting,
+                          $ModelSettingsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ModelsTableReferences
+                              ._modelSettingsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ModelsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).modelSettingsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'model_id',
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
         ),
       );
 }
@@ -4977,29 +5116,27 @@ typedef $$ModelsTableProcessedTableManager =
       $$ModelsTableAnnotationComposer,
       $$ModelsTableCreateCompanionBuilder,
       $$ModelsTableUpdateCompanionBuilder,
-      (Model, BaseReferences<_$AppDatabase, $ModelsTable, Model>),
+      (Model, $$ModelsTableReferences),
       Model,
-      PrefetchHooks Function()
+      PrefetchHooks Function({
+        bool providerId,
+        bool parentModelId,
+        bool modelArtifactsRefs,
+        bool modelSettingsRefs,
+      })
     >;
 typedef $$ModelArtifactsTableCreateCompanionBuilder =
     ModelArtifactsCompanion Function({
       required String id,
       required String modelId,
       required String externalPath,
-      required String fileName,
       Value<String> kind,
       Value<String> sourceType,
-      Value<String?> repositoryPath,
-      Value<String?> deviceSourcePath,
       Value<String?> targetPath,
       Value<String?> format,
       Value<int?> sizeBytes,
-      Value<bool> isLfs,
-      Value<String?> oid,
-      Value<String?> revision,
       Value<bool> enabled,
       Value<int> position,
-      Value<String> metadataJson,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -5009,24 +5146,43 @@ typedef $$ModelArtifactsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> modelId,
       Value<String> externalPath,
-      Value<String> fileName,
       Value<String> kind,
       Value<String> sourceType,
-      Value<String?> repositoryPath,
-      Value<String?> deviceSourcePath,
       Value<String?> targetPath,
       Value<String?> format,
       Value<int?> sizeBytes,
-      Value<bool> isLfs,
-      Value<String?> oid,
-      Value<String?> revision,
       Value<bool> enabled,
       Value<int> position,
-      Value<String> metadataJson,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
+
+final class $$ModelArtifactsTableReferences
+    extends BaseReferences<_$AppDatabase, $ModelArtifactsTable, ModelArtifact> {
+  $$ModelArtifactsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ModelsTable _modelIdTable(_$AppDatabase db) =>
+      db.models.createAlias('model_artifacts__model_id__models__id');
+
+  $$ModelsTableProcessedTableManager get modelId {
+    final $_column = $_itemColumn<String>('model_id')!;
+
+    final manager = $$ModelsTableTableManager(
+      $_db,
+      $_db.models,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_modelIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$ModelArtifactsTableFilterComposer
     extends Composer<_$AppDatabase, $ModelArtifactsTable> {
@@ -5042,18 +5198,8 @@ class $$ModelArtifactsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get modelId => $composableBuilder(
-    column: $table.modelId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get externalPath => $composableBuilder(
     column: $table.externalPath,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get fileName => $composableBuilder(
-    column: $table.fileName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5064,16 +5210,6 @@ class $$ModelArtifactsTableFilterComposer
 
   ColumnFilters<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get repositoryPath => $composableBuilder(
-    column: $table.repositoryPath,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get deviceSourcePath => $composableBuilder(
-    column: $table.deviceSourcePath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5092,21 +5228,6 @@ class $$ModelArtifactsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<bool> get isLfs => $composableBuilder(
-    column: $table.isLfs,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get oid => $composableBuilder(
-    column: $table.oid,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get revision => $composableBuilder(
-    column: $table.revision,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<bool> get enabled => $composableBuilder(
     column: $table.enabled,
     builder: (column) => ColumnFilters(column),
@@ -5114,11 +5235,6 @@ class $$ModelArtifactsTableFilterComposer
 
   ColumnFilters<int> get position => $composableBuilder(
     column: $table.position,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5131,6 +5247,29 @@ class $$ModelArtifactsTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$ModelsTableFilterComposer get modelId {
+    final $$ModelsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableFilterComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelArtifactsTableOrderingComposer
@@ -5147,18 +5286,8 @@ class $$ModelArtifactsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get modelId => $composableBuilder(
-    column: $table.modelId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get externalPath => $composableBuilder(
     column: $table.externalPath,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get fileName => $composableBuilder(
-    column: $table.fileName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5169,16 +5298,6 @@ class $$ModelArtifactsTableOrderingComposer
 
   ColumnOrderings<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get repositoryPath => $composableBuilder(
-    column: $table.repositoryPath,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get deviceSourcePath => $composableBuilder(
-    column: $table.deviceSourcePath,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5197,21 +5316,6 @@ class $$ModelArtifactsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<bool> get isLfs => $composableBuilder(
-    column: $table.isLfs,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get oid => $composableBuilder(
-    column: $table.oid,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get revision => $composableBuilder(
-    column: $table.revision,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get enabled => $composableBuilder(
     column: $table.enabled,
     builder: (column) => ColumnOrderings(column),
@@ -5219,11 +5323,6 @@ class $$ModelArtifactsTableOrderingComposer
 
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5236,6 +5335,29 @@ class $$ModelArtifactsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$ModelsTableOrderingComposer get modelId {
+    final $$ModelsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableOrderingComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelArtifactsTableAnnotationComposer
@@ -5250,32 +5372,16 @@ class $$ModelArtifactsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get modelId =>
-      $composableBuilder(column: $table.modelId, builder: (column) => column);
-
   GeneratedColumn<String> get externalPath => $composableBuilder(
     column: $table.externalPath,
     builder: (column) => column,
   );
-
-  GeneratedColumn<String> get fileName =>
-      $composableBuilder(column: $table.fileName, builder: (column) => column);
 
   GeneratedColumn<String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
 
   GeneratedColumn<String> get sourceType => $composableBuilder(
     column: $table.sourceType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get repositoryPath => $composableBuilder(
-    column: $table.repositoryPath,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get deviceSourcePath => $composableBuilder(
-    column: $table.deviceSourcePath,
     builder: (column) => column,
   );
 
@@ -5290,31 +5396,40 @@ class $$ModelArtifactsTableAnnotationComposer
   GeneratedColumn<int> get sizeBytes =>
       $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
 
-  GeneratedColumn<bool> get isLfs =>
-      $composableBuilder(column: $table.isLfs, builder: (column) => column);
-
-  GeneratedColumn<String> get oid =>
-      $composableBuilder(column: $table.oid, builder: (column) => column);
-
-  GeneratedColumn<String> get revision =>
-      $composableBuilder(column: $table.revision, builder: (column) => column);
-
   GeneratedColumn<bool> get enabled =>
       $composableBuilder(column: $table.enabled, builder: (column) => column);
 
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
 
-  GeneratedColumn<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ModelsTableAnnotationComposer get modelId {
+    final $$ModelsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelArtifactsTableTableManager
@@ -5328,12 +5443,9 @@ class $$ModelArtifactsTableTableManager
           $$ModelArtifactsTableAnnotationComposer,
           $$ModelArtifactsTableCreateCompanionBuilder,
           $$ModelArtifactsTableUpdateCompanionBuilder,
-          (
-            ModelArtifact,
-            BaseReferences<_$AppDatabase, $ModelArtifactsTable, ModelArtifact>,
-          ),
+          (ModelArtifact, $$ModelArtifactsTableReferences),
           ModelArtifact,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool modelId})
         > {
   $$ModelArtifactsTableTableManager(
     _$AppDatabase db,
@@ -5353,20 +5465,13 @@ class $$ModelArtifactsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> modelId = const Value.absent(),
                 Value<String> externalPath = const Value.absent(),
-                Value<String> fileName = const Value.absent(),
                 Value<String> kind = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
-                Value<String?> repositoryPath = const Value.absent(),
-                Value<String?> deviceSourcePath = const Value.absent(),
                 Value<String?> targetPath = const Value.absent(),
                 Value<String?> format = const Value.absent(),
                 Value<int?> sizeBytes = const Value.absent(),
-                Value<bool> isLfs = const Value.absent(),
-                Value<String?> oid = const Value.absent(),
-                Value<String?> revision = const Value.absent(),
                 Value<bool> enabled = const Value.absent(),
                 Value<int> position = const Value.absent(),
-                Value<String> metadataJson = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5374,20 +5479,13 @@ class $$ModelArtifactsTableTableManager
                 id: id,
                 modelId: modelId,
                 externalPath: externalPath,
-                fileName: fileName,
                 kind: kind,
                 sourceType: sourceType,
-                repositoryPath: repositoryPath,
-                deviceSourcePath: deviceSourcePath,
                 targetPath: targetPath,
                 format: format,
                 sizeBytes: sizeBytes,
-                isLfs: isLfs,
-                oid: oid,
-                revision: revision,
                 enabled: enabled,
                 position: position,
-                metadataJson: metadataJson,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -5397,20 +5495,13 @@ class $$ModelArtifactsTableTableManager
                 required String id,
                 required String modelId,
                 required String externalPath,
-                required String fileName,
                 Value<String> kind = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
-                Value<String?> repositoryPath = const Value.absent(),
-                Value<String?> deviceSourcePath = const Value.absent(),
                 Value<String?> targetPath = const Value.absent(),
                 Value<String?> format = const Value.absent(),
                 Value<int?> sizeBytes = const Value.absent(),
-                Value<bool> isLfs = const Value.absent(),
-                Value<String?> oid = const Value.absent(),
-                Value<String?> revision = const Value.absent(),
                 Value<bool> enabled = const Value.absent(),
                 Value<int> position = const Value.absent(),
-                Value<String> metadataJson = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -5418,20 +5509,13 @@ class $$ModelArtifactsTableTableManager
                 id: id,
                 modelId: modelId,
                 externalPath: externalPath,
-                fileName: fileName,
                 kind: kind,
                 sourceType: sourceType,
-                repositoryPath: repositoryPath,
-                deviceSourcePath: deviceSourcePath,
                 targetPath: targetPath,
                 format: format,
                 sizeBytes: sizeBytes,
-                isLfs: isLfs,
-                oid: oid,
-                revision: revision,
                 enabled: enabled,
                 position: position,
-                metadataJson: metadataJson,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -5440,15 +5524,49 @@ class $$ModelArtifactsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ModelArtifactsTable, ModelArtifact>(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $ModelArtifactsTable,
-                    ModelArtifact
-                  >(db, table, e),
+                  $$ModelArtifactsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({modelId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (modelId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.modelId,
+                        referencedTable: $$ModelArtifactsTableReferences
+                            ._modelIdTable(db),
+                        referencedColumn: $$ModelArtifactsTableReferences
+                            ._modelIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5463,12 +5581,9 @@ typedef $$ModelArtifactsTableProcessedTableManager =
       $$ModelArtifactsTableAnnotationComposer,
       $$ModelArtifactsTableCreateCompanionBuilder,
       $$ModelArtifactsTableUpdateCompanionBuilder,
-      (
-        ModelArtifact,
-        BaseReferences<_$AppDatabase, $ModelArtifactsTable, ModelArtifact>,
-      ),
+      (ModelArtifact, $$ModelArtifactsTableReferences),
       ModelArtifact,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool modelId})
     >;
 typedef $$ModelSettingsTableCreateCompanionBuilder =
     ModelSettingsCompanion Function({
@@ -5495,6 +5610,32 @@ typedef $$ModelSettingsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$ModelSettingsTableReferences
+    extends BaseReferences<_$AppDatabase, $ModelSettingsTable, ModelSetting> {
+  $$ModelSettingsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ModelsTable _modelIdTable(_$AppDatabase db) =>
+      db.models.createAlias('model_settings__model_id__models__id');
+
+  $$ModelsTableProcessedTableManager get modelId {
+    final $_column = $_itemColumn<String>('model_id')!;
+
+    final manager = $$ModelsTableTableManager(
+      $_db,
+      $_db.models,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_modelIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$ModelSettingsTableFilterComposer
     extends Composer<_$AppDatabase, $ModelSettingsTable> {
   $$ModelSettingsTableFilterComposer({
@@ -5506,11 +5647,6 @@ class $$ModelSettingsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get modelId => $composableBuilder(
-    column: $table.modelId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5543,6 +5679,29 @@ class $$ModelSettingsTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$ModelsTableFilterComposer get modelId {
+    final $$ModelsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableFilterComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelSettingsTableOrderingComposer
@@ -5556,11 +5715,6 @@ class $$ModelSettingsTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get modelId => $composableBuilder(
-    column: $table.modelId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5593,6 +5747,29 @@ class $$ModelSettingsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$ModelsTableOrderingComposer get modelId {
+    final $$ModelsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableOrderingComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelSettingsTableAnnotationComposer
@@ -5606,9 +5783,6 @@ class $$ModelSettingsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get modelId =>
-      $composableBuilder(column: $table.modelId, builder: (column) => column);
 
   GeneratedColumn<int> get version =>
       $composableBuilder(column: $table.version, builder: (column) => column);
@@ -5635,6 +5809,29 @@ class $$ModelSettingsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ModelsTableAnnotationComposer get modelId {
+    final $$ModelsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.modelId,
+      referencedTable: $db.models,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ModelsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.models,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ModelSettingsTableTableManager
@@ -5648,12 +5845,9 @@ class $$ModelSettingsTableTableManager
           $$ModelSettingsTableAnnotationComposer,
           $$ModelSettingsTableCreateCompanionBuilder,
           $$ModelSettingsTableUpdateCompanionBuilder,
-          (
-            ModelSetting,
-            BaseReferences<_$AppDatabase, $ModelSettingsTable, ModelSetting>,
-          ),
+          (ModelSetting, $$ModelSettingsTableReferences),
           ModelSetting,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool modelId})
         > {
   $$ModelSettingsTableTableManager(_$AppDatabase db, $ModelSettingsTable table)
     : super(
@@ -5714,15 +5908,49 @@ class $$ModelSettingsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ModelSettingsTable, ModelSetting>(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $ModelSettingsTable,
-                    ModelSetting
-                  >(db, table, e),
+                  $$ModelSettingsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({modelId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (modelId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.modelId,
+                        referencedTable: $$ModelSettingsTableReferences
+                            ._modelIdTable(db),
+                        referencedColumn: $$ModelSettingsTableReferences
+                            ._modelIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5737,323 +5965,9 @@ typedef $$ModelSettingsTableProcessedTableManager =
       $$ModelSettingsTableAnnotationComposer,
       $$ModelSettingsTableCreateCompanionBuilder,
       $$ModelSettingsTableUpdateCompanionBuilder,
-      (
-        ModelSetting,
-        BaseReferences<_$AppDatabase, $ModelSettingsTable, ModelSetting>,
-      ),
+      (ModelSetting, $$ModelSettingsTableReferences),
       ModelSetting,
-      PrefetchHooks Function()
-    >;
-typedef $$ActiveModelAssignmentsTableCreateCompanionBuilder =
-    ActiveModelAssignmentsCompanion Function({
-      required String id,
-      required String modelId,
-      required String taskId,
-      Value<int> priority,
-      Value<String> assignmentType,
-      Value<bool> enabled,
-      Value<String> metadataJson,
-      required DateTime createdAt,
-      required DateTime updatedAt,
-      Value<int> rowid,
-    });
-typedef $$ActiveModelAssignmentsTableUpdateCompanionBuilder =
-    ActiveModelAssignmentsCompanion Function({
-      Value<String> id,
-      Value<String> modelId,
-      Value<String> taskId,
-      Value<int> priority,
-      Value<String> assignmentType,
-      Value<bool> enabled,
-      Value<String> metadataJson,
-      Value<DateTime> createdAt,
-      Value<DateTime> updatedAt,
-      Value<int> rowid,
-    });
-
-class $$ActiveModelAssignmentsTableFilterComposer
-    extends Composer<_$AppDatabase, $ActiveModelAssignmentsTable> {
-  $$ActiveModelAssignmentsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get modelId => $composableBuilder(
-    column: $table.modelId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get taskId => $composableBuilder(
-    column: $table.taskId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get priority => $composableBuilder(
-    column: $table.priority,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get assignmentType => $composableBuilder(
-    column: $table.assignmentType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get enabled => $composableBuilder(
-    column: $table.enabled,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$ActiveModelAssignmentsTableOrderingComposer
-    extends Composer<_$AppDatabase, $ActiveModelAssignmentsTable> {
-  $$ActiveModelAssignmentsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get modelId => $composableBuilder(
-    column: $table.modelId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get taskId => $composableBuilder(
-    column: $table.taskId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get priority => $composableBuilder(
-    column: $table.priority,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get assignmentType => $composableBuilder(
-    column: $table.assignmentType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get enabled => $composableBuilder(
-    column: $table.enabled,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$ActiveModelAssignmentsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ActiveModelAssignmentsTable> {
-  $$ActiveModelAssignmentsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get modelId =>
-      $composableBuilder(column: $table.modelId, builder: (column) => column);
-
-  GeneratedColumn<String> get taskId =>
-      $composableBuilder(column: $table.taskId, builder: (column) => column);
-
-  GeneratedColumn<int> get priority =>
-      $composableBuilder(column: $table.priority, builder: (column) => column);
-
-  GeneratedColumn<String> get assignmentType => $composableBuilder(
-    column: $table.assignmentType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get enabled =>
-      $composableBuilder(column: $table.enabled, builder: (column) => column);
-
-  GeneratedColumn<String> get metadataJson => $composableBuilder(
-    column: $table.metadataJson,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-}
-
-class $$ActiveModelAssignmentsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $ActiveModelAssignmentsTable,
-          ActiveModelAssignmentRow,
-          $$ActiveModelAssignmentsTableFilterComposer,
-          $$ActiveModelAssignmentsTableOrderingComposer,
-          $$ActiveModelAssignmentsTableAnnotationComposer,
-          $$ActiveModelAssignmentsTableCreateCompanionBuilder,
-          $$ActiveModelAssignmentsTableUpdateCompanionBuilder,
-          (
-            ActiveModelAssignmentRow,
-            BaseReferences<
-              _$AppDatabase,
-              $ActiveModelAssignmentsTable,
-              ActiveModelAssignmentRow
-            >,
-          ),
-          ActiveModelAssignmentRow,
-          PrefetchHooks Function()
-        > {
-  $$ActiveModelAssignmentsTableTableManager(
-    _$AppDatabase db,
-    $ActiveModelAssignmentsTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$ActiveModelAssignmentsTableFilterComposer(
-                $db: db,
-                $table: table,
-              ),
-          createOrderingComposer: () =>
-              $$ActiveModelAssignmentsTableOrderingComposer(
-                $db: db,
-                $table: table,
-              ),
-          createComputedFieldComposer: () =>
-              $$ActiveModelAssignmentsTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> modelId = const Value.absent(),
-                Value<String> taskId = const Value.absent(),
-                Value<int> priority = const Value.absent(),
-                Value<String> assignmentType = const Value.absent(),
-                Value<bool> enabled = const Value.absent(),
-                Value<String> metadataJson = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => ActiveModelAssignmentsCompanion(
-                id: id,
-                modelId: modelId,
-                taskId: taskId,
-                priority: priority,
-                assignmentType: assignmentType,
-                enabled: enabled,
-                metadataJson: metadataJson,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String modelId,
-                required String taskId,
-                Value<int> priority = const Value.absent(),
-                Value<String> assignmentType = const Value.absent(),
-                Value<bool> enabled = const Value.absent(),
-                Value<String> metadataJson = const Value.absent(),
-                required DateTime createdAt,
-                required DateTime updatedAt,
-                Value<int> rowid = const Value.absent(),
-              }) => ActiveModelAssignmentsCompanion.insert(
-                id: id,
-                modelId: modelId,
-                taskId: taskId,
-                priority: priority,
-                assignmentType: assignmentType,
-                enabled: enabled,
-                metadataJson: metadataJson,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable<
-                    $ActiveModelAssignmentsTable,
-                    ActiveModelAssignmentRow
-                  >(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $ActiveModelAssignmentsTable,
-                    ActiveModelAssignmentRow
-                  >(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$ActiveModelAssignmentsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $ActiveModelAssignmentsTable,
-      ActiveModelAssignmentRow,
-      $$ActiveModelAssignmentsTableFilterComposer,
-      $$ActiveModelAssignmentsTableOrderingComposer,
-      $$ActiveModelAssignmentsTableAnnotationComposer,
-      $$ActiveModelAssignmentsTableCreateCompanionBuilder,
-      $$ActiveModelAssignmentsTableUpdateCompanionBuilder,
-      (
-        ActiveModelAssignmentRow,
-        BaseReferences<
-          _$AppDatabase,
-          $ActiveModelAssignmentsTable,
-          ActiveModelAssignmentRow
-        >,
-      ),
-      ActiveModelAssignmentRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool modelId})
     >;
 
 class $AppDatabaseManager {
@@ -6065,15 +5979,12 @@ class $AppDatabaseManager {
       $$ChatEntriesTableTableManager(_db, _db.chatEntries);
   $$ActionPreferencesTableTableManager get actionPreferences =>
       $$ActionPreferencesTableTableManager(_db, _db.actionPreferences);
+  $$ProvidersTableTableManager get providers =>
+      $$ProvidersTableTableManager(_db, _db.providers);
   $$ModelsTableTableManager get models =>
       $$ModelsTableTableManager(_db, _db.models);
   $$ModelArtifactsTableTableManager get modelArtifacts =>
       $$ModelArtifactsTableTableManager(_db, _db.modelArtifacts);
   $$ModelSettingsTableTableManager get modelSettings =>
       $$ModelSettingsTableTableManager(_db, _db.modelSettings);
-  $$ActiveModelAssignmentsTableTableManager get activeModelAssignments =>
-      $$ActiveModelAssignmentsTableTableManager(
-        _db,
-        _db.activeModelAssignments,
-      );
 }

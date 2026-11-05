@@ -826,13 +826,13 @@ class _LanguageSummaryChip extends StatelessWidget {
   }
 }
 
-class _ModelSetupCard extends StatelessWidget {
+class _ModelSetupCard extends ConsumerWidget {
   const _ModelSetupCard({required this.details});
 
   final ModelDetails details;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final facts = _facts();
     return WorkspaceCard(
       child: Column(
@@ -879,7 +879,11 @@ class _ModelSetupCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
-              onPressed: () => showModelSetupWizard(context, details: details),
+              onPressed: () async {
+                await showModelSetupWizard(context, details: details);
+                if (!context.mounted) return;
+                ref.invalidate(activeModelsProvider);
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: KrithaColors.accentBlue,
                 foregroundColor: KrithaColors.textOnAccent,

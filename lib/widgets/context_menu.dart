@@ -10,6 +10,7 @@ class ContextMenuItem {
     required this.id,
     required this.label,
     this.icon,
+    this.trailingIcon,
     this.destructive = false,
     this.disabled = false,
     this.focusColor,
@@ -18,6 +19,9 @@ class ContextMenuItem {
   final String id;
   final String label;
   final List<List<dynamic>>? icon;
+
+  /// Optional indicator rendered after the label, e.g. a selected tick.
+  final List<List<dynamic>>? trailingIcon;
   final bool destructive;
   final bool disabled;
   final Color? focusColor;
@@ -56,6 +60,7 @@ Future<String?> showKrithaContextMenu({
   Widget? header,
   ContextMenuAlign align = ContextMenuAlign.auto,
   double? targetHeight,
+  double? width,
   Rect? bounds,
   bool fillBounds = false,
 }) {
@@ -75,6 +80,7 @@ Future<String?> showKrithaContextMenu({
         header: header,
         align: align,
         targetHeight: targetHeight,
+        width: width,
         bounds: bounds,
         fillBounds: fillBounds,
       );
@@ -96,6 +102,7 @@ class _ContextMenuOverlay extends StatefulWidget {
     required this.align,
     this.header,
     this.targetHeight,
+    this.width,
     this.bounds,
     this.fillBounds = false,
   });
@@ -105,6 +112,7 @@ class _ContextMenuOverlay extends StatefulWidget {
   final Widget? header;
   final ContextMenuAlign align;
   final double? targetHeight;
+  final double? width;
   final Rect? bounds;
   final bool fillBounds;
 
@@ -162,7 +170,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
         : math.max(bounds.left + margin, bounds.right - margin);
     final menuWidth = widget.fillBounds && bounds != null
         ? math.max(0.0, panelRight! - panelLeft!)
-        : KrithaDimensions.contextMenuWidth;
+        : widget.width ?? KrithaDimensions.contextMenuWidth;
 
     double left;
     if (bounds != null) {
@@ -379,6 +387,19 @@ class _MenuItemRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (item.trailingIcon != null) ...[
+              SizedBox(width: KrithaDimensions.contextMenuIconGap),
+              SizedBox(
+                width: KrithaDimensions.contextMenuIconColumn,
+                child: Center(
+                  child: KrithaIcon(
+                    icon: item.trailingIcon!,
+                    size: KrithaDimensions.contextMenuIconSize,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

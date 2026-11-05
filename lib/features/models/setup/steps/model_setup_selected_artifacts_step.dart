@@ -1634,6 +1634,7 @@ class _DontAskAgain extends StatelessWidget {
 List<List<dynamic>> _sourceIcon(ModelArtifactSourceType type) => switch (type) {
   ModelArtifactSourceType.repository => HugeIcons.strokeRoundedGitBranch,
   ModelArtifactSourceType.device => HugeIcons.strokeRoundedFolder01,
+  ModelArtifactSourceType.saved => HugeIcons.strokeRoundedDatabase,
   ModelArtifactSourceType.unassigned =>
     HugeIcons.strokeRoundedCircleQuestionMark,
 };
@@ -1643,6 +1644,7 @@ Color _sourceColor(ModelArtifactSourceType type, bool muted) {
   return switch (type) {
     ModelArtifactSourceType.repository => KrithaColors.accentLightBlue,
     ModelArtifactSourceType.device => KrithaColors.accentLightBlue,
+    ModelArtifactSourceType.saved => KrithaColors.accentLightBlue,
     ModelArtifactSourceType.unassigned => KrithaColors.textMuted,
   };
 }
@@ -1653,6 +1655,9 @@ String _fileName(ModelArtifactRow row) {
     ModelArtifactSourceType.device => artifactFileName(
       row.deviceSourcePath ?? '',
     ),
+    ModelArtifactSourceType.saved => artifactFileName(
+      row.deviceSourcePath ?? row.targetPath,
+    ),
     ModelArtifactSourceType.unassigned => artifactFileName(row.targetPath),
   };
   return name.isEmpty ? 'New artifact' : name;
@@ -1662,6 +1667,7 @@ String _sourcePath(ModelArtifactRow row) {
   return switch (row.sourceType) {
     ModelArtifactSourceType.repository => '/${row.repositoryFile?.path ?? ''}',
     ModelArtifactSourceType.device => row.deviceSourcePath ?? 'Device file',
+    ModelArtifactSourceType.saved => row.deviceSourcePath ?? 'Saved artifact',
     ModelArtifactSourceType.unassigned => 'No source assigned',
   };
 }
@@ -1671,6 +1677,7 @@ String _sourceTooltip(ModelArtifactRow row, String repositoryId) {
     ModelArtifactSourceType.repository =>
       '$repositoryId/${row.repositoryFile?.path ?? ''}',
     ModelArtifactSourceType.device => row.deviceSourcePath ?? 'Device file',
+    ModelArtifactSourceType.saved => row.deviceSourcePath ?? 'Saved artifact',
     ModelArtifactSourceType.unassigned => 'No source assigned',
   };
 }

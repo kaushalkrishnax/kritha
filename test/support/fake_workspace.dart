@@ -1,14 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:kritha/core/storage/secure_storage_service.dart';
+import 'package:kritha/features/intelligence/models/model_capabilities.dart';
+import 'package:kritha/features/intelligence/models/task_registry.dart';
 import 'package:kritha/features/models/active/active_models.dart';
 import 'package:kritha/features/models/catalogue/catalogue_failure.dart';
 import 'package:kritha/features/models/catalogue/catalogue_filter.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/model_catalogue_repository.dart';
+import 'package:kritha/features/models/domain/model_tags.dart';
+import 'package:kritha/features/models/model_record_store.dart';
+import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 import 'package:kritha/features/models/token/hugging_face_token_store.dart';
-import 'package:kritha/features/providers/provider_connection_tester.dart';
-import 'package:kritha/features/providers/provider_definition.dart';
+import 'package:kritha/models/model_record.dart';
+import 'package:kritha/features/intelligence/providers/provider.dart';
 import 'package:kritha/features/providers/provider_stores.dart';
+import 'package:kritha/services/runtime_probe.dart';
 
 class InMemorySecureStorageService implements SecureStorageService {
   final values = <String, String>{};
@@ -128,31 +134,303 @@ class FakeModelCatalogue implements ModelCatalogue {
 }
 
 class InMemoryActiveModelStore implements ActiveModelStore {
-  InMemoryActiveModelStore([
-    Map<ModelCapability, ActiveModelAssignment>? assignments,
-  ]) : assignments = assignments ?? {};
+  InMemoryActiveModelStore([ActiveModelConfig? config])
+    : config = config ?? const ActiveModelConfig();
 
-  Map<ModelCapability, ActiveModelAssignment> assignments;
+  ActiveModelConfig config;
 
-  @override
-  Future<Map<ModelCapability, ActiveModelAssignment>> read() async =>
-      Map.unmodifiable(assignments);
+  Map<ModelCapability, String> get singleModels => config.singleModels;
 
   @override
-  Future<void> write(Map<ModelCapability, ActiveModelAssignment> value) async {
-    assignments = Map.of(value);
+  Future<ActiveModelConfig> read() async => config;
+
+  @override
+  Future<void> write(ActiveModelConfig value) async {
+    config = value;
   }
 }
 
 class InMemoryRecentModelStore implements RecentModelStore {
-  List<ActiveModelAssignment> models = [];
+  InMemoryRecentModelStore([List<RecentModelRef>? refs]) : models = refs ?? [];
+
+  List<RecentModelRef> models;
 
   @override
-  Future<List<ActiveModelAssignment>> read() async => List.unmodifiable(models);
+  Future<List<RecentModelRef>> read() async => List.unmodifiable(models);
 
   @override
-  Future<void> write(List<ActiveModelAssignment> value) async {
+  Future<void> write(List<RecentModelRef> value) async {
     models = List.of(value);
+  }
+}
+
+RuntimeStatus testRuntimeStatus({String documentsPath = '/tmp/kritha'}) {
+  return RuntimeStatus(
+    liteRtLmReady: true,
+    sherpaVersion: '',
+    onnxRuntimeVersion: '',
+    sqliteVersion: '',
+    secureStorageReady: true,
+    preferencesReady: true,
+    microphone: 'granted',
+    recorderReady: false,
+    audioPlayerReady: false,
+    dioBaseUrl: '',
+    documentsPath: documentsPath,
+  );
+}
+
+ModelRecord testModelRecord({
+  required String providerId,
+  required String externalModelId,
+  String? displayName,
+  List<AiTaskId> tasks = const [AiTaskId.textGeneration],
+}) {
+  final now = DateTime(2026);
+  return ModelRecord(
+    id: modelRecordId(providerId, externalModelId),
+    providerId: providerId,
+    externalModelId: externalModelId,
+    displayName: displayName ?? externalModelId,
+    tasks: [
+      for (final task in tasks)
+        TaskDeclaration(
+          task: task,
+          confidence: TaskMetadataConfidence.explicit,
+          source: TaskMetadataSource.provider,
+        ),
+    ],
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+ResolvedModelArtifactFile testArtifactFile({
+  required String modelId,
+  required String path,
+  String kind = 'weights',
+  bool exists = true,
+}) {
+  final now = DateTime(2026);
+  return ResolvedModelArtifactFile(
+    resolved: ResolvedModelArtifact(
+      record: ModelArtifactRecord(
+        id: '$modelId:$kind',
+        modelId: modelId,
+        externalPath: path,
+        kind: kind,
+        targetPath: path,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ownerModelId: modelId,
+      inherited: false,
+    ),
+    absolutePath: path,
+    exists: exists,
+  );
+}
+
+/// Repository fake with deterministic tag derivation for widget and routing tests.
+class InMemoryModelRepository implements ModelRepository {
+  InMemoryModelRepository({
+    Iterable<ModelRecord> models = const [],
+    Map<String, List<ModelArtifactRecord>> artifacts = const {},
+    Map<String, List<ResolvedModelArtifactFile>> artifactFiles = const {},
+    Map<String, ModelTags> tagsById = const {},
+    ModelTagDerivation? derivation,
+    this.settings,
+  }) : _models = {for (final model in models) model.id: model},
+       _artifacts = {
+         for (final entry in artifacts.entries) entry.key: [...entry.value],
+       },
+       _artifactFiles = {
+         for (final entry in artifactFiles.entries) entry.key: [...entry.value],
+       },
+       _tagsById = Map.of(tagsById),
+       _derivation =
+           derivation ??
+           ModelTagDerivation(
+             runtimes: {
+               for (final model in models)
+                 model.providerId: ModelRuntimeSignature(
+                   id: model.providerId,
+                   capabilities: const {
+                     InferenceCapability.textGeneration,
+                     InferenceCapability.imageInput,
+                     InferenceCapability.audioInput,
+                   },
+                 ),
+             },
+           );
+
+  final Map<String, ModelRecord> _models;
+  final Map<String, List<ModelArtifactRecord>> _artifacts;
+  final Map<String, List<ResolvedModelArtifactFile>> _artifactFiles;
+  final Map<String, ModelTags> _tagsById;
+  final ModelTagDerivation _derivation;
+  ModelSettingsRecord? settings;
+
+  Map<String, ModelRecord> get models => Map.unmodifiable(_models);
+
+  @override
+  Future<void> saveModel(
+    ModelRecord model, {
+    List<ModelArtifactRecord> artifacts = const [],
+  }) async {
+    _models[model.id] = model;
+    if (artifacts.isNotEmpty) {
+      _artifacts[model.id] = [...artifacts];
+    }
+  }
+
+  @override
+  Future<List<ModelRecord>> allModels() async => List.unmodifiable(
+    _models.values.toList()
+      ..sort((a, b) => a.displayName.compareTo(b.displayName)),
+  );
+
+  @override
+  Future<ModelRecord?> findById(String id) async => _models[id];
+
+  @override
+  Future<ModelRecord?> findByProviderAndExternal(
+    String providerId,
+    String externalModelId,
+  ) async {
+    for (final model in _models.values) {
+      if (model.providerId == providerId &&
+          model.externalModelId == externalModelId) {
+        return model;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<List<ModelRecord>> variantsOf(String baseModelId) async => [
+    for (final model in _models.values)
+      if (model.parentModelId == baseModelId) model,
+  ];
+
+  @override
+  Future<ModelRecord?> baseModelFor(String modelId) async {
+    final model = _models[modelId];
+    if (model == null) return null;
+    return model.parentModelId == null ? model : _models[model.parentModelId];
+  }
+
+  @override
+  Future<List<ModelArtifactRecord>> ownArtifacts(String modelId) async =>
+      List.unmodifiable(_artifacts[modelId] ?? const []);
+
+  @override
+  Future<List<ResolvedModelArtifact>> artifactsFor(String modelId) async {
+    final model = _models[modelId];
+    if (model == null) return const [];
+    final own = [
+      for (final artifact
+          in _artifacts[modelId] ?? const <ModelArtifactRecord>[])
+        ResolvedModelArtifact(
+          record: artifact,
+          ownerModelId: modelId,
+          inherited: false,
+          ownerSuffix: model.suffix,
+        ),
+    ];
+    final parentId = model.parentModelId;
+    if (parentId == null) return List.unmodifiable(own);
+    final parent = _models[parentId];
+    return List.unmodifiable([
+      for (final artifact
+          in _artifacts[parentId] ?? const <ModelArtifactRecord>[])
+        ResolvedModelArtifact(
+          record: artifact,
+          ownerModelId: parentId,
+          inherited: true,
+          ownerSuffix: parent?.suffix,
+        ),
+      ...own,
+    ]);
+  }
+
+  @override
+  Future<List<ResolvedModelArtifactFile>> resolveArtifacts(
+    String modelId, {
+    required String documentsPath,
+  }) async {
+    final explicit = _artifactFiles[modelId];
+    if (explicit != null) return List.unmodifiable(explicit);
+    return [
+      for (final resolved in await artifactsFor(modelId))
+        if (resolved.record.targetPath != null)
+          ResolvedModelArtifactFile(
+            resolved: resolved,
+            absolutePath: [documentsPath, resolved.record.targetPath].join('/'),
+            exists: true,
+          ),
+    ];
+  }
+
+  @override
+  Future<ModelSettingsRecord?> settingsFor(String modelId) async =>
+      settings?.modelId == modelId ? settings : null;
+
+  @override
+  Future<void> saveSettings(ModelSettingsRecord value) async {
+    settings = value;
+  }
+
+  @override
+  Future<ModelTags> tagsFor(
+    String modelId, {
+    bool artifactsReady = true,
+  }) async {
+    final override = _tagsById[modelId];
+    if (override != null) return override;
+    final model = _models[modelId];
+    if (model == null) return const ModelTags();
+    final base = model.parentModelId == null
+        ? null
+        : _models[model.parentModelId];
+    final merged = base == null
+        ? model
+        : model.copyWith(
+            tasks: normaliseTaskDeclarations([...base.tasks, ...model.tasks]),
+          );
+    return _derivation.derive(merged, artifactsReady: artifactsReady);
+  }
+
+  @override
+  Future<List<AiTaskId>> supportedTasksFor(
+    String modelId, {
+    bool artifactsReady = true,
+  }) async =>
+      (await tagsFor(modelId, artifactsReady: artifactsReady)).supportedTasks;
+
+  @override
+  Future<void> deleteModel(String id) async {
+    _models.remove(id);
+    _artifacts.remove(id);
+    _artifactFiles.remove(id);
+  }
+
+  @override
+  Future<ProviderConfig?> providerConfigFor(String providerId) async {
+    return ProviderConfig(
+      id: providerId,
+      alias: providerId,
+      baseUrl: null,
+      apiKey: null,
+    );
+  }
+
+  @override
+  Future<List<ModelRecord>> modelsForProvider(String providerId) async {
+    return [
+      for (final model in _models.values)
+        if (model.providerId == providerId) model,
+    ];
   }
 }
 
@@ -205,39 +483,4 @@ class InMemoryProviderUsageStore implements ProviderUsageStore {
   Future<void> write(Map<String, ProviderUsage> value) async {
     usage = Map.of(value);
   }
-}
-
-class FakeProviderConnectionTester implements ProviderConnectionTester {
-  FakeProviderConnectionTester({
-    this.result = const ProviderConnectionResult(
-      ok: true,
-      message: 'Endpoint reachable — returned 1 model.',
-      statusCode: 200,
-      modelCount: 1,
-    ),
-    this.error,
-  });
-
-  ProviderConnectionResult result;
-  Object? error;
-  final List<String> testedProviderIds = [];
-  final Map<String, List<ProviderModelInfo>> models = {};
-
-  @override
-  Future<ProviderConnectionResult> test(
-    InferenceProviderDefinition definition, {
-    required String baseUrl,
-    String? credential,
-  }) async {
-    testedProviderIds.add(definition.id);
-    if (error != null) throw error!;
-    return result;
-  }
-
-  @override
-  Future<List<ProviderModelInfo>> listModels(
-    InferenceProviderDefinition definition, {
-    required String baseUrl,
-    String? credential,
-  }) async => models[definition.id] ?? const [];
 }

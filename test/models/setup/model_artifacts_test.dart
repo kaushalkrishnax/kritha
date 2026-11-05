@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kritha/features/models/catalogue/catalogue_model.dart';
 import 'package:kritha/features/models/catalogue/hugging_face_hub_client.dart';
-import 'package:kritha/features/models/setup/model_record_store.dart';
+import 'package:kritha/features/models/model_record_store.dart';
 import 'package:kritha/features/models/setup/model_artifact.dart';
 import 'package:kritha/features/models/setup/model_artifact_storage.dart';
 import 'package:kritha/features/models/setup/model_setup_assessment.dart';
@@ -14,6 +14,8 @@ import 'package:kritha/features/models/setup/model_setup_assessor.dart';
 import 'package:kritha/features/models/setup/model_setup_controller.dart';
 import 'package:kritha/models/model_record.dart';
 import 'package:kritha/services/runtime_probe.dart';
+
+import '../../support/fake_workspace.dart';
 
 void main() {
   late Directory tempDir;
@@ -59,7 +61,7 @@ void main() {
   Future<ModelSetupWizardController> readyController({
     ModelArtifactDownloader? downloader,
     String? configurationId,
-    ModelRecordStore? store,
+    ModelRepository? store,
     ModelDetails? source,
   }) async {
     final controller = ModelSetupWizardController(
@@ -457,8 +459,8 @@ void main() {
         .firstWhere((row) => row.id == firstWeight.id)
         .localPath!;
     final secondPath = second.artifacts
-      .firstWhere((row) => row.id == secondWeight.id)
-      .localPath!;
+        .firstWhere((row) => row.id == secondWeight.id)
+        .localPath!;
     expect(firstPath, secondPath);
   });
 
@@ -535,7 +537,7 @@ void main() {
       expect(await controller.saveConfiguration(), isTrue);
 
       final saved = store.saved.single;
-      expect(saved.id, 'huggingface:acme/litert');
+      expect(saved.id, isNotEmpty);
       expect(saved.externalModelId, 'acme/litert');
       expect(saved.displayName, details.model.name);
       expect(store.artifacts, hasLength(3));
@@ -545,6 +547,7 @@ void main() {
         containsAll(['config.json', 'tokenizer.model', 'model.litertlm']),
       );
       expect(controller.savedConfigurationId, isNotNull);
+      expect(controller.savedConfigurationId, saved.id);
       expect(controller.saveError, isNull);
     },
   );
@@ -589,38 +592,26 @@ void main() {
       await controller.saveConfiguration();
 
       expect(store.saved, hasLength(1));
-      expect(store.saved.single.id, 'huggingface:acme/litert');
+      expect(store.saved.single.id, isNotEmpty);
     },
   );
 }
 
-class _FakeStore implements ModelRecordStore {
+class _FakeStore extends InMemoryModelRepository {
   final List<ModelRecord> saved = [];
   final List<ModelArtifactRecord> artifacts = [];
 
   @override
-  Future<void> save(ModelRecord model, List<ModelArtifactRecord> modelArtifacts) async {
+  Future<void> saveModel(
+    ModelRecord model, {
+    List<ModelArtifactRecord> artifacts = const [],
+  }) async {
     saved.removeWhere((item) => item.id == model.id);
     saved.add(model);
-    artifacts
+    this.artifacts
       ..removeWhere((item) => item.modelId == model.id)
-      ..addAll(modelArtifacts);
-  }
-
-  @override
-  Future<List<ModelRecord>> all() async => List.unmodifiable(saved);
-
-  @override
-  Future<ModelRecord?> find(String id) async {
-    for (final model in saved) {
-      if (model.id == id) return model;
-    }
-    return null;
-  }
-
-  @override
-  Future<void> delete(String id) async {
-    saved.removeWhere((model) => model.id == id);
+      ..addAll(artifacts);
+    await super.saveModel(model, artifacts: artifacts);
   }
 }
 
@@ -690,6 +681,11 @@ class _FakeDownload implements ModelArtifactDownload {
 
   @override
   void resume() => _paused = false;
+
+  @override
+  void cancel() {
+    if (!_gate.isCompleted) _gate.complete();
+  }
 
   void release() {
     if (!_gate.isCompleted) _gate.complete();

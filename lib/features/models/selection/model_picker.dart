@@ -1,14 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/theme.dart';
+import '../../../data/app_database.dart';
 import '../../../widgets/create_popup.dart';
-import '../../intelligence/model_configuration.dart';
-import '../../intelligence/runtime_ids.dart';
+import '../../intelligence/providers/providers.dart';
 import '../../providers/providers_controller.dart';
-import '../../providers/provider_connection_tester.dart';
 import '../active/active_models.dart';
 import '../catalogue/catalogue_model.dart';
 import '../widgets/catalogue_widgets.dart';
@@ -26,6 +24,126 @@ Future<ActiveModelAssignment?> showModelPicker(
   );
 }
 
+/// A model that can serve two or more capabilities at once.
+class MultimodalChoice {
+  const MultimodalChoice({
+    required this.modelId,
+    required this.displayName,
+    required this.capabilities,
+  });
+
+  final String modelId;
+  final String displayName;
+  final Set<ModelCapability> capabilities;
+
+  bool get isMultimodal => capabilities.length >= 2;
+}
+
+Future<MultimodalChoice?> showMultimodalModelPicker(
+  BuildContext context, {
+  required List<MultimodalChoice> choices,
+}) {
+  return createPopup<MultimodalChoice>(
+    context: context,
+    mobileFullScreen: true,
+    builder: (_) => _MultimodalModelPicker(choices: choices),
+  );
+}
+
+class _MultimodalModelPicker extends StatelessWidget {
+  const _MultimodalModelPicker({required this.choices});
+
+  final List<MultimodalChoice> choices;
+
+  @override
+  Widget build(BuildContext context) {
+    return CreatePopup(
+      title: 'Choose multimodal model',
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          KrithaSpacing.s16,
+          KrithaSpacing.s12,
+          KrithaSpacing.s16,
+          KrithaSpacing.s24,
+        ),
+        children: [
+          for (final choice in choices) _MultimodalChoiceRow(choice: choice),
+        ],
+      ),
+    );
+  }
+}
+
+class _MultimodalChoiceRow extends StatelessWidget {
+  const _MultimodalChoiceRow({required this.choice});
+
+  final MultimodalChoice choice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.of(context).pop(choice),
+        borderRadius: BorderRadius.circular(KrithaRadius.base),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: KrithaSpacing.s10,
+            vertical: KrithaSpacing.s12,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KrithaColors.bgTertiary,
+                  borderRadius: BorderRadius.circular(KrithaRadius.full),
+                ),
+                child: KrithaIcon(
+                  icon: HugeIcons.strokeRoundedCpu,
+                  size: KrithaIcons.base,
+                  color: KrithaColors.textMuted,
+                ),
+              ),
+              SizedBox(width: KrithaSpacing.s10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayModelName(choice.displayName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: KrithaText.sizeSm,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      [
+                        for (final capability in choice.capabilities)
+                          capability.label,
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: KrithaText.size2xs,
+                        color: KrithaColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ModelPicker extends ConsumerStatefulWidget {
   const _ModelPicker({required this.capability});
 
@@ -40,41 +158,24 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activeModelsProvider.notifier).syncProviderModels();
+    });
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();
   }
 
-  String _key(ActiveModelAssignment item) => '${item.sourceId}:${item.modelId}';
-
   bool _matches(ActiveModelAssignment item) {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return true;
     return item.displayName.toLowerCase().contains(query) ||
-        item.modelId.toLowerCase().contains(query) ||
-        item.sourceId.toLowerCase().contains(query);
-  }
-
-  bool _isAvailable(
-    ActiveModelAssignment item,
-    ModelConfiguration? configuration,
-    ProvidersState? providers,
-  ) {
-    if (item.sourceId == localProviderId) {
-      return item.capability == ModelCapability.text &&
-          configuration?.descriptor?.id == item.modelId;
-    }
-    final provider = providers?.configurationFor(item.sourceId);
-    if (provider == null || !provider.configured) return false;
-    final models = ref
-        .watch(providerModelsProvider(item.sourceId))
-        .asData
-        ?.value;
-    return models?.any(
-          (model) =>
-              model.id == item.modelId && model.supports(item.capability),
-        ) ==
-        true;
+        item.modelId.toLowerCase().contains(query);
   }
 
   Widget _section(String title, List<ActiveModelAssignment> models) {
@@ -89,129 +190,38 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     );
   }
 
-  Widget _providerSection(
-    String title,
-    List<ActiveModelAssignment> choices,
-    AsyncValue<List<ProviderModelInfo>> models,
-  ) {
-    if (models.isLoading) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          WorkspaceSectionTitle(title),
-          const CatalogueLoading(label: 'Loading provider models…'),
-        ],
-      );
-    }
-    if (models.hasError) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          WorkspaceSectionTitle(title),
-          Padding(
-            padding: EdgeInsets.only(bottom: KrithaSpacing.s12),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: KrithaSpacing.s8,
-              children: [
-                Text(
-                  'Could not load models. Check the provider configuration.',
-                  style: TextStyle(
-                    fontSize: KrithaText.sizeXs,
-                    color: KrithaColors.textMuted,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/providers'),
-                  child: const Text('Manage providers'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    return _section(title, choices);
-  }
-
   @override
   Widget build(BuildContext context) {
     final activeValue = ref.watch(activeModelsProvider).value;
-    final configValue = ref.watch(modelConfigurationProvider).value;
-    final providersValue = ref.watch(providersControllerProvider).value;
     final recent = (activeValue?.recents ?? const <ActiveModelAssignment>[])
         .where(
           (model) =>
-              model.capability == widget.capability &&
-              _matches(model) &&
-              _isAvailable(model, configValue, providersValue),
+              model.capability == widget.capability && _matches(model),
         )
         .toList();
-    final recentKeys = recent.map(_key).toSet();
+    final recentKeys = recent.map((item) => item.modelId).toSet();
 
-    final local = <ActiveModelAssignment>[];
-    if (widget.capability == ModelCapability.text &&
-        configValue?.descriptor != null) {
-      final model = configValue!.descriptor!;
-      final assignment = ActiveModelAssignment(
-        capability: widget.capability,
-        modelId: model.id,
-        displayName: model.displayName,
-        runtimeId: model.runtimeId,
-        sourceId: localProviderId,
-        activatedAt: DateTime.now(),
-      );
-      if (_matches(assignment) && !recentKeys.contains(_key(assignment))) {
-        local.add(assignment);
-      }
-    }
+    final localLitertlm = <ActiveModelAssignment>[];
+    final providerModels = <ActiveModelAssignment>[];
 
-    final providerGroups =
-        <
-          (
-            String,
-            String,
-            List<ActiveModelAssignment>,
-            AsyncValue<List<ProviderModelInfo>>,
-          )
-        >[];
-    if (providersValue != null) {
-      for (final configuration in providersValue.configurations.values) {
-        if (configuration.isLocal || !configuration.configured) continue;
-        final definition = configuration.definition;
-        final models = ref.watch(
-          providerModelsProvider(configuration.providerId),
+    if (activeValue != null) {
+      for (final model in activeValue.models.values) {
+        final tags = activeValue.tags[model.id];
+        if (tags == null) continue;
+        final assignment = ActiveModelAssignment.forModel(
+          capability: widget.capability,
+          model: model,
+          tags: tags,
         );
-        final choices = (models.asData?.value ?? const <ProviderModelInfo>[])
-            .where((model) {
-              if (!model.supports(widget.capability)) return false;
-              final item = ActiveModelAssignment(
-                capability: widget.capability,
-                modelId: model.id,
-                displayName: model.name,
-                runtimeId: definition.runtimeId,
-                sourceId: configuration.providerId,
-                activatedAt: DateTime.now(),
-              );
-              return _matches(item) && !recentKeys.contains(_key(item));
-            })
-            .map(
-              (model) => ActiveModelAssignment(
-                capability: widget.capability,
-                modelId: model.id,
-                displayName: model.name,
-                runtimeId: definition.runtimeId,
-                sourceId: configuration.providerId,
-                activatedAt: DateTime.now(),
-              ),
-            )
-            .toList();
-        providerGroups.add((
-          definition.isCustom ? configuration.alias : definition.name,
-          configuration.providerId,
-          choices,
-          models,
-        ));
+        if (assignment == null) continue;
+        if (!_matches(assignment) || recentKeys.contains(assignment.modelId)) {
+          continue;
+        }
+        if (model.providerId == localLitertlmProviderId) {
+          localLitertlm.add(assignment);
+        } else {
+          providerModels.add(assignment);
+        }
       }
     }
 
@@ -248,7 +258,8 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                       autofocus: true,
                       onChanged: (value) => setState(() => _query = value),
                       decoration: const InputDecoration(
-                        hintText: 'Search recent, local, and provider models',
+                        hintText:
+                            'Search recent, local, and provider models',
                       ),
                     ),
                   ),
@@ -278,38 +289,28 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 KrithaSpacing.s24,
               ),
               children: [
-                if (activeValue == null || providersValue == null)
+                if (activeValue == null)
                   const CatalogueLoading(label: 'Loading available models…'),
                 _section('Recent models', recent),
-                _section('Local models', local),
-                for (final group in providerGroups)
-                  _providerSection(group.$1, group.$3, group.$4),
-                if (activeValue != null &&
-                    providersValue != null &&
-                    recent.isEmpty &&
-                    local.isEmpty &&
-                    providerGroups.every(
-                      (group) =>
-                          group.$3.isEmpty &&
-                          !group.$4.isLoading &&
-                          !group.$4.hasError,
-                    ))
-                  Column(
-                    children: [
-                      CatalogueEmpty(
-                        title: 'No matching models',
-                        message: widget.capability == ModelCapability.text
-                            ? 'Connect a provider or use a validated local model.'
-                            : 'No connected provider declares ${widget.capability.label.toLowerCase()} support.',
+                _section('Local LiteRT-LM', localLitertlm),
+                _section('Provider models', providerModels),
+                if (recent.isEmpty &&
+                    localLitertlm.isEmpty &&
+                    providerModels.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: KrithaSpacing.s32,
+                      horizontal: KrithaSpacing.s16,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'No ${widget.capability.label.toLowerCase()} models available.',
+                        style: TextStyle(
+                          fontSize: KrithaText.sizeSm,
+                          color: KrithaColors.textMuted,
+                        ),
                       ),
-                      OutlinedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          context.push('/providers');
-                        },
-                        child: const Text('Manage providers'),
-                      ),
-                    ],
+                    ),
                   ),
               ],
             ),
@@ -327,16 +328,20 @@ class _ModelChoiceRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLocal = model.sourceId == localProviderId;
-    final provider = ref
+    final displayName = displayModelName(model.displayName);
+    final active = ref.watch(activeModelsProvider).value;
+    final record = active?.models[model.modelId];
+    final isLocal = record?.providerId == localLitertlmProviderId;
+    final providerConfig = ref
         .watch(providersControllerProvider)
         .value
-        ?.configurationFor(model.sourceId);
-    final customAlias = provider?.isCustom == true ? provider!.alias : null;
+        ?.configurationFor(record?.providerId ?? '');
     final providerLabel = isLocal
         ? 'Local LiteRT-LM'
-        : customAlias ?? displayPublisherName(model.sourceId);
-    final displayName = displayModelName(model.displayName);
+        : (providerConfig != null
+            ? providerDisplayName(providerConfig.alias)
+            : 'Remote provider');
+
     return Material(
       color: Colors.transparent,
       child: InkWell(

@@ -280,10 +280,14 @@ created per request because reuse has no verified reset/cancel lifecycle.
 Provider Models share a management scaffold; Explore opens the Hub-backed
 discovery surface:
 
-- On compact and medium screens Active Models and Provider Models use a tappable
-  title menu to switch destinations and keep a right-aligned Explore Models
-  action in the header. Back pops the route. Wide screens nest both destinations
-  under Models in the expandable docked sidebar and omit the back control.
+- Active Models and Provider Models share one route shell. The current title is a
+  tappable dropdown that switches destinations in place and keeps a right-aligned
+  Explore Models action in the header. Compact and medium screens show back;
+  wide screens nest both destinations under Models in the expandable docked
+  sidebar and omit the back control.
+- Active Models splits into Multimodal and Single Models sections. A multimodal
+  selection routes one model across two or more capabilities; single slots are
+  fallbacks for capabilities the multimodal model does not cover.
 - Explore searches `https://huggingface.co/api/models` with capability filters,
   sort order, an editable list of Hub filters and `Link`-header cursor
   pagination. The default `filter=litert-lm` tag keeps the catalogue focused

@@ -24,7 +24,8 @@ DerivedTaskMetadata deriveTaskMetadata(CatalogueModel model) {
       return;
     }
     final current = declarations[declaration.task];
-    if (current == null || declaration.confidence.index < current.confidence.index) {
+    if (current == null ||
+        declaration.confidence.index < current.confidence.index) {
       declarations[declaration.task] = declaration;
     }
   }

@@ -1,7 +1,7 @@
 import '../catalogue/catalogue_model.dart';
 import 'model_setup_assessment.dart';
 
-enum ModelArtifactSourceType { repository, device, unassigned }
+enum ModelArtifactSourceType { repository, device, saved, unassigned }
 
 enum ModelArtifactStatus { idle, working, paused, ready, failed }
 
@@ -45,6 +45,8 @@ class ModelArtifactRow {
       sourceType == ModelArtifactSourceType.device &&
       (deviceSourcePath?.trim().isNotEmpty ?? false);
 
+  bool get isSaved => sourceType == ModelArtifactSourceType.saved;
+
   bool get isUnassigned => sourceType == ModelArtifactSourceType.unassigned;
 
   bool get isWorking => status == ModelArtifactStatus.working;
@@ -77,6 +79,7 @@ class ModelArtifactRow {
     ModelArtifactSourceType.repository =>
       repositoryFile?.name ?? 'Repository file',
     ModelArtifactSourceType.device => _fileName(deviceSourcePath ?? ''),
+    ModelArtifactSourceType.saved => _fileName(deviceSourcePath ?? targetPath),
     ModelArtifactSourceType.unassigned => 'No source assigned',
   };
 
@@ -93,6 +96,7 @@ class ModelArtifactRow {
     ModelArtifactSourceType.repository =>
       '${repositoryFile?.path ?? ''} in this repository',
     ModelArtifactSourceType.device => deviceSourcePath ?? 'Device file',
+    ModelArtifactSourceType.saved => deviceSourcePath ?? 'Saved artifact',
     ModelArtifactSourceType.unassigned => 'No source assigned',
   };
 

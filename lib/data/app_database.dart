@@ -14,6 +14,19 @@ import '../features/intelligence/models/task_registry.dart';
 
 part 'app_database.g.dart';
 
+/// Provider UUID of the seeded local LiteRT-LM provider.
+const localLitertlmProviderId = '11111111-1111-1111-1111-111111111101';
+
+/// Stable UUIDs of every provider seeded at database creation time.
+const defaultProviderIds = {
+  '11111111-1111-1111-1111-111111111101', // local-litertlm
+  '11111111-1111-1111-1111-111111111102', // google-gemini
+  '11111111-1111-1111-1111-111111111103', // anthropic
+  '11111111-1111-1111-1111-111111111104', // xai
+  '11111111-1111-1111-1111-111111111105', // mistral
+  '11111111-1111-1111-1111-111111111106', // openai
+};
+
 @DataClassName('SessionRow')
 class ChatSessions extends Table {
   TextColumn get id => text()();
@@ -50,15 +63,32 @@ class ActionPreferences extends Table {
   Set<Column<Object>> get primaryKey => {actionKey};
 }
 
+/// Providers executing models: default providers seeded by Kritha and custom
+/// OpenAI-compatible providers added by the user.
+@DataClassName('ProviderRow')
+class Providers extends Table {
+  TextColumn get id => text()();
+  TextColumn get alias => text()();
+  TextColumn get baseUrl => text().nullable()();
+  TextColumn get apiKey => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{alias}];
+}
+
 class Models extends Table {
   TextColumn get id => text()();
-  TextColumn get sourceId => text()();
+  TextColumn get providerId => text().references(Providers, #id)();
   TextColumn get externalModelId => text()();
   TextColumn get displayName => text()();
-  TextColumn get parentModelId => text().nullable()();
+  TextColumn get parentModelId => text().nullable().references(Models, #id)();
   TextColumn get suffix => text().nullable()();
   TextColumn get publisher => text().nullable()();
-  TextColumn get sourceType => text().withDefault(const Constant('unknown'))();
   TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
   TextColumn get taskJson => text().withDefault(const Constant('[]'))();
   DateTimeColumn get createdAt => dateTime()();
@@ -66,26 +96,25 @@ class Models extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {providerId, externalModelId, suffix},
+  ];
 }
 
 class ModelArtifacts extends Table {
   TextColumn get id => text()();
-  TextColumn get modelId => text()();
+  TextColumn get modelId => text().references(Models, #id)();
   TextColumn get externalPath => text()();
-  TextColumn get fileName => text()();
   TextColumn get kind => text().withDefault(const Constant('other'))();
-  TextColumn get sourceType => text().withDefault(const Constant('repository'))();
-  TextColumn get repositoryPath => text().nullable()();
-  TextColumn get deviceSourcePath => text().nullable()();
+  TextColumn get sourceType =>
+      text().withDefault(const Constant('repository'))();
   TextColumn get targetPath => text().nullable()();
   TextColumn get format => text().nullable()();
   IntColumn get sizeBytes => integer().nullable()();
-  BoolColumn get isLfs => boolean().withDefault(const Constant(false))();
-  TextColumn get oid => text().nullable()();
-  TextColumn get revision => text().nullable()();
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
   IntColumn get position => integer().withDefault(const Constant(0))();
-  TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -95,28 +124,13 @@ class ModelArtifacts extends Table {
 
 class ModelSettings extends Table {
   TextColumn get id => text()();
-  TextColumn get modelId => text()();
+  TextColumn get modelId => text().references(Models, #id)();
   IntColumn get version => integer().withDefault(const Constant(1))();
   TextColumn get optionsJson => text().withDefault(const Constant('{}'))();
   TextColumn get overridesJson => text().withDefault(const Constant('{}'))();
   IntColumn get maxThinkingTokens => integer().nullable()();
-  TextColumn get thinkingConfigJson => text().withDefault(const Constant('{}'))();
-  DateTimeColumn get updatedAt => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => {id};
-}
-
-@DataClassName('ActiveModelAssignmentRow')
-class ActiveModelAssignments extends Table {
-  TextColumn get id => text()();
-  TextColumn get modelId => text()();
-  TextColumn get taskId => text()();
-  IntColumn get priority => integer().withDefault(const Constant(0))();
-  TextColumn get assignmentType => text().withDefault(const Constant('single'))();
-  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
-  TextColumn get metadataJson => text().withDefault(const Constant('{}'))();
-  DateTimeColumn get createdAt => dateTime()();
+  TextColumn get thinkingConfigJson =>
+      text().withDefault(const Constant('{}'))();
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
@@ -128,10 +142,10 @@ class ActiveModelAssignments extends Table {
     ChatSessions,
     ChatEntries,
     ActionPreferences,
+    Providers,
     Models,
     ModelArtifacts,
     ModelSettings,
-    ActiveModelAssignments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -148,11 +162,14 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (migrator) => migrator.createAll(),
+    onCreate: (migrator) async {
+      await migrator.createAll();
+      await seedDefaultProviders();
+    },
     onUpgrade: (migrator, from, to) async {
       if (from < 2) {
         await migrator.addColumn(chatEntries, chatEntries.attachmentsJson);
@@ -164,14 +181,155 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         await migrator.createTable(actionPreferences);
       }
-      if (from < 6) {
+      if (from < 8) {
+        await migrator.deleteTable('models');
+        await migrator.deleteTable('model_artifacts');
+        await migrator.deleteTable('model_settings');
+        await migrator.createTable(providers);
         await migrator.createTable(models);
         await migrator.createTable(modelArtifacts);
         await migrator.createTable(modelSettings);
-        await migrator.createTable(activeModelAssignments);
+        await seedDefaultProviders();
       }
     },
+    beforeOpen: (details) async {
+      await seedDefaultProviders();
+    },
   );
+
+  // Providers
+
+  Future<List<ProviderRow>> allProviders() async {
+    final rows = await (select(
+      providers,
+    )..orderBy([(row) => OrderingTerm.asc(row.alias)])).get();
+    return rows;
+  }
+
+  Future<ProviderRow?> providerById(String id) async {
+    final row = await (select(
+      providers,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    return row;
+  }
+
+  Future<ProviderRow?> providerByAlias(String alias) async {
+    final row = await (select(
+      providers,
+    )..where((row) => row.alias.equals(alias))).getSingleOrNull();
+    return row;
+  }
+
+  Future<bool> providerAliasTaken(
+    String alias, {
+    String? excludingProviderId,
+  }) async {
+    final rows = await (select(providers)
+          ..where((row) => row.alias.equals(alias)))
+        .get();
+    if (excludingProviderId == null) return rows.isNotEmpty;
+    return rows.any((row) => row.id != excludingProviderId);
+  }
+
+  Future<void> saveProvider(ProviderRow provider) async {
+    await into(providers).insertOnConflictUpdate(
+      ProvidersCompanion.insert(
+        id: provider.id,
+        alias: provider.alias,
+        baseUrl: Value(provider.baseUrl),
+        apiKey: Value(provider.apiKey),
+        createdAt: provider.createdAt,
+        updatedAt: provider.updatedAt,
+      ),
+    );
+  }
+
+  Future<void> updateProviderAlias(String id, String alias) async {
+    await (update(providers)..where((row) => row.id.equals(id))).write(
+      ProvidersCompanion(alias: Value(alias), updatedAt: Value(DateTime.now())),
+    );
+  }
+
+  Future<void> updateProviderConfig(
+    String id, {
+    String? baseUrl,
+    String? apiKey,
+  }) async {
+    await (update(providers)..where((row) => row.id.equals(id))).write(
+      ProvidersCompanion(
+        baseUrl: Value(baseUrl),
+        apiKey: Value(apiKey),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> deleteProvider(String id) async {
+    await (delete(providers)..where((row) => row.id.equals(id))).go();
+  }
+
+  /// Seeds the default providers shipped by Kritha with stable UUIDs.
+  /// Called once when the providers table is created.
+  Future<void> seedDefaultProviders() async {
+    final now = DateTime.now();
+    final companions = <ProvidersCompanion>[
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111101',
+        alias: 'local-litertlm',
+        baseUrl: const Value.absent(),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111102',
+        alias: 'google-gemini',
+        baseUrl: Value('https://generativelanguage.googleapis.com/v1beta/openai/'),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111103',
+        alias: 'anthropic',
+        baseUrl: Value('https://api.anthropic.com/v1'),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111104',
+        alias: 'xai',
+        baseUrl: Value('https://api.x.ai/v1'),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111105',
+        alias: 'mistral',
+        baseUrl: Value('https://api.mistral.ai/v1'),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProvidersCompanion.insert(
+        id: '11111111-1111-1111-1111-111111111106',
+        alias: 'openai',
+        baseUrl: Value('https://api.openai.com/v1'),
+        apiKey: const Value.absent(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ];
+    await transaction(() async {
+      for (final companion in companions) {
+        await into(providers).insertOnConflictUpdate(companion);
+      }
+    });
+  }
+
+  // Chat
 
   Future<List<ChatMessage>> allMessages() async {
     final rows =
@@ -184,14 +342,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<ChatMessage>> messagesForSession(String sessionId) async {
-    final rows =
-        await (select(chatEntries)
-              ..where((row) => row.sessionId.equals(sessionId))
-              ..orderBy([
-                (row) => OrderingTerm.asc(row.createdAt),
-                (row) => OrderingTerm.asc(row.id),
-              ]))
-            .get();
+    final rows = await (select(chatEntries)
+          ..where((row) => row.sessionId.equals(sessionId))
+          ..orderBy([
+            (row) => OrderingTerm.asc(row.createdAt),
+            (row) => OrderingTerm.asc(row.id),
+          ]))
+        .get();
     return [for (final row in rows) _mapMessage(row)];
   }
 
@@ -289,7 +446,6 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Removes turns at or after [from]; prompt editing uses [deleteMessagesFromId].
   Future<void> deleteMessagesFrom(String sessionId, DateTime from) {
     return (delete(chatEntries)..where(
           (row) =>
@@ -299,7 +455,6 @@ class AppDatabase extends _$AppDatabase {
         .go();
   }
 
-  /// Deletes [messageId] and later turns; avoids second-precision timestamp collisions.
   Future<void> deleteMessagesFromId(String sessionId, String messageId) async {
     await transaction(() async {
       final messages = await messagesForSession(sessionId);
@@ -395,30 +550,61 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // Models
+
   Future<List<ModelRecord>> allModelRecords() async {
-    final rows = await (select(models)
-          ..orderBy([(row) => OrderingTerm.asc(row.displayName)]))
-        .get();
+    final rows = await (select(
+      models,
+    )..orderBy([(row) => OrderingTerm.asc(row.displayName)])).get();
     return [for (final row in rows) _mapModelRecord(row)];
   }
 
   Future<ModelRecord?> modelRecordById(String id) async {
-    final row = await (select(models)..where((item) => item.id.equals(id)))
-        .getSingleOrNull();
+    final row = await (select(
+      models,
+    )..where((item) => item.id.equals(id))).getSingleOrNull();
+    return row == null ? null : _mapModelRecord(row);
+  }
+
+  /// Finds an existing model by provider and external id to preserve its
+  /// stable internal UUID across rediscovery.
+  Future<ModelRecord?> modelRecordByProviderAndExternal(
+    String providerId,
+    String externalModelId,
+  ) async {
+    final row =
+        await (select(models)..where(
+              (item) =>
+                  item.providerId.equals(providerId) &
+                  item.externalModelId.equals(externalModelId),
+            ))
+            .getSingleOrNull();
     return row == null ? null : _mapModelRecord(row);
   }
 
   Future<void> deleteArtifactsForModel(String modelId) async {
-    await (delete(modelArtifacts)..where((row) => row.modelId.equals(modelId))).go();
+    await (delete(
+      modelArtifacts,
+    )..where((row) => row.modelId.equals(modelId))).go();
   }
 
   Future<void> deleteModelRecord(String id) async {
     await transaction(() async {
       await deleteArtifactsForModel(id);
-      await (delete(modelSettings)..where((row) => row.modelId.equals(id))).go();
-      await (delete(activeModelAssignments)..where((row) => row.modelId.equals(id))).go();
+      await (delete(
+        modelSettings,
+      )..where((row) => row.modelId.equals(id))).go();
       await (delete(models)..where((row) => row.id.equals(id))).go();
     });
+  }
+
+  Future<void> deleteModelsForProvider(String providerId) async {
+    final modelsToDelete = await (select(models)
+          ..where((row) => row.providerId.equals(providerId)))
+        .get();
+    for (final row in modelsToDelete) {
+      await deleteModelRecord(row.id);
+    }
   }
 
   Future<void> updateModelSuffix(String modelId, String suffix) async {
@@ -428,19 +614,27 @@ class AppDatabase extends _$AppDatabase {
     }
     final validated = validateModelSuffix(suffix);
     final siblings = await childModelsOf(model.parentModelId!);
-    if (siblings.any((item) => item.id != modelId && item.suffix == validated)) {
-      throw const FormatException('Variant suffix already exists for this model');
+    if (siblings.any(
+      (item) => item.id != modelId && item.suffix == validated,
+    )) {
+      throw const FormatException(
+        'Variant suffix already exists for this model',
+      );
     }
     await (update(models)..where((row) => row.id.equals(modelId))).write(
-      ModelsCompanion(suffix: Value(validated), updatedAt: Value(DateTime.now())),
+      ModelsCompanion(
+        suffix: Value(validated),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
   }
 
   Future<List<ModelRecord>> childModelsOf(String parentModelId) async {
-    final rows = await (select(models)
-          ..where((row) => row.parentModelId.equals(parentModelId))
-          ..orderBy([(row) => OrderingTerm.asc(row.suffix)]))
-        .get();
+    final rows =
+        await (select(models)
+              ..where((row) => row.parentModelId.equals(parentModelId))
+              ..orderBy([(row) => OrderingTerm.asc(row.suffix)]))
+            .get();
     return [for (final row in rows) _mapModelRecord(row)];
   }
 
@@ -452,123 +646,179 @@ class AppDatabase extends _$AppDatabase {
         : modelRecordById(model.parentModelId!);
   }
 
-  Future<List<ModelArtifactRecord>> artifactsForModel(String modelId) async {
+  /// Own and inherited artifacts without duplicating inherited rows.
+  Future<List<ResolvedModelArtifact>> artifactsForModel(String modelId) async {
     final model = await modelRecordById(modelId);
     if (model == null) return const [];
-    final rows = await (select(modelArtifacts)
-          ..where((row) => row.modelId.equals(modelId))
-          ..orderBy([
-            (row) => OrderingTerm.asc(row.position),
-            (row) => OrderingTerm.asc(row.fileName),
-          ]))
-        .get();
-    final own = [for (final row in rows) _mapModelArtifact(row)];
-    if (model.parentModelId == null) return own;
-    final inherited = await artifactsForModel(model.parentModelId!);
-    return [...inherited, ...own];
+    final own = await _ownArtifacts(model.id);
+    if (model.parentModelId == null) {
+      return [
+        for (final artifact in own)
+          ResolvedModelArtifact(
+            record: artifact,
+            ownerModelId: model.id,
+            inherited: false,
+            ownerSuffix: model.suffix,
+            storageKey: model.externalModelId,
+          ),
+      ];
+    }
+    final parent = await modelRecordById(model.parentModelId!);
+    if (parent == null) {
+      return [
+        for (final artifact in own)
+          ResolvedModelArtifact(
+            record: artifact,
+            ownerModelId: model.id,
+            inherited: false,
+            ownerSuffix: model.suffix,
+            storageKey: model.externalModelId,
+          ),
+      ];
+    }
+    final inherited = await _ownArtifacts(parent.id);
+    return [
+      for (final artifact in inherited)
+        ResolvedModelArtifact(
+          record: artifact,
+          ownerModelId: parent.id,
+          inherited: true,
+          ownerSuffix: parent.suffix,
+          storageKey: parent.externalModelId,
+        ),
+      for (final artifact in own)
+        ResolvedModelArtifact(
+          record: artifact,
+          ownerModelId: model.id,
+          inherited: false,
+          ownerSuffix: model.suffix,
+          storageKey: model.externalModelId,
+        ),
+    ];
+  }
+
+  Future<List<ModelArtifactRecord>> _ownArtifacts(String modelId) async {
+    final rows =
+        await (select(modelArtifacts)
+              ..where((row) => row.modelId.equals(modelId))
+              ..orderBy([
+                (row) => OrderingTerm.asc(row.position),
+                (row) => OrderingTerm.asc(row.id),
+              ]))
+            .get();
+    return [for (final row in rows) _mapModelArtifact(row)];
   }
 
   Future<ModelSettingsRecord?> modelSettingsFor(String modelId) async {
-    final row = await (select(modelSettings)
-          ..where((item) => item.modelId.equals(modelId)))
-        .getSingleOrNull();
+    final row = await (select(
+      modelSettings,
+    )..where((item) => item.modelId.equals(modelId))).getSingleOrNull();
     return row == null ? null : _mapModelSettings(row);
   }
 
-  Future<List<ActiveModelAssignmentRecord>> activeModelAssignmentsForTask(
-    String taskId,
-  ) async {
-    final rows = await (select(activeModelAssignments)
-          ..where((row) => row.taskId.equals(taskId) & row.enabled.equals(true))
-          ..orderBy([(row) => OrderingTerm.desc(row.priority)]))
-        .get();
-    return [for (final row in rows) _mapAssignment(row)];
-  }
-
-  Future<List<ActiveModelAssignmentRecord>> allActiveModelAssignments() async {
-    final rows = await (select(activeModelAssignments)
-          ..where((row) => row.enabled.equals(true))
-          ..orderBy([(row) => OrderingTerm.desc(row.priority)]))
-        .get();
-    return [for (final row in rows) _mapAssignment(row)];
-  }
-
   Future<void> saveModelRecord(ModelRecord model) async {
+    _validateModelIdentity(model);
+    await _validateVariant(model);
+    await into(models).insertOnConflictUpdate(_modelCompanion(model));
+  }
+
+  /// Upserts the model and replaces its own artifact rows atomically.
+  Future<void> saveModelWithArtifacts(
+    ModelRecord model,
+    List<ModelArtifactRecord> artifacts,
+  ) async {
+    _validateModelIdentity(model);
+    await _validateVariant(model);
+    await transaction(() async {
+      await into(models).insertOnConflictUpdate(_modelCompanion(model));
+      await (delete(
+        modelArtifacts,
+      )..where((row) => row.modelId.equals(model.id))).go();
+      for (final artifact in artifacts) {
+        await into(modelArtifacts)
+            .insertOnConflictUpdate(_artifactCompanion(artifact));
+      }
+    });
+  }
+
+  void _validateModelIdentity(ModelRecord model) {
+    if (model.id.trim().isEmpty) {
+      throw const FormatException('Model id is required');
+    }
+    if (model.externalModelId.trim().isEmpty) {
+      throw const FormatException('Model external id is required');
+    }
+  }
+
+  Future<void> _validateVariant(ModelRecord model) async {
     if (model.isVariant) {
       final parent = await modelRecordById(model.parentModelId!);
       if (parent == null || parent.parentModelId != null) {
         throw const FormatException('A variant must reference a base model');
       }
-      if (parent.sourceId != model.sourceId ||
-          parent.externalModelId != model.externalModelId) {
+      if (parent.providerId != model.providerId) {
         throw const FormatException(
-          'A variant must retain its base model source and external ID',
+          'A variant must reference a base model from the same provider',
         );
       }
       validateModelSuffix(model.suffix!);
       final siblings = await childModelsOf(parent.id);
-      if (siblings.any((item) => item.suffix == model.suffix && item.id != model.id)) {
-        throw const FormatException('Variant suffix already exists for this model');
+      if (siblings.any(
+        (item) => item.suffix == model.suffix && item.id != model.id,
+      )) {
+        throw const FormatException(
+          'Variant suffix already exists for this model',
+        );
       }
     } else if (model.suffix != null || model.parentModelId != null) {
       throw const FormatException('Base models cannot have a parent or suffix');
     }
-    await into(models).insertOnConflictUpdate(
-      ModelsCompanion.insert(
-        id: model.id,
-        sourceId: model.sourceId,
-        externalModelId: model.externalModelId,
-        displayName: model.displayName,
-        parentModelId: Value(model.parentModelId),
-        suffix: Value(model.suffix),
-        publisher: Value(model.publisher),
-        sourceType: Value(model.sourceType),
-        metadataJson: Value(jsonEncode(model.metadata)),
-        taskJson: Value(jsonEncode([
-          for (final declaration in model.tasks)
-            {
-              'taskId': declaration.task.id,
-              'confidence': declaration.confidence.name,
-              'source': declaration.source.name,
-              'upstreamValue': declaration.upstreamValue,
-              'refreshedAt': declaration.refreshedAt?.toIso8601String(),
-            },
-        ])),
-        createdAt: model.createdAt,
-        updatedAt: model.updatedAt,
+  }
+
+  ModelsCompanion _modelCompanion(ModelRecord model) {
+    return ModelsCompanion.insert(
+      id: model.id,
+      providerId: model.providerId,
+      externalModelId: model.externalModelId,
+      displayName: model.displayName,
+      parentModelId: Value(model.parentModelId),
+      suffix: Value(model.suffix),
+      publisher: Value(model.publisher),
+      metadataJson: Value(jsonEncode(model.metadata)),
+      taskJson: Value(
+        jsonEncode([
+          for (final declaration in normaliseTaskDeclarations(model.tasks))
+            taskDeclarationToJson(declaration),
+        ]),
       ),
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
     );
   }
 
   Future<void> saveModelArtifact(ModelArtifactRecord artifact) async {
-    await into(modelArtifacts).insertOnConflictUpdate(
-      ModelArtifactsCompanion.insert(
-        id: artifact.id,
-        modelId: artifact.modelId,
-        externalPath: artifact.externalPath,
-        fileName: artifact.fileName,
-        kind: Value(artifact.kind),
-        sourceType: Value(artifact.sourceType),
-        repositoryPath: Value(artifact.repositoryPath),
-        deviceSourcePath: Value(artifact.deviceSourcePath),
-        targetPath: Value(artifact.targetPath),
-        format: Value(artifact.format),
-        sizeBytes: Value(artifact.sizeBytes),
-        isLfs: Value(artifact.isLfs),
-        oid: Value(artifact.oid),
-        revision: Value(artifact.revision),
-        enabled: Value(artifact.enabled),
-        position: Value(artifact.position),
-        metadataJson: Value(jsonEncode(artifact.metadata)),
-        createdAt: artifact.createdAt,
-        updatedAt: artifact.updatedAt,
-      ),
+    await into(modelArtifacts)
+        .insertOnConflictUpdate(_artifactCompanion(artifact));
+  }
+
+  ModelArtifactsCompanion _artifactCompanion(ModelArtifactRecord artifact) {
+    return ModelArtifactsCompanion.insert(
+      id: artifact.id,
+      modelId: artifact.modelId,
+      externalPath: artifact.externalPath,
+      kind: Value(artifact.kind),
+      sourceType: Value(artifact.sourceType),
+      targetPath: Value(artifact.targetPath),
+      format: Value(artifact.format),
+      sizeBytes: Value(artifact.sizeBytes),
+      enabled: Value(artifact.enabled),
+      position: Value(artifact.position),
+      createdAt: artifact.createdAt,
+      updatedAt: artifact.updatedAt,
     );
   }
 
-  Future<void> saveModelInferenceSettings(
-    ModelSettingsRecord settings,
-  ) async {
+  Future<void> saveModelInferenceSettings(ModelSettingsRecord settings) async {
     await into(modelSettings).insertOnConflictUpdate(
       ModelSettingsCompanion.insert(
         id: settings.id,
@@ -579,24 +829,6 @@ class AppDatabase extends _$AppDatabase {
         maxThinkingTokens: Value(settings.maxThinkingTokens),
         thinkingConfigJson: Value(jsonEncode(settings.thinkingConfig)),
         updatedAt: settings.updatedAt,
-      ),
-    );
-  }
-
-  Future<void> saveActiveModelAssignment(
-    ActiveModelAssignmentRecord assignment,
-  ) async {
-    await into(activeModelAssignments).insertOnConflictUpdate(
-      ActiveModelAssignmentsCompanion.insert(
-        id: assignment.id,
-        modelId: assignment.modelId,
-        taskId: assignment.taskId,
-        priority: Value(assignment.priority),
-        assignmentType: Value(assignment.assignmentType),
-        enabled: Value(assignment.enabled),
-        metadataJson: Value(jsonEncode(assignment.metadata)),
-        createdAt: assignment.createdAt,
-        updatedAt: assignment.updatedAt,
       ),
     );
   }
@@ -623,13 +855,12 @@ class AppDatabase extends _$AppDatabase {
     final rawTasks = _decodeList(row.taskJson);
     return ModelRecord(
       id: row.id,
-      sourceId: row.sourceId,
+      providerId: row.providerId,
       externalModelId: row.externalModelId,
       displayName: row.displayName,
       parentModelId: row.parentModelId,
       suffix: row.suffix,
       publisher: row.publisher,
-      sourceType: row.sourceType,
       metadata: _decodeMap(row.metadataJson),
       tasks: _decodeTaskDeclarations(rawTasks),
       createdAt: row.createdAt,
@@ -637,70 +868,36 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  ModelArtifactRecord _mapModelArtifact(ModelArtifact row) => ModelArtifactRecord(
-    id: row.id,
-    modelId: row.modelId,
-    externalPath: row.externalPath,
-    fileName: row.fileName,
-    kind: row.kind,
-    sourceType: row.sourceType,
-    repositoryPath: row.repositoryPath,
-    deviceSourcePath: row.deviceSourcePath,
-    targetPath: row.targetPath,
-    format: row.format,
-    sizeBytes: row.sizeBytes,
-    isLfs: row.isLfs,
-    oid: row.oid,
-    revision: row.revision,
-    enabled: row.enabled,
-    position: row.position,
-    metadata: _decodeMap(row.metadataJson),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  );
-
-  ModelSettingsRecord _mapModelSettings(ModelSetting row) => ModelSettingsRecord(
-    id: row.id,
-    modelId: row.modelId,
-    version: row.version,
-    options: AiGenerationOptions.fromJson(_decodeMap(row.optionsJson)),
-    overrides: _decodeMap(row.overridesJson),
-    maxThinkingTokens: row.maxThinkingTokens,
-    thinkingConfig: _decodeMap(row.thinkingConfigJson),
-    updatedAt: row.updatedAt,
-  );
-
-  ActiveModelAssignmentRecord _mapAssignment(ActiveModelAssignmentRow row) =>
-      ActiveModelAssignmentRecord(
+  ModelArtifactRecord _mapModelArtifact(ModelArtifact row) =>
+      ModelArtifactRecord(
         id: row.id,
         modelId: row.modelId,
-        taskId: row.taskId,
-        priority: row.priority,
-        assignmentType: row.assignmentType,
+        externalPath: row.externalPath,
+        kind: row.kind,
+        sourceType: row.sourceType,
+        targetPath: row.targetPath,
+        format: row.format,
+        sizeBytes: row.sizeBytes,
         enabled: row.enabled,
-        metadata: _decodeMap(row.metadataJson),
+        position: row.position,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       );
 
+  ModelSettingsRecord _mapModelSettings(ModelSetting row) =>
+      ModelSettingsRecord(
+        id: row.id,
+        modelId: row.modelId,
+        version: row.version,
+        options: AiGenerationOptions.fromJson(_decodeMap(row.optionsJson)),
+        overrides: _decodeMap(row.overridesJson),
+        maxThinkingTokens: row.maxThinkingTokens,
+        thinkingConfig: _decodeMap(row.thinkingConfigJson),
+        updatedAt: row.updatedAt,
+      );
+
   TaskDeclaration? _decodeTaskDeclaration(Map<String, dynamic> json) {
-    final task = AiTaskId.fromId(json['taskId'] as String?);
-    if (task == null) return null;
-    final confidence = TaskMetadataConfidence.values.firstWhere(
-      (item) => item.name == json['confidence'],
-      orElse: () => TaskMetadataConfidence.unknown,
-    );
-    final source = TaskMetadataSource.values.firstWhere(
-      (item) => item.name == json['source'],
-      orElse: () => TaskMetadataSource.provider,
-    );
-    return TaskDeclaration(
-      task: task,
-      confidence: confidence,
-      source: source,
-      upstreamValue: json['upstreamValue'] as String?,
-      refreshedAt: DateTime.tryParse('${json['refreshedAt']}'),
-    );
+    return taskDeclarationFromJson(json);
   }
 
   List<TaskDeclaration> _decodeTaskDeclarations(List<dynamic> raw) {

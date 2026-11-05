@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import '../intelligence_exception.dart';
+import '../../intelligence_exception.dart';
 
 String stripTrailingSlashes(String value) =>
     value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -15,6 +15,13 @@ Uri remoteUri(String baseUrl, String path, {Map<String, String>? query}) {
   return query == null || query.isEmpty
       ? uri
       : uri.replace(queryParameters: {...uri.queryParameters, ...query});
+}
+
+/// One discovery endpoint optionally labelled with a discovery catalogue.
+class DiscoveryEndpoint {
+  const DiscoveryEndpoint(this.url, {this.catalogue = 'models'});
+  final String url;
+  final String catalogue;
 }
 
 /// Decodes server-sent events carrying JSON objects per data line.
@@ -113,5 +120,76 @@ IntelligenceException remoteStatusFailure(String providerId, int statusCode) {
       providerId: providerId,
       cause: statusCode,
     ),
+  };
+}
+
+/// POST a JSON body and return the decoded response map.
+Future<Map<String, dynamic>> postJson(
+  http.Client client,
+  Uri uri, {
+  required Map<String, String> headers,
+  required Map<String, dynamic> body,
+  Duration timeout = const Duration(seconds: 60),
+}) async {
+  final response = await client
+      .post(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      )
+      .timeout(timeout);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw remoteStatusFailure('remote', response.statusCode);
+  }
+  final decoded = jsonDecode(response.body);
+  if (decoded is! Map) {
+    throw InferenceFailedException(
+      'The provider returned an unexpected response.',
+      providerId: 'remote',
+    );
+  }
+  return {for (final entry in decoded.entries) '${entry.key}': entry.value};
+}
+
+/// Streams a chat-completions request, yielding decoded SSE JSON events.
+Stream<Map<String, dynamic>> streamJson(
+  http.Client client,
+  Uri uri, {
+  required Map<String, String> headers,
+  required Map<String, dynamic> body,
+  Duration timeout = const Duration(seconds: 60),
+}) async* {
+  final request = http.Request('POST', uri)
+    ..headers.addAll(headers)
+    ..body = jsonEncode(body);
+  final response = await client.send(request).timeout(timeout);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw remoteStatusFailure('remote', response.statusCode);
+  }
+  await for (final event in decodeSseJson(response.stream)) {
+    yield event;
+  }
+}
+
+/// Authentication headers for a remote provider call.
+Map<String, String> remoteAuthHeaders(String? apiKey,
+    {String accept = 'application/json', bool stream = false}) {
+  final headers = <String, String>{
+    'accept': stream ? 'text/event-stream' : 'application/json',
+    'content-type': 'application/json',
+  };
+  final key = apiKey?.trim();
+  if (key != null && key.isNotEmpty) {
+    headers['authorization'] = 'Bearer $key';
+  }
+  return headers;
+}
+
+/// Anthropic-specific headers.
+Map<String, String> anthropicHeaders(String? apiKey,
+    {bool stream = false}) {
+  return {
+    ...remoteAuthHeaders(apiKey, stream: stream),
+    'anthropic-version': '2023-06-01',
   };
 }

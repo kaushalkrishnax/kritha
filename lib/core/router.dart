@@ -2,12 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/chat/chat_screen.dart';
-import '../features/models/active_models_screen.dart';
 import '../features/models/custom_catalogue_screen.dart';
 import '../features/models/explore_models_screen.dart';
 import '../features/models/model_details_screen.dart';
+import '../features/models/models_screen.dart';
 import '../features/models/models_workspace_scaffold.dart';
-import '../features/models/provider_models_screen.dart';
 import '../features/providers/providers_screen.dart';
 import '../features/settings/settings_screen.dart';
 
@@ -23,11 +22,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/models/active',
-        builder: (context, state) => const ActiveModelsScreen(),
+        pageBuilder: (context, state) => NoTransitionPage(
+          child: const ModelsScreen(
+            destination: ModelsWorkspaceDestination.active,
+          ),
+        ),
       ),
       GoRoute(
         path: '/models/providers',
-        builder: (context, state) => const ProviderModelsScreen(),
+        pageBuilder: (context, state) => NoTransitionPage(
+          child: const ModelsScreen(
+            destination: ModelsWorkspaceDestination.providers,
+          ),
+        ),
       ),
       GoRoute(
         path: '/models/explore',

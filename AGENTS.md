@@ -41,5 +41,5 @@ Only `--no-codesign` is acceptable as an extra flag (iOS/local unsigned builds).
 - **iOS unsigned builds**: macOS/iOS Release configs use `CODE_SIGN_STYLE = Manual` with `CODE_SIGN_IDENTITY = "-"` and empty `DEVELOPMENT_TEAM` for local unsigned builds (see `macos/Runner/Configs/Signing.xcconfig`). Distribution still requires a valid signing identity — do not claim a signed build without one.
 - **litertlm**: resolved from pub.dev (`^0.0.14`); there is no local
   `packages/litertlm` copy in this repo. Keep LiteRT-LM types inside
-  `lib/features/intelligence/runtimes/litertlm_provider.dart`.
+  `lib/features/intelligence/providers/local/litertlm_provider.dart`.
 - **Flutter version**: 3.47.7 / Dart 3.13.5 (verified against).

@@ -90,7 +90,7 @@ class WorkspaceHeader extends StatelessWidget {
   }
 
   static TextStyle get _titleStyle => TextStyle(
-    fontSize: KrithaText.sizeXl,
+    fontSize: KrithaText.sizeLg,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.2,
   );

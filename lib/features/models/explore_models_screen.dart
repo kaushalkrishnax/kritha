@@ -404,14 +404,13 @@ class _SearchRow extends StatelessWidget {
       context: buttonContext,
       anchor: ContextMenuAnchor.fromContext(buttonContext),
       align: ContextMenuAlign.right,
+      width: 240,
       items: [
         for (final item in CatalogueSort.values)
           ContextMenuItem(
             id: item.name,
             label: item.label,
-            icon: item == sort
-                ? HugeIcons.strokeRoundedCheckmarkCircle02
-                : null,
+            trailingIcon: item == sort ? HugeIcons.strokeRoundedTick01 : null,
           ),
       ],
     );

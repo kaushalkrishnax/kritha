@@ -239,70 +239,74 @@ void main() {
     );
   });
 
-  test('stores base models and user-created variants in one model table', () async {
-    final now = DateTime(2026, 11, 1, 10);
-    final modelId = modelRecordId('huggingface', 'acme/vision-model');
-    const variantId = 'user-variant-1';
-    await database.saveModelRecord(
-      ModelRecord(
-        id: modelId,
-        sourceId: 'huggingface',
-        externalModelId: 'acme/vision-model',
-        displayName: 'Vision model',
-        createdAt: now,
-        updatedAt: now,
-        tasks: [
-          TaskDeclaration(
-            task: AiTaskId.imageTextToText,
-            confidence: TaskMetadataConfidence.explicit,
-            source: TaskMetadataSource.huggingFace,
-            upstreamValue: 'image-text-to-text',
-          ),
-        ],
-      ),
-    );
-    await database.saveModelRecord(
-      ModelRecord(
-        id: variantId,
-        sourceId: 'huggingface',
-        externalModelId: 'acme/vision-model',
-        parentModelId: modelId,
-        suffix: 'studio',
-        displayName: 'Vision model studio',
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
-    await database.saveModelArtifact(
-      ModelArtifactRecord(
-        id: 'artifact-1',
-        modelId: modelId,
-        externalPath: 'config.json',
-        fileName: 'config.json',
-        kind: 'configuration',
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
-    await database.saveModelArtifact(
-      ModelArtifactRecord(
-        id: 'artifact-2',
-        modelId: variantId,
-        externalPath: 'weights.bin',
-        fileName: 'weights.bin',
-        kind: 'weights',
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
-    final storedModel = await database.modelRecordById(modelId);
-    expect(storedModel?.tasks.single.task, AiTaskId.imageTextToText);
-    expect((await database.childModelsOf(modelId)).single.suffix, 'studio');
-    expect((await database.artifactsForModel(variantId)).map((item) => item.id),
-        ['artifact-1', 'artifact-2']);
-  });
+  test(
+    'stores base models and user-created variants in one model table',
+    () async {
+      final now = DateTime(2026, 11, 1, 10);
+      final modelId = modelRecordId('huggingface', 'acme/vision-model');
+      const variantId = 'user-variant-1';
+      await database.saveModelRecord(
+        ModelRecord(
+          id: modelId,
+          providerId: 'huggingface',
+          externalModelId: 'acme/vision-model',
+          displayName: 'Vision model',
+          createdAt: now,
+          updatedAt: now,
+          tasks: [
+            TaskDeclaration(
+              task: AiTaskId.imageTextToText,
+              confidence: TaskMetadataConfidence.explicit,
+              source: TaskMetadataSource.huggingFace,
+              upstreamValue: 'image-text-to-text',
+            ),
+          ],
+        ),
+      );
+      await database.saveModelRecord(
+        ModelRecord(
+          id: variantId,
+          providerId: 'huggingface',
+          externalModelId: 'acme/vision-model',
+          parentModelId: modelId,
+          suffix: 'studio',
+          displayName: 'Vision model studio',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await database.saveModelArtifact(
+        ModelArtifactRecord(
+          id: 'artifact-1',
+          modelId: modelId,
+          externalPath: 'config.json',
+          kind: 'configuration',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await database.saveModelArtifact(
+        ModelArtifactRecord(
+          id: 'artifact-2',
+          modelId: variantId,
+          externalPath: 'weights.bin',
+          kind: 'weights',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      final storedModel = await database.modelRecordById(modelId);
+      expect(storedModel?.tasks.single.task, AiTaskId.imageTextToText);
+      expect((await database.childModelsOf(modelId)).single.suffix, 'studio');
+      expect(
+        (await database.artifactsForModel(variantId))
+            .map((item) => item.record.id),
+        ['artifact-1', 'artifact-2'],
+      );
+    },
+  );
 
-  test('scopes settings and assignments to exact model records', () async {
+  test('scopes inference settings to exact model records', () async {
     final now = DateTime(2026, 11, 1, 11);
     const modelId = 'mistral:mistral-small';
     await database.saveModelInferenceSettings(
@@ -313,27 +317,9 @@ void main() {
         updatedAt: now,
       ),
     );
-    await database.saveActiveModelAssignment(
-      ActiveModelAssignmentRecord(
-        id: assignmentRecordId(modelId, AiTaskId.textGeneration.id, 'single'),
-        modelId: modelId,
-        taskId: AiTaskId.textGeneration.id,
-        priority: 10,
-        assignmentType: 'single',
-        enabled: true,
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
     final settings = await database.modelSettingsFor(modelId);
     expect(settings?.options.temperature, 0.4);
     expect(settings?.options.topK, 20);
-    expect(
-      (await database.activeModelAssignmentsForTask(
-        AiTaskId.textGeneration.id,
-      )).single.modelId,
-      modelId,
-    );
   });
 
   test('updates a variant suffix and renames its storage directory', () async {
@@ -343,7 +329,7 @@ void main() {
     await database.saveModelRecord(
       ModelRecord(
         id: baseId,
-        sourceId: 'user',
+        providerId: 'user',
         externalModelId: 'base-model',
         displayName: 'Base model',
         createdAt: now,
@@ -353,7 +339,7 @@ void main() {
     await database.saveModelRecord(
       ModelRecord(
         id: variantId,
-        sourceId: 'user',
+        providerId: 'user',
         externalModelId: 'base-model',
         parentModelId: baseId,
         suffix: 'draft',
@@ -390,7 +376,10 @@ void main() {
       ),
     );
     expect(await newDirectory.exists(), isTrue);
-    expect(await File('${newDirectory.path}/weights.bin').readAsString(), 'weights');
+    expect(
+      await File('${newDirectory.path}/weights.bin').readAsString(),
+      'weights',
+    );
     expect((await database.modelRecordById(variantId))?.suffix, 'release');
   });
 
@@ -401,7 +390,7 @@ void main() {
     await database.saveModelRecord(
       ModelRecord(
         id: baseId,
-        sourceId: 'user',
+        providerId: 'user',
         externalModelId: 'artifact-model',
         displayName: 'Artifact model',
         createdAt: now,
@@ -411,7 +400,7 @@ void main() {
     await database.saveModelRecord(
       ModelRecord(
         id: variantId,
-        sourceId: 'user',
+        providerId: 'user',
         externalModelId: 'artifact-model',
         parentModelId: baseId,
         suffix: 'custom',
@@ -425,7 +414,6 @@ void main() {
         id: 'base-config',
         modelId: baseId,
         externalPath: 'config.json',
-        fileName: 'config.json',
         kind: 'configuration',
         createdAt: now,
         updatedAt: now,
@@ -436,7 +424,6 @@ void main() {
         id: 'variant-weights',
         modelId: variantId,
         externalPath: 'weights.bin',
-        fileName: 'weights.bin',
         kind: 'weights',
         createdAt: now,
         updatedAt: now,
@@ -444,7 +431,7 @@ void main() {
     );
 
     final resolved = await database.artifactsForModel(variantId);
-    expect(resolved.map((artifact) => artifact.id), [
+    expect(resolved.map((artifact) => artifact.record.id), [
       'base-config',
       'variant-weights',
     ]);
@@ -461,5 +448,79 @@ void main() {
       await (database.select(database.modelArtifacts)).get(),
       hasLength(1),
     );
+  });
+
+  group('providers table', () {
+    test('seedDefaultProviders inserts stable UUIDs idempotently', () async {
+      await database.seedDefaultProviders();
+      await database.seedDefaultProviders();
+
+      final rows = await database.allProviders();
+      expect(rows.map((r) => r.id), containsAll(defaultProviderIds));
+    });
+
+    test('local-litertlm provider has null baseUrl', () async {
+      await database.seedDefaultProviders();
+      final row = await database.providerById(localLitertlmProviderId);
+      expect(row, isNotNull);
+      expect(row!.alias, 'local-litertlm');
+      expect(row.baseUrl, isNull);
+    });
+
+    test('alias is unique - inserting duplicate alias throws', () async {
+      await database.seedDefaultProviders();
+      final now = DateTime.now();
+      expect(
+        () => database.saveProvider(ProviderRow(
+          id: 'new-unique-id',
+          alias: 'google-gemini',
+          baseUrl: null,
+          apiKey: null,
+          createdAt: now,
+          updatedAt: now,
+        )),
+        throwsA(anything),
+      );
+    });
+
+    test('custom provider can be saved and retrieved', () async {
+      final now = DateTime.now();
+      await database.saveProvider(ProviderRow(
+        id: 'custom-uuid-001',
+        alias: 'my-api',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        createdAt: now,
+        updatedAt: now,
+      ));
+      final row = await database.providerById('custom-uuid-001');
+      expect(row!.alias, 'my-api');
+      expect(row.apiKey, 'sk-test');
+    });
+
+    test('deleteModelsForProvider cascades to artifacts and settings', () async {
+      final now = DateTime.now();
+      await database.seedDefaultProviders();
+      final model = ModelRecord(
+        id: 'model-001',
+        providerId: localLitertlmProviderId,
+        externalModelId: 'acme/test',
+        displayName: 'Test',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final artifact = ModelArtifactRecord(
+        id: 'art-001',
+        modelId: 'model-001',
+        externalPath: 'acme/test/model.litertlm',
+        createdAt: now,
+        updatedAt: now,
+      );
+      await database.saveModelWithArtifacts(model, [artifact]);
+      await database.deleteModelsForProvider(localLitertlmProviderId);
+
+      expect(await database.modelRecordById('model-001'), isNull);
+      expect(await database.artifactsForModel('model-001'), isEmpty);
+    });
   });
 }

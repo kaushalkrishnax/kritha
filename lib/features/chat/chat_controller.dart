@@ -9,10 +9,10 @@ import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
 import '../intelligence/intelligence_exception.dart';
 import '../intelligence/models/ai_response.dart';
-import '../intelligence/providers.dart';
-import '../intelligence/runtime_ids.dart';
+import '../intelligence/models/task_registry.dart';
+import '../intelligence/providers/providers.dart';
 import '../models/active/active_models.dart';
-import '../providers/providers_controller.dart';
+import '../models/catalogue/catalogue_model.dart';
 import 'conversation_context.dart';
 
 /// A reply that could not be produced, scoped to the chat that asked for it.
@@ -538,19 +538,23 @@ class ChatController extends AsyncNotifier<ChatState> {
     StreamIterator<AiResponse>? iterator;
     try {
       // Wait for persisted selection before resolving backend; runtime checks happen in factory.
-      await ref.read(activeModelsProvider.future);
+      final active = await ref.read(activeModelsProvider.future);
       if (generation != _generation) return;
-      final assignments = ref.read(activeAssignmentsProvider);
-      if (assignments.values.any(
-        (assignment) => assignment.sourceId != localProviderId,
-      )) {
-        await ref.read(providersControllerProvider.future);
-        if (generation != _generation) return;
+      final textModelId = active.executableSelection[AiTaskId.textGeneration] ??
+          active.singleModels[ModelCapability.text] ??
+          active.multiModel?.modelId;
+      if (textModelId == null || textModelId.trim().isEmpty) {
+        _publishFailure(
+          sessionId,
+          'No model is assigned for text generation. Assign one in Active Models.',
+          retryable: false,
+          generation: generation,
+        );
+        return;
       }
-
       final stream = ref
           .read(intelligenceEngineProvider)
-          .stream(_contextBuilder.build(messages));
+          .stream(_contextBuilder.build(messages, modelId: textModelId));
       iterator = StreamIterator(stream);
       _activeIterator = iterator;
 

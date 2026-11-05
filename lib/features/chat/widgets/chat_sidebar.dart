@@ -15,6 +15,12 @@ import '../chat_controller.dart';
 void _openWorkspace(BuildContext context, String location) {
   final scaffold = Scaffold.maybeOf(context);
   if (scaffold?.isDrawerOpen ?? false) scaffold!.closeDrawer();
+  final current = GoRouterState.of(context).uri.path;
+  if (current == location) return;
+  if (current.startsWith('/models/')) {
+    context.replace(location);
+    return;
+  }
   context.push(location);
 }
 

@@ -28,11 +28,13 @@ class ModelsWorkspaceScaffold extends ConsumerStatefulWidget {
   const ModelsWorkspaceScaffold({
     super.key,
     required this.destination,
+    required this.onDestinationSelected,
     required this.child,
     this.maxContentWidth = 900,
   });
 
   final ModelsWorkspaceDestination destination;
+  final ValueChanged<ModelsWorkspaceDestination> onDestinationSelected;
   final Widget child;
   final double maxContentWidth;
 
@@ -59,23 +61,24 @@ class _ModelsWorkspaceScaffoldState
     final selected = await showKrithaContextMenu(
       context: anchorContext,
       anchor: ContextMenuAnchor.fromContext(anchorContext),
+      width: 280,
       items: [
         for (final destination in ModelsWorkspaceDestination.values)
           ContextMenuItem(
             id: destination.location,
             label: destination.title,
-            icon: destination == widget.destination
-                ? HugeIcons.strokeRoundedCheckmarkCircle02
+            trailingIcon: destination == widget.destination
+                ? HugeIcons.strokeRoundedTick01
                 : null,
           ),
       ],
     );
-    if (!mounted ||
-        selected == null ||
-        selected == widget.destination.location) {
-      return;
-    }
-    context.push(selected);
+    if (!mounted || selected == null) return;
+    final next = ModelsWorkspaceDestination.values.where(
+      (destination) => destination.location == selected,
+    );
+    if (next.isEmpty) return;
+    widget.onDestinationSelected(next.first);
   }
 
   Widget _content(KrithaViewport viewport) {
@@ -89,7 +92,7 @@ class _ModelsWorkspaceScaffoldState
               onBack: () => goBackOrExit(context),
               showBack: !viewport.isWide,
               titleTooltip: 'Switch models workspace',
-              onTitleTap: viewport.isWide ? null : _showDestinationMenu,
+              onTitleTap: _showDestinationMenu,
               actions: [
                 WorkspaceOutlinedAction(
                   label: 'Explore Models',

@@ -28,6 +28,9 @@ dependencies:
   dio: ^5.11.1
   path_provider: ^2.1.6
 
+  # Stable UUID primary keys for providers and models.
+  uuid: ^4.6.0
+
   # Models and code generation.
   freezed_annotation: ^3.1.0
 

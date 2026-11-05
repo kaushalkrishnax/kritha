@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../services/device_probe.dart';
 import '../../../services/runtime_probe.dart';
-import '../../intelligence/runtime_ids.dart';
+
 import '../catalogue/catalogue_model.dart';
 import 'model_setup_assessment.dart';
 
@@ -192,7 +192,7 @@ class ModelSetupAssessor {
       }
     }
     return RuntimeConstraints(
-      runtimeId: localRuntimeId,
+      runtimeId: 'local-litertlm',
       runtimeAvailable: runtime.liteRtLmReady,
       storageWritable: storageWritable,
       storagePath: path,
@@ -258,7 +258,7 @@ class ModelSetupAssessor {
     );
 
     return ModelSetupSelection(
-      runtimeId: localRuntimeId,
+      runtimeId: 'local-litertlm',
       configurationFiles: filesFor(ModelArtifactKind.configuration),
       helperFiles: filesFor(ModelArtifactKind.helper),
       weightFiles: List.unmodifiable(

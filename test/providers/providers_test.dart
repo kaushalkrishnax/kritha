@@ -1,449 +1,436 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kritha/features/intelligence/model_configuration.dart';
-import 'package:kritha/features/intelligence/models/ai_request.dart';
-import 'package:kritha/features/intelligence/runtime_ids.dart';
-import 'package:kritha/features/intelligence/usage_tracking_provider.dart';
-import 'package:kritha/features/models/catalogue/catalogue_model.dart';
-import 'package:kritha/features/providers/provider_connection_tester.dart';
-import 'package:kritha/features/providers/provider_definition.dart';
-import 'package:kritha/features/providers/provider_stores.dart';
-import 'package:kritha/features/providers/provider_usage.dart';
+import 'package:http/http.dart' as http;
+import 'package:kritha/core/providers.dart';
+import 'package:kritha/data/app_database.dart';
+import 'package:kritha/features/intelligence/intelligence_exception.dart';
+import 'package:kritha/features/intelligence/providers/local/litertlm_provider.dart';
+import 'package:kritha/features/intelligence/providers/provider.dart';
+import 'package:kritha/features/intelligence/providers/provider_registry.dart';
+import 'package:kritha/features/intelligence/providers/remote/oai_spec_provider.dart';
+import 'package:kritha/features/intelligence/providers/remote/xai_provider.dart';
+import 'package:kritha/features/models/active/active_models.dart';
+import 'package:kritha/features/models/model_record_store.dart';
+import 'package:kritha/models/model_record.dart';
+import 'package:kritha/features/providers/provider_alias.dart';
 import 'package:kritha/features/providers/providers_controller.dart';
+import 'package:kritha/features/providers/provider_stores.dart';
+import 'package:kritha/services/runtime_probe.dart';
+import 'package:litertlm/litertlm.dart' as lite;
 
-import '../support/fake_inference.dart';
 import '../support/fake_workspace.dart';
 
-void main() {
-  ProviderContainer buildContainer({
-    InMemoryProviderSettingsStore? settings,
-    InMemoryProviderCredentialStore? credentials,
-    InMemoryProviderUsageStore? usage,
-    FakeProviderConnectionTester? tester,
-    String? modelPath,
-  }) {
-    return ProviderContainer(
-      overrides: [
-        providerSettingsStoreProvider.overrideWithValue(
-          settings ?? InMemoryProviderSettingsStore(),
-        ),
-        providerCredentialStoreProvider.overrideWithValue(
-          credentials ?? InMemoryProviderCredentialStore(),
-        ),
-        providerUsageStoreProvider.overrideWithValue(
-          usage ?? InMemoryProviderUsageStore(),
-        ),
-        providerConnectionTesterProvider.overrideWithValue(
-          tester ?? FakeProviderConnectionTester(),
-        ),
-        modelConfigStoreProvider.overrideWithValue(
-          InMemoryModelConfigStore(modelPath),
-        ),
-      ],
-    );
+class _MockDatabase extends AppDatabase {
+  _MockDatabase() : super(NativeDatabase.memory()) {
+    final now = DateTime.now();
+    _rows = [
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111101',
+        alias: 'local-litertlm',
+        baseUrl: null,
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111102',
+        alias: 'google-gemini',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111103',
+        alias: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111104',
+        alias: 'xai',
+        baseUrl: 'https://api.x.ai/v1',
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111105',
+        alias: 'mistral',
+        baseUrl: 'https://api.mistral.ai/v1',
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      ProviderRow(
+        id: '11111111-1111-1111-1111-111111111106',
+        alias: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: null,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ];
   }
 
-  group('provider configuration', () {
-    test(
-      'starts with the local runtime configured and hosted providers off',
-      () async {
-        final container = buildContainer();
-        addTearDown(container.dispose);
+  List<ProviderRow> _rows = [];
 
-        final state = await container.read(providersControllerProvider.future);
+  @override
+  Future<List<ProviderRow>> allProviders() async => List.unmodifiable(_rows);
 
-        expect(state.configurationFor('local-litertlm')!.configured, isTrue);
-        expect(state.configurationFor('openai'), isNull);
-        expect(state.configurationFor('groq'), isNull);
-        expect(state.configurationFor('perplexity'), isNull);
-        expect(
-          state.configurationFor('mistral')!.baseUrl,
-          'https://api.mistral.ai/v1',
-        );
-      },
-    );
+  @override
+  Future<ProviderRow?> providerById(String id) async {
+    for (final r in _rows) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
 
-    test('retains the supported cloud provider catalogue', () {
-      final ids = [
-        for (final definition in builtInInferenceProviders) definition.id,
-      ];
-      expect(
-        ids,
-        containsAll([
-          'anthropic',
-          'google',
-          'xai',
-          'deepseek',
-          'qwen',
-          'huggingface',
-          'mistral',
-        ]),
+  @override
+  Future<ProviderRow?> providerByAlias(String alias) async => null;
+
+  @override
+  Future<bool> providerAliasTaken(
+    String alias, {
+    String? excludingProviderId,
+  }) async =>
+      _rows.any((r) => r.alias == alias && r.id != excludingProviderId);
+
+  @override
+  Future<void> saveProvider(ProviderRow provider) async {
+    _rows.removeWhere((r) => r.id == provider.id);
+    _rows.add(provider);
+  }
+
+  @override
+  Future<void> updateProviderAlias(String id, String alias) async {
+    final index = _rows.indexWhere((r) => r.id == id);
+    if (index >= 0) {
+      _rows[index] = _rows[index].copyWith(alias: alias);
+    }
+  }
+
+  @override
+  Future<void> updateProviderConfig(
+    String id, {
+    String? baseUrl,
+    String? apiKey,
+  }) async {
+    final index = _rows.indexWhere((r) => r.id == id);
+    if (index >= 0) {
+      _rows[index] = _rows[index].copyWith(
+        baseUrl: baseUrl == null ? const Value.absent() : Value(baseUrl),
+        apiKey: apiKey == null ? Value(null) : Value(apiKey),
       );
-      expect(ids, isNot(contains('openai')));
-      expect(ids, isNot(contains('groq')));
-      expect(ids, isNot(contains('perplexity')));
+    }
+  }
+
+  @override
+  Future<void> deleteProvider(String id) async {
+    _rows.removeWhere((r) => r.id == id);
+  }
+
+  @override
+  Future<List<ModelRecord>> allModelRecords() async => const [];
+  @override
+  Future<ModelRecord?> modelRecordById(String id) async => null;
+  @override
+  Future<ModelRecord?> modelRecordByProviderAndExternal(
+    String providerId,
+    String externalModelId,
+  ) async =>
+      null;
+  @override
+  Future<void> deleteArtifactsForModel(String modelId) async {}
+  @override
+  Future<void> deleteModelRecord(String id) async {}
+  @override
+  Future<void> deleteModelsForProvider(String providerId) async {}
+  @override
+  Future<void> updateModelSuffix(String modelId, String suffix) async {}
+  @override
+  Future<List<ModelRecord>> childModelsOf(String parentModelId) async =>
+      const [];
+  @override
+  Future<ModelRecord?> baseModelFor(String modelId) async => null;
+  @override
+  Future<List<ResolvedModelArtifact>> artifactsForModel(String modelId) async =>
+      const [];
+  @override
+  Future<ModelSettingsRecord?> modelSettingsFor(String modelId) async => null;
+  @override
+  Future<void> saveModelRecord(ModelRecord model) async {}
+  @override
+  Future<void> saveModelWithArtifacts(
+    ModelRecord model,
+    List<ModelArtifactRecord> artifacts,
+  ) async {}
+  @override
+  Future<void> saveModelArtifact(ModelArtifactRecord artifact) async {}
+  @override
+  Future<void> saveModelInferenceSettings(ModelSettingsRecord settings) async {}
+  @override
+  Future<String?> actionPreference(String actionKey) async => null;
+  @override
+  Future<void> setActionPreference(String actionKey, String value) async {}
+}
+
+ProviderContainer buildContainer({
+  InMemoryProviderSettingsStore? settings,
+  InMemoryProviderCredentialStore? credentials,
+  InMemoryProviderUsageStore? usage,
+  InMemoryModelRepository? modelRepository,
+  InMemoryActiveModelStore? activeStore,
+  RuntimeStatus? runtime,
+}) {
+  return ProviderContainer(
+    overrides: [
+      providerSettingsStoreProvider.overrideWithValue(
+        settings ?? InMemoryProviderSettingsStore(),
+      ),
+      providerCredentialStoreProvider.overrideWithValue(
+        credentials ?? InMemoryProviderCredentialStore(),
+      ),
+      providerUsageStoreProvider.overrideWithValue(
+        usage ?? InMemoryProviderUsageStore(),
+      ),
+      modelRepositoryProvider.overrideWithValue(
+        modelRepository ?? InMemoryModelRepository(),
+      ),
+      activeModelStoreProvider.overrideWithValue(
+        activeStore ?? InMemoryActiveModelStore(),
+      ),
+      recentModelStoreProvider.overrideWithValue(InMemoryRecentModelStore()),
+      runtimeStatusProvider.overrideWith(
+        (ref) async => runtime ?? testRuntimeStatus(),
+      ),
+      databaseProvider.overrideWithValue(_MockDatabase()),
+    ],
+  );
+}
+
+class _FakeLiteRtLmEngine implements LiteRtLmEngine {
+  _FakeLiteRtLmEngine();
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<String> complete({
+    required lite.ConversationConfig conversation,
+    required lite.Message message,
+  }) async {
+    return 'ok';
+  }
+
+  @override
+  Stream<String> stream({
+    required lite.ConversationConfig conversation,
+    required lite.Message message,
+  }) async* {
+    yield 'ok';
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
+void main() {
+  group('provider alias derivation', () {
+    test('uses title-cased domain then subdomain labels', () {
+      expect(deriveProviderAlias('https://openai.com/v1'), 'Openai');
+      expect(deriveProviderAlias('https://api.openai.com/v1'), 'Openai Api');
+      expect(
+        deriveProviderAlias('https://api.anthropic.com/v1'),
+        'Anthropic Api',
+      );
+      expect(
+        deriveProviderAlias('https://generativelanguage.googleapis.com/v1'),
+        'Googleapis Generativelanguage',
+      );
+      expect(deriveProviderAlias('https://example.com/v1'), 'Example');
+      expect(
+        deriveProviderAlias('https://api.example.co.uk/v1'),
+        'Example Api',
+      );
+      expect(
+        deriveProviderAlias('https://api.example.co.jp/v1'),
+        'Example Api',
+      );
+      expect(
+        deriveProviderAlias('https://api.example.com.au/v1'),
+        'Example Api',
+      );
+      expect(deriveProviderAlias('https://foo.github.io/v1'), 'Github Foo');
     });
 
-    test('persists endpoint changes without credentials', () async {
-      final settings = InMemoryProviderSettingsStore();
-      final container = buildContainer(settings: settings);
-      addTearDown(container.dispose);
-      await container.read(providersControllerProvider.future);
-      final controller = container.read(providersControllerProvider.notifier);
-
-      await controller.setBaseUrl('mistral', 'https://proxy.example.com/v1');
-
+    test('ignores ports, paths, queries and the www label', () {
       expect(
-        settings.settings['mistral']!.baseUrl,
-        'https://proxy.example.com/v1',
-      );
-      expect(settings.settings['mistral']!.configured, isFalse);
-      expect(
-        container
-            .read(providersControllerProvider)
-            .value!
-            .configurationFor('mistral')!
-            .baseUrl,
-        'https://proxy.example.com/v1',
+        deriveProviderAlias('https://www.example.com:8443/v1?region=eu'),
+        'Example',
       );
     });
 
-    test(
-      'stores credentials in the credential store, never in settings',
-      () async {
-        final settings = InMemoryProviderSettingsStore();
-        final credentials = InMemoryProviderCredentialStore();
-        final container = buildContainer(
-          settings: settings,
-          credentials: credentials,
-        );
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-        final controller = container.read(providersControllerProvider.notifier);
-
-        await controller.saveCredential('mistral', '  sk-test  ');
-
-        expect(credentials.credentials['mistral'], 'sk-test');
-        expect(settings.settings['mistral']!.configured, isTrue);
-        final state = container.read(providersControllerProvider).value!;
-        expect(state.configurationFor('mistral')!.hasCredential, isTrue);
-        expect(
-          state.configurationFor('mistral')!.hasRequiredCredentials,
-          isTrue,
-        );
-        expect(state.configurationFor('mistral')!.configured, isTrue);
-        expect(state.toString(), isNot(contains('sk-test')));
-
-        await controller.removeCredential('mistral');
-        expect(credentials.credentials.containsKey('mistral'), isFalse);
-        final removed = container
-            .read(providersControllerProvider)
-            .value!
-            .configurationFor('mistral')!;
-        expect(removed.hasCredential, isFalse);
-        expect(removed.hasRequiredCredentials, isFalse);
-        expect(removed.configured, isFalse);
-        expect(settings.settings.containsKey('mistral'), isTrue);
-      },
-    );
-
-    test(
-      'does not call a provider when a required credential is missing',
-      () async {
-        final tester = FakeProviderConnectionTester();
-        final container = buildContainer(tester: tester);
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-
-        final result = await container
-            .read(providersControllerProvider.notifier)
-            .testConnection('mistral');
-
-        expect(result.ok, isFalse);
-        expect(result.message, contains('before testing'));
-        expect(tester.testedProviderIds, isEmpty);
-      },
-    );
-
-    test('stores a real connection-test result', () async {
-      final tester = FakeProviderConnectionTester();
-      final credentials = InMemoryProviderCredentialStore({
-        'mistral': 'sk-test',
-      });
-      final container = buildContainer(
-        tester: tester,
-        credentials: credentials,
-      );
-      addTearDown(container.dispose);
-      await container.read(providersControllerProvider.future);
-
-      final result = await container
-          .read(providersControllerProvider.notifier)
-          .testConnection('mistral');
-
-      expect(result.ok, isTrue);
-      expect(tester.testedProviderIds, ['mistral']);
-      final state = container.read(providersControllerProvider).value!;
-      expect(state.testResults['mistral']!.ok, isTrue);
-      expect(state.testing, isEmpty);
+    test('leaves ambiguous hosts empty for manual entry', () {
+      expect(deriveProviderAlias('http://localhost:8080/v1'), isNull);
+      expect(deriveProviderAlias('http://127.0.0.1:8080/v1'), isNull);
+      expect(deriveProviderAlias('https://api.'), isNull);
+      expect(deriveProviderAlias('https://api'), isNull);
+      expect(deriveProviderAlias('not a url'), isNull);
     });
 
-    test(
-      'configured provider models are exposed to the shared model picker',
-      () async {
-        final tester = FakeProviderConnectionTester()
-          ..models['mistral'] = const [
-            ProviderModelInfo(id: 'mistral-large', name: 'Mistral Large'),
-          ];
-        final settings = InMemoryProviderSettingsStore({
-          'mistral': const StoredProviderSettings(
-            baseUrl: 'https://api.mistral.ai/v1',
-            configured: true,
-          ),
-        });
-        final credentials = InMemoryProviderCredentialStore({
-          'mistral': 'sk-test',
-        });
-        final container = buildContainer(
-          settings: settings,
-          credentials: credentials,
-          tester: tester,
-        );
-        addTearDown(container.dispose);
+    test('normalizes aliases consistently for comparison', () {
+      expect(normalizeProviderAlias('  My API  '), 'my-api');
+      expect(normalizeProviderAlias('API_Example'), 'api-example');
+      expect(normalizeProviderAlias('---'), isEmpty);
+    });
 
-        final models = await container.read(
-          providerModelsProvider('mistral').future,
-        );
-
-        expect(models.single.id, 'mistral-large');
-        expect(tester.testedProviderIds, isEmpty);
-      },
-    );
-
-    test(
-      'local test reports the validated file instead of a network call',
-      () async {
-        final tempDir = Directory.systemTemp.createTempSync('kritha-provider-');
-        addTearDown(() {
-          if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
-        });
-        final path = '${tempDir.path}/local.litertlm';
-        File(path).writeAsBytesSync([1, 2, 3]);
-        final container = buildContainer(modelPath: path);
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-
-        final result = await container
-            .read(providersControllerProvider.notifier)
-            .testConnection('local-litertlm');
-
-        expect(result.ok, isTrue);
-        expect(result.message, contains('local.litertlm'));
-        expect(result.message, contains('loads only when a request is made'));
-      },
-    );
-
-    test('local test reports a missing model honestly', () async {
-      final container = buildContainer();
-      addTearDown(container.dispose);
-      await container.read(providersControllerProvider.future);
-
-      final result = await container
-          .read(providersControllerProvider.notifier)
-          .testConnection('local-litertlm');
-
-      expect(result.ok, isFalse);
-      expect(result.message, contains('No local model is selected'));
+    test('preserves display aliases with spaces and capitals', () {
+      expect(cleanProviderAlias('  My Work API  '), 'My Work API');
+      expect(cleanProviderAlias('My   Work  API'), 'My Work API');
+      expect(isValidProviderAlias('My Work API'), isTrue);
+      expect(isValidProviderAlias('My-API 2'), isTrue);
+      expect(isValidProviderAlias('my-api'), isTrue);
+      expect(isValidProviderAlias(''), isFalse);
+      expect(isValidProviderAlias('---'), isFalse);
     });
   });
 
-  group('provider usage', () {
-    test('starts empty and records successes and failures locally', () async {
-      final store = InMemoryProviderUsageStore();
-      final container = buildContainer(usage: store);
-      addTearDown(container.dispose);
+  group('provider registry', () {
+    test('resolves dedicated implementations', () {
+      final registry = ProviderRegistry(factories: {
+        'local-litertlm': (config) {
+          return LiteRtLmLocalProvider(
+            config: config,
+            createEngine: (path) => _FakeLiteRtLmEngine(),
+            localModels: () async => [],
+          );
+        },
+        'xai': (config) {
+          return XaiProvider(
+            config: config,
+            clientFactory: () => http.Client(),
+          );
+        },
+      });
 
-      expect(await container.read(providerUsageProvider.future), isEmpty);
+      expect(registry.isRegistered('local-litertlm'), isTrue);
+      expect(registry.isRegistered('xai'), isTrue);
+      expect(registry.isRegistered('custom-alias'), isFalse);
 
-      final controller = container.read(providerUsageProvider.notifier);
-      await controller.record('mistral', ok: true);
-      await controller.record('mistral', ok: true);
-      await controller.record('mistral', ok: false);
-      await controller.record('anthropic', ok: true);
+      final local = registry.createProvider(
+        ProviderConfig(id: 'local-id', alias: 'local-litertlm'),
+      );
+      expect(local.alias, 'local-litertlm');
 
-      final usage = container.read(providerUsageProvider).value!;
-      expect(usage['mistral']!.requests, 3);
-      expect(usage['mistral']!.successes, 2);
-      expect(usage['mistral']!.failures, 1);
-      expect(usage['anthropic']!.requests, 1);
-      expect(usage['anthropic']!.successes, 1);
-      expect(usage['anthropic']!.failures, 0);
-      expect(store.usage['mistral']!.requests, 3);
+      final xai = registry.createProvider(
+        ProviderConfig(id: 'xai-id', alias: 'xai'),
+      );
+      expect(xai.alias, 'xai');
     });
 
-    test('tracks settled generate and stream requests', () async {
-      final inner = FakeInferenceProvider();
-      final results = <bool>[];
-      final tracked = UsageTrackingInferenceProvider(
-        inner: inner,
-        onRequestSettled: results.add,
+    test('throws for unknown alias', () {
+      final registry = ProviderRegistry(factories: const {});
+      expect(
+        () => registry.createProvider(
+          ProviderConfig(id: 'unknown', alias: 'no-such-provider'),
+        ),
+        throwsA(isA<ProviderUnavailableException>()),
       );
-      final request = AiRequest(messages: [AiMessage.user('Hello')]);
-
-      await tracked.generate(request);
-      await tracked.stream(request).toList();
-      expect(results, [true, true]);
-
-      inner.error = StateError('provider failed');
-      await expectLater(tracked.generate(request), throwsStateError);
-      await expectLater(tracked.stream(request).toList(), throwsStateError);
-      expect(results, [true, true, false, false]);
     });
   });
 
   group('custom providers', () {
-    test(
-      'creates independent providers with derived and edited aliases',
-      () async {
-        final settings = InMemoryProviderSettingsStore();
-        final credentials = InMemoryProviderCredentialStore();
-        final tester = FakeProviderConnectionTester();
-        final container = buildContainer(
-          settings: settings,
-          credentials: credentials,
-          tester: tester,
-        );
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-        final controller = container.read(providersControllerProvider.notifier);
-
-        final first = await controller.createCustomProvider(
-          baseUrl: 'https://api.example.co.uk/v1',
-          alias: '',
-          credential: 'key-a',
-        );
-        final second = await controller.createCustomProvider(
-          baseUrl: 'https://example.com/v1',
-          alias: 'My Work API',
-          credential: 'key-b',
-        );
-
-        expect(first.alias, 'Example Api');
-        expect(second.alias, 'My Work API');
-        expect(first.providerId, isNot(second.providerId));
-        expect(first.configured, isTrue);
-        expect(settings.settings[first.providerId]!.alias, 'Example Api');
-        expect(settings.settings[second.providerId]!.alias, 'My Work API');
-        expect(credentials.credentials[first.providerId], 'key-a');
-        expect(credentials.credentials[second.providerId], 'key-b');
-
-        final state = container.read(providersControllerProvider).value!;
-        expect(state.customConfigurations, hasLength(2));
-        expect(
-          state.configurationForAlias('EXAMPLE API')?.providerId,
-          first.providerId,
-        );
-
-        await expectLater(
-          controller.createCustomProvider(
-            baseUrl: 'https://another.example.com/v1',
-            alias: 'my work api',
-          ),
-          throwsA(isA<ProviderConfigurationException>()),
-        );
-        await expectLater(
-          controller.createCustomProvider(
-            baseUrl: 'https://another.example.com/v1',
-            alias: 'mistral',
-          ),
-          throwsA(isA<ProviderConfigurationException>()),
-        );
-        expect(
-          settings.settings.keys.where((id) => id.startsWith('custom-')),
-          hasLength(2),
-        );
-
-        final updated = await controller.updateCustomProvider(
-          first.providerId,
-          baseUrl: 'https://api.example.com/v1',
-          alias: 'Renamed API',
-        );
-        expect(updated.providerId, first.providerId);
-        expect(updated.alias, 'Renamed API');
-        expect(settings.settings[first.providerId]!.alias, 'Renamed API');
-        expect(credentials.credentials[first.providerId], 'key-a');
-      },
-    );
-
-    test(
-      'removing a custom credential keeps the provider configured',
-      () async {
-        final settings = InMemoryProviderSettingsStore();
-        final credentials = InMemoryProviderCredentialStore();
-        final container = buildContainer(
-          settings: settings,
-          credentials: credentials,
-        );
-        addTearDown(container.dispose);
-        await container.read(providersControllerProvider.future);
-        final controller = container.read(providersControllerProvider.notifier);
-
-        final custom = await controller.createCustomProvider(
-          baseUrl: 'https://api.example.com/v1',
-          alias: 'my-api',
-          credential: 'custom-secret',
-        );
-        expect(custom.hasCredential, isTrue);
-        expect(custom.hasRequiredCredentials, isTrue);
-        expect(custom.configured, isTrue);
-
-        await controller.removeCredential(custom.providerId);
-
-        final state = container.read(providersControllerProvider).value!;
-        final updated = state.configurationFor(custom.providerId)!;
-        expect(credentials.credentials.containsKey(custom.providerId), isFalse);
-        expect(settings.settings.containsKey(custom.providerId), isTrue);
-        expect(updated.hasCredential, isFalse);
-        expect(updated.hasRequiredCredentials, isTrue);
-        expect(updated.configured, isTrue);
-      },
-    );
-
-    test('preserves the legacy custom provider configuration', () async {
-      final settings = InMemoryProviderSettingsStore({
-        'custom': const StoredProviderSettings(
-          baseUrl: 'https://api.deepseek.com',
-        ),
-      });
-      final credentials = InMemoryProviderCredentialStore({
-        'custom': 'ds-test',
-      });
-      final container = buildContainer(
-        settings: settings,
-        credentials: credentials,
-      );
+    test('creates independent providers with derived and edited aliases', () async {
+      final container = buildContainer();
       addTearDown(container.dispose);
 
-      final state = await container.read(providersControllerProvider.future);
-      final legacy = state.configurationFor('custom');
+      await container.read(providersControllerProvider.future);
+      final controller = container.read(providersControllerProvider.notifier);
 
-      expect(legacy, isNotNull);
-      expect(legacy!.alias, 'custom');
-      expect(legacy.definition.runtimeId, openAiRuntimeId);
-      expect(legacy.baseUrl, 'https://api.deepseek.com');
-      expect(legacy.hasCredential, isTrue);
-      expect(legacy.configured, isTrue);
+      final first = await controller.createCustomProvider(
+        baseUrl: 'https://api.example.co.uk/v1',
+        alias: '',
+        apiKey: 'key-a',
+      );
+      final second = await controller.createCustomProvider(
+        baseUrl: 'https://example.com/v1',
+        alias: 'My Work API',
+        apiKey: 'key-b',
+      );
+
+      expect(first.alias, 'Example Api');
+      expect(second.alias, 'My Work API');
+      expect(first.id, isNot(second.id));
+      expect(first.hasCredential, isTrue);
+      expect(second.hasCredential, isTrue);
+
+      final state = container.read(providersControllerProvider).value!;
+      expect(state.customProviders, hasLength(2));
+      expect(
+        state.configurationForAlias('EXAMPLE API')?.id,
+        first.id,
+      );
+
+      await expectLater(
+        controller.createCustomProvider(
+          baseUrl: 'https://another.example.com/v1',
+          alias: 'my work api',
+        ),
+        throwsA(isA<ProviderConfigurationException>()),
+      );
+      await expectLater(
+        controller.createCustomProvider(
+          baseUrl: 'https://another.example.com/v1',
+          alias: 'local-litertlm',
+        ),
+        throwsA(isA<ProviderConfigurationException>()),
+      );
+
+      final updated = await controller.updateCustomProvider(
+        first.id,
+        baseUrl: 'https://api.example.com/v1',
+        alias: 'Renamed API',
+      );
+      expect(updated.id, first.id);
+      expect(updated.alias, 'Renamed API');
     });
 
-    test('lists identical model IDs independently for each provider', () async {
-      final tester = FakeProviderConnectionTester();
-      final container = buildContainer(tester: tester);
+    test('loads edits and clears API key', () async {
+      final container = buildContainer();
       addTearDown(container.dispose);
+
+      await container.read(providersControllerProvider.future);
+      final controller = container.read(providersControllerProvider.notifier);
+
+      final custom = await controller.createCustomProvider(
+        baseUrl: 'https://api.example.com/v1',
+        alias: 'my-api',
+        apiKey: 'custom-secret',
+      );
+      expect(custom.hasCredential, isTrue);
+
+      await controller.saveCredential(custom.id, 'new-secret');
+      final state = container.read(providersControllerProvider).value!;
+      expect(state.configurationFor(custom.id)!.apiKey, 'new-secret');
+
+      await controller.saveCredential(custom.id, '');
+      final cleared = container
+          .read(providersControllerProvider)
+          .value!
+          .configurationFor(custom.id)!;
+      expect(cleared.apiKey, isNull);
+      expect(cleared.hasCredential, isFalse);
+    });
+
+    test('alias uniqueness validation excludes current provider', () async {
+      final container = buildContainer();
+      addTearDown(container.dispose);
+
       await container.read(providersControllerProvider.future);
       final controller = container.read(providersControllerProvider.notifier);
 
@@ -455,277 +442,87 @@ void main() {
         baseUrl: 'https://b.example.com/v1',
         alias: 'provider-b',
       );
-      tester.models[first.providerId] = const [
-        ProviderModelInfo(id: 'shared:model', name: 'Shared'),
-      ];
-      tester.models[second.providerId] = const [
-        ProviderModelInfo(id: 'shared:model', name: 'Shared'),
-      ];
+      expect(second.id, isNot(equals(first.id)));
 
-      final firstModels = await container.read(
-        providerModelsProvider(first.providerId).future,
-      );
-      final secondModels = await container.read(
-        providerModelsProvider(second.providerId).future,
+      // Renaming first to second's alias should fail.
+      await expectLater(
+        controller.updateCustomProvider(
+          first.id,
+          baseUrl: 'https://a.example.com/v1',
+          alias: 'provider-b',
+        ),
+        throwsA(isA<ProviderConfigurationException>()),
       );
 
-      expect(firstModels.single.id, 'shared:model');
-      expect(secondModels.single.id, 'shared:model');
-      expect(first.providerId, isNot(second.providerId));
+      // Renaming first to its own alias should succeed.
+      await controller.updateCustomProvider(
+        first.id,
+        baseUrl: 'https://a.example.com/v1',
+        alias: 'provider-a',
+      );
     });
   });
 
-  group('HTTP connection tester', () {
-    test(
-      'reports a reachable retained provider endpoint and model count',
-      () async {
-        final adapter = _FakeHttpAdapter(
-          (options) async => _jsonResponse({
-            'data': [
-              {'id': 'model-one'},
-            ],
-          }),
-        );
-        final tester = HttpProviderConnectionTester(_dio(adapter));
+  group('custom providers use OpenAI spec implementation', () {
+    test('registry maps custom alias to OaiSpecProvider', () {
+      final registry = ProviderRegistry(factories: {
+        'my-custom': (config) => OaiSpecProvider(
+          config: config,
+          clientFactory: () => http.Client(),
+        ),
+      });
 
-        final result = await tester.test(
-          providerDefinitionFor('mistral')!,
-          baseUrl: 'https://api.mistral.ai/v1',
-          credential: 'sk-test',
-        );
-
-        expect(result.ok, isTrue);
-        expect(result.modelCount, 1);
-        expect(result.message, contains('1 model'));
-        final request = adapter.requests.single;
-        expect(request.uri.toString(), 'https://api.mistral.ai/v1/models');
-        expect(request.headers['authorization'], 'Bearer sk-test');
-      },
-    );
-
-    test('provider model metadata remains capability-aware', () async {
-      final adapter = _FakeHttpAdapter(
-        (options) async => _jsonResponse({
-          'data': [
-            {'id': 'mistral-large', 'pipeline_tag': 'text-generation'},
-            {'id': 'whisper', 'task': 'automatic-speech-recognition'},
-            {'id': 'image-model', 'task': 'text-to-image'},
-          ],
-        }),
+      final provider = registry.createProvider(
+        ProviderConfig(
+          id: 'custom-1',
+          alias: 'my-custom',
+          baseUrl: 'https://api.example.com/v1',
+          apiKey: 'sk-test',
+        ),
       );
-      final models = await HttpProviderConnectionTester(_dio(adapter))
-          .listModels(
-            providerDefinitionFor('mistral')!,
-            baseUrl: 'https://api.mistral.ai/v1',
-            credential: 'sk-test',
+      expect(provider, isA<OaiSpecProvider>());
+      expect(provider.config.baseUrl, 'https://api.example.com/v1');
+      expect(provider.config.apiKey, 'sk-test');
+    });
+  });
+
+  group('default provider protection', () {
+    test('deleteProvider throws for a seeded default provider', () async {
+      final container = buildContainer();
+      addTearDown(container.dispose);
+      await container.read(providersControllerProvider.future);
+
+      await expectLater(
+        container
+            .read(providersControllerProvider.notifier)
+            .deleteProvider('11111111-1111-1111-1111-111111111101'),
+        throwsA(isA<ProviderConfigurationException>()),
+      );
+    });
+  });
+
+  group('custom provider deletion cleanup', () {
+    test('deleting a custom provider removes it from state', () async {
+      final container = buildContainer();
+      addTearDown(container.dispose);
+      await container.read(providersControllerProvider.future);
+
+      final provider = await container
+          .read(providersControllerProvider.notifier)
+          .createCustomProvider(
+            baseUrl: 'https://api.test.com/v1',
+            alias: 'test-provider',
           );
 
-      expect(models[0].supports(ModelCapability.text), isTrue);
-      expect(models[1].supports(ModelCapability.text), isFalse);
-      expect(models[1].supports(ModelCapability.speechRecognition), isTrue);
-      expect(models[2].supports(ModelCapability.text), isFalse);
-    });
+      final state = container.read(providersControllerProvider).value!;
+      expect(state.customProviders.map((c) => c.id), contains(provider.id));
 
-    test('sends Anthropic-specific headers', () async {
-      final adapter = _FakeHttpAdapter(
-        (options) async => _jsonResponse({'data': []}),
-      );
-      final tester = HttpProviderConnectionTester(_dio(adapter));
+      await container
+          .read(providersControllerProvider.notifier)
+          .deleteProvider(provider.id);
 
-      final result = await tester.test(
-        providerDefinitionFor('anthropic')!,
-        baseUrl: 'https://api.anthropic.com/v1',
-        credential: 'sk-ant',
-      );
-
-      expect(result.ok, isTrue);
-      expect(adapter.requests.single.headers['x-api-key'], 'sk-ant');
-      expect(
-        adapter.requests.single.headers['anthropic-version'],
-        '2023-06-01',
-      );
-    });
-
-    test('sends the Google key as a bearer token', () async {
-      final adapter = _FakeHttpAdapter(
-        (options) async => _jsonResponse({'data': []}),
-      );
-      final tester = HttpProviderConnectionTester(_dio(adapter));
-
-      final result = await tester.test(
-        providerDefinitionFor('google')!,
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-        credential: 'google-key',
-      );
-
-      expect(result.ok, isTrue);
-      expect(
-        adapter.requests.single.headers['authorization'],
-        'Bearer google-key',
-      );
-      expect(adapter.requests.single.queryParameters, isEmpty);
-    });
-
-    test('reports authentication failures without claiming success', () async {
-      final adapter = _FakeHttpAdapter(
-        (options) async => _jsonResponse({}, status: 401),
-      );
-      final tester = HttpProviderConnectionTester(_dio(adapter));
-
-      final result = await tester.test(
-        providerDefinitionFor('mistral')!,
-        baseUrl: 'https://api.mistral.ai/v1',
-        credential: 'bad',
-      );
-
-      expect(result.ok, isFalse);
-      expect(result.message, contains('Authentication failed'));
-    });
-
-    test('reports an unreachable endpoint', () async {
-      final adapter = _FakeHttpAdapter(
-        (options) async => throw DioException(
-          requestOptions: options,
-          type: DioExceptionType.connectionError,
-        ),
-      );
-      final tester = HttpProviderConnectionTester(_dio(adapter));
-
-      final result = await tester.test(
-        providerDefinitionFor('mistral')!,
-        baseUrl: 'https://api.mistral.ai/v1',
-        credential: 'key',
-      );
-
-      expect(result.ok, isFalse);
-      expect(result.message, contains('Could not reach the endpoint'));
-    });
-
-    test('requires an endpoint for custom providers', () async {
-      final tester = HttpProviderConnectionTester(
-        _dio(_FakeHttpAdapter((options) async => _jsonResponse({}))),
-      );
-
-      final result = await tester.test(
-        providerDefinitionFor('custom')!,
-        baseUrl: '   ',
-      );
-
-      expect(result.ok, isFalse);
-      expect(result.message, contains('Enter an endpoint URL'));
-    });
-
-    test('discovers retained providers through native endpoints', () async {
-      final adapter = _FakeHttpAdapter((options) async {
-        final path = options.uri.path;
-        if (path.endsWith('/language-models')) {
-          return _jsonResponse({
-            'models': [
-              {'id': 'grok-native'},
-            ],
-          });
-        }
-        if (path.endsWith('/image-generation-models')) {
-          return _jsonResponse({
-            'models': [
-              {'id': 'image-native'},
-            ],
-          });
-        }
-        if (path.endsWith('/video-generation-models')) {
-          return _jsonResponse({
-            'models': [
-              {'id': 'video-native'},
-            ],
-          });
-        }
-        if (path.contains('generativelanguage.googleapis.com')) {
-          return _jsonResponse({
-            'models': [
-              {
-                'name': 'models/gemini-2',
-                'displayName': 'Gemini 2',
-                'supportedGenerationMethods': ['generateContent'],
-                'inputTokenLimit': 1000,
-                'outputTokenLimit': 200,
-              },
-            ],
-          });
-        }
-        return _jsonResponse({
-          'data': [
-            {'id': 'native-model', 'pipeline_tag': 'text-generation'},
-          ],
-        });
-      });
-      final tester = HttpProviderConnectionTester(_dio(adapter));
-      final definitions = <String, String>{
-        'anthropic': 'https://api.anthropic.com/v1',
-        'google': 'https://generativelanguage.googleapis.com/v1beta/openai/',
-        'xai': 'https://api.x.ai/v1',
-        'deepseek': 'https://api.deepseek.com/v1',
-        'qwen': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        'huggingface': 'https://router.huggingface.co/v1',
-        'mistral': 'https://api.mistral.ai/v1',
-      };
-
-      for (final entry in definitions.entries) {
-        final models = await tester.listModels(
-          providerDefinitionFor(entry.key)!,
-          baseUrl: entry.value,
-          credential: 'secret',
-        );
-        expect(models, isNotEmpty, reason: entry.key);
-        expect(models.first.rawMetadata['_discovery_catalogue'], isNotNull);
-      }
-
-      expect(
-        adapter.requests.any(
-          (request) =>
-              request.uri.toString() == 'https://api.deepseek.com/models',
-        ),
-        isTrue,
-      );
-      final googleRequest = adapter.requests.firstWhere(
-        (request) => request.uri.host.contains('generativelanguage'),
-      );
-      expect(googleRequest.queryParameters['key'], 'secret');
+      final after = container.read(providersControllerProvider).value!;
+      expect(after.customProviders.map((c) => c.id), isNot(contains(provider.id)));
     });
   });
-}
-
-Dio _dio(HttpClientAdapter adapter) {
-  final dio = Dio(BaseOptions(validateStatus: (_) => true));
-  dio.httpClientAdapter = adapter;
-  return dio;
-}
-
-ResponseBody _jsonResponse(Object? data, {int status = 200}) {
-  return ResponseBody.fromString(
-    jsonEncode(data),
-    status,
-    headers: {
-      Headers.contentTypeHeader: ['application/json'],
-    },
-  );
-}
-
-class _FakeHttpAdapter implements HttpClientAdapter {
-  _FakeHttpAdapter(this.handler);
-
-  final Future<ResponseBody> Function(RequestOptions options) handler;
-  final List<RequestOptions> requests = [];
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) {
-    requests.add(options);
-    return handler(options);
-  }
-
-  @override
-  void close({bool force = false}) {}
 }
