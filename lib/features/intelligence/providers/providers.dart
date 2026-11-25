@@ -39,33 +39,29 @@ final documentsPathProvider = Provider<Future<String>>((ref) async {
 final providerRegistryProvider = Provider<ProviderRegistry>((ref) {
   final repository = ref.watch(modelRepositoryProvider);
   final clientFactory = ref.watch(inferenceHttpClientFactoryProvider);
-  return ProviderRegistry(factories: {
-    'local-litertlm': (config) => LiteRtLmLocalProvider(
-      config: config,
-      createEngine: (path) => NativeLiteRtLmEngine(modelPath: path),
-      localModels: () async => repository.modelsForProvider(config.id),
-    ),
-    'google-gemini': (config) => GoogleGeminiProvider(
-      config: config,
-      clientFactory: clientFactory,
-    ),
-    'anthropic': (config) => AnthropicProvider(
-      config: config,
-      clientFactory: clientFactory,
-    ),
-    'xai': (config) => XaiProvider(
-      config: config,
-      clientFactory: clientFactory,
-    ),
-    'mistral': (config) => MistralProvider(
-      config: config,
-      clientFactory: clientFactory,
-    ),
-    'openai': (config) => OaiSpecProvider(
-      config: config,
-      clientFactory: clientFactory,
-    ),
-  });
+  return ProviderRegistry(
+    factories: {
+      'local-litertlm': (config) => LiteRtLmLocalProvider(
+        config: config,
+        createEngine: (path) => NativeLiteRtLmEngine(modelPath: path),
+        localModels: () async => repository.modelsForProvider(config.id),
+      ),
+      'google-gemini': (config) =>
+          GoogleGeminiProvider(config: config, clientFactory: clientFactory),
+      'anthropic': (config) =>
+          AnthropicProvider(config: config, clientFactory: clientFactory),
+      'xai': (config) =>
+          XaiProvider(config: config, clientFactory: clientFactory),
+      'mistral': (config) =>
+          MistralProvider(config: config, clientFactory: clientFactory),
+      'openai': (config) =>
+          OaiSpecProvider(config: config, clientFactory: clientFactory),
+    },
+    fallback: (config) {
+      // Custom providers follow the OpenAI-compatible schema by default.
+      return OaiSpecProvider(config: config, clientFactory: clientFactory);
+    },
+  );
 });
 
 /// Intelligence layer that resolves models by internal UUID and delegates to

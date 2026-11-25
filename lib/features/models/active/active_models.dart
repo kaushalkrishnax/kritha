@@ -423,11 +423,12 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
     });
   }
 
-  Future<void> syncProviderModels() async {
+  Future<void> syncProviderModels({bool reloadState = false}) async {
     final database = ref.read(databaseProvider);
     final engine = ref.read(intelligenceEngineProvider);
     final repository = ref.read(modelRepositoryProvider);
     final providers = await database.allProviders();
+    var changed = false;
 
     for (final provider in providers) {
       if (provider.id == localLitertlmProviderId) continue;
@@ -464,8 +465,13 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
             updatedAt: DateTime.now(),
           );
           await repository.saveModel(record);
+          changed = true;
         }
       } catch (_) {}
+    }
+
+    if (reloadState && changed && ref.mounted) {
+      state = AsyncData(await _load());
     }
   }
 

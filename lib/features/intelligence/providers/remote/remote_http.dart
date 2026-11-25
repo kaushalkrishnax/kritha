@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
 import '../../intelligence_exception.dart';
+import '../../models/ai_input.dart';
+import '../../models/ai_request.dart';
+import '../provider.dart';
 
 String stripTrailingSlashes(String value) =>
     value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -123,6 +127,38 @@ IntelligenceException remoteStatusFailure(String providerId, int statusCode) {
   };
 }
 
+IntelligenceException _statusFailureWithBody(
+  String providerId,
+  int statusCode,
+  String body,
+) {
+  final base = remoteStatusFailure(providerId, statusCode);
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is Map) {
+      final err = decoded['error'];
+      final detail = err is Map ? err['message'] : decoded['message'];
+      if (detail is String && detail.trim().isNotEmpty) {
+        if (base is ProviderUnavailableException) {
+          return ProviderUnavailableException(
+            detail.trim(),
+            providerId: providerId,
+            cause: statusCode,
+          );
+        }
+        return InferenceFailedException(
+          detail.trim(),
+          providerId: providerId,
+          cause: statusCode,
+        );
+      }
+    }
+  } on Object {
+    // Non-JSON error body; use generic status message.
+  }
+  return base;
+}
+
 /// POST a JSON body and return the decoded response map.
 Future<Map<String, dynamic>> postJson(
   http.Client client,
@@ -132,14 +168,10 @@ Future<Map<String, dynamic>> postJson(
   Duration timeout = const Duration(seconds: 60),
 }) async {
   final response = await client
-      .post(
-        uri,
-        headers: headers,
-        body: jsonEncode(body),
-      )
+      .post(uri, headers: headers, body: jsonEncode(body))
       .timeout(timeout);
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw remoteStatusFailure('remote', response.statusCode);
+    throw _statusFailureWithBody('remote', response.statusCode, response.body);
   }
   final decoded = jsonDecode(response.body);
   if (decoded is! Map) {
@@ -164,7 +196,8 @@ Stream<Map<String, dynamic>> streamJson(
     ..body = jsonEncode(body);
   final response = await client.send(request).timeout(timeout);
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw remoteStatusFailure('remote', response.statusCode);
+    final errBody = await response.stream.bytesToString();
+    throw _statusFailureWithBody('remote', response.statusCode, errBody);
   }
   await for (final event in decodeSseJson(response.stream)) {
     yield event;
@@ -172,8 +205,11 @@ Stream<Map<String, dynamic>> streamJson(
 }
 
 /// Authentication headers for a remote provider call.
-Map<String, String> remoteAuthHeaders(String? apiKey,
-    {String accept = 'application/json', bool stream = false}) {
+Map<String, String> remoteAuthHeaders(
+  String? apiKey, {
+  String accept = 'application/json',
+  bool stream = false,
+}) {
   final headers = <String, String>{
     'accept': stream ? 'text/event-stream' : 'application/json',
     'content-type': 'application/json',
@@ -186,10 +222,95 @@ Map<String, String> remoteAuthHeaders(String? apiKey,
 }
 
 /// Anthropic-specific headers.
-Map<String, String> anthropicHeaders(String? apiKey,
-    {bool stream = false}) {
+Map<String, String> anthropicHeaders(String? apiKey, {bool stream = false}) {
   return {
     ...remoteAuthHeaders(apiKey, stream: stream),
     'anthropic-version': '2023-06-01',
   };
+}
+
+/// Builds OpenAI-compatible chat messages, encoding image inputs on the last user turn.
+List<Map<String, dynamic>> openAiChatMessages(AiRequest request) {
+  final system = [
+    for (final message in request.messages)
+      if (message.role == AiRole.system) message.text.trim(),
+  ].where((text) => text.isNotEmpty).join('\n\n');
+  final nonSystem = [
+    for (final message in request.messages)
+      if (message.role != AiRole.system) message,
+  ];
+  final images = [
+    for (final input in request.inputs)
+      if (input is AiImageInput) input,
+  ];
+  return [
+    if (system.isNotEmpty) {'role': 'system', 'content': system},
+    for (var i = 0; i < nonSystem.length; i++)
+      if (i == nonSystem.length - 1 && images.isNotEmpty)
+        {
+          'role': nonSystem[i].role == AiRole.assistant ? 'assistant' : 'user',
+          'content': [
+            {'type': 'text', 'text': nonSystem[i].text},
+            for (final image in images)
+              {
+                'type': 'image_url',
+                'image_url': {
+                  'url':
+                      'data:${image.mimeType};base64,${base64Encode(image.bytes)}',
+                },
+              },
+          ],
+        }
+      else
+        {
+          'role': nonSystem[i].role == AiRole.assistant ? 'assistant' : 'user',
+          'content': nonSystem[i].text,
+        },
+  ];
+}
+
+/// Calls an OpenAI-compatible `/images/generations` endpoint.
+Future<GeneratedImage> openAiGenerateImage(
+  http.Client client, {
+  required String baseUrl,
+  required String? apiKey,
+  required String modelId,
+  required String prompt,
+  required String providerAlias,
+  Duration timeout = const Duration(minutes: 3),
+}) async {
+  // response_format is omitted on purpose: gpt-image models reject it and
+  // always return b64_json; other models default to a downloadable url.
+  final decoded = await postJson(
+    client,
+    remoteUri(stripTrailingSlashes(baseUrl), '/images/generations'),
+    headers: remoteAuthHeaders(apiKey),
+    body: {'model': modelId, 'prompt': prompt, 'n': 1},
+    timeout: timeout,
+  );
+  final data = decoded['data'];
+  if (data is List && data.isNotEmpty) {
+    final first = data.first;
+    if (first is Map) {
+      final b64 = first['b64_json'];
+      if (b64 is String && b64.isNotEmpty) {
+        return GeneratedImage(bytes: base64Decode(b64), mimeType: 'image/png');
+      }
+      final url = first['url'];
+      if (url is String && url.isNotEmpty) {
+        final imageResponse = await client.get(Uri.parse(url));
+        if (imageResponse.statusCode >= 200 && imageResponse.statusCode < 300) {
+          final contentType = imageResponse.headers['content-type'];
+          return GeneratedImage(
+            bytes: Uint8List.fromList(imageResponse.bodyBytes),
+            mimeType: contentType ?? 'image/png',
+          );
+        }
+      }
+    }
+  }
+  throw InferenceFailedException(
+    'The provider did not return an image.',
+    providerId: providerAlias,
+  );
 }

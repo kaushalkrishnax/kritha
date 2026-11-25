@@ -206,7 +206,7 @@ Set<InferenceCapability> capabilitiesForTask(AiTaskId task) => switch (task) {
     InferenceCapability.textGeneration,
     InferenceCapability.audioInput,
   },
-  AiTaskId.videoTextToText => const {},
+  AiTaskId.videoTextToText => {InferenceCapability.textGeneration},
   AiTaskId.automaticSpeechRecognition => {InferenceCapability.audioInput},
   _ => const {},
 };

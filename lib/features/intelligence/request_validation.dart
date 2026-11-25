@@ -89,6 +89,8 @@ class AiRequestValidator {
               'Video bytes need a MIME type.',
             );
           }
+        case AiFileInput(:final bytes, :final mimeType):
+          _validateBinary(bytes, mimeType, 'File');
       }
     }
     final inputs = request.inputs;
@@ -109,7 +111,9 @@ class AiRequestValidator {
       case null:
         break;
     }
-    if (request.requestedTask == AiTaskId.textGeneration &&
+    final allowMultimodal = request.metadata['multimodal_route'] == 'active';
+    if (!allowMultimodal &&
+        request.requestedTask == AiTaskId.textGeneration &&
         inputs.any((input) => input is! AiTextInput)) {
       throw const UnsupportedTaskException(
         'The text-generation pipeline does not accept binary media inputs.',

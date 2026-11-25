@@ -15,7 +15,7 @@ import '../../inference_provider.dart';
 import 'remote_http.dart';
 
 /// Adapter for xAI through its OpenAI-compatible API.
-class XaiProvider implements InferenceProvider {
+class XaiProvider implements InferenceProvider, MediaCapableProvider {
   static const providerAlias = 'xai';
 
   XaiProvider({
@@ -147,9 +147,12 @@ class XaiProvider implements InferenceProvider {
             .get(Uri.parse(endpoint.url), headers: headers)
             .timeout(requestTimeout);
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw StateError(
-            'xAI model discovery returned HTTP ${response.statusCode}.',
-          );
+          if (endpoint.catalogue == 'models') {
+            throw StateError(
+              'xAI model discovery returned HTTP ${response.statusCode}.',
+            );
+          }
+          continue;
         }
         final decoded = jsonDecode(response.body);
         final rows = _listRows(decoded);
@@ -161,17 +164,37 @@ class XaiProvider implements InferenceProvider {
         for (final row in rows) {
           final id = _string(row['id']) ?? _string(row['name']);
           if (id == null || id.trim().isEmpty) continue;
+          final tasks = <TaskDeclaration>[];
+          final capabilities = <InferenceCapability>{};
           final declaration = declarationFromPipelineTag(task,
               source: TaskMetadataSource.provider);
+          if (declaration != null) {
+            tasks.add(declaration);
+            capabilities.addAll(capabilitiesForTask(declaration.task));
+          }
+          final lower = id.toLowerCase();
+          final modalities = row['input_modalities'];
+          final hasVision = (modalities is List &&
+                  modalities.contains('image')) ||
+              (task == 'text-generation' &&
+                  (lower.contains('vision') ||
+                      lower.startsWith('grok-3') ||
+                      lower.startsWith('grok-4')));
+          if (hasVision) {
+            final visionDecl = declarationFromPipelineTag('image-text-to-text',
+                source: TaskMetadataSource.provider);
+            if (visionDecl != null) {
+              tasks.add(visionDecl);
+              capabilities.addAll(capabilitiesForTask(visionDecl.task));
+            }
+          }
           discovered.add(DiscoveredModel(
             externalModelId: id,
             displayName: _string(row['display_name']) ??
                 _string(row['displayName']) ??
                 id,
-            capabilities: declaration == null
-                ? const {}
-                : capabilitiesForTask(declaration.task),
-            tasks: declaration == null ? const [] : [declaration],
+            capabilities: capabilities,
+            tasks: List.unmodifiable(tasks),
             metadata: {'_discovery_catalogue': endpoint.catalogue},
           ));
         }
@@ -232,29 +255,57 @@ class XaiProvider implements InferenceProvider {
 
   Map<String, dynamic> _body(AiRequest request, ProviderModel model,
       {bool stream = false}) {
-    final system = [
-      for (final message in request.messages)
-        if (message.role == AiRole.system) message.text.trim(),
-    ].where((text) => text.isNotEmpty).join('\n\n');
-    final messages = [
-      for (final message in request.messages)
-        if (message.role != AiRole.system)
-          {
-            'role': message.role == AiRole.assistant ? 'assistant' : 'user',
-            'content': message.text,
-          },
-    ];
     return {
       'model': model.externalModelId,
-      'messages': messages,
+      'messages': openAiChatMessages(request),
       'temperature': request.options.temperature,
       'top_p': request.options.topP,
       if (request.options.seed > 0) 'seed': request.options.seed,
       if (request.options.maxOutputTokens != null)
         'max_tokens': request.options.maxOutputTokens,
-      if (system.isNotEmpty) 'system': system,
       if (stream) 'stream': true,
     };
+  }
+
+  @override
+  Future<GeneratedImage> generateImage(String prompt, ProviderModel model) async {
+    _ensureNotDisposed();
+    await initialize();
+    final client = clientFactory();
+    try {
+      return await openAiGenerateImage(
+        client,
+        baseUrl: config.baseUrl ?? '',
+        apiKey: config.apiKey,
+        modelId: model.externalModelId,
+        prompt: prompt,
+        providerAlias: alias,
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(_mapError(error), stackTrace);
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<String> transcribeAudio(
+    Uint8List bytes,
+    String mimeType,
+    ProviderModel model,
+  ) {
+    throw UnsupportedCapabilityException(
+      providerId: alias,
+      missing: const {InferenceCapability.audioInput},
+    );
+  }
+
+  @override
+  Future<SynthesizedSpeech> synthesizeSpeech(String text, ProviderModel model) {
+    throw UnsupportedCapabilityException(
+      providerId: alias,
+      missing: const {InferenceCapability.textGeneration},
+    );
   }
 
   String _textFromCompletion(Map<String, dynamic> completion) {

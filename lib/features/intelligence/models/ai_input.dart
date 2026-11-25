@@ -33,9 +33,22 @@ final class AiVideoInput extends AiInput {
   final String? mimeType;
 }
 
+final class AiFileInput extends AiInput {
+  const AiFileInput({
+    required this.bytes,
+    required this.mimeType,
+    required this.name,
+  });
+
+  final Uint8List bytes;
+  final String mimeType;
+  final String name;
+}
+
 extension AiInputCollection on Iterable<AiInput> {
   bool get hasText => any((input) => input is AiTextInput);
   bool get hasImage => any((input) => input is AiImageInput);
   bool get hasAudio => any((input) => input is AiAudioInput);
   bool get hasVideo => any((input) => input is AiVideoInput);
+  bool get hasFile => any((input) => input is AiFileInput);
 }

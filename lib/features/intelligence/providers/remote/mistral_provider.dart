@@ -206,7 +206,7 @@ class MistralProvider implements InferenceProvider {
     final tasks = <TaskDeclaration>{};
     final caps = row['capabilities'];
     if (caps is Map) {
-      if (caps['completion_chat'] == true) {
+      if (caps['completion_chat'] == true || caps['vision'] == true) {
         tasks.add(declarationFromPipelineTag('text-generation',
                 source: TaskMetadataSource.provider)!);
         capabilities.add(InferenceCapability.textGeneration);
@@ -215,8 +215,11 @@ class MistralProvider implements InferenceProvider {
         tasks.add(declarationFromPipelineTag('image-text-to-text',
                 source: TaskMetadataSource.provider)!);
         capabilities.add(InferenceCapability.imageInput);
-        capabilities.add(InferenceCapability.textGeneration);
       }
+    }
+    if (id.toLowerCase().contains('embed')) {
+      tasks.add(declarationFromPipelineTag('feature-extraction',
+              source: TaskMetadataSource.provider)!);
     }
     if (tasks.isEmpty) {
       tasks.add(declarationFromPipelineTag('text-generation',
@@ -237,27 +240,14 @@ class MistralProvider implements InferenceProvider {
 
   Map<String, dynamic> _body(AiRequest request, ProviderModel model,
       {bool stream = false}) {
-    final system = [
-      for (final message in request.messages)
-        if (message.role == AiRole.system) message.text.trim(),
-    ].where((text) => text.isNotEmpty).join('\n\n');
-    final messages = [
-      for (final message in request.messages)
-        if (message.role != AiRole.system)
-          {
-            'role': message.role == AiRole.assistant ? 'assistant' : 'user',
-            'content': message.text,
-          },
-    ];
     return {
       'model': model.externalModelId,
-      'messages': messages,
+      'messages': openAiChatMessages(request),
       'temperature': request.options.temperature,
       'top_p': request.options.topP,
       if (request.options.seed > 0) 'seed': request.options.seed,
       if (request.options.maxOutputTokens != null)
         'max_tokens': request.options.maxOutputTokens,
-      if (system.isNotEmpty) 'system': system,
       if (stream) 'stream': true,
     };
   }

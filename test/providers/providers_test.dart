@@ -37,7 +37,7 @@ class _MockDatabase extends AppDatabase {
       ProviderRow(
         id: '11111111-1111-1111-1111-111111111102',
         alias: 'google-gemini',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         apiKey: null,
         createdAt: now,
         updatedAt: now,
@@ -97,8 +97,7 @@ class _MockDatabase extends AppDatabase {
   Future<bool> providerAliasTaken(
     String alias, {
     String? excludingProviderId,
-  }) async =>
-      _rows.any((r) => r.alias == alias && r.id != excludingProviderId);
+  }) async => _rows.any((r) => r.alias == alias && r.id != excludingProviderId);
 
   @override
   Future<void> saveProvider(ProviderRow provider) async {
@@ -142,8 +141,7 @@ class _MockDatabase extends AppDatabase {
   Future<ModelRecord?> modelRecordByProviderAndExternal(
     String providerId,
     String externalModelId,
-  ) async =>
-      null;
+  ) async => null;
   @override
   Future<void> deleteArtifactsForModel(String modelId) async {}
   @override
@@ -302,21 +300,23 @@ void main() {
 
   group('provider registry', () {
     test('resolves dedicated implementations', () {
-      final registry = ProviderRegistry(factories: {
-        'local-litertlm': (config) {
-          return LiteRtLmLocalProvider(
-            config: config,
-            createEngine: (path) => _FakeLiteRtLmEngine(),
-            localModels: () async => [],
-          );
+      final registry = ProviderRegistry(
+        factories: {
+          'local-litertlm': (config) {
+            return LiteRtLmLocalProvider(
+              config: config,
+              createEngine: (path) => _FakeLiteRtLmEngine(),
+              localModels: () async => [],
+            );
+          },
+          'xai': (config) {
+            return XaiProvider(
+              config: config,
+              clientFactory: () => http.Client(),
+            );
+          },
         },
-        'xai': (config) {
-          return XaiProvider(
-            config: config,
-            clientFactory: () => http.Client(),
-          );
-        },
-      });
+      );
 
       expect(registry.isRegistered('local-litertlm'), isTrue);
       expect(registry.isRegistered('xai'), isTrue);
@@ -345,60 +345,60 @@ void main() {
   });
 
   group('custom providers', () {
-    test('creates independent providers with derived and edited aliases', () async {
-      final container = buildContainer();
-      addTearDown(container.dispose);
+    test(
+      'creates independent providers with derived and edited aliases',
+      () async {
+        final container = buildContainer();
+        addTearDown(container.dispose);
 
-      await container.read(providersControllerProvider.future);
-      final controller = container.read(providersControllerProvider.notifier);
+        await container.read(providersControllerProvider.future);
+        final controller = container.read(providersControllerProvider.notifier);
 
-      final first = await controller.createCustomProvider(
-        baseUrl: 'https://api.example.co.uk/v1',
-        alias: '',
-        apiKey: 'key-a',
-      );
-      final second = await controller.createCustomProvider(
-        baseUrl: 'https://example.com/v1',
-        alias: 'My Work API',
-        apiKey: 'key-b',
-      );
+        final first = await controller.createCustomProvider(
+          baseUrl: 'https://api.example.co.uk/v1',
+          alias: '',
+          apiKey: 'key-a',
+        );
+        final second = await controller.createCustomProvider(
+          baseUrl: 'https://example.com/v1',
+          alias: 'My Work API',
+          apiKey: 'key-b',
+        );
 
-      expect(first.alias, 'Example Api');
-      expect(second.alias, 'My Work API');
-      expect(first.id, isNot(second.id));
-      expect(first.hasCredential, isTrue);
-      expect(second.hasCredential, isTrue);
+        expect(first.alias, 'Example Api');
+        expect(second.alias, 'My Work API');
+        expect(first.id, isNot(second.id));
+        expect(first.hasCredential, isTrue);
+        expect(second.hasCredential, isTrue);
 
-      final state = container.read(providersControllerProvider).value!;
-      expect(state.customProviders, hasLength(2));
-      expect(
-        state.configurationForAlias('EXAMPLE API')?.id,
-        first.id,
-      );
+        final state = container.read(providersControllerProvider).value!;
+        expect(state.customProviders, hasLength(2));
+        expect(state.configurationForAlias('EXAMPLE API')?.id, first.id);
 
-      await expectLater(
-        controller.createCustomProvider(
-          baseUrl: 'https://another.example.com/v1',
-          alias: 'my work api',
-        ),
-        throwsA(isA<ProviderConfigurationException>()),
-      );
-      await expectLater(
-        controller.createCustomProvider(
-          baseUrl: 'https://another.example.com/v1',
-          alias: 'local-litertlm',
-        ),
-        throwsA(isA<ProviderConfigurationException>()),
-      );
+        await expectLater(
+          controller.createCustomProvider(
+            baseUrl: 'https://another.example.com/v1',
+            alias: 'my work api',
+          ),
+          throwsA(isA<ProviderConfigurationException>()),
+        );
+        await expectLater(
+          controller.createCustomProvider(
+            baseUrl: 'https://another.example.com/v1',
+            alias: 'local-litertlm',
+          ),
+          throwsA(isA<ProviderConfigurationException>()),
+        );
 
-      final updated = await controller.updateCustomProvider(
-        first.id,
-        baseUrl: 'https://api.example.com/v1',
-        alias: 'Renamed API',
-      );
-      expect(updated.id, first.id);
-      expect(updated.alias, 'Renamed API');
-    });
+        final updated = await controller.updateCustomProvider(
+          first.id,
+          baseUrl: 'https://api.example.com/v1',
+          alias: 'Renamed API',
+        );
+        expect(updated.id, first.id);
+        expect(updated.alias, 'Renamed API');
+      },
+    );
 
     test('loads edits and clears API key', () async {
       final container = buildContainer();
@@ -464,14 +464,14 @@ void main() {
   });
 
   group('custom providers use OpenAI spec implementation', () {
-    test('registry maps custom alias to OaiSpecProvider', () {
-      final registry = ProviderRegistry(factories: {
-        'my-custom': (config) => OaiSpecProvider(
-          config: config,
-          clientFactory: () => http.Client(),
-        ),
-      });
+    test('registry falls back to OaiSpecProvider for custom alias', () {
+      final registry = ProviderRegistry(
+        factories: const {},
+        fallback: (config) =>
+            OaiSpecProvider(config: config, clientFactory: () => http.Client()),
+      );
 
+      expect(registry.isRegistered('my-custom'), isFalse);
       final provider = registry.createProvider(
         ProviderConfig(
           id: 'custom-1',
@@ -522,7 +522,10 @@ void main() {
           .deleteProvider(provider.id);
 
       final after = container.read(providersControllerProvider).value!;
-      expect(after.customProviders.map((c) => c.id), isNot(contains(provider.id)));
+      expect(
+        after.customProviders.map((c) => c.id),
+        isNot(contains(provider.id)),
+      );
     });
   });
 }

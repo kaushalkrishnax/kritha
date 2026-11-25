@@ -152,12 +152,23 @@ class _ProviderModelsBody extends ConsumerWidget {
           child: Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s24),
-              child: Text(
-                'No provider models available.',
-                style: TextStyle(
-                  fontSize: KrithaText.sizeSm,
-                  color: KrithaColors.textMuted,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'No provider models available.',
+                    style: TextStyle(
+                      fontSize: KrithaText.sizeSm,
+                      color: KrithaColors.textMuted,
+                    ),
+                  ),
+                  SizedBox(height: KrithaSpacing.s12),
+                  OutlinedButton(
+                    onPressed: () =>
+                        ref.read(activeModelsProvider.notifier).refresh(),
+                    child: const Text('Refresh'),
+                  ),
+                ],
               ),
             ),
           ),

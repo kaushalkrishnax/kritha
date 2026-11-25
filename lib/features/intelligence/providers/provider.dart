@@ -9,6 +9,33 @@ import '../models/ai_response.dart';
 import '../models/model_capabilities.dart';
 import '../models/task_registry.dart';
 
+class GeneratedImage {
+  const GeneratedImage({required this.bytes, required this.mimeType});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
+class SynthesizedSpeech {
+  const SynthesizedSpeech({required this.bytes, required this.mimeType});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
+/// Optional media operations for providers supporting image gen, ASR, or TTS.
+abstract interface class MediaCapableProvider {
+  Future<GeneratedImage> generateImage(String prompt, ProviderModel model);
+
+  Future<String> transcribeAudio(
+    Uint8List bytes,
+    String mimeType,
+    ProviderModel model,
+  );
+
+  Future<SynthesizedSpeech> synthesizeSpeech(String text, ProviderModel model);
+}
+
 /// Configuration for one provider record resolved from the providers table.
 class ProviderConfig {
   const ProviderConfig({

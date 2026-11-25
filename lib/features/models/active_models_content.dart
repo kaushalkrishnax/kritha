@@ -199,6 +199,11 @@ List<MultimodalChoice> _multimodalChoices(ActiveModelsState state) {
       ),
     );
   }
+  choices.sort(
+    (left, right) => left.displayName.toLowerCase().compareTo(
+      right.displayName.toLowerCase(),
+    ),
+  );
   return choices;
 }
 

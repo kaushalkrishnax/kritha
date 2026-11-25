@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../../../models/model_record.dart';
 import 'models/ai_request.dart';
@@ -11,6 +12,7 @@ import './providers/provider_registry.dart';
 import '../models/model_record_store.dart';
 import 'intelligence_exception.dart';
 import '../models/setup/model_artifact_storage.dart';
+import 'usage_tracking_provider.dart';
 
 /// Configured intelligence layer snapshot; does not imply successful inference.
 class IntelligenceStatus {
@@ -89,7 +91,15 @@ class IntelligenceEngine {
       );
     }
     final existing = _instances[providerId];
-    if (existing != null) return existing;
+    if (existing != null) {
+      final sameConfig =
+          existing.config.alias == config.alias &&
+          existing.config.baseUrl == config.baseUrl &&
+          existing.config.apiKey == config.apiKey;
+      if (sameConfig) return existing;
+      _instances.remove(providerId);
+      unawaited(existing.dispose());
+    }
     final implementation = registry.createProvider(config);
     _instances[providerId] = implementation;
     return implementation;
@@ -122,6 +132,68 @@ class IntelligenceEngine {
   Future<ProviderTestResult> testProvider(String providerId) async {
     final provider = await _providerFor(providerId);
     return provider.test();
+  }
+
+  Future<GeneratedImage> generateImage({
+    required String prompt,
+    required String modelId,
+  }) async {
+    final providerModel = await _resolveModelById(modelId);
+    final media = await _mediaProviderFor(providerModel.providerId);
+    return media.generateImage(prompt, providerModel);
+  }
+
+  Future<String> transcribeAudio({
+    required Uint8List bytes,
+    required String mimeType,
+    required String modelId,
+  }) async {
+    final providerModel = await _resolveModelById(modelId);
+    final media = await _mediaProviderFor(providerModel.providerId);
+    return media.transcribeAudio(bytes, mimeType, providerModel);
+  }
+
+  Future<SynthesizedSpeech> synthesizeSpeech({
+    required String text,
+    required String modelId,
+  }) async {
+    final providerModel = await _resolveModelById(modelId);
+    final media = await _mediaProviderFor(providerModel.providerId);
+    return media.synthesizeSpeech(text, providerModel);
+  }
+
+  Future<MediaCapableProvider> _mediaProviderFor(String providerId) async {
+    var provider = await _providerFor(providerId);
+    if (provider is UsageTrackingInferenceProvider) {
+      provider = provider.inner;
+    }
+    if (provider is MediaCapableProvider) {
+      return provider as MediaCapableProvider;
+    }
+    throw ProviderUnavailableException(
+      'This provider does not support media operations.',
+      providerId: providerId,
+    );
+  }
+
+  Future<ProviderModel> _resolveModelById(String modelId) async {
+    final model = await modelRepository.findById(modelId);
+    if (model == null) {
+      throw ProviderUnavailableException(
+        'The model "$modelId" is not available.',
+        providerId: '',
+      );
+    }
+    return ProviderModel(
+      id: model.id,
+      providerId: model.providerId,
+      externalModelId: model.externalModelId,
+      displayName: model.displayName,
+      capabilities: _capabilitiesFor(model.tasks),
+      tasks: model.tasks,
+      artifacts: await modelRepository.artifactsFor(model.id),
+      metadata: model.metadata,
+    );
   }
 
   Future<ProviderModel> _resolveProviderModel(AiRequest request) async {
@@ -179,12 +251,26 @@ class IntelligenceEngine {
     final resolved = ModelArtifactStorageResolver(docPath).resolve(
       artifacts,
     );
+    final readySelectedWeights = resolved.where(
+      (file) =>
+          file.selected && file.exists && file.artifact.kind == 'weights',
+    );
+    if (readySelectedWeights.isNotEmpty) {
+      return readySelectedWeights.first.absolutePath;
+    }
+    final readyWeights = resolved.where(
+      (file) => file.exists && file.artifact.kind == 'weights',
+    );
+    if (readyWeights.isNotEmpty) return readyWeights.first.absolutePath;
+    final readyAny = resolved.where((file) => file.selected && file.exists);
+    if (readyAny.isNotEmpty) return readyAny.first.absolutePath;
     final weights = resolved.where((file) => file.artifact.kind == 'weights');
     final target = weights.isNotEmpty ? weights.first : resolved.firstOrNull;
     return target?.absolutePath;
   }
 
   Set<InferenceCapability> _capabilitiesFor(List<TaskDeclaration> tasks) {
+    if (tasks.isEmpty) return const {InferenceCapability.textGeneration};
     final result = <InferenceCapability>{};
     for (final declaration in tasks) {
       result.addAll(capabilitiesForTask(declaration.task));

@@ -19,7 +19,7 @@ import 'remote_http.dart';
 /// Used by the dedicated OpenAI provider and by every custom user-added
 /// OpenAI-compatible endpoint. No dedicated Dart class is created per custom
 /// endpoint; they are distinguished only by their providers table record.
-class OaiSpecProvider implements InferenceProvider {
+class OaiSpecProvider implements InferenceProvider, MediaCapableProvider {
   OaiSpecProvider({
     required this.config,
     required this.clientFactory,
@@ -204,13 +204,60 @@ class OaiSpecProvider implements InferenceProvider {
   Iterable<DiscoveredModel> _normalize(Map row) {
     final id = _string(row['id']) ?? _string(row['name']);
     if (id == null || id.trim().isEmpty) return const [];
+    final lower = id.toLowerCase();
+    final tasks = <TaskDeclaration>{};
+    final capabilities = <InferenceCapability>{};
+
+    void addTask(String pipelineTag) {
+      final declaration = declarationFromPipelineTag(
+        pipelineTag,
+        source: TaskMetadataSource.provider,
+      );
+      if (declaration == null) return;
+      if (!tasks.any((t) => t.task == declaration.task)) {
+        tasks.add(declaration);
+      }
+      capabilities.addAll(capabilitiesForTask(declaration.task));
+    }
+
+    if (lower.contains('embedding')) {
+      addTask('feature-extraction');
+    } else if (lower.startsWith('tts-') || lower.contains('-tts')) {
+      addTask('text-to-speech');
+    } else if (lower.startsWith('whisper-') || lower.contains('transcribe')) {
+      addTask('automatic-speech-recognition');
+    } else if (lower.startsWith('dall-e') || lower.contains('gpt-image')) {
+      addTask('text-to-image');
+    } else {
+      addTask('text-generation');
+      final arch = row['architecture'];
+      final inputModalities = arch is Map && arch['input_modalities'] is List
+          ? (arch['input_modalities'] as List).whereType<String>().toSet()
+          : const <String>{};
+      final caps = row['capabilities'];
+      final hasVision = inputModalities.contains('image') ||
+          (caps is Map &&
+              (caps['vision'] == true || caps['image_input'] == true)) ||
+          lower.contains('vision') ||
+          lower.startsWith('gpt-4o') ||
+          lower.startsWith('gpt-4-turbo') ||
+          lower.startsWith('gpt-4.1') ||
+          lower.startsWith('gpt-5') ||
+          RegExp(r'^o[134](-|$)').hasMatch(lower);
+      if (hasVision) {
+        addTask('image-text-to-text');
+      }
+      if (inputModalities.contains('audio') || lower.contains('-audio')) {
+        addTask('audio-classification');
+      }
+    }
+
     return [
       DiscoveredModel(
         externalModelId: id,
         displayName: _string(row['name']) ?? id,
-        capabilities: const {InferenceCapability.textGeneration},
-        tasks: [declarationFromPipelineTag('text-generation',
-                source: TaskMetadataSource.provider)!],
+        capabilities: capabilities,
+        tasks: List.unmodifiable(tasks),
       ),
     ];
   }
@@ -219,29 +266,123 @@ class OaiSpecProvider implements InferenceProvider {
 
   Map<String, dynamic> _body(AiRequest request, ProviderModel model,
       {bool stream = false}) {
-    final system = [
-      for (final message in request.messages)
-        if (message.role == AiRole.system) message.text.trim(),
-    ].where((text) => text.isNotEmpty).join('\n\n');
-    final messages = [
-      for (final message in request.messages)
-        if (message.role != AiRole.system)
-          {
-            'role': message.role == AiRole.assistant ? 'assistant' : 'user',
-            'content': message.text,
-          },
-    ];
     return {
       'model': model.externalModelId,
-      'messages': messages,
+      'messages': openAiChatMessages(request),
       'temperature': request.options.temperature,
       'top_p': request.options.topP,
       if (request.options.seed > 0) 'seed': request.options.seed,
       if (request.options.maxOutputTokens != null)
         'max_tokens': request.options.maxOutputTokens,
-      if (system.isNotEmpty) 'system': system,
       if (stream) 'stream': true,
     };
+  }
+
+  @override
+  Future<GeneratedImage> generateImage(String prompt, ProviderModel model) async {
+    _ensureNotDisposed();
+    await initialize();
+    final client = clientFactory();
+    try {
+      return await openAiGenerateImage(
+        client,
+        baseUrl: config.baseUrl ?? '',
+        apiKey: config.apiKey,
+        modelId: model.externalModelId,
+        prompt: prompt,
+        providerAlias: alias,
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(_mapError(error), stackTrace);
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<String> transcribeAudio(
+    Uint8List bytes,
+    String mimeType,
+    ProviderModel model,
+  ) async {
+    _ensureNotDisposed();
+    await initialize();
+    final client = clientFactory();
+    try {
+      final uri = remoteUri(
+        stripTrailingSlashes(config.baseUrl ?? ''),
+        '/audio/transcriptions',
+      );
+      final req = http.MultipartRequest('POST', uri);
+      final key = config.apiKey?.trim();
+      if (key != null && key.isNotEmpty) {
+        req.headers['authorization'] = 'Bearer $key';
+      }
+      req.fields['model'] = model.externalModelId;
+      final ext = mimeType.split('/').last.split(';').first;
+      req.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: 'audio.$ext',
+        ),
+      );
+      final streamed = await client.send(req).timeout(requestTimeout);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw remoteStatusFailure(alias, response.statusCode);
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['text'] is String) {
+        return (decoded['text'] as String).trim();
+      }
+      throw InferenceFailedException(
+        'The provider did not return a transcription.',
+        providerId: alias,
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(_mapError(error), stackTrace);
+    } finally {
+      client.close();
+    }
+  }
+
+  @override
+  Future<SynthesizedSpeech> synthesizeSpeech(
+    String text,
+    ProviderModel model,
+  ) async {
+    _ensureNotDisposed();
+    await initialize();
+    final client = clientFactory();
+    try {
+      final response = await client
+          .post(
+            remoteUri(
+              stripTrailingSlashes(config.baseUrl ?? ''),
+              '/audio/speech',
+            ),
+            headers: remoteAuthHeaders(config.apiKey),
+            body: jsonEncode({
+              'model': model.externalModelId,
+              'input': text,
+              'voice': 'alloy',
+              'response_format': 'mp3',
+            }),
+          )
+          .timeout(requestTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw remoteStatusFailure(alias, response.statusCode);
+      }
+      return SynthesizedSpeech(
+        bytes: Uint8List.fromList(response.bodyBytes),
+        mimeType: response.headers['content-type'] ?? 'audio/mpeg',
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(_mapError(error), stackTrace);
+    } finally {
+      client.close();
+    }
   }
 
   String _textFromCompletion(Map<String, dynamic> completion) {

@@ -284,7 +284,7 @@ class AppDatabase extends _$AppDatabase {
       ProvidersCompanion.insert(
         id: '11111111-1111-1111-1111-111111111102',
         alias: 'google-gemini',
-        baseUrl: Value('https://generativelanguage.googleapis.com/v1beta/openai/'),
+        baseUrl: Value('https://generativelanguage.googleapis.com/v1beta'),
         apiKey: const Value.absent(),
         createdAt: now,
         updatedAt: now,

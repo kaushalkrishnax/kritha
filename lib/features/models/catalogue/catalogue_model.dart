@@ -90,7 +90,9 @@ enum ModelCapability {
   static const discoverable = [
     ModelCapability.text,
     ModelCapability.vision,
+    ModelCapability.imageGeneration,
     ModelCapability.speechRecognition,
+    ModelCapability.textToSpeech,
     ModelCapability.audio,
     ModelCapability.video,
     ModelCapability.embeddings,

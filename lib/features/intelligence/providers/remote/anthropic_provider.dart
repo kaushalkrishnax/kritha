@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../intelligence_exception.dart';
+import '../../models/ai_input.dart';
 import '../../models/ai_request.dart';
 import '../../models/ai_response.dart';
 import '../../models/model_capabilities.dart';
@@ -235,20 +236,25 @@ class AnthropicProvider implements InferenceProvider {
   Iterable<DiscoveredModel> _normalize(Map row) {
     final id = _string(row['id']) ?? _string(row['name']);
     if (id == null || id.trim().isEmpty) return const [];
-    final tasks = <TaskDeclaration>{};
-    final capabilities = <InferenceCapability>{};
+    final tasks = <TaskDeclaration>{
+      declarationFromPipelineTag('text-generation',
+          source: TaskMetadataSource.provider)!,
+    };
+    final capabilities = <InferenceCapability>{
+      InferenceCapability.textGeneration,
+    };
     final caps = row['capabilities'];
-    if (caps is Map) {
-      if (caps['image_input'] == true || caps['supports_vision'] == true) {
-        tasks.add(declarationFromPipelineTag('image-text-to-text',
-                source: TaskMetadataSource.provider)!);
-        capabilities.add(InferenceCapability.imageInput);
-        capabilities.add(InferenceCapability.textGeneration);
-      } else {
-        tasks.add(declarationFromPipelineTag('text-generation',
-                source: TaskMetadataSource.provider)!);
-        capabilities.add(InferenceCapability.textGeneration);
-      }
+    final hasVisionCap = caps is Map &&
+        (caps['image_input'] == true || caps['supports_vision'] == true);
+    final lower = id.toLowerCase();
+    final inferredVision = caps == null &&
+        lower.startsWith('claude-') &&
+        !lower.startsWith('claude-2') &&
+        !lower.startsWith('claude-instant');
+    if (hasVisionCap || inferredVision) {
+      tasks.add(declarationFromPipelineTag('image-text-to-text',
+          source: TaskMetadataSource.provider)!);
+      capabilities.add(InferenceCapability.imageInput);
     }
     return [
       DiscoveredModel(
@@ -270,12 +276,48 @@ class AnthropicProvider implements InferenceProvider {
       for (final message in request.messages)
         if (message.role == AiRole.system) message.text.trim(),
     ].where((text) => text.isNotEmpty).join('\n\n');
-    final messages = [
+    final nonSystem = [
       for (final message in request.messages)
-        if (message.role != AiRole.system)
+        if (message.role != AiRole.system) message,
+    ];
+    final mediaInputs = [
+      for (final input in request.inputs)
+        if (input is AiImageInput ||
+            (input is AiFileInput && input.mimeType == 'application/pdf'))
+          input,
+    ];
+    final messages = [
+      for (var i = 0; i < nonSystem.length; i++)
+        if (i == nonSystem.length - 1 && mediaInputs.isNotEmpty)
           {
-            'role': message.role == AiRole.assistant ? 'assistant' : 'user',
-            'content': message.text,
+            'role': nonSystem[i].role == AiRole.assistant ? 'assistant' : 'user',
+            'content': [
+              for (final input in mediaInputs)
+                if (input is AiImageInput)
+                  {
+                    'type': 'image',
+                    'source': {
+                      'type': 'base64',
+                      'media_type': input.mimeType,
+                      'data': base64Encode(input.bytes),
+                    },
+                  }
+                else if (input is AiFileInput)
+                  {
+                    'type': 'document',
+                    'source': {
+                      'type': 'base64',
+                      'media_type': input.mimeType,
+                      'data': base64Encode(input.bytes),
+                    },
+                  },
+              {'type': 'text', 'text': nonSystem[i].text},
+            ],
+          }
+        else
+          {
+            'role': nonSystem[i].role == AiRole.assistant ? 'assistant' : 'user',
+            'content': nonSystem[i].text,
           },
     ];
     return {

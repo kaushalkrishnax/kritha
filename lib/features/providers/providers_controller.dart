@@ -163,6 +163,7 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
     );
     final next = [...current.configurations, configuration];
     state = AsyncData(current.copyWith(configurations: next));
+    ref.invalidate(activeModelsProvider);
     return configuration;
   }
 
@@ -214,6 +215,7 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
           c,
     ];
     state = AsyncData(current.copyWith(configurations: next));
+    ref.invalidate(activeModelsProvider);
     return configuration.copyWith(
       alias: effectiveAlias,
       baseUrl: trimmedUrl,
@@ -250,6 +252,7 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
           c,
     ];
     state = AsyncData(latest.copyWith(configurations: next));
+    ref.invalidate(activeModelsProvider);
   }
 
   Future<void> deleteProvider(String providerId) async {
@@ -285,6 +288,7 @@ class ProvidersController extends AsyncNotifier<ProvidersState> {
         if (c.id != providerId) c,
     ];
     state = AsyncData(current.copyWith(configurations: next));
+    ref.invalidate(activeModelsProvider);
   }
 
   /// Returns an error message if [alias] is already taken, null otherwise.
