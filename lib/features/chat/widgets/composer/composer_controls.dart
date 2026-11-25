@@ -34,6 +34,13 @@ Future<void> showAttachmentMenu(
         icon: HugeIcons.strokeRoundedAttachment,
       ),
       ContextMenuItem(
+        id: 'generate_image',
+        label: ref.read(composerProvider).isImageGenerationMode
+            ? 'Exit image mode'
+            : 'Generate image',
+        icon: HugeIcons.strokeRoundedImage01,
+      ),
+      ContextMenuItem(
         id: 'plugins',
         label: 'Plugins',
         icon: HugeIcons.strokeRoundedPlug02,
@@ -64,6 +71,8 @@ Future<void> showAttachmentMenu(
         picker: ref.read(attachmentPickerProvider).pickFiles,
         failureLabel: 'files',
       );
+    case 'generate_image':
+      ref.read(composerProvider.notifier).toggleImageGenerationMode();
   }
 }
 

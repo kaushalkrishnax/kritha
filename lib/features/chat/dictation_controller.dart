@@ -1,10 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+
+import '../../services/silero_vad_service.dart';
+
+import '../intelligence/models/task_registry.dart';
+import '../intelligence/providers/providers.dart';
+import '../models/active/active_models.dart';
+import '../models/catalogue/catalogue_model.dart';
 
 enum DictationPhase { idle, listening, transcribing }
 
@@ -65,6 +73,9 @@ class DictationNotifier extends Notifier<DictationState> {
   final math.Random _random = math.Random();
   String? _path;
   bool _ticking = false;
+  StreamSubscription<Uint8List>? _vadSub;
+  SileroVadSession? _vad;
+  int _autoEpoch = 0;
 
   @override
   DictationState build() {
@@ -144,7 +155,7 @@ class DictationNotifier extends Notifier<DictationState> {
     state = state.copyWith(elapsed: _watch.elapsed, levels: levels);
   }
 
-  /// Stops take and returns transcript; throws until offline recognizer model is bundled.
+  /// Stops recording and transcribes audio via the active ASR or audio model.
   Future<String> transcribe() async {
     if (!state.isActive) {
       throw const DictationException('There is no recording to transcribe.');
@@ -164,23 +175,200 @@ class DictationNotifier extends Notifier<DictationState> {
 
     path ??= _path;
     _path = null;
-    if (path != null) {
-      try {
-        final file = File(path);
-        if (file.existsSync()) await file.delete();
-      } on Object {
-        // Temp files cleaned up by OS.
+    try {
+      if (path == null) {
+        throw const DictationException('No audio file was recorded.');
       }
+      final file = File(path);
+      if (!file.existsSync()) {
+        throw const DictationException('Recorded audio file is missing.');
+      }
+      final bytes = await file.readAsBytes();
+      final active = await ref.read(activeModelsProvider.future);
+      final sttModelId =
+          active.executableSelection[AiTaskId.automaticSpeechRecognition] ??
+          active.singleModels[ModelCapability.speechRecognition] ??
+          active.executableSelection[AiTaskId.audioUnderstanding] ??
+          active.singleModels[ModelCapability.audio] ??
+          active.multiModel?.modelId;
+      if (sttModelId == null || sttModelId.trim().isEmpty) {
+        throw const DictationException(
+          'No Speech recognition or Audio model is assigned in Active Models.',
+        );
+      }
+      final transcript = await ref
+          .read(intelligenceEngineProvider)
+          .transcribeAudio(
+            bytes: bytes,
+            mimeType: 'audio/mp4',
+            modelId: sttModelId,
+          );
+      return transcript;
+    } on DictationException {
+      rethrow;
+    } on Object catch (error) {
+      throw DictationException('Transcription failed: $error');
+    } finally {
+      if (path != null) {
+        try {
+          final file = File(path);
+          if (file.existsSync()) await file.delete();
+        } on Object {
+          // Temp files cleaned up by OS.
+        }
+      }
+      _reset();
     }
-    _reset();
-    throw const DictationException(
-      'Speech recognition needs a local STT model. None is bundled in this '
-      'build yet.',
-    );
+  }
+
+  /// Starts hands-free dictation using Silero VAD to stop on end of speech,
+  /// transcribe, and pass the result to [onTranscript].
+  Future<void> startAutoStop({
+    required Future<void> Function(String transcript) onTranscript,
+    void Function(String message)? onError,
+  }) async {
+    if (state.isActive) return;
+    final epoch = ++_autoEpoch;
+    final recorder = _engine;
+    final allowed = await recorder.hasPermission();
+    if (!allowed) {
+      onError?.call('Microphone permission is required for dictation.');
+      return;
+    }
+
+    final vad = await SileroVadSession.create();
+    if (epoch != _autoEpoch || !ref.mounted) {
+      vad.dispose();
+      return;
+    }
+    _vad = vad;
+    final turnDetector = TurnDetector(silenceFrameCount: 28);
+    final pcmCarry = <int>[];
+    final capturedPcm = <int>[];
+    var heardSpeech = false;
+
+    _watch
+      ..reset()
+      ..start();
+    state = const DictationState(phase: DictationPhase.listening);
+
+    try {
+      final stream = await recorder.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: SileroVadSession.sampleRate,
+          numChannels: 1,
+        ),
+      );
+      if (epoch != _autoEpoch || !ref.mounted) return;
+
+      const frameBytesCount = SileroVadSession.frameSamples * 2;
+      _vadSub = stream.listen((chunk) {
+        if (epoch != _autoEpoch || !state.isListening) return;
+        pcmCarry.addAll(chunk);
+        while (pcmCarry.length >= frameBytesCount) {
+          final frameBytes = pcmCarry.sublist(0, frameBytesCount);
+          pcmCarry.removeRange(0, frameBytesCount);
+          final pcm16 = Int16List.view(Uint8List.fromList(frameBytes).buffer);
+          final res = vad.processFrame(pcm16);
+
+          final levels = [...state.levels, res.level.clamp(0.12, 1.0)];
+          while (levels.length > maxBars) {
+            levels.removeAt(0);
+          }
+          state = state.copyWith(elapsed: _watch.elapsed, levels: levels);
+
+          final signal = turnDetector.accept(res.probability);
+          if (signal == TurnSignal.speechStart) {
+            heardSpeech = true;
+            capturedPcm.addAll(frameBytes);
+          } else if (heardSpeech) {
+            capturedPcm.addAll(frameBytes);
+          }
+
+          final timedOut = !heardSpeech && _watch.elapsed.inSeconds >= 8;
+          if (signal == TurnSignal.speechEnd || timedOut) {
+            unawaited(
+              _finishAutoStop(
+                epoch: epoch,
+                pcmBytes: List<int>.from(capturedPcm),
+                onTranscript: onTranscript,
+                onError: onError,
+              ),
+            );
+            break;
+          }
+        }
+      });
+    } on Object catch (error) {
+      await _cleanupAutoVad();
+      _reset();
+      onError?.call('Could not start dictation: $error');
+    }
+  }
+
+  Future<void> _finishAutoStop({
+    required int epoch,
+    required List<int> pcmBytes,
+    required Future<void> Function(String transcript) onTranscript,
+    void Function(String message)? onError,
+  }) async {
+    if (epoch != _autoEpoch) return;
+    _autoEpoch++;
+    await _cleanupAutoVad();
+    try {
+      await _engine.stop();
+    } on Object {
+      // Recorder may already be stopped.
+    }
+    if (pcmBytes.length < 3200) {
+      _reset();
+      return;
+    }
+    state = state.copyWith(phase: DictationPhase.transcribing);
+    try {
+      final active = await ref.read(activeModelsProvider.future);
+      final sttModelId =
+          active.executableSelection[AiTaskId.automaticSpeechRecognition] ??
+          active.singleModels[ModelCapability.speechRecognition] ??
+          active.executableSelection[AiTaskId.audioUnderstanding] ??
+          active.singleModels[ModelCapability.audio] ??
+          active.multiModel?.modelId;
+      if (sttModelId == null || sttModelId.trim().isEmpty) {
+        onError?.call(
+          'No Speech recognition or Audio model is assigned in Active Models.',
+        );
+        return;
+      }
+      final wav = pcm16ToWav(pcmBytes, sampleRate: SileroVadSession.sampleRate);
+      final transcript = (await ref
+          .read(intelligenceEngineProvider)
+          .transcribeAudio(
+            bytes: wav,
+            mimeType: 'audio/wav',
+            modelId: sttModelId,
+          )).trim();
+      if (transcript.isNotEmpty) {
+        await onTranscript(transcript);
+      }
+    } on Object catch (error) {
+      onError?.call('Transcription failed: $error');
+    } finally {
+      _reset();
+    }
+  }
+
+  Future<void> _cleanupAutoVad() async {
+    await _vadSub?.cancel();
+    _vadSub = null;
+    _vad?.dispose();
+    _vad = null;
   }
 
   Future<void> discard() async {
     if (!state.isActive) return;
+    _autoEpoch++;
+    await _cleanupAutoVad();
     _ticker?.cancel();
     _watch.stop();
     try {

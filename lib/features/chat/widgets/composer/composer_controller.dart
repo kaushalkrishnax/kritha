@@ -35,6 +35,7 @@ class ComposerState {
     this.isLiveTalkActive = false,
     this.liveTalkPhase = LiveTalkPhase.listening,
     this.editingMessageId,
+    this.isImageGenerationMode = false,
   });
 
   final String draftText;
@@ -44,6 +45,7 @@ class ComposerState {
   final bool isLiveTalkActive;
   final LiveTalkPhase liveTalkPhase;
   final String? editingMessageId;
+  final bool isImageGenerationMode;
 
   bool get isEditing => editingMessageId != null;
 
@@ -61,6 +63,7 @@ class ComposerState {
     LiveTalkPhase? liveTalkPhase,
     String? editingMessageId,
     bool clearEditing = false,
+    bool? isImageGenerationMode,
   }) {
     return ComposerState(
       draftText: draftText ?? this.draftText,
@@ -72,6 +75,8 @@ class ComposerState {
       editingMessageId: clearEditing
           ? null
           : (editingMessageId ?? this.editingMessageId),
+      isImageGenerationMode:
+          isImageGenerationMode ?? this.isImageGenerationMode,
     );
   }
 }
@@ -135,6 +140,13 @@ class ComposerNotifier extends Notifier<ComposerState> {
       isExpanded: false,
       attachments: const [],
       clearEditing: true,
+      isImageGenerationMode: false,
+    );
+  }
+
+  void toggleImageGenerationMode() {
+    state = state.copyWith(
+      isImageGenerationMode: !state.isImageGenerationMode,
     );
   }
 

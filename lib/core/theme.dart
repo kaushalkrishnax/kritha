@@ -273,7 +273,8 @@ abstract final class KrithaDimensions {
   static const composerMaxHeight =
       composerLineHeight * composerMaxLines + composerBottomRowHeight + 24.0;
 
-  static const contextMenuWidth = 200.0;
+  static const contextMenuMinWidth = 180.0;
+  static const contextMenuMaxWidth = 320.0;
   static const contextMenuItemHeight = 48.0;
   static const contextMenuEdgeInset = 8.0;
   static const contextMenuVerticalGap = 8.0;

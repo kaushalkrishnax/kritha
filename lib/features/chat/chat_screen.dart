@@ -568,6 +568,7 @@ class _ChatAreaState extends State<_ChatArea> {
                     : MessageList(
                         messages: state.messages,
                         sending: state.sending,
+                        generatingImage: state.generatingImage,
                         streamingText: state.streamingText,
                         failure: state.failure,
                         onRetry: widget.onReplyRetry,

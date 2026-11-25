@@ -10,6 +10,7 @@ import '../../../../core/theme.dart';
 import '../../../../widgets/glass_surface.dart';
 import '../../chat_controller.dart';
 import '../../dictation_controller.dart';
+import '../../live_talk_controller.dart';
 import '../attachment_view.dart';
 import 'composer_controller.dart';
 import 'composer_controls.dart';
@@ -63,6 +64,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
     final text = _textController.text;
     final attachments = state.attachments;
     final editingMessageId = state.editingMessageId;
+    final generateImage = state.isImageGenerationMode;
     _textController.clear();
     ref.read(composerProvider.notifier).clearDraft();
     await ref
@@ -71,6 +73,7 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
           text,
           attachments: attachments,
           editingMessageId: editingMessageId,
+          generateImage: generateImage,
         );
   }
 
@@ -93,7 +96,16 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
       unawaited(_send());
       return;
     }
-    ref.read(composerProvider.notifier).setLiveTalkActive(true);
+    unawaited(_startLiveTalk());
+  }
+
+  Future<void> _startLiveTalk() async {
+    await ref.read(liveTalkProvider.notifier).start();
+    if (!mounted) return;
+    final err = ref.read(liveTalkProvider).errorMessage;
+    if (err != null && err.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+    }
   }
 
   /// Measures wrapped lines against compact width to prevent layout feedback loops.
@@ -280,7 +292,9 @@ class _NormalComposerState extends ConsumerState<NormalComposer> {
                                 style: KrithaText.composerInput,
                                 cursorColor: KrithaColors.accentLightBlue,
                                 decoration: InputDecoration(
-                                  hintText: 'Ask Kritha...',
+                                  hintText: state.isImageGenerationMode
+                                      ? 'Describe an image to generate…'
+                                      : 'Ask Kritha...',
                                   hintStyle: TextStyle(
                                     color: KrithaColors.textMuted,
                                   ),

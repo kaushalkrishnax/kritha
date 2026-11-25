@@ -10,6 +10,7 @@ import '../../../core/theme.dart';
 import '../../../models/chat_message.dart';
 import '../../../widgets/context_menu.dart';
 import '../chat_controller.dart';
+import '../speech_playback_controller.dart';
 import 'attachment_view.dart';
 import 'composer/composer_controller.dart';
 import 'markdown_view.dart';
@@ -20,6 +21,7 @@ class MessageList extends StatelessWidget {
     super.key,
     required this.messages,
     required this.sending,
+    this.generatingImage = false,
     required this.streamingText,
     required this.failure,
     required this.onRetry,
@@ -30,6 +32,7 @@ class MessageList extends StatelessWidget {
 
   final List<ChatMessage> messages;
   final bool sending;
+  final bool generatingImage;
 
   /// Partial assistant text for the in-flight reply, if any.
   final String? streamingText;
@@ -85,9 +88,13 @@ class MessageList extends StatelessWidget {
               };
             } else if (sending) {
               final partial = streamingText;
-              item = partial == null || partial.isEmpty
-                  ? _ThinkingRow()
-                  : _StreamingMessage(text: partial);
+              if (generatingImage && (partial == null || partial.isEmpty)) {
+                item = const _ImageGeneratingCard();
+              } else {
+                item = partial == null || partial.isEmpty
+                    ? _ThinkingRow()
+                    : _StreamingMessage(text: partial);
+              }
             } else {
               item = _ReplyFailureRow(failure: failure!, onRetry: onRetry);
             }
@@ -240,13 +247,34 @@ String _formatMessageTime(DateTime timestamp) {
   return '${months[timestamp.month - 1]} ${timestamp.day}, $time';
 }
 
-class _AssistantMessage extends StatelessWidget {
+class _AssistantMessage extends ConsumerWidget {
   const _AssistantMessage({required this.message});
 
   final ChatMessage message;
 
+  Future<void> _speak(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref
+          .read(speechPlaybackProvider.notifier)
+          .toggleSpeak(messageId: message.id, text: message.text);
+    } on SpeechPlaybackException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not synthesize speech.')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final speaking = ref.watch(
+      speechPlaybackProvider.select((s) => s.isPlaying(message.id)),
+    );
     return Padding(
       padding: EdgeInsets.symmetric(
         vertical: KrithaSpacing.s12,
@@ -255,24 +283,88 @@ class _AssistantMessage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MarkdownView(data: message.text),
+          if (message.attachments.isNotEmpty) ...[
+            MessageAttachmentList(attachments: message.attachments),
+            if (message.text.isNotEmpty) SizedBox(height: KrithaSpacing.s8),
+          ],
+          if (message.text.isNotEmpty) MarkdownView(data: message.text),
           if (message.text.isNotEmpty)
             Align(
               alignment: Alignment.centerLeft,
               child: ResponseActions(
                 text: message.text,
-                onSpeak: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'TTS models are downloaded separately and are not '
-                        'bundled in this build.',
-                      ),
-                    ),
-                  );
-                },
+                isSpeaking: speaking,
+                onSpeak: () => _speak(context, ref),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageGeneratingCard extends StatefulWidget {
+  const _ImageGeneratingCard();
+
+  @override
+  State<_ImageGeneratingCard> createState() => _ImageGeneratingCardState();
+}
+
+class _ImageGeneratingCardState extends State<_ImageGeneratingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        return Container(
+          height: 180,
+          width: 240,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(KrithaRadius.lg),
+            border: Border.all(color: KrithaColors.borderSubtle),
+            gradient: LinearGradient(
+              begin: Alignment(-1 + t * 0.6, -1),
+              end: Alignment(1, 1 - t * 0.6),
+              colors: [
+                KrithaColors.bgSurface,
+                KrithaColors.bgTertiary,
+                KrithaColors.bgSurface,
+              ],
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          KrithaIcon(
+            icon: HugeIcons.strokeRoundedImage01,
+            size: KrithaIcons.lg,
+            color: KrithaColors.accentLightBlue,
+          ),
+          SizedBox(height: KrithaSpacing.s8),
+          Text(
+            'Generating image…',
+            style: TextStyle(
+              fontSize: KrithaText.sizeSm,
+              fontWeight: FontWeight.w600,
+              color: KrithaColors.accentLightBlue,
+            ),
+          ),
         ],
       ),
     );

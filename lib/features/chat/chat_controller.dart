@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/providers.dart';
 import '../../data/app_database.dart';
@@ -8,6 +11,7 @@ import '../../models/chat_attachment.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
 import '../intelligence/intelligence_exception.dart';
+import '../intelligence/models/ai_input.dart';
 import '../intelligence/models/ai_response.dart';
 import '../intelligence/models/task_registry.dart';
 import '../intelligence/providers/providers.dart';
@@ -35,6 +39,7 @@ class ChatState {
     required this.messages,
     this.currentSessionId,
     this.sending = false,
+    this.generatingImage = false,
     this.streamingText,
     this.failure,
   });
@@ -45,6 +50,7 @@ class ChatState {
   final String? currentSessionId;
   final List<ChatMessage> messages;
   final bool sending;
+  final bool generatingImage;
 
   /// Assistant text produced so far for the in-flight reply.
   final String? streamingText;
@@ -71,6 +77,7 @@ class ChatState {
     String? currentSessionId,
     List<ChatMessage>? messages,
     bool? sending,
+    bool? generatingImage,
     String? streamingText,
     ChatFailure? failure,
     bool clearCurrentSession = false,
@@ -85,6 +92,7 @@ class ChatState {
           : (currentSessionId ?? this.currentSessionId),
       messages: messages ?? this.messages,
       sending: sending ?? this.sending,
+      generatingImage: generatingImage ?? this.generatingImage,
       streamingText: clearStreaming
           ? null
           : (streamingText ?? this.streamingText),
@@ -199,6 +207,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     String rawText, {
     List<ChatAttachment> attachments = const [],
     String? editingMessageId,
+    bool generateImage = false,
   }) async {
     final text = rawText.trim();
     if (text.isEmpty && attachments.isEmpty) return;
@@ -229,6 +238,7 @@ class ChatController extends AsyncNotifier<ChatState> {
         text,
         attachments: attachments,
         editingMessageId: editingMessageId,
+        generateImage: generateImage,
       ),
     );
   }
@@ -263,6 +273,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     String text, {
     required List<ChatAttachment> attachments,
     String? editingMessageId,
+    bool generateImage = false,
   }) async {
     final current = state.value;
     if (current == null) return;
@@ -381,6 +392,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       sessionId: sessionId,
       messages: history,
       generation: generation,
+      generateImage: generateImage,
     );
   }
 
@@ -519,17 +531,23 @@ class ChatController extends AsyncNotifier<ChatState> {
     required String sessionId,
     required List<ChatMessage> messages,
     required int generation,
+    bool generateImage = false,
   }) async {
     if (generation != _generation) return;
     final prompt = messages.last;
     if (prompt.role != ChatRole.user) return;
 
-    if (prompt.text.trim().isEmpty && prompt.attachments.isNotEmpty) {
-      _publishFailure(
-        sessionId,
-        'Attachments cannot be read by the selected model yet. '
-        'Send a text prompt instead.',
-        retryable: false,
+    final trimmedPrompt = prompt.text.trim();
+    final isSlashImage = trimmedPrompt.toLowerCase().startsWith('/image ');
+    if (generateImage || isSlashImage) {
+      final imagePrompt = isSlashImage
+          ? trimmedPrompt.substring('/image '.length).trim()
+          : trimmedPrompt;
+      await _generateImageReply(
+        sessionId: sessionId,
+        prompt: prompt,
+        imagePrompt: imagePrompt,
+        sequence: _nextSequence(messages),
         generation: generation,
       );
       return;
@@ -540,10 +558,10 @@ class ChatController extends AsyncNotifier<ChatState> {
       // Wait for persisted selection before resolving backend; runtime checks happen in factory.
       final active = await ref.read(activeModelsProvider.future);
       if (generation != _generation) return;
-      final textModelId = active.executableSelection[AiTaskId.textGeneration] ??
-          active.singleModels[ModelCapability.text] ??
-          active.multiModel?.modelId;
-      if (textModelId == null || textModelId.trim().isEmpty) {
+
+      final prepared = await _prepareInputs(prompt);
+      final targetModelId = _resolveModelForAttachments(active, prepared.inputs);
+      if (targetModelId == null || targetModelId.trim().isEmpty) {
         _publishFailure(
           sessionId,
           'No model is assigned for text generation. Assign one in Active Models.',
@@ -552,9 +570,16 @@ class ChatController extends AsyncNotifier<ChatState> {
         );
         return;
       }
-      final stream = ref
-          .read(intelligenceEngineProvider)
-          .stream(_contextBuilder.build(messages, modelId: textModelId));
+      final request = _contextBuilder.build(
+        messages,
+        modelId: targetModelId,
+        inputs: prepared.inputs,
+        metadata: prepared.inputs.isNotEmpty
+            ? const {'multimodal_route': 'active'}
+            : const {},
+        lastUserTextOverride: prepared.textOverride,
+      );
+      final stream = ref.read(intelligenceEngineProvider).stream(request);
       iterator = StreamIterator(stream);
       _activeIterator = iterator;
 
@@ -610,12 +635,197 @@ class ChatController extends AsyncNotifier<ChatState> {
     }
   }
 
+  Future<void> _generateImageReply({
+    required String sessionId,
+    required ChatMessage prompt,
+    required String imagePrompt,
+    required int sequence,
+    required int generation,
+  }) async {
+    if (imagePrompt.isEmpty) {
+      _publishFailure(
+        sessionId,
+        'Enter a prompt describing the image you want to generate.',
+        retryable: false,
+        generation: generation,
+      );
+      return;
+    }
+    try {
+      final active = await ref.read(activeModelsProvider.future);
+      if (generation != _generation) return;
+      final imageModelId =
+          active.executableSelection[AiTaskId.textToImage] ??
+          active.singleModels[ModelCapability.imageGeneration];
+      if (imageModelId == null || imageModelId.trim().isEmpty) {
+        _publishFailure(
+          sessionId,
+          'No Image generation model is assigned. Assign one in Active Models.',
+          retryable: false,
+          generation: generation,
+        );
+        return;
+      }
+      final current = state.value;
+      if (current != null && current.currentSessionId == sessionId) {
+        state = AsyncData(current.copyWith(generatingImage: true));
+      }
+      final generated = await ref
+          .read(intelligenceEngineProvider)
+          .generateImage(prompt: imagePrompt, modelId: imageModelId);
+      if (generation != _generation) return;
+
+      final dir = await getApplicationDocumentsDirectory();
+      final outDir = Directory('${dir.path}/generated_images');
+      if (!outDir.existsSync()) outDir.createSync(recursive: true);
+      final ext = generated.mimeType.contains('jpeg') ? 'jpg' : 'png';
+      final file = File(
+        '${outDir.path}/image_${DateTime.now().microsecondsSinceEpoch}.$ext',
+      );
+      await file.writeAsBytes(generated.bytes, flush: true);
+      final attachment = ChatAttachment(
+        id: 'gen-${DateTime.now().microsecondsSinceEpoch}',
+        name: 'generated_image.$ext',
+        path: file.path,
+        sizeBytes: generated.bytes.length,
+        kind: ChatAttachmentKind.image,
+        mimeType: generated.mimeType,
+      );
+      await _commitReply(
+        sessionId,
+        '',
+        generation,
+        after: prompt.createdAt,
+        sequence: sequence,
+        attachments: [attachment],
+      );
+    } on IntelligenceException catch (error) {
+      if (generation != _generation) return;
+      _publishFailure(
+        sessionId,
+        _failureMessageFor(error),
+        retryable: _retryable(error),
+        generation: generation,
+      );
+    } on Object {
+      if (generation != _generation) return;
+      _publishFailure(
+        sessionId,
+        'The image could not be generated. Try again.',
+        retryable: true,
+        generation: generation,
+      );
+    } finally {
+      final latest = state.value;
+      if (generation == _generation &&
+          latest != null &&
+          latest.generatingImage) {
+        state = AsyncData(
+          latest.copyWith(sending: false, generatingImage: false),
+        );
+      }
+    }
+  }
+
+  String? _resolveModelForAttachments(
+    ActiveModelsState active,
+    List<AiInput> inputs,
+  ) {
+    if (inputs.hasImage) {
+      return active.executableSelection[AiTaskId.imageTextToText] ??
+          active.singleModels[ModelCapability.vision] ??
+          active.executableSelection[AiTaskId.textGeneration] ??
+          active.singleModels[ModelCapability.text] ??
+          active.multiModel?.modelId;
+    }
+    if (inputs.hasAudio) {
+      return active.executableSelection[AiTaskId.audioUnderstanding] ??
+          active.singleModels[ModelCapability.audio] ??
+          active.executableSelection[AiTaskId.textGeneration] ??
+          active.singleModels[ModelCapability.text] ??
+          active.multiModel?.modelId;
+    }
+    if (inputs.hasVideo) {
+      return active.executableSelection[AiTaskId.videoTextToText] ??
+          active.singleModels[ModelCapability.video] ??
+          active.executableSelection[AiTaskId.textGeneration] ??
+          active.singleModels[ModelCapability.text] ??
+          active.multiModel?.modelId;
+    }
+    return active.executableSelection[AiTaskId.textGeneration] ??
+        active.singleModels[ModelCapability.text] ??
+        active.multiModel?.modelId;
+  }
+
+  Future<({List<AiInput> inputs, String? textOverride})> _prepareInputs(
+    ChatMessage prompt,
+  ) async {
+    if (prompt.attachments.isEmpty) {
+      return (inputs: const <AiInput>[], textOverride: null);
+    }
+    final inputs = <AiInput>[];
+    final extraText = StringBuffer();
+    for (final attachment in prompt.attachments) {
+      final file = File(attachment.path);
+      if (!file.existsSync()) continue;
+      final mime = attachment.mimeType ?? 'application/octet-stream';
+      if (attachment.isImage || mime.startsWith('image/')) {
+        inputs.add(
+          AiImageInput(
+            bytes: await file.readAsBytes(),
+            mimeType: mime.startsWith('image/') ? mime : 'image/png',
+          ),
+        );
+      } else if (mime.startsWith('audio/')) {
+        inputs.add(
+          AiAudioInput(bytes: await file.readAsBytes(), mimeType: mime),
+        );
+      } else if (mime.startsWith('video/')) {
+        inputs.add(
+          AiVideoInput(bytes: await file.readAsBytes(), mimeType: mime),
+        );
+      } else if (_isTextFile(mime, attachment.name)) {
+        final bytes = await file.readAsBytes();
+        if (bytes.length <= 256 * 1024) {
+          final decoded = utf8.decode(bytes, allowMalformed: true);
+          if (extraText.isNotEmpty) extraText.writeln();
+          extraText.writeln('[File: ${attachment.name}]');
+          extraText.writeln(decoded);
+        }
+      } else {
+        inputs.add(
+          AiFileInput(
+            bytes: await file.readAsBytes(),
+            mimeType: mime,
+            name: attachment.name,
+          ),
+        );
+      }
+    }
+    final combinedText = extraText.isEmpty
+        ? null
+        : [
+            if (prompt.text.trim().isNotEmpty) prompt.text.trim(),
+            extraText.toString().trim(),
+          ].join('\n\n');
+    return (inputs: inputs, textOverride: combinedText);
+  }
+
+  static bool _isTextFile(String mime, String name) {
+    if (mime.startsWith('text/')) return true;
+    if (mime == 'application/json' || mime == 'application/xml') return true;
+    final ext = name.split('.').last.toLowerCase();
+    return const {'txt', 'md', 'json', 'csv', 'yaml', 'yml', 'log', 'dart'}
+        .contains(ext);
+  }
+
   Future<void> _commitReply(
     String sessionId,
     String text,
     int generation, {
     required DateTime after,
     required int sequence,
+    List<ChatAttachment> attachments = const [],
   }) async {
     if (generation != _generation) return;
 
@@ -626,6 +836,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       role: ChatRole.assistant,
       text: text,
       createdAt: replyTime,
+      attachments: attachments,
     );
     await database.saveMessage(reply, sessionId: sessionId);
     try {
@@ -666,6 +877,7 @@ class ChatController extends AsyncNotifier<ChatState> {
         archivedSessions: archived ?? latest.archivedSessions,
         messages: stillOnSession ? [...latest.messages, reply] : null,
         sending: false,
+        generatingImage: false,
         clearStreaming: true,
         clearFailure: true,
       ),
@@ -853,8 +1065,10 @@ class ChatController extends AsyncNotifier<ChatState> {
         'The selected task is not available in this build.',
       InvalidRequestException() =>
         'This prompt could not be sent to the selected model.',
-      InferenceFailedException() =>
-        'The selected model could not finish the reply. Try again.',
+      InferenceFailedException(:final message) =>
+        message.trim().isNotEmpty
+            ? message
+            : 'The selected model could not finish the reply. Try again.',
     };
   }
 

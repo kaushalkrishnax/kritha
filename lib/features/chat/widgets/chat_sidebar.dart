@@ -519,7 +519,6 @@ class _AccountControl extends StatelessWidget {
       context: context,
       anchor: ContextMenuAnchor.fromContext(context),
       bounds: contextMenuBoundsOf(sidebarKey?.currentContext),
-      fillBounds: true,
       items: [
         ContextMenuItem(
           id: 'free',

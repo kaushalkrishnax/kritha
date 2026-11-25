@@ -9,10 +9,16 @@ import '../../../core/theme.dart';
 
 /// Actions under an assistant response (copy, speak, share).
 class ResponseActions extends StatefulWidget {
-  const ResponseActions({super.key, required this.text, required this.onSpeak});
+  const ResponseActions({
+    super.key,
+    required this.text,
+    required this.onSpeak,
+    this.isSpeaking = false,
+  });
 
   final String text;
   final VoidCallback onSpeak;
+  final bool isSpeaking;
 
   @override
   State<ResponseActions> createState() => _ResponseActionsState();
@@ -84,7 +90,10 @@ class _ResponseActionsState extends State<ResponseActions> {
           SizedBox(width: KrithaSpacing.s2),
           _ActionIcon(
             icon: HugeIcons.strokeRoundedVolume02,
-            tooltip: 'Read aloud',
+            color: widget.isSpeaking
+                ? KrithaColors.accentLightBlue
+                : KrithaColors.iconMuted,
+            tooltip: widget.isSpeaking ? 'Stop reading' : 'Read aloud',
             onTap: widget.onSpeak,
           ),
           SizedBox(width: KrithaSpacing.s2),

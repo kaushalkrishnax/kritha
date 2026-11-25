@@ -11,11 +11,13 @@ class LiveTalkBar extends StatelessWidget {
   const LiveTalkBar({
     super.key,
     required this.phase,
+    this.audioLevel = 0.0,
     required this.onTogglePause,
     required this.onStop,
   });
 
   final LiveTalkPhase phase;
+  final double audioLevel;
   final VoidCallback onTogglePause;
   final VoidCallback onStop;
 
@@ -68,6 +70,7 @@ class LiveTalkBar extends StatelessWidget {
                   child: Center(
                     child: LiveTalkPill(
                       active: phase.isListening || phase.isSpeaking,
+                      audioLevel: audioLevel,
                     ),
                   ),
                 ),

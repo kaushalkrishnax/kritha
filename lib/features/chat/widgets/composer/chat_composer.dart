@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/responsive.dart';
 import '../../../../core/theme.dart';
 import '../../dictation_controller.dart';
+import '../../live_talk_controller.dart';
 import 'composer_controller.dart';
 import 'dictation_bar.dart';
 import 'live_talk_bar.dart';
@@ -16,6 +17,7 @@ class ChatComposer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(composerProvider);
     final dictation = ref.watch(dictationProvider);
+    final liveTalk = ref.watch(liveTalkProvider);
     final viewport = viewportOf(MediaQuery.sizeOf(context).width);
 
     final Widget content = dictation.isActive
@@ -24,10 +26,10 @@ class ChatComposer extends ConsumerWidget {
         ? LiveTalkBar(
             key: const ValueKey('live-talk'),
             phase: state.liveTalkPhase,
+            audioLevel: liveTalk.audioLevel,
             onTogglePause: () =>
-                ref.read(composerProvider.notifier).toggleLiveTalkPause(),
-            onStop: () =>
-                ref.read(composerProvider.notifier).setLiveTalkActive(false),
+                ref.read(liveTalkProvider.notifier).togglePause(),
+            onStop: () => ref.read(liveTalkProvider.notifier).stop(),
           )
         : NormalComposer(
             key: const ValueKey('normal-composer'),

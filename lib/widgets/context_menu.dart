@@ -62,7 +62,6 @@ Future<String?> showKrithaContextMenu({
   double? targetHeight,
   double? width,
   Rect? bounds,
-  bool fillBounds = false,
 }) {
   if (items.isEmpty) return Future.value();
   return showGeneralDialog<String>(
@@ -82,7 +81,6 @@ Future<String?> showKrithaContextMenu({
         targetHeight: targetHeight,
         width: width,
         bounds: bounds,
-        fillBounds: fillBounds,
       );
     },
   );
@@ -104,7 +102,6 @@ class _ContextMenuOverlay extends StatefulWidget {
     this.targetHeight,
     this.width,
     this.bounds,
-    this.fillBounds = false,
   });
 
   final ContextMenuAnchor anchor;
@@ -114,7 +111,6 @@ class _ContextMenuOverlay extends StatefulWidget {
   final double? targetHeight;
   final double? width;
   final Rect? bounds;
-  final bool fillBounds;
 
   @override
   State<_ContextMenuOverlay> createState() => _ContextMenuOverlayState();
@@ -143,6 +139,42 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     super.dispose();
   }
 
+  /// Fits the menu to its longest row, bounded by the menu width limits.
+  double _intrinsicWidth(BuildContext context) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+    var widest = 0.0;
+    for (final item in widget.items) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: item.label,
+          style: const TextStyle(
+            fontSize: KrithaText.sizeMd,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+          ),
+        ),
+        maxLines: 1,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout();
+      var width = painter.width + KrithaSpacing.s20 * 2;
+      painter.dispose();
+      if (item.icon != null) {
+        width +=
+            KrithaDimensions.contextMenuIconColumn +
+            KrithaDimensions.contextMenuIconGap;
+      }
+      if (item.trailingIcon != null) {
+        width +=
+            KrithaDimensions.contextMenuIconColumn +
+            KrithaDimensions.contextMenuIconGap;
+      }
+      widest = math.max(widest, width);
+    }
+    return widest.ceilToDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -168,9 +200,17 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
     final panelRight = bounds == null
         ? null
         : math.max(bounds.left + margin, bounds.right - margin);
-    final menuWidth = widget.fillBounds && bounds != null
-        ? math.max(0.0, panelRight! - panelLeft!)
-        : widget.width ?? KrithaDimensions.contextMenuWidth;
+    final availableWidth = bounds == null
+        ? screen.width - insets.left - insets.right - margin * 2
+        : math.max(0.0, panelRight! - panelLeft!);
+    final maxWidth = math.min(
+      KrithaDimensions.contextMenuMaxWidth,
+      availableWidth,
+    );
+    final minWidth = math.min(KrithaDimensions.contextMenuMinWidth, maxWidth);
+    final menuWidth =
+        widget.width ??
+        _intrinsicWidth(context).clamp(minWidth, maxWidth).toDouble();
 
     double left;
     if (bounds != null) {
@@ -235,10 +275,9 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
 
     // Expands from corner nearest press point to anchor to trigger.
     final openToRight =
-        !widget.fillBounds &&
-        (widget.align == ContextMenuAlign.right ||
-            (widget.align == ContextMenuAlign.auto &&
-                left + menuWidth / 2 > anchor.position.dx));
+        widget.align == ContextMenuAlign.right ||
+        (widget.align == ContextMenuAlign.auto &&
+            left + menuWidth / 2 > anchor.position.dx);
     final horizontal = openToRight ? Alignment.topRight : Alignment.topLeft;
     final scaleOrigin = flippedAbove
         ? (openToRight ? Alignment.bottomRight : Alignment.bottomLeft)
