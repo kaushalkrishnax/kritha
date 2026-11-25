@@ -243,10 +243,15 @@ List<Map<String, dynamic>> openAiChatMessages(AiRequest request) {
     for (final input in request.inputs)
       if (input is AiImageInput) input,
   ];
+  final audios = [
+    for (final input in request.inputs)
+      if (input is AiAudioInput) input,
+  ];
+  final hasMedia = images.isNotEmpty || audios.isNotEmpty;
   return [
     if (system.isNotEmpty) {'role': 'system', 'content': system},
     for (var i = 0; i < nonSystem.length; i++)
-      if (i == nonSystem.length - 1 && images.isNotEmpty)
+      if (i == nonSystem.length - 1 && hasMedia)
         {
           'role': nonSystem[i].role == AiRole.assistant ? 'assistant' : 'user',
           'content': [
@@ -257,6 +262,14 @@ List<Map<String, dynamic>> openAiChatMessages(AiRequest request) {
                 'image_url': {
                   'url':
                       'data:${image.mimeType};base64,${base64Encode(image.bytes)}',
+                },
+              },
+            for (final audio in audios)
+              {
+                'type': 'input_audio',
+                'input_audio': {
+                  'data': base64Encode(audio.bytes),
+                  'format': audio.mimeType.contains('wav') ? 'wav' : 'mp3',
                 },
               },
           ],

@@ -28,7 +28,7 @@ class ChatComposer extends ConsumerWidget {
             phase: state.liveTalkPhase,
             audioLevel: liveTalk.audioLevel,
             onTogglePause: () =>
-                ref.read(liveTalkProvider.notifier).togglePause(),
+                ref.read(liveTalkProvider.notifier).handleMicButton(),
             onStop: () => ref.read(liveTalkProvider.notifier).stop(),
           )
         : NormalComposer(

@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/mime_types.dart';
 import '../../../../models/chat_attachment.dart';
 
 /// Attachment picker interface enabling deterministic test fakes.
@@ -34,51 +35,26 @@ class FileAttachmentPicker implements AttachmentPicker {
       final file = files[index];
       final path = file.path;
       if (path == null) continue;
+      final mime = detectMimeType(
+        path: path,
+        name: file.name,
+        extension: file.extension,
+      );
+      final resolvedKind = kind == ChatAttachmentKind.image
+          ? ChatAttachmentKind.image
+          : attachmentKindForMime(mime, name: file.name);
       attachments.add(
         ChatAttachment(
           id: '$now-$index-${file.name}',
           name: file.name,
           path: path,
           sizeBytes: await file.length() ?? 0,
-          kind: kind == ChatAttachmentKind.image || _isImage(file.name)
-              ? ChatAttachmentKind.image
-              : ChatAttachmentKind.file,
-          mimeType: _mimeTypeFor(file.extension),
+          kind: resolvedKind,
+          mimeType: mime,
         ),
       );
     }
     return attachments;
-  }
-
-  static bool _isImage(String name) {
-    final extension = name.split('.').last.toLowerCase();
-    return const {
-      'jpg',
-      'jpeg',
-      'png',
-      'gif',
-      'webp',
-      'heic',
-      'heif',
-      'bmp',
-    }.contains(extension);
-  }
-
-  static String? _mimeTypeFor(String? extension) {
-    return switch (extension?.toLowerCase()) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'gif' => 'image/gif',
-      'webp' => 'image/webp',
-      'heic' || 'heif' => 'image/heic',
-      'pdf' => 'application/pdf',
-      'txt' => 'text/plain',
-      'json' => 'application/json',
-      'md' => 'text/markdown',
-      'csv' => 'text/csv',
-      'zip' => 'application/zip',
-      _ => null,
-    };
   }
 }
 

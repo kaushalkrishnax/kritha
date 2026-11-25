@@ -514,106 +514,64 @@ class _AccountControl extends StatelessWidget {
   final VoidCallback onSettings;
   final GlobalKey? sidebarKey;
 
-  Future<void> _openMenu(BuildContext context) async {
-    final selection = await showKrithaContextMenu(
-      context: context,
-      anchor: ContextMenuAnchor.fromContext(context),
-      bounds: contextMenuBoundsOf(sidebarKey?.currentContext),
-      items: [
-        ContextMenuItem(
-          id: 'free',
-          label: 'Free',
-          disabled: true,
-          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
-        ),
-        ContextMenuItem(
-          id: 'profile',
-          label: 'Profile',
-          icon: HugeIcons.strokeRoundedUser,
-        ),
-        ContextMenuItem(
-          id: 'settings',
-          label: 'Settings',
-          icon: HugeIcons.strokeRoundedSettings01,
-        ),
-        ContextMenuItem(
-          id: 'logout',
-          label: 'Log out',
-          icon: HugeIcons.strokeRoundedLogout01,
-        ),
-      ],
-    );
-    if (!context.mounted || selection == null) return;
-    if (selection == 'settings') {
-      onSettings();
-      return;
-    }
-    final message = switch (selection) {
-      'profile' => 'Profile management is not available yet.',
-      'logout' => 'Sign out is not available yet.',
-      _ => null,
-    };
-    if (message != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Account menu',
-      child: Material(
-        color: Colors.transparent,
+    if (compact) {
+      return Tooltip(
+        message: 'Settings',
         child: InkWell(
-          onTap: () => _openMenu(context),
-          mouseCursor: SystemMouseCursors.click,
+          onTap: onSettings,
           borderRadius: BorderRadius.circular(KrithaRadius.base),
-          hoverColor: KrithaColors.contextMenuPressed,
-          focusColor: KrithaColors.contextMenuPressed,
-          splashColor: KrithaColors.contextMenuPressed,
-          highlightColor: KrithaColors.contextMenuPressed,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 0 : KrithaSpacing.s8,
-              vertical: KrithaSpacing.s6,
-            ),
-            child: compact
-                ? Center(child: _AccountAvatar(size: 32))
-                : Row(
-                    children: [
-                      _AccountAvatar(size: 32),
-                      SizedBox(width: KrithaSpacing.s10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Kaushal Krishna',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: KrithaText.sizeSm,
-                                color: KrithaColors.textSecondary.withValues(
-                                  alpha: 0.78,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              'Free',
-                              style: TextStyle(
-                                fontSize: KrithaText.size2xs,
-                                color: KrithaColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            padding: EdgeInsets.symmetric(vertical: KrithaSpacing.s6),
+            child: Center(child: _AccountAvatar(size: 32)),
           ),
         ),
+      );
+    }
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: KrithaSpacing.s8,
+        vertical: KrithaSpacing.s6,
+      ),
+      child: Row(
+        children: [
+          _AccountAvatar(size: 32),
+          SizedBox(width: KrithaSpacing.s10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Kaushal Krishna',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: KrithaText.sizeSm,
+                    color: KrithaColors.textSecondary.withValues(alpha: 0.78),
+                  ),
+                ),
+                Text(
+                  'Free',
+                  style: TextStyle(
+                    fontSize: KrithaText.size2xs,
+                    color: KrithaColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: onSettings,
+            icon: KrithaIcon(
+              icon: HugeIcons.strokeRoundedSettings01,
+              size: KrithaIcons.md,
+              color: KrithaColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -194,7 +194,13 @@ bool modelSupportsCapability(
   if (model.tasks.any((t) => t.task == task)) return true;
   if (capability == ModelCapability.text) {
     return model.tasks.isEmpty ||
-        model.tasks.any((t) => t.task == AiTaskId.textGeneration);
+        model.tasks.any(
+          (t) =>
+              t.task == AiTaskId.textGeneration ||
+              t.task == AiTaskId.imageTextToText ||
+              t.task == AiTaskId.audioUnderstanding ||
+              t.task == AiTaskId.videoTextToText,
+        );
   }
   return false;
 }

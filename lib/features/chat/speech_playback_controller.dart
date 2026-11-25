@@ -27,17 +27,16 @@ class SpeechPlaybackException implements Exception {
   String toString() => message;
 }
 
-/// Synthesizes assistant replies through the active TTS model and plays audio.
+/// Synthesizes assistant replies through the active TTS model, caching audio on disk.
 class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
   AudioPlayer? _player;
-  String? _tempPath;
+  final Map<String, String> _memoryCache = {};
 
   @override
   SpeechPlaybackState build() {
     ref.onDispose(() {
       _player?.dispose();
       _player = null;
-      _cleanupTempFile();
     });
     return const SpeechPlaybackState();
   }
@@ -64,26 +63,28 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
       );
     }
 
+    final cacheKey = '${ttsModelId}_${Object.hash(ttsModelId, trimmed)}';
     state = SpeechPlaybackState(playingMessageId: messageId, loading: true);
     try {
-      final speech = await ref
-          .read(intelligenceEngineProvider)
-          .synthesizeSpeech(text: trimmed, modelId: ttsModelId);
-      if (!ref.mounted) return;
-      final dir = await getTemporaryDirectory();
-      final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
-      final file = File(
-        '${dir.path}/kritha_tts_${DateTime.now().microsecondsSinceEpoch}.$ext',
-      );
-      await file.writeAsBytes(speech.bytes, flush: true);
-      _cleanupTempFile();
-      _tempPath = file.path;
+      var filePath = await _lookupCachedFile(cacheKey);
+      if (filePath == null) {
+        final speech = await ref
+            .read(intelligenceEngineProvider)
+            .synthesizeSpeech(text: trimmed, modelId: ttsModelId);
+        if (!ref.mounted) return;
+        final cacheDir = await _cacheDir();
+        final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
+        final file = File('${cacheDir.path}/$cacheKey.$ext');
+        await file.writeAsBytes(speech.bytes, flush: true);
+        filePath = file.path;
+        _memoryCache[cacheKey] = filePath;
+      }
 
       final player = _player ??= AudioPlayer();
-      await player.setFilePath(file.path);
+      await player.setFilePath(filePath);
       if (!ref.mounted) return;
       state = SpeechPlaybackState(playingMessageId: messageId, loading: false);
-      unawaitedPlayerCompletion(player, messageId);
+      _listenCompletion(player, messageId);
       await player.play();
     } on Object {
       if (ref.mounted) {
@@ -93,7 +94,30 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     }
   }
 
-  void unawaitedPlayerCompletion(AudioPlayer player, String messageId) {
+  Future<Directory> _cacheDir() async {
+    final dir = await getTemporaryDirectory();
+    final cache = Directory('${dir.path}/kritha_tts_cache');
+    if (!cache.existsSync()) cache.createSync(recursive: true);
+    return cache;
+  }
+
+  Future<String?> _lookupCachedFile(String cacheKey) async {
+    final mem = _memoryCache[cacheKey];
+    if (mem != null && File(mem).existsSync() && File(mem).lengthSync() > 0) {
+      return mem;
+    }
+    final dir = await _cacheDir();
+    for (final ext in const ['wav', 'mp3']) {
+      final candidate = File('${dir.path}/$cacheKey.$ext');
+      if (candidate.existsSync() && candidate.lengthSync() > 0) {
+        _memoryCache[cacheKey] = candidate.path;
+        return candidate.path;
+      }
+    }
+    return null;
+  }
+
+  void _listenCompletion(AudioPlayer player, String messageId) {
     player.playerStateStream.listen((playerState) {
       if (playerState.processingState == ProcessingState.completed &&
           ref.mounted &&
@@ -109,21 +133,8 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     } on Object {
       // Stopping playback is best-effort.
     }
-    _cleanupTempFile();
     if (ref.mounted) {
       state = const SpeechPlaybackState();
-    }
-  }
-
-  void _cleanupTempFile() {
-    final path = _tempPath;
-    _tempPath = null;
-    if (path == null) return;
-    try {
-      final file = File(path);
-      if (file.existsSync()) file.deleteSync();
-    } on Object {
-      // Temp cleanup is best-effort.
     }
   }
 }

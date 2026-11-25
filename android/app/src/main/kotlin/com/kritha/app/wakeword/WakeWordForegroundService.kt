@@ -305,7 +305,7 @@ class WakeWordForegroundService : Service() {
             Notification.Builder(this).setPriority(Notification.PRIORITY_LOW)
         }
         return builder
-            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_stat_kritha)
             .setContentTitle(if (paused.get()) "Kritha wake word paused" else "Kritha is listening")
             .setContentText(if (paused.get()) "Tap Resume to continue" else "Listening for Hey Kritha")
             .setContentIntent(openApp)

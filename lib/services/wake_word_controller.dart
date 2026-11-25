@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,21 +28,30 @@ enum WakeWordMode {
 
 class WakeWordSettingsNotifier extends Notifier<WakeWordMode> {
   static const preferenceKey = 'kritha.wake_word.mode';
+  Future<WakeWordMode>? _restoreFuture;
 
   @override
   WakeWordMode build() {
-    unawaited(_restore());
+    _restoreFuture = _restore();
     return WakeWordMode.dictate;
   }
 
-  Future<void> _restore() async {
+  Future<WakeWordMode> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = WakeWordMode.fromName(prefs.getString(preferenceKey));
     if (ref.mounted) state = saved;
+    return saved;
+  }
+
+  Future<WakeWordMode> readSavedMode() async {
+    final pending = _restoreFuture;
+    if (pending != null) return pending;
+    return _restore();
   }
 
   Future<void> setMode(WakeWordMode mode) async {
     state = mode;
+    _restoreFuture = Future.value(mode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(preferenceKey, mode.name);
   }
@@ -62,7 +72,9 @@ final wakeWordCoordinatorProvider = Provider<void>((ref) {
     handling = true;
     try {
       await WakeWordBridge.pauseListening();
-      final mode = ref.read(wakeWordModeProvider);
+      final mode = await ref.read(wakeWordModeProvider.notifier).readSavedMode();
+      // Ensure widget tree / providers are settled when launched in KrithaOverlay.
+      await WidgetsBinding.instance.endOfFrame;
       if (mode == WakeWordMode.liveTalk) {
         await ref.read(liveTalkProvider.notifier).start();
       } else {
@@ -85,12 +97,16 @@ final wakeWordCoordinatorProvider = Provider<void>((ref) {
 
   // Resume wake-word mic listening once Dictation and Live Talk both go idle.
   ref.listen(dictationProvider, (prev, next) {
-    if (prev?.isActive == true && next.isIdle && !ref.read(liveTalkProvider).active) {
+    if (prev?.isActive == true &&
+        next.isIdle &&
+        !ref.read(liveTalkProvider).active) {
       unawaited(WakeWordBridge.resumeListening());
     }
   });
   ref.listen(liveTalkProvider, (prev, next) {
-    if (prev?.active == true && !next.active && ref.read(dictationProvider).isIdle) {
+    if (prev?.active == true &&
+        !next.active &&
+        ref.read(dictationProvider).isIdle) {
       unawaited(WakeWordBridge.resumeListening());
     }
   });

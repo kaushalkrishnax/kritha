@@ -52,17 +52,19 @@ class LiveTalkState {
   }
 }
 
-/// Orchestrates the real-time Live Talk loop:
-/// mic PCM stream -> Silero VAD + TurnDetector -> ASR -> Intelligence -> TTS -> playback.
+/// Orchestrates the continuous Live Talk loop:
+/// mic PCM stream -> Silero VAD + TurnDetector -> ASR -> Intelligence -> TTS -> playback,
+/// with voice barge-in and single-source-of-truth mic state.
 class LiveTalkNotifier extends Notifier<LiveTalkState> {
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _audioSub;
   AudioPlayer? _player;
   SileroVadSession? _vad;
-  final TurnDetector _turnDetector = TurnDetector();
+  final TurnDetector _turnDetector = TurnDetector(silenceFrameCount: 20);
   final List<int> _pcmCarry = [];
   final List<int> _utteranceBytes = [];
   int _sessionEpoch = 0;
+  int _turnEpoch = 0;
   String? _ttsTempPath;
 
   @override
@@ -76,6 +78,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   Future<void> start() async {
     if (state.active) return;
     final epoch = ++_sessionEpoch;
+    _turnEpoch++;
     final recorder = _recorder ??= AudioRecorder();
     final allowed = await recorder.hasPermission();
     if (!allowed) {
@@ -123,6 +126,9 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         encoder: AudioEncoder.pcm16bits,
         sampleRate: SileroVadSession.sampleRate,
         numChannels: 1,
+        echoCancel: true,
+        noiseSuppress: true,
+        autoGain: true,
       ),
     );
     if (epoch != _sessionEpoch || !ref.mounted) return;
@@ -148,14 +154,18 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       if (vadResult == null) continue;
 
       final smoothedLevel =
-          (state.audioLevel * 0.65 + vadResult.level * 0.35).clamp(0.0, 1.0);
-      if ((smoothedLevel - state.audioLevel).abs() > 0.02) {
+          (state.audioLevel * 0.60 + vadResult.level * 0.40).clamp(0.0, 1.0);
+      if ((smoothedLevel - state.audioLevel).abs() > 0.015) {
         state = state.copyWith(audioLevel: smoothedLevel);
       }
 
       final signal = _turnDetector.accept(vadResult.probability);
       if (signal == TurnSignal.speechStart) {
-        if (state.phase.isSpeaking) {
+        // Voice barge-in: cancel in-flight response/TTS immediately.
+        if (state.phase == LiveTalkPhase.speaking ||
+            state.phase == LiveTalkPhase.thinking ||
+            state.phase == LiveTalkPhase.processing) {
+          _turnEpoch++;
           unawaited(_stopPlayback());
         }
         _utteranceBytes.clear();
@@ -167,22 +177,32 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
           final captured = List<int>.from(_utteranceBytes);
           _utteranceBytes.clear();
           _turnDetector.reset();
-          unawaited(_processUtterance(captured, epoch));
+          _vad?.reset();
+          unawaited(_processUtterance(captured, epoch, ++_turnEpoch));
         }
       } else if (signal == TurnSignal.speechEnd) {
         _utteranceBytes.addAll(frameBytes);
         final captured = List<int>.from(_utteranceBytes);
         _utteranceBytes.clear();
-        unawaited(_processUtterance(captured, epoch));
+        _vad?.reset();
+        unawaited(_processUtterance(captured, epoch, ++_turnEpoch));
       }
     }
   }
 
-  Future<void> _processUtterance(List<int> pcmBytes, int epoch) async {
-    if (epoch != _sessionEpoch || !state.active || pcmBytes.length < 3200) {
-      if (state.active && !state.phase.isPaused) {
-        _setPhase(LiveTalkPhase.listening);
-      }
+  Future<void> _processUtterance(
+    List<int> pcmBytes,
+    int epoch,
+    int turnEpoch,
+  ) async {
+    bool isCurrent() =>
+        epoch == _sessionEpoch &&
+        turnEpoch == _turnEpoch &&
+        state.active &&
+        !state.phase.isPaused;
+
+    if (!isCurrent() || pcmBytes.length < 3200) {
+      if (isCurrent()) _setPhase(LiveTalkPhase.listening);
       return;
     }
 
@@ -201,10 +221,8 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         modelId: sttModelId,
       )).trim();
 
-      if (epoch != _sessionEpoch || !state.active || transcript.isEmpty) {
-        if (state.active && !state.phase.isPaused) {
-          _setPhase(LiveTalkPhase.listening);
-        }
+      if (!isCurrent() || transcript.isEmpty) {
+        if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
@@ -212,7 +230,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       _setPhase(LiveTalkPhase.thinking);
 
       await ref.read(chatControllerProvider.notifier).send(transcript);
-      if (epoch != _sessionEpoch || !state.active) return;
+      if (!isCurrent()) return;
 
       final chatMessages = ref.read(chatControllerProvider).value?.messages;
       final replyText = chatMessages != null &&
@@ -221,14 +239,14 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
           ? chatMessages.last.text.trim()
           : '';
       if (replyText.isEmpty) {
-        _setPhase(LiveTalkPhase.listening);
+        if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
       state = state.copyWith(lastReply: replyText);
       final ttsModelId = _ttsModelId(active);
       if (ttsModelId == null) {
-        _setPhase(LiveTalkPhase.listening);
+        if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
@@ -237,9 +255,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         text: replyText,
         modelId: ttsModelId,
       );
-      if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       final dir = await getTemporaryDirectory();
       final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
@@ -250,39 +266,63 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       _cleanupTtsFile();
       _ttsTempPath = file.path;
 
-      final player = _player ??= AudioPlayer();
+      // Avoid stealing audio focus from the active mic capture stream.
+      final player = _player ??= AudioPlayer(
+        handleAudioSessionActivation: false,
+      );
       await player.setFilePath(file.path);
-      if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
-        return;
-      }
+      if (!isCurrent()) return;
       await player.play();
-      if (epoch == _sessionEpoch && state.active && !state.phase.isPaused) {
+      if (isCurrent()) {
+        _turnDetector.reset();
+        _vad?.reset();
         _setPhase(LiveTalkPhase.listening);
       }
     } on Object catch (error) {
-      if (epoch == _sessionEpoch && state.active) {
+      if (isCurrent()) {
         state = state.copyWith(errorMessage: '$error');
+        _turnDetector.reset();
+        _vad?.reset();
         _setPhase(LiveTalkPhase.listening);
       }
     }
   }
 
-  Future<void> togglePause() async {
+  /// Single mic button handler:
+  /// - while speaking/thinking/processing -> interrupt and return to listening
+  /// - while listening -> pause
+  /// - while paused -> resume listening
+  Future<void> handleMicButton() async {
     if (!state.active) return;
     if (state.phase.isPaused) {
       _turnDetector.reset();
+      _vad?.reset();
       _utteranceBytes.clear();
       _setPhase(LiveTalkPhase.listening);
-    } else {
+      return;
+    }
+    if (state.phase == LiveTalkPhase.speaking ||
+        state.phase == LiveTalkPhase.thinking ||
+        state.phase == LiveTalkPhase.processing) {
+      _turnEpoch++;
       await _stopPlayback();
       _turnDetector.reset();
+      _vad?.reset();
       _utteranceBytes.clear();
-      _setPhase(LiveTalkPhase.paused);
+      _setPhase(LiveTalkPhase.listening);
+      return;
     }
+    _turnEpoch++;
+    await _stopPlayback();
+    _turnDetector.reset();
+    _vad?.reset();
+    _utteranceBytes.clear();
+    _setPhase(LiveTalkPhase.paused);
   }
 
   Future<void> stop() async {
     _sessionEpoch++;
+    _turnEpoch++;
     await _audioSub?.cancel();
     _audioSub = null;
     try {

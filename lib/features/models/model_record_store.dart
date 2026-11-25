@@ -184,7 +184,11 @@ final modelRepositoryProvider = Provider<ModelRepository>((ref) {
       runtimes: {
         localLitertlmProviderId: const ModelRuntimeSignature(
           id: 'local-litertlm',
-          capabilities: {InferenceCapability.textGeneration},
+          capabilities: {
+            InferenceCapability.textGeneration,
+            InferenceCapability.imageInput,
+            InferenceCapability.audioInput,
+          },
           platforms: {'android', 'ios', 'macos', 'windows', 'linux'},
           formats: {'litertlm'},
           available: true,

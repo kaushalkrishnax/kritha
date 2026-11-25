@@ -29,8 +29,12 @@ class LiveTalkBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isListening = phase.isListening;
     final paused = phase.isPaused;
+    final micActive = !paused;
+    final interrupting =
+        phase == LiveTalkPhase.speaking ||
+        phase == LiveTalkPhase.thinking ||
+        phase == LiveTalkPhase.processing;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom > 0
         ? 0.0
         : MediaQuery.viewPaddingOf(context).bottom;
@@ -76,13 +80,17 @@ class LiveTalkBar extends StatelessWidget {
                 ),
                 SizedBox(width: gap),
                 LiveTalkCircleButton(
-                  icon: isListening
+                  icon: micActive
                       ? HugeIcons.strokeRoundedMic01
                       : HugeIcons.strokeRoundedMicOff01,
-                  iconColor: isListening
+                  iconColor: micActive
                       ? KrithaColors.textPrimary
                       : KrithaColors.textMuted,
-                  tooltip: paused ? 'Resume Live Talk' : 'Pause Live Talk',
+                  tooltip: paused
+                      ? 'Resume Live Talk'
+                      : interrupting
+                      ? 'Interrupt and listen'
+                      : 'Pause Live Talk',
                   size: circleSize,
                   onTap: onTogglePause,
                 ),

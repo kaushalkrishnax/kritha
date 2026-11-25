@@ -1,7 +1,7 @@
 import 'dart:io';
 
-/// Attachment kind; composer distinguishes images from generic files.
-enum ChatAttachmentKind { image, file }
+/// Attachment kind distinguishing media types from generic files.
+enum ChatAttachmentKind { image, video, audio, file }
 
 /// Selected attachment copied to temporary cache with persisted metadata.
 class ChatAttachment {
@@ -22,6 +22,8 @@ class ChatAttachment {
   final String? mimeType;
 
   bool get isImage => kind == ChatAttachmentKind.image;
+  bool get isVideo => kind == ChatAttachmentKind.video;
+  bool get isAudio => kind == ChatAttachmentKind.audio;
 
   bool get exists => path.isNotEmpty && File(path).existsSync();
 
@@ -48,9 +50,10 @@ class ChatAttachment {
       name: json['name'] as String? ?? 'attachment',
       path: json['path'] as String? ?? '',
       sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
-      kind: json['kind'] == ChatAttachmentKind.image.name
-          ? ChatAttachmentKind.image
-          : ChatAttachmentKind.file,
+      kind: ChatAttachmentKind.values.firstWhere(
+        (value) => value.name == json['kind'],
+        orElse: () => ChatAttachmentKind.file,
+      ),
       mimeType: json['mimeType'] as String?,
     );
   }

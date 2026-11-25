@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/mime_types.dart';
 import '../../core/providers.dart';
 import '../../data/app_database.dart';
 import '../../models/chat_attachment.dart';
@@ -123,7 +124,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     ref.onDispose(_cancelActiveGeneration);
     final database = ref.watch(databaseProvider);
     await database.adoptOrphanMessages();
-    return _load(selectMostRecent: true);
+    return _load(selectMostRecent: false);
   }
 
   Future<ChatState> _load({bool selectMostRecent = false}) async {
@@ -768,7 +769,12 @@ class ChatController extends AsyncNotifier<ChatState> {
     for (final attachment in prompt.attachments) {
       final file = File(attachment.path);
       if (!file.existsSync()) continue;
-      final mime = attachment.mimeType ?? 'application/octet-stream';
+      final rawMime = attachment.mimeType;
+      final mime = (rawMime != null &&
+              rawMime.trim().isNotEmpty &&
+              rawMime != 'application/octet-stream')
+          ? normalizeMimeType(rawMime)
+          : detectMimeType(path: file.path, name: attachment.name);
       if (attachment.isImage || mime.startsWith('image/')) {
         inputs.add(
           AiImageInput(

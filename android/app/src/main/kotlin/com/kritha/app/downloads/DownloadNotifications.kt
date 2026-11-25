@@ -42,7 +42,7 @@ object DownloadNotifications {
             if (paused) append(" • Paused")
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_stat_kritha)
             .setContentTitle(modelName)
             .setContentText(text)
             .setOnlyAlertOnce(true)
@@ -92,7 +92,7 @@ object DownloadNotifications {
     fun summary(context: Context): Notification {
         ensureChannel(context)
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_stat_kritha)
             .setContentTitle("Downloading models")
             .setContentText("Kritha keeps downloading while minimized.")
             .setOngoing(true)

@@ -135,6 +135,16 @@ class _FileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (attachment.kind) {
+      ChatAttachmentKind.video => HugeIcons.strokeRoundedVideo01,
+      ChatAttachmentKind.audio => HugeIcons.strokeRoundedAudioLines,
+      _ => HugeIcons.strokeRoundedAttachment,
+    };
+    final kindLabel = switch (attachment.kind) {
+      ChatAttachmentKind.video => 'Video • ${attachment.readableSize}',
+      ChatAttachmentKind.audio => 'Audio • ${attachment.readableSize}',
+      _ => attachment.readableSize,
+    };
     return Container(
       height: KrithaDimensions.attachmentImageSize,
       padding: EdgeInsets.symmetric(
@@ -149,7 +159,7 @@ class _FileTile extends StatelessWidget {
       child: Row(
         children: [
           KrithaIcon(
-            icon: HugeIcons.strokeRoundedAttachment,
+            icon: icon,
             size: KrithaIcons.md,
             color: KrithaColors.accentLightBlue,
           ),
@@ -172,7 +182,7 @@ class _FileTile extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  attachment.readableSize,
+                  kindLabel,
                   style: TextStyle(
                     fontSize: KrithaText.size2xs,
                     color: KrithaColors.textMuted,

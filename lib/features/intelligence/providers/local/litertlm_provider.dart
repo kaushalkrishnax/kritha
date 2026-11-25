@@ -5,6 +5,7 @@ import 'package:litertlm/litertlm.dart' as lite;
 
 import '../../../../models/model_record.dart';
 import '../../intelligence_exception.dart';
+import '../../models/ai_input.dart';
 import '../../models/ai_request.dart';
 import '../../models/ai_response.dart';
 import '../../models/model_capabilities.dart';
@@ -255,7 +256,7 @@ class LiteRtLmLocalProvider implements InferenceProvider {
     try {
       final text = await engine.complete(
         conversation: _conversationFor(request),
-        message: _messageFor(request.messages.last),
+        message: _lastTurnMessage(request),
       );
       stopwatch.stop();
       return AiResponse(
@@ -313,7 +314,7 @@ class LiteRtLmLocalProvider implements InferenceProvider {
           subscription = engine
               .stream(
                 conversation: _conversationFor(request),
-                message: _messageFor(request.messages.last),
+                message: _lastTurnMessage(request),
               )
               .listen(
                 (delta) {
@@ -519,6 +520,20 @@ class LiteRtLmLocalProvider implements InferenceProvider {
         ),
       ),
     );
+  }
+
+  lite.Message _lastTurnMessage(AiRequest request) {
+    final last = request.messages.last;
+    if (request.inputs.isEmpty) return _messageFor(last);
+    final parts = <lite.Content>[
+      lite.Content.text(last.text),
+      for (final input in request.inputs)
+        if (input is AiImageInput)
+          lite.Content.imageBytes(input.bytes)
+        else if (input is AiAudioInput)
+          lite.Content.audioBytes(input.bytes),
+    ];
+    return lite.Message.userContents(lite.Contents(parts));
   }
 
   lite.Message _messageFor(AiMessage message) => switch (message.role) {

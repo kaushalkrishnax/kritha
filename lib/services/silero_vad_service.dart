@@ -100,8 +100,8 @@ class SileroVadSession {
           sileroVad: sherpa.SileroVadModelConfig(
             model: modelPath,
             threshold: 0.5,
-            minSilenceDuration: 0.5,
-            minSpeechDuration: 0.25,
+            minSilenceDuration: 0.35,
+            minSpeechDuration: 0.10,
             windowSize: frameSamples,
             maxSpeechDuration: 20.0,
           ),

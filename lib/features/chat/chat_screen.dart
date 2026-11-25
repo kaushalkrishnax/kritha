@@ -518,7 +518,16 @@ class _ChatArea extends StatefulWidget {
 class _ChatAreaState extends State<_ChatArea> {
   final _composerKey = GlobalKey();
   double _composerHeight = 120;
-  bool _didInitialScroll = false;
+  String? _scrolledSessionId;
+
+  @override
+  void didUpdateWidget(covariant _ChatArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextId = widget.chat.asData?.value.currentSessionId;
+    if (nextId != _scrolledSessionId) {
+      _scrolledSessionId = null;
+    }
+  }
 
   void _measureComposer() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -531,19 +540,12 @@ class _ChatAreaState extends State<_ChatArea> {
   }
 
   void _scheduleInitialScroll() {
-    if (_didInitialScroll) return;
-    final messages = widget.chat.asData?.value.messages;
-    if (messages == null || messages.isEmpty) return;
-    _didInitialScroll = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final controller = widget.scrollController;
-        if (!controller.hasClients) return;
-        controller.jumpTo(controller.position.maxScrollExtent);
-      });
-    });
+    final data = widget.chat.asData?.value;
+    if (data == null || data.messages.isEmpty) return;
+    final sessionId = data.currentSessionId ?? '';
+    if (_scrolledSessionId == sessionId) return;
+    _scrolledSessionId = sessionId;
+    _scrollToSettledBottom(widget.scrollController, animate: false);
   }
 
   @override
@@ -785,12 +787,7 @@ class _ScrollDownButtonState extends State<_ScrollDownButton>
 
   void _jumpToBottom() {
     _hide();
-    if (!widget.controller.hasClients) return;
-    widget.controller.animateTo(
-      widget.controller.position.maxScrollExtent,
-      duration: KrithaMotion.slow,
-      curve: Curves.easeOutCubic,
-    );
+    _scrollToSettledBottom(widget.controller, animate: true);
   }
 
   @override
@@ -959,4 +956,35 @@ class _ChatError extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Re-checks `maxScrollExtent` across layout passes so lazy ListViews reach
+/// the true bottom instead of stopping at an earlier estimated extent.
+void _scrollToSettledBottom(
+  ScrollController controller, {
+  required bool animate,
+  int remainingPasses = 4,
+}) {
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (!controller.hasClients) return;
+    final target = controller.position.maxScrollExtent;
+    if (animate) {
+      await controller.animateTo(
+        target,
+        duration: KrithaMotion.normal,
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      controller.jumpTo(target);
+    }
+    if (!controller.hasClients || remainingPasses <= 1) return;
+    final updated = controller.position.maxScrollExtent;
+    if ((updated - controller.position.pixels).abs() > 4.0) {
+      _scrollToSettledBottom(
+        controller,
+        animate: false,
+        remainingPasses: remainingPasses - 1,
+      );
+    }
+  });
 }

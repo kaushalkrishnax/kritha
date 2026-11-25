@@ -207,7 +207,7 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
       KrithaDimensions.contextMenuMaxWidth,
       availableWidth,
     );
-    final minWidth = math.min(KrithaDimensions.contextMenuMinWidth, maxWidth);
+    final minWidth = math.min(120.0, maxWidth);
     final menuWidth =
         widget.width ??
         _intrinsicWidth(context).clamp(minWidth, maxWidth).toDouble();
