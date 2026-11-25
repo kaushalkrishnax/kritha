@@ -7,6 +7,7 @@ import '../features/models/explore_models_screen.dart';
 import '../features/models/model_details_screen.dart';
 import '../features/models/models_screen.dart';
 import '../features/models/models_workspace_scaffold.dart';
+import '../features/overlay/kritha_overlay_screen.dart';
 import '../features/providers/providers_screen.dart';
 import '../features/settings/settings_screen.dart';
 
@@ -56,6 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/overlay',
+        builder: (context, state) => const KrithaOverlayScreen(),
       ),
     ],
   );

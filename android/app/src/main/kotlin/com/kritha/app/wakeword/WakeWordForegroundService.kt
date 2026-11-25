@@ -18,9 +18,11 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.kritha.app.MainActivity
+import com.kritha.app.R
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -42,6 +44,9 @@ class WakeWordForegroundService : Service() {
         var isRunning: Boolean = false
             private set
 
+        @Volatile
+        private var instance: WakeWordForegroundService? = null
+
         fun start(context: Context) {
             val intent = Intent(context, WakeWordForegroundService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -54,16 +59,44 @@ class WakeWordForegroundService : Service() {
         fun stop(context: Context) {
             context.stopService(Intent(context, WakeWordForegroundService::class.java))
         }
+
+        fun pauseForMic() {
+            instance?.let { service ->
+                service.pausedForMic.set(true)
+                service.stopListening()
+            }
+        }
+
+        fun resumeAfterMic() {
+            instance?.let { service ->
+                if (service.pausedForMic.compareAndSet(true, false) && !service.paused.get()) {
+                    service.startListening()
+                }
+            }
+        }
+
+        fun onOverlayFinished() {
+            instance?.let { service ->
+                service.overlayActive.set(false)
+                service.pausedForMic.set(false)
+                if (!service.paused.get()) {
+                    service.startListening()
+                }
+            }
+        }
     }
 
     private val listening = AtomicBoolean(false)
     private val paused = AtomicBoolean(false)
+    private val pausedForMic = AtomicBoolean(false)
+    private val overlayActive = AtomicBoolean(false)
     private val recorder = AtomicReference<AudioRecord?>(null)
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastDetectionAt = 0L
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         isRunning = true
         createNotificationChannel()
         startForegroundCompat(buildNotification())
@@ -93,9 +126,11 @@ class WakeWordForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         isRunning = false
         paused.set(true)
         stopListening()
+        KrithaOverlayActivity.stopIfActive()
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
         super.onDestroy()
@@ -104,7 +139,7 @@ class WakeWordForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startListening() {
-        if (paused.get() || !WakeWordNative.available) return
+        if (paused.get() || pausedForMic.get() || overlayActive.get() || !WakeWordNative.available) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -164,19 +199,39 @@ class WakeWordForegroundService : Service() {
 
     private fun onWakeWordDetected(confidence: Float) {
         Log.i(TAG, "Wake word detected with confidence=$confidence")
-        WakeWordEvents.emitDetected(confidence)
-        if (isAppInForeground()) return
+        if (KrithaOverlayActivity.isInstanceActive || isAppInForeground()) {
+            WakeWordEvents.emitDetected(confidence)
+            return
+        }
 
+        if (!overlayActive.compareAndSet(false, true)) return
         listening.set(false)
         recorder.get()?.let { runCatching { it.stop() } }
+
+        val canOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+            Settings.canDrawOverlays(this)
+        val targetClass = if (canOverlay) {
+            KrithaOverlayActivity::class.java
+        } else {
+            overlayActive.set(false)
+            MainActivity::class.java
+        }
         runCatching {
             startActivity(
-                Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                Intent(this, targetClass).apply {
+                    addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_NO_ANIMATION,
+                    )
                     putExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, confidence)
                 },
             )
-        }.onFailure { Log.e(TAG, "Could not open Kritha after wake-word detection", it) }
+        }.onFailure {
+            overlayActive.set(false)
+            Log.e(TAG, "Could not open Kritha after wake-word detection", it)
+        }
     }
 
     private fun createAudioRecord(): AudioRecord? {
@@ -250,7 +305,7 @@ class WakeWordForegroundService : Service() {
             Notification.Builder(this).setPriority(Notification.PRIORITY_LOW)
         }
         return builder
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
             .setContentTitle(if (paused.get()) "Kritha wake word paused" else "Kritha is listening")
             .setContentText(if (paused.get()) "Tap Resume to continue" else "Listening for Hey Kritha")
             .setContentIntent(openApp)

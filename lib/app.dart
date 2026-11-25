@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router.dart';
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'services/wake_word_controller.dart';
 import 'widgets/back_navigation.dart';
 
 class KrithaApp extends ConsumerWidget {
@@ -13,6 +14,7 @@ class KrithaApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final preference = ref.watch(themePreferenceProvider);
+    ref.watch(wakeWordCoordinatorProvider);
 
     KrithaColors.setLightMode(false);
     final darkTheme = buildKrithaTheme();

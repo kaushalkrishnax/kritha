@@ -13,6 +13,7 @@ import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
 import '../../services/runtime_probe.dart';
 import '../../services/wake_word_bridge.dart';
+import '../../services/wake_word_controller.dart';
 import '../chat/chat_controller.dart';
 import '../chat/widgets/chat_sidebar.dart';
 
@@ -296,11 +297,11 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class _WakeWordControl extends StatefulWidget {
+class _WakeWordControl extends ConsumerStatefulWidget {
   const _WakeWordControl();
 
   @override
-  State<_WakeWordControl> createState() => _WakeWordControlState();
+  ConsumerState<_WakeWordControl> createState() => _WakeWordControlState();
 }
 
 class _ThemeControl extends ConsumerWidget {
@@ -352,7 +353,7 @@ class _ThemeControl extends ConsumerWidget {
   }
 }
 
-class _WakeWordControlState extends State<_WakeWordControl> {
+class _WakeWordControlState extends ConsumerState<_WakeWordControl> {
   static const _preferenceKey = 'kritha.wake_word.enabled';
 
   bool _available = false;
@@ -423,6 +424,9 @@ class _WakeWordControlState extends State<_WakeWordControl> {
           );
         }
         await WakeWordBridge.start();
+        if (!await WakeWordBridge.canDrawOverlays()) {
+          await WakeWordBridge.requestOverlayPermission();
+        }
       } else {
         await WakeWordBridge.stop();
       }
@@ -448,39 +452,79 @@ class _WakeWordControlState extends State<_WakeWordControl> {
 
   @override
   Widget build(BuildContext context) {
+    final mode = ref.watch(wakeWordModeProvider);
     return _Card(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          KrithaIcon(
-            icon: HugeIcons.strokeRoundedAudioLines,
-            size: KrithaIcons.lg,
-            color: KrithaColors.accentLightBlue,
-          ),
-          SizedBox(width: KrithaSpacing.s12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Hey Kritha wake word'),
-                SizedBox(height: 3),
-                Text(
-                  'Listens in the background while the service is enabled.',
-                  style: TextStyle(
-                    color: KrithaColors.textMuted,
-                    fontSize: KrithaText.sizeXs,
-                  ),
+          Row(
+            children: [
+              KrithaIcon(
+                icon: HugeIcons.strokeRoundedAudioLines,
+                size: KrithaIcons.lg,
+                color: KrithaColors.accentLightBlue,
+              ),
+              SizedBox(width: KrithaSpacing.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Hey Kritha wake word'),
+                    SizedBox(height: 3),
+                    Text(
+                      'Listens in the background while the service is enabled.',
+                      style: TextStyle(
+                        color: KrithaColors.textMuted,
+                        fontSize: KrithaText.sizeXs,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              if (_loading)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Switch(value: _enabled, onChanged: _available ? _toggle : null),
+            ],
+          ),
+          SizedBox(height: KrithaSpacing.s12),
+          Divider(height: 1, color: KrithaColors.borderFaint),
+          SizedBox(height: KrithaSpacing.s12),
+          Text(
+            'On wake word',
+            style: TextStyle(
+              fontSize: KrithaText.sizeXs,
+              fontWeight: FontWeight.w600,
+              color: KrithaColors.textSecondary,
             ),
           ),
-          if (_loading)
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Switch(value: _enabled, onChanged: _available ? _toggle : null),
+          SizedBox(height: KrithaSpacing.s8),
+          SegmentedButton<WakeWordMode>(
+            segments: [
+              for (final item in WakeWordMode.values)
+                ButtonSegment<WakeWordMode>(
+                  value: item,
+                  label: Text(item.label),
+                ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (selection) {
+              if (selection.isEmpty) return;
+              ref.read(wakeWordModeProvider.notifier).setMode(selection.first);
+            },
+          ),
+          SizedBox(height: KrithaSpacing.s6),
+          Text(
+            mode.description,
+            style: TextStyle(
+              color: KrithaColors.textMuted,
+              fontSize: KrithaText.sizeXs,
+            ),
+          ),
         ],
       ),
     );

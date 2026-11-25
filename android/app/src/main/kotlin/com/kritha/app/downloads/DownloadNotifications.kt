@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.kritha.app.MainActivity
+import com.kritha.app.R
 
 object DownloadNotifications {
     const val CHANNEL_ID = "kritha_downloads"
@@ -41,7 +42,7 @@ object DownloadNotifications {
             if (paused) append(" • Paused")
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
             .setContentTitle(modelName)
             .setContentText(text)
             .setOnlyAlertOnce(true)
@@ -91,7 +92,7 @@ object DownloadNotifications {
     fun summary(context: Context): Notification {
         ensureChannel(context)
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.mipmap.ic_launcher_monochrome)
             .setContentTitle("Downloading models")
             .setContentText("Kritha keeps downloading while minimized.")
             .setOngoing(true)

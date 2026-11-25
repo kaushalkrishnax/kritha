@@ -1,17 +1,20 @@
 package com.kritha.app.wakeword
 
 import android.Manifest
-import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.kritha.app.MainActivity
+import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
-internal class WakeWordBridge(private val activity: MainActivity) {
+internal class WakeWordBridge(private val activity: FlutterActivity) {
     companion object {
         private const val TAG = "KrithaWakeWordBridge"
         private const val METHOD_CHANNEL = "com.kritha/wake_word"
@@ -27,6 +30,47 @@ internal class WakeWordBridge(private val activity: MainActivity) {
                     "start" -> start(result)
                     "stop" -> {
                         WakeWordForegroundService.stop(activity)
+                        result.success(true)
+                    }
+                    "pauseListening" -> {
+                        WakeWordForegroundService.pauseForMic()
+                        result.success(true)
+                    }
+                    "resumeListening" -> {
+                        WakeWordForegroundService.resumeAfterMic()
+                        result.success(true)
+                    }
+                    "canDrawOverlays" -> {
+                        val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                            Settings.canDrawOverlays(activity)
+                        result.success(granted)
+                    }
+                    "requestOverlayPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                            !Settings.canDrawOverlays(activity)
+                        ) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${activity.packageName}"),
+                            )
+                            activity.startActivity(intent)
+                        }
+                        result.success(true)
+                    }
+                    "dismissOverlay" -> {
+                        KrithaOverlayActivity.stopIfActive()
+                        result.success(true)
+                    }
+                    "openMainApp" -> {
+                        val intent = Intent(activity, MainActivity::class.java).apply {
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                            )
+                        }
+                        activity.startActivity(intent)
+                        KrithaOverlayActivity.stopIfActive()
                         result.success(true)
                     }
                     else -> result.notImplemented()
