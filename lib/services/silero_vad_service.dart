@@ -103,7 +103,7 @@ class SileroVadSession {
             minSilenceDuration: 0.35,
             minSpeechDuration: 0.10,
             windowSize: frameSamples,
-            maxSpeechDuration: 20.0,
+            maxSpeechDuration: 30.0,
           ),
           sampleRate: sampleRate,
           numThreads: 1,

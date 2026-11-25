@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../models/model_record.dart';
@@ -160,6 +161,26 @@ class IntelligenceEngine {
     final providerModel = await _resolveModelById(modelId);
     final media = await _mediaProviderFor(providerModel.providerId);
     return media.synthesizeSpeech(text, providerModel);
+  }
+
+  /// Identity of a synthesis request. Provider, model and model metadata are
+  /// included because any of them can change the generated voice or audio.
+  Future<String> synthesizeSpeechCacheKey({
+    required String text,
+    required String modelId,
+  }) async {
+    final providerModel = await _resolveModelById(modelId);
+    final config = await modelRepository.providerConfigFor(
+      providerModel.providerId,
+    );
+    final signature = [
+      providerModel.providerId,
+      config?.alias ?? '',
+      config?.baseUrl ?? '',
+      providerModel.externalModelId,
+      jsonEncode(providerModel.metadata),
+    ].join('|');
+    return '$signature|$text';
   }
 
   Future<MediaCapableProvider> _mediaProviderFor(String providerId) async {

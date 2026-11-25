@@ -64,17 +64,91 @@ final wakeWordModeProvider =
       WakeWordSettingsNotifier.new,
     );
 
-/// Coordinates native wake-word detections and auto-starts the service on launch.
-final wakeWordCoordinatorProvider = Provider<void>((ref) {
-  StreamSubscription<Map<String, Object?>>? sub;
-  var handling = false;
+/// Owns native wake-word event handling and the shared activation path used by
+/// both the focused chat screen and the background overlay.
+class WakeWordCoordinator {
+  WakeWordCoordinator(this._ref);
 
-  Future<void> ensureStartedOnLaunch() async {
+  final Ref _ref;
+  StreamSubscription<Map<String, Object?>>? _subscription;
+  bool _activating = false;
+
+  void attach() {
+    unawaited(_ensureStartedOnLaunch());
+    _subscription = WakeWordBridge.events.listen((event) {
+      if (event['type'] == 'detected') {
+        unawaited(activateConfiguredMode());
+      }
+    });
+
+    _ref.listen(dictationProvider, (prev, next) {
+      if (prev?.isActive == true &&
+          next.isIdle &&
+          !_ref.read(liveTalkProvider).active) {
+        unawaited(WakeWordBridge.resumeListening());
+      }
+    });
+    _ref.listen(liveTalkProvider, (prev, next) {
+      if (prev?.active == true &&
+          !next.active &&
+          _ref.read(dictationProvider).isIdle) {
+        unawaited(WakeWordBridge.resumeListening());
+      }
+    });
+
+    final router = _ref.read(routerProvider);
+    void syncMainChatActive() {
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      unawaited(WakeWordBridge.setMainChatActive(path == '/chat'));
+    }
+
+    syncMainChatActive();
+    router.routerDelegate.addListener(syncMainChatActive);
+
+    _ref.onDispose(() {
+      router.routerDelegate.removeListener(syncMainChatActive);
+      _subscription?.cancel();
+    });
+  }
+
+  /// Starts the configured wake-word action. Called for every detection,
+  /// including the overlay's own mount so it never waits for a manual tap.
+  Future<void> activateConfiguredMode() async {
+    if (_activating) return;
+    _activating = true;
+    try {
+      if (_ref.read(dictationProvider).isActive ||
+          _ref.read(liveTalkProvider).active) {
+        return;
+      }
+      await WakeWordBridge.pauseListening();
+      final mode = await _ref
+          .read(wakeWordModeProvider.notifier)
+          .readSavedMode();
+      // Ensure providers and the widget tree are settled when launched from
+      // the external overlay activity.
+      await WidgetsBinding.instance.endOfFrame;
+      if (mode == WakeWordMode.liveTalk) {
+        await _ref.read(liveTalkProvider.notifier).start();
+      } else {
+        await _ref.read(dictationProvider.notifier).startAutoStop(
+          onTranscript: (transcript) async {
+            await _ref.read(chatControllerProvider.notifier).send(transcript);
+          },
+        );
+      }
+    } finally {
+      _activating = false;
+    }
+  }
+
+  Future<void> _ensureStartedOnLaunch() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final wanted = prefs.getBool('kritha.wake_word.enabled') ?? false;
       if (!wanted) return;
-      if (!await WakeWordBridge.isAvailable() || await WakeWordBridge.isRunning()) {
+      if (!await WakeWordBridge.isAvailable() ||
+          await WakeWordBridge.isRunning()) {
         return;
       }
       final mic = await Permission.microphone.status;
@@ -86,64 +160,11 @@ final wakeWordCoordinatorProvider = Provider<void>((ref) {
       // Non-Android platforms or missing permissions skip background start.
     }
   }
+}
 
-  unawaited(ensureStartedOnLaunch());
-
-  Future<void> handleDetection() async {
-    if (handling) return;
-    handling = true;
-    try {
-      await WakeWordBridge.pauseListening();
-      final mode = await ref.read(wakeWordModeProvider.notifier).readSavedMode();
-      // Ensure widget tree / providers are settled when launched in KrithaOverlay.
-      await WidgetsBinding.instance.endOfFrame;
-      if (mode == WakeWordMode.liveTalk) {
-        await ref.read(liveTalkProvider.notifier).start();
-      } else {
-        await ref.read(dictationProvider.notifier).startAutoStop(
-          onTranscript: (transcript) async {
-            await ref.read(chatControllerProvider.notifier).send(transcript);
-          },
-        );
-      }
-    } finally {
-      handling = false;
-    }
-  }
-
-  sub = WakeWordBridge.events.listen((event) {
-    if (event['type'] == 'detected') {
-      unawaited(handleDetection());
-    }
-  });
-
-  // Resume wake-word mic listening once Dictation and Live Talk both go idle.
-  ref.listen(dictationProvider, (prev, next) {
-    if (prev?.isActive == true &&
-        next.isIdle &&
-        !ref.read(liveTalkProvider).active) {
-      unawaited(WakeWordBridge.resumeListening());
-    }
-  });
-  ref.listen(liveTalkProvider, (prev, next) {
-    if (prev?.active == true &&
-        !next.active &&
-        ref.read(dictationProvider).isIdle) {
-      unawaited(WakeWordBridge.resumeListening());
-    }
-  });
-
-  final router = ref.read(routerProvider);
-  void syncMainChatActive() {
-    final path = router.routerDelegate.currentConfiguration.uri.path;
-    unawaited(WakeWordBridge.setMainChatActive(path == '/chat'));
-  }
-
-  syncMainChatActive();
-  router.routerDelegate.addListener(syncMainChatActive);
-
-  ref.onDispose(() {
-    router.routerDelegate.removeListener(syncMainChatActive);
-    sub?.cancel();
-  });
+/// Coordinates native wake-word detections and auto-starts the service on
+/// launch. The same coordinator is used by the overlay activity.
+final wakeWordCoordinatorProvider = Provider<WakeWordCoordinator>((ref) {
+  final coordinator = WakeWordCoordinator(ref)..attach();
+  return coordinator;
 });

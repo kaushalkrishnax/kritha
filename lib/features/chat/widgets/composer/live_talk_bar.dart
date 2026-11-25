@@ -30,7 +30,8 @@ class LiveTalkBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paused = phase.isPaused;
-    final micActive = !paused;
+    final ttsPlaying = phase == LiveTalkPhase.speaking;
+    final micActive = !paused && !ttsPlaying;
     final interrupting =
         phase == LiveTalkPhase.speaking ||
         phase == LiveTalkPhase.thinking ||

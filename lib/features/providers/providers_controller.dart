@@ -87,6 +87,18 @@ class ProvidersState {
       if (!defaultProviderIds.contains(configuration.id)) configuration,
   ];
 
+  /// Seeded providers already in use (credentials saved, or the local runtime
+  /// which needs no credentials).
+  List<ProviderConfiguration> get configuredDefaultProviders => [
+    for (final configuration in defaultProviders)
+      if (configuration.isLocal || configuration.hasCredential) configuration,
+  ];
+
+  List<ProviderConfiguration> get unconfiguredDefaultProviders => [
+    for (final configuration in defaultProviders)
+      if (!configuration.isLocal && !configuration.hasCredential) configuration,
+  ];
+
   ProvidersState copyWith({
     List<ProviderConfiguration>? configurations,
   }) {

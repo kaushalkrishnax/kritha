@@ -50,8 +50,7 @@ class ProvidersScreen extends ConsumerWidget {
                     error: (error, stackTrace) => Padding(
                       padding: EdgeInsets.all(KrithaSpacing.s16),
                       child: _ErrorCard(
-                        message:
-                            'Provider settings could not be loaded from local storage.',
+                        message: 'Provider settings could not be loaded from local storage.',
                         onRetry: () =>
                             ref.invalidate(providersControllerProvider),
                       ),
@@ -74,8 +73,9 @@ class _ProvidersBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final defaults = state.defaultProviders;
     final customs = state.customProviders;
+    final configured = state.configuredDefaultProviders;
+    final unconfigured = state.unconfiguredDefaultProviders;
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -87,48 +87,85 @@ class _ProvidersBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final configuration in defaults) ...[
-            _ProviderCard(
-              configuration: configuration,
-            ),
-            SizedBox(height: KrithaSpacing.s10),
-          ],
           if (customs.isNotEmpty) ...[
-            Padding(
-              padding: EdgeInsets.only(
-                left: KrithaSpacing.s4,
-                right: KrithaSpacing.s4,
-                top: KrithaSpacing.s16,
-                bottom: KrithaSpacing.s8,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Custom Providers',
-                    style: TextStyle(
-                      fontSize: KrithaText.sizeSm,
-                      fontWeight: FontWeight.w700,
-                      color: KrithaColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    'User-configured OpenAI-compatible endpoints.',
-                    style: TextStyle(
-                      fontSize: KrithaText.sizeXs,
-                      color: KrithaColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+            const _ProviderSectionHeader(
+              title: 'Custom Providers',
+              description: 'User-configured OpenAI-compatible endpoints.',
             ),
             for (final configuration in customs) ...[
-              _ProviderCard(
-                configuration: configuration,
-              ),
+              _ProviderCard(configuration: configuration),
               SizedBox(height: KrithaSpacing.s10),
             ],
           ],
+          if (configured.isNotEmpty) ...[
+            _ProviderSectionHeader(
+              title: 'Configured Providers',
+              description: 'Seeded providers already set up on this device.',
+              topSpacing: customs.isEmpty ? 0 : KrithaSpacing.s16,
+            ),
+            for (final configuration in configured) ...[
+              _ProviderCard(configuration: configuration),
+              SizedBox(height: KrithaSpacing.s10),
+            ],
+          ],
+          if (unconfigured.isNotEmpty) ...[
+            _ProviderSectionHeader(
+              title: 'Available Providers',
+              description:
+                  'Add credentials from Configure to start using them.',
+              topSpacing: customs.isEmpty && configured.isEmpty
+                  ? 0
+                  : KrithaSpacing.s16,
+            ),
+            for (final configuration in unconfigured) ...[
+              _ProviderCard(configuration: configuration),
+              SizedBox(height: KrithaSpacing.s10),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderSectionHeader extends StatelessWidget {
+  const _ProviderSectionHeader({
+    required this.title,
+    required this.description,
+    this.topSpacing = KrithaSpacing.s4,
+  });
+
+  final String title;
+  final String description;
+  final double topSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: KrithaSpacing.s4,
+        right: KrithaSpacing.s4,
+        top: topSpacing,
+        bottom: KrithaSpacing.s8,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: KrithaText.sizeSm,
+              fontWeight: FontWeight.w700,
+              color: KrithaColors.textPrimary,
+            ),
+          ),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: KrithaText.sizeXs,
+              color: KrithaColors.textMuted,
+            ),
+          ),
         ],
       ),
     );
@@ -290,22 +327,13 @@ class _ProviderCard extends ConsumerWidget {
       final engine = ref.read(intelligenceEngineProvider);
       final result = await engine.testProvider(configuration.id);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(result.message)));
     } on Object catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Test failed: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Test failed: $e')));
     }
-  }
-
-  Future<void> _deleteProvider(BuildContext context) async {
-    await createPopup<void>(
-      context: context,
-      builder: (_) => _DeleteProviderDialog(configuration: configuration),
-    );
   }
 
   @override
@@ -380,7 +408,10 @@ class _ProviderCard extends ConsumerWidget {
               WorkspaceOutlinedAction(
                 label: 'Test',
                 icon: HugeIcons.strokeRoundedActivity01,
-                onPressed: (configuration.isLocal || configuration.hasCredential)
+                onPressed:
+                    (isCustom ||
+                        configuration.isLocal ||
+                        configuration.hasCredential)
                     ? () => _test(context, ref)
                     : null,
               ),
@@ -396,16 +427,10 @@ class _ProviderCard extends ConsumerWidget {
               WorkspaceOutlinedAction(
                 label: 'Configure',
                 icon: HugeIcons.strokeRoundedSettings01,
-                onPressed: configuration.isLocal ? null : () => _configure(context),
+                onPressed: configuration.isLocal
+                    ? null
+                    : () => _configure(context),
               ),
-              if (isCustom) ...[
-                SizedBox(width: KrithaSpacing.s8),
-                WorkspaceOutlinedAction(
-                  label: 'Delete',
-                  icon: HugeIcons.strokeRoundedDelete01,
-                  onPressed: () => _deleteProvider(context),
-                ),
-              ],
             ],
           ),
         ],
@@ -499,8 +524,7 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
   void initState() {
     super.initState();
     _baseUrl = TextEditingController(text: widget.configuration.baseUrl ?? '');
-    _alias =
-        TextEditingController(text: widget.configuration.alias);
+    _alias = TextEditingController(text: widget.configuration.alias);
     _apiKey.text = widget.configuration.apiKey ?? '';
     _alias.addListener(_validateAlias);
   }
@@ -556,9 +580,17 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Provider settings saved')),
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Provider settings saved')));
+  }
+
+  Future<void> _delete() async {
+    final deleted = await createPopup<bool>(
+      context: context,
+      builder: (_) =>
+          _DeleteProviderDialog(configuration: widget.configuration),
     );
+    if (deleted == true && mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -631,6 +663,29 @@ class _ProviderConfigDialogState extends ConsumerState<_ProviderConfigDialog> {
                 style: TextStyle(
                   fontSize: KrithaText.sizeXs,
                   color: KrithaColors.error,
+                ),
+              ),
+            ],
+            if (isCustom) ...[
+              SizedBox(height: KrithaSpacing.s20),
+              Divider(height: 1, color: KrithaColors.borderFaint),
+              SizedBox(height: KrithaSpacing.s8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _saving ? null : _delete,
+                  style: TextButton.styleFrom(
+                    foregroundColor: KrithaColors.error,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: KrithaSpacing.s8,
+                      vertical: KrithaSpacing.s6,
+                    ),
+                  ),
+                  icon: const KrithaIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 16,
+                  ),
+                  label: const Text('Delete provider'),
                 ),
               ),
             ],
@@ -769,9 +824,8 @@ class _CustomProviderDialogState extends ConsumerState<_CustomProviderDialog> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Custom provider created')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Custom provider created')));
   }
 
   @override
@@ -951,8 +1005,7 @@ class _DeleteProviderDialogState extends ConsumerState<_DeleteProviderDialog> {
       return;
     }
     if (!mounted) return;
-    Navigator.of(context).pop();
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -967,6 +1020,7 @@ class _DeleteProviderDialogState extends ConsumerState<_DeleteProviderDialog> {
         PopupPrimaryButton(
           label: _confirming ? 'Deleting…' : 'Delete Provider',
           onPressed: _confirming ? null : _delete,
+          destructive: true,
         ),
       ],
       child: Column(

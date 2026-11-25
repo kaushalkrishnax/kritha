@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,19 +7,50 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/theme.dart';
 import '../../models/chat_message.dart';
 import '../../services/wake_word_bridge.dart';
+import '../../services/wake_word_controller.dart';
 import '../../widgets/glass_surface.dart';
 import '../chat/chat_controller.dart';
+import '../chat/dictation_controller.dart';
+import '../chat/live_talk_controller.dart';
 import '../chat/speech_playback_controller.dart';
 import '../chat/widgets/composer/chat_composer.dart';
 import '../chat/widgets/markdown_view.dart';
 import '../chat/widgets/response_actions.dart';
 
 /// Translucent overlay surface shown when wake word activates outside the app.
-class KrithaOverlayScreen extends ConsumerWidget {
+class KrithaOverlayScreen extends ConsumerStatefulWidget {
   const KrithaOverlayScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<KrithaOverlayScreen> createState() =>
+      _KrithaOverlayScreenState();
+}
+
+class _KrithaOverlayScreenState extends ConsumerState<KrithaOverlayScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(wakeWordCoordinatorProvider).activateConfiguredMode(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    if (ref.read(liveTalkProvider).active) {
+      unawaited(ref.read(liveTalkProvider.notifier).stop());
+    }
+    if (ref.read(dictationProvider).isActive) {
+      unawaited(ref.read(dictationProvider.notifier).discard());
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final chat = ref.watch(chatControllerProvider).value;
     final messages = chat?.messages ?? const <ChatMessage>[];
     final latestUser = messages.where((m) => m.role == ChatRole.user).lastOrNull;

@@ -501,6 +501,53 @@ void main() {
     });
   });
 
+  group('provider listing groups', () {
+    test(
+      'custom providers are separate and seeded providers split by setup',
+      () async {
+        final container = buildContainer();
+        addTearDown(container.dispose);
+        await container.read(providersControllerProvider.future);
+
+        final controller = container.read(providersControllerProvider.notifier);
+        final custom = await controller.createCustomProvider(
+          baseUrl: 'https://api.example.com/v1',
+          alias: 'my-custom',
+        );
+        await controller.saveCredential(
+          '11111111-1111-1111-1111-111111111102',
+          'key',
+        );
+
+        final state = container.read(providersControllerProvider).value!;
+        expect(state.customProviders.map((c) => c.id), [custom.id]);
+        expect(
+          state.configuredDefaultProviders.map((c) => c.id),
+          containsAll([
+            '11111111-1111-1111-1111-111111111101',
+            '11111111-1111-1111-1111-111111111102',
+          ]),
+        );
+        expect(
+          state.unconfiguredDefaultProviders.map((c) => c.id),
+          isNot(contains('11111111-1111-1111-1111-111111111102')),
+        );
+        final groupedDefaults = {
+          ...state.configuredDefaultProviders.map((c) => c.id),
+          ...state.unconfiguredDefaultProviders.map((c) => c.id),
+        };
+        expect(
+          groupedDefaults,
+          state.defaultProviders.map((c) => c.id).toSet(),
+        );
+        expect(
+          state.customProviders.map((c) => c.alias),
+          isNot(contains('local-litertlm')),
+        );
+      },
+    );
+  });
+
   group('custom provider deletion cleanup', () {
     test('deleting a custom provider removes it from state', () async {
       final container = buildContainer();

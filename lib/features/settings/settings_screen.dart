@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
 import '../../services/runtime_probe.dart';
+import '../../services/tts_settings.dart';
 import '../../services/wake_word_bridge.dart';
 import '../../services/wake_word_controller.dart';
 import '../chat/chat_controller.dart';
@@ -47,6 +48,8 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     _SectionLabel('VOICE'),
                     _WakeWordControl(),
+                    SizedBox(height: KrithaSpacing.s12),
+                    _TtsSettingsControl(),
                     SizedBox(height: 22),
                     _SectionLabel('THEME'),
                     _ThemeControl(),
@@ -525,6 +528,106 @@ class _WakeWordControlState extends ConsumerState<_WakeWordControl> {
               fontSize: KrithaText.sizeXs,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TtsSettingsControl extends ConsumerWidget {
+  const _TtsSettingsControl();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(ttsSettingsProvider);
+    final controller = ref.read(ttsSettingsProvider.notifier);
+    return _Card(
+      child: Column(
+        children: [
+          _SettingsToggleRow(
+            icon: HugeIcons.strokeRoundedAudioLines,
+            label: 'TTS streaming',
+            description:
+                'Splits replies into sentences and synthesizes the next one '
+                'while the current sentence plays.',
+            value: settings.streaming,
+            onChanged: controller.setStreaming,
+          ),
+          _RowDivider(),
+          _SettingsToggleRow(
+            icon: HugeIcons.strokeRoundedDatabase,
+            label: 'TTS caching',
+            description:
+                'Reuses synthesized audio in memory until the app closes.',
+            value: settings.caching,
+            onChanged: controller.setCaching,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsToggleRow extends StatelessWidget {
+  const _SettingsToggleRow({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<List<dynamic>> icon;
+  final String label;
+  final String description;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: KrithaColors.bgPrimary,
+              borderRadius: BorderRadius.circular(KrithaRadius.sm),
+              border: Border.all(color: KrithaColors.borderFaint),
+            ),
+            child: KrithaIcon(
+              icon: icon,
+              size: 15,
+              color: KrithaColors.textMuted,
+            ),
+          ),
+          SizedBox(width: KrithaSpacing.s10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: KrithaColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: KrithaText.size2xs,
+                    color: KrithaColors.textMuted,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: KrithaSpacing.s8),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

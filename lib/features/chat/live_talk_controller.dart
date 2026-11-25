@@ -1,20 +1,21 @@
 import 'dart:async';
-import 'dart:collection';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../services/silero_vad_service.dart';
+import '../../services/tts_audio_cache.dart';
+import '../../services/tts_playback_pipeline.dart';
+import '../../services/tts_settings.dart';
 import '../../services/wake_word_bridge.dart';
 import '../intelligence/models/task_registry.dart';
 import '../intelligence/providers/providers.dart';
 import '../models/active/active_models.dart';
 import '../models/catalogue/catalogue_model.dart';
 import 'chat_controller.dart';
+import 'speech_playback_controller.dart';
 import 'widgets/composer/composer_controller.dart';
 
 class LiveTalkState {
@@ -54,20 +55,28 @@ class LiveTalkState {
   }
 }
 
-/// Orchestrates continuous Live Talk with streamed sentence-pipelined TTS:
-/// mic PCM stream -> Silero VAD + TurnDetector -> ASR -> streamed LLM ->
-/// per-sentence TTS -> playback, with voice barge-in.
+/// Orchestrates continuous Live Talk: mic capture -> Silero VAD + turn
+/// detection -> ASR -> streamed LLM -> sentence TTS -> playback, with
+/// voice barge-in during generation and while TTS is speaking.
 class LiveTalkNotifier extends Notifier<LiveTalkState> {
+  static const _bargeInSpeechProbability = 0.6;
+  static const _bargeInConfirmFrames = 3;
+  static const _maxUtteranceSeconds = 30;
+
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _audioSub;
   AudioPlayer? _player;
   SileroVadSession? _vad;
-  final TurnDetector _turnDetector = TurnDetector(silenceFrameCount: 20);
+  TtsPlaybackPipeline? _pipeline;
+  final TurnDetector _turnDetector = TurnDetector(
+    silenceFrameCount: 22,
+    maxSpeechFrames: 938,
+  );
   final List<int> _pcmCarry = [];
   final List<int> _utteranceBytes = [];
   int _sessionEpoch = 0;
   int _turnEpoch = 0;
-  final List<String> _ttsTempFiles = [];
+  int _bargeInStreak = 0;
 
   @override
   LiveTalkState build() {
@@ -81,6 +90,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     if (state.active) return;
     final epoch = ++_sessionEpoch;
     _turnEpoch++;
+    _bargeInStreak = 0;
     final recorder = _recorder ??= AudioRecorder();
     final allowed = await recorder.hasPermission();
     if (!allowed) {
@@ -111,6 +121,9 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       return;
     }
 
+    await ref.read(speechPlaybackProvider.notifier).stop();
+    if (epoch != _sessionEpoch || !ref.mounted) return;
+
     _turnDetector.reset();
     _pcmCarry.clear();
     _utteranceBytes.clear();
@@ -118,10 +131,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     ref.read(composerProvider.notifier)
       ..setLiveTalkActive(true)
       ..setLiveTalkPhase(LiveTalkPhase.listening);
-    state = const LiveTalkState(
-      active: true,
-      phase: LiveTalkPhase.listening,
-    );
+    state = const LiveTalkState(active: true, phase: LiveTalkPhase.listening);
     unawaited(WakeWordBridge.setKeepScreenOn(true));
 
     final stream = await recorder.startStream(
@@ -162,28 +172,41 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       if (vadResult == null) continue;
 
       final attack = vadResult.level > state.audioLevel;
-      final smoothedLevel = (attack
-              ? state.audioLevel * 0.25 + vadResult.level * 0.75
-              : state.audioLevel * 0.65 + vadResult.level * 0.35)
-          .clamp(0.0, 1.0);
+      final smoothedLevel =
+          (attack
+                  ? state.audioLevel * 0.25 + vadResult.level * 0.75
+                  : state.audioLevel * 0.65 + vadResult.level * 0.35)
+              .clamp(0.0, 1.0);
       if ((smoothedLevel - state.audioLevel).abs() > 0.008) {
         state = state.copyWith(audioLevel: smoothedLevel);
       }
 
-      final signal = _turnDetector.accept(vadResult.probability);
+      final assistantActive =
+          state.phase == LiveTalkPhase.speaking ||
+          state.phase == LiveTalkPhase.thinking ||
+          state.phase == LiveTalkPhase.processing;
+      var probability = vadResult.probability;
+      if (assistantActive) {
+        _bargeInStreak = probability >= _bargeInSpeechProbability
+            ? _bargeInStreak + 1
+            : 0;
+        if (_bargeInStreak < _bargeInConfirmFrames) probability = 0;
+      } else {
+        _bargeInStreak = 0;
+      }
+
+      final signal = _turnDetector.accept(probability);
       if (signal == TurnSignal.speechStart) {
-        if (state.phase == LiveTalkPhase.speaking ||
-            state.phase == LiveTalkPhase.thinking ||
-            state.phase == LiveTalkPhase.processing) {
-          _turnEpoch++;
-          unawaited(_stopPlayback());
+        if (assistantActive) {
+          unawaited(_interruptAssistant());
         }
         _utteranceBytes.clear();
         _utteranceBytes.addAll(frameBytes);
         _setPhase(LiveTalkPhase.userSpeaking);
       } else if (_turnDetector.inSpeech) {
         _utteranceBytes.addAll(frameBytes);
-        if (_utteranceBytes.length > SileroVadSession.sampleRate * 2 * 25) {
+        if (_utteranceBytes.length >
+            SileroVadSession.sampleRate * 2 * _maxUtteranceSeconds) {
           final captured = List<int>.from(_utteranceBytes);
           _utteranceBytes.clear();
           _turnDetector.reset();
@@ -197,6 +220,18 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         _vad?.reset();
         unawaited(_processUtterance(captured, epoch, ++_turnEpoch));
       }
+    }
+  }
+
+  Future<void> _interruptAssistant() async {
+    _turnEpoch++;
+    _bargeInStreak = 0;
+    await _stopPlayback();
+    if (!ref.mounted) return;
+    try {
+      await ref.read(chatControllerProvider.notifier).cancelReply();
+    } on Object {
+      // The reply may have already completed.
     }
   }
 
@@ -218,11 +253,23 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
 
     _setPhase(LiveTalkPhase.processing);
     ProviderSubscription<AsyncValue<ChatState>>? chatSub;
+    TtsPlaybackPipeline? pipeline;
+    var chunkedOffset = 0;
     try {
       final active = await ref.read(activeModelsProvider.future);
       final sttModelId = _sttModelId(active);
       final textModelId = _textModelId(active);
-      if (sttModelId == null || textModelId == null) return;
+      if (sttModelId == null || textModelId == null) {
+        if (isCurrent()) {
+          _setPhase(LiveTalkPhase.listening);
+          state = state.copyWith(
+            errorMessage: sttModelId == null
+                ? 'Assign a Speech recognition model in Active Models.'
+                : 'Assign a Text model in Active Models.',
+          );
+        }
+        return;
+      }
 
       final wav = pcm16ToWav(pcmBytes, sampleRate: SileroVadSession.sampleRate);
       final engine = ref.read(intelligenceEngineProvider);
@@ -241,63 +288,43 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       _setPhase(LiveTalkPhase.thinking);
 
       final ttsModelId = _ttsModelId(active);
-      final ttsQueue = Queue<Future<String?>>();
-      var synthesizedOffset = 0;
-      var playbackStarted = false;
-      var playbackCompleter = Completer<void>();
-
-      Future<void> pumpPlayback() async {
-        if (playbackStarted) return;
-        playbackStarted = true;
-        try {
-          // Keep voice-communication mode and hardware AEC intact during TTS playback.
-          final player = _player ??= AudioPlayer(
-            handleAudioSessionActivation: false,
-            androidApplyAudioAttributes: false,
-          );
-          while (ttsQueue.isNotEmpty && isCurrent()) {
-            final path = await ttsQueue.removeFirst();
-            if (path == null || !isCurrent()) continue;
-            _setPhase(LiveTalkPhase.speaking);
-            await player.setFilePath(path);
-            if (!isCurrent()) break;
-            await player.play();
-          }
-        } finally {
-          playbackStarted = false;
-          if (!playbackCompleter.isCompleted) playbackCompleter.complete();
-        }
-      }
-
-      void enqueueSentence(String sentence) {
-        if (ttsModelId == null || sentence.trim().isEmpty || !isCurrent()) {
-          return;
-        }
-        final future = _synthesizeSentenceTemp(
-          engine: engine,
-          ttsModelId: ttsModelId,
-          sentence: sentence.trim(),
-        );
-        ttsQueue.add(future);
-        if (!playbackStarted) {
-          playbackCompleter = Completer<void>();
-          unawaited(pumpPlayback());
-        }
-      }
+      final settings = await ref
+          .read(ttsSettingsProvider.notifier)
+          .readSettings();
+      if (!isCurrent()) return;
 
       if (ttsModelId != null) {
-        chatSub = ref.listen(chatControllerProvider, (prev, next) {
-          if (!isCurrent()) return;
-          final streamed = next.value?.streamingText;
-          if (streamed == null || streamed.length <= synthesizedOffset) return;
-          final slice = streamed.substring(synthesizedOffset);
-          final boundary = RegExp(r'[.!?](?:\s+|$)|\n+').firstMatch(slice);
-          if (boundary != null && boundary.end >= 20) {
-            final sentence = slice.substring(0, boundary.end).trim();
-            synthesizedOffset += boundary.end;
-            enqueueSentence(sentence);
-          }
-        });
+        final player = _player ??= AudioPlayer(
+          handleAudioSessionActivation: false,
+          androidApplyAudioAttributes: false,
+        );
+        pipeline = TtsPlaybackPipeline(
+          engine: engine,
+          cache: ref.read(ttsAudioCacheProvider),
+          modelId: ttsModelId,
+          cachingEnabled: settings.caching,
+          player: player,
+          onFirstAudio: () {
+            if (isCurrent()) _setPhase(LiveTalkPhase.speaking);
+          },
+        );
+        _pipeline = pipeline;
+
+        if (settings.streaming) {
+          chatSub = ref.listen(chatControllerProvider, (prev, next) {
+            if (!isCurrent() || pipeline == null) return;
+            final streamed = next.value?.streamingText;
+            if (streamed == null || streamed.length <= chunkedOffset) return;
+            while (chunkedOffset < streamed.length) {
+              final slice = streamed.substring(chunkedOffset);
+              final boundary = RegExp(r'(?<=[.!?…])\s+|\n+').firstMatch(slice);
+              if (boundary == null) break;
+              final sentence = slice.substring(0, boundary.end).trim();
+              chunkedOffset += boundary.end;
+              if (sentence.isNotEmpty) pipeline.addText(sentence);
+            }
+          });
+        }
       }
 
       await ref.read(chatControllerProvider.notifier).send(transcript);
@@ -306,65 +333,52 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       if (!isCurrent()) return;
 
       final chatMessages = ref.read(chatControllerProvider).value?.messages;
-      final replyText = chatMessages != null &&
+      final rawReply =
+          chatMessages != null &&
               chatMessages.isNotEmpty &&
               chatMessages.last.role.name == 'assistant'
-          ? chatMessages.last.text.trim()
+          ? chatMessages.last.text
           : '';
+      final replyText = rawReply.trim();
       if (replyText.isEmpty) {
         if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
       state = state.copyWith(lastReply: replyText);
-      if (ttsModelId == null) {
+      if (ttsModelId == null || pipeline == null) {
         if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
-      if (synthesizedOffset < replyText.length) {
-        enqueueSentence(replyText.substring(synthesizedOffset));
+      if (settings.streaming) {
+        if (chunkedOffset < rawReply.length) {
+          pipeline.addText(rawReply.substring(chunkedOffset));
+        }
+      } else {
+        pipeline.addText(replyText);
       }
-      if (playbackStarted) {
-        await playbackCompleter.future;
-      }
-      if (isCurrent()) {
-        _turnDetector.reset();
-        _vad?.reset();
-        _setPhase(LiveTalkPhase.listening);
+
+      await pipeline.finish();
+      if (!isCurrent()) return;
+      final playbackError = pipeline.firstError;
+      _turnDetector.reset();
+      _vad?.reset();
+      _setPhase(LiveTalkPhase.listening);
+      if (playbackError != null) {
+        state = state.copyWith(errorMessage: '$playbackError');
       }
     } on Object catch (error) {
+      await pipeline?.cancel();
       if (isCurrent()) {
-        state = state.copyWith(errorMessage: '$error');
         _turnDetector.reset();
         _vad?.reset();
         _setPhase(LiveTalkPhase.listening);
+        state = state.copyWith(errorMessage: '$error');
       }
     } finally {
       chatSub?.close();
-    }
-  }
-
-  Future<String?> _synthesizeSentenceTemp({
-    required dynamic engine,
-    required String ttsModelId,
-    required String sentence,
-  }) async {
-    try {
-      final speech = await engine.synthesizeSpeech(
-        text: sentence,
-        modelId: ttsModelId,
-      );
-      final dir = await getTemporaryDirectory();
-      final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
-      final file = File(
-        '${dir.path}/kritha_live_tts_${DateTime.now().microsecondsSinceEpoch}.$ext',
-      );
-      await file.writeAsBytes(speech.bytes, flush: true);
-      _ttsTempFiles.add(file.path);
-      return file.path;
-    } on Object {
-      return null;
+      if (identical(_pipeline, pipeline)) _pipeline = null;
     }
   }
 
@@ -384,16 +398,14 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     if (state.phase == LiveTalkPhase.speaking ||
         state.phase == LiveTalkPhase.thinking ||
         state.phase == LiveTalkPhase.processing) {
-      _turnEpoch++;
-      await _stopPlayback();
+      await _interruptAssistant();
       _turnDetector.reset();
       _vad?.reset();
       _utteranceBytes.clear();
       _setPhase(LiveTalkPhase.listening);
       return;
     }
-    _turnEpoch++;
-    await _stopPlayback();
+    await _interruptAssistant();
     _turnDetector.reset();
     _vad?.reset();
     _utteranceBytes.clear();
@@ -401,8 +413,10 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   }
 
   Future<void> stop() async {
+    final wasActive = state.active;
     _sessionEpoch++;
     _turnEpoch++;
+    _bargeInStreak = 0;
     await _audioSub?.cancel();
     _audioSub = null;
     try {
@@ -411,6 +425,13 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       // Recorder may already be stopped.
     }
     await _stopPlayback();
+    if (wasActive && ref.mounted) {
+      try {
+        await ref.read(chatControllerProvider.notifier).cancelReply();
+      } on Object {
+        // The reply may have already completed.
+      }
+    }
     _vad?.dispose();
     _vad = null;
     _pcmCarry.clear();
@@ -424,24 +445,14 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   }
 
   Future<void> _stopPlayback() async {
+    final pipeline = _pipeline;
+    _pipeline = null;
+    await pipeline?.cancel();
     try {
       await _player?.stop();
     } on Object {
       // Best-effort stop.
     }
-    _cleanupTtsFiles();
-  }
-
-  void _cleanupTtsFiles() {
-    for (final path in _ttsTempFiles) {
-      try {
-        final file = File(path);
-        if (file.existsSync()) file.deleteSync();
-      } on Object {
-        // Best-effort cleanup.
-      }
-    }
-    _ttsTempFiles.clear();
   }
 
   void _setPhase(LiveTalkPhase phase) {

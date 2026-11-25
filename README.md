@@ -71,7 +71,7 @@ Release artifacts are built locally under `dist/` and published on the
       <td width="50%" align="center">
       <br/>🎙️
       <h3>Hands-Free Live Talk</h3>
-      <sub>Silero VAD barge-in, OS-level echo cancellation, streamed sentence-pipelined TTS with disk caching, screen wake lock, and a fluid water-wave capsule.</sub>
+      <sub>Silero VAD barge-in, OS-level echo cancellation, optional sentence-streamed TTS with in-memory caching, screen wake lock, and a fluid water-wave capsule.</sub>
       <br/><br/>
       </td>
       <td width="50%" align="center">
@@ -123,7 +123,7 @@ Release artifacts are built locally under `dist/` and published on the
 | Persistence | Drift · SQLite · SharedPreferences |
 | Secrets | Android Keystore / Apple Keychain via `flutter_secure_storage` |
 | Local AI | LiteRT-LM (`litertlm`) · sherpa-onnx (STT / TTS) · Silero VAD |
-| Voice & Audio | OS-level AEC (`VOICE_COMMUNICATION`) · streamed sentence TTS + disk cache · `record` · `just_audio` |
+| Voice & Audio | OS-level AEC (`VOICE_COMMUNICATION`) · optional sentence-streamed TTS + in-memory cache · `record` · `just_audio` |
 | Wake word | Edge Impulse (Android foreground service, boot receiver, `KrithaOverlayActivity`) |
 | Cloud inference | Anthropic · Google Gemini · xAI · DeepSeek · Qwen/DashScope · Hugging Face · Mistral · custom OpenAI-compatible endpoints |
 | Catalogue | Hugging Face Hub API |

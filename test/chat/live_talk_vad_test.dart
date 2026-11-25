@@ -53,4 +53,15 @@ void main() {
       'Here is another longer sentence for streamed synthesis! Ok.',
     );
   });
+
+  test('splitTtsSentences preserves every sentence and its order', () {
+    final sentences = [
+      for (var i = 1; i <= 10; i++)
+        'This is sentence number $i and it is long enough to stand alone.',
+    ];
+    final chunks = splitTtsSentences(sentences.join(' '));
+
+    expect(chunks.length, 10);
+    expect(chunks, sentences);
+  });
 }
