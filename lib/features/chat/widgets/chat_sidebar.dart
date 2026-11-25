@@ -114,34 +114,10 @@ class _ChatSidebarState extends ConsumerState<ChatSidebar> {
   }
 
   Future<void> _renameSession(ChatSession session) async {
-    final controller = TextEditingController(text: session.title);
     final next = await createPopup<String>(
       context: context,
-      builder: (_) => CreatePopup(
-        title: 'Rename chat',
-        actions: [
-          PopupSecondaryButton(
-            label: 'Cancel',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          PopupPrimaryButton(
-            label: 'Save',
-            onPressed: () => Navigator.of(context).pop(controller.text),
-          ),
-        ],
-        child: Padding(
-          padding: EdgeInsets.all(KrithaSpacing.s20),
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(context).pop(value),
-            decoration: KrithaInputs.decoration(hintText: 'Chat title'),
-          ),
-        ),
-      ),
+      builder: (dialogContext) => _RenameChatDialog(initialTitle: session.title),
     );
-    controller.dispose();
     final title = next?.trim();
     if (!mounted || title == null || title.isEmpty) return;
     await _controller.renameSession(session.id, title);
@@ -999,6 +975,54 @@ class ChatSidebarPanel extends StatelessWidget {
             : null,
       ),
       child: ChatSidebar(onNewChat: onNewChat, onSettings: onSettings),
+    );
+  }
+}
+
+class _RenameChatDialog extends StatefulWidget {
+  const _RenameChatDialog({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_RenameChatDialog> createState() => _RenameChatDialogState();
+}
+
+class _RenameChatDialogState extends State<_RenameChatDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialTitle,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CreatePopup(
+      title: 'Rename chat',
+      actions: [
+        PopupSecondaryButton(
+          label: 'Cancel',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        PopupPrimaryButton(
+          label: 'Save',
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+        ),
+      ],
+      child: Padding(
+        padding: EdgeInsets.all(KrithaSpacing.s20),
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+          decoration: KrithaInputs.decoration(hintText: 'Chat title'),
+        ),
+      ),
     );
   }
 }

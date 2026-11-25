@@ -110,7 +110,7 @@ and 2 px gaps stable.
    24 px gutter, no inter-row gaps.
 3. Optional Pinned section.
 4. Recents section and 56 px session rows.
-5. Footer account avatar/name; its menu contains account actions and Settings.
+5. Footer username block with a dedicated Settings icon button on its right.
 
 Rules:
 
@@ -196,11 +196,12 @@ turn, then appends the replacement and a fresh reply. Do not branch history.
 [ X cancel ]   [ live waveform ]   [ square stop ]   [ arrow send ]
 ```
 
-- Real microphone capture and amplitude metering.
+- Real microphone capture, amplitude metering, and sherpa-onnx STT transcription.
 - Cancel discards; square stops and shows “Transcribing…”; arrow stops,
-  transcribes, then sends.
-- The transcribe seam reports a missing local model; no audio is attached to the
-  message. This is an explicit stub, not a silent failure.
+  transcribes, then sends. Supports `startAutoStop` for wake-word overlay
+  dictation.
+- If no local STT model is configured, the transcribe seam reports the missing
+  model explicitly rather than fabricating a transcript.
 - No overflow at 320 px; the waveform takes the flexible middle space.
 - Keyboard focus is irrelevant while recording; keep the strip above the safe
   area and respect bottom insets.
@@ -226,41 +227,38 @@ switch back to `textPrimary` or 2.4 px bars.
 
 ### State machine
 
-`ComposerState` transitions through `LiveTalkPhase`: listening, paused, speaking
-and related processing states. The bar exposes Video, Share screen, the centre
-status pill, pause/resume microphone and end. Video and screen share are labelled
-stubs; no STT/TTS runtime is bundled.
+`LiveTalkNotifier` and `ComposerState` transition through `LiveTalkPhase`:
+listening (Silero VAD + OS-level AEC via `MODE_IN_COMMUNICATION`), thinking,
+speaking (streamed sentence-pipelined TTS with barge-in), and paused. The bar
+exposes Video, Share screen, the centre water-wave pill, a single unified mic
+toggle, and end. Video and screen share remain labelled stubs. Screen wake lock
+(`setKeepScreenOn`) stays active while Live Talk is running.
 
 ### Layout
 
 ```
-[ video ] [ share ]   [ glowing pill ]   [ mic ] [ close ]
+[ video ] [ share ]   [ water-wave pill ]   [ mic ] [ close ]
 ```
 
 - Four round controls (48 px, 42 px under 340 px) with 6–8 px gaps.
 - The pill is `Expanded` + `Center`, so it stays in the middle and never
   collapses. It has a 50 px height, 120 px max width and is tinted by the
   available width at 320 px.
-- The mic shows `mic` while listening and `micOff` while paused.
-- Pause/resume and end are real state transitions; nothing pretends to
-  transcribe.
+- The single mic button shows `mic` while listening/speaking and `micOff` while
+  muted/paused; tapping it while TTS is speaking immediately interrupts playback
+  and toggles listening.
 
-### Glowing pill
+### Water-wave pill
 
-`LiveTalkPill` (`lib/features/chat/widgets/composer/live_talk_pill.dart`) keeps
-the brand gradient palette but renders it as a fluid listening surface:
+`LiveTalkPill` (`lib/features/chat/widgets/composer/live_talk_pill.dart`)
+renders a fish-pot water-wave capsule (`_FishPotWaterPainter`):
 
-- Three soft radial blue/cyan blobs drift at different frequencies and blend
-  additively inside the clipped capsule.
-- A thin audio-level wave moves across the middle; its amplitude and opacity
-  breathe with the flow.
-- Listening/speaking phases animate on a 2.4 s loop. Paused stops the controller
-  and settles at a dim 0.3 progress, so the pill remains visible but quiet.
-- The motion is **visual only** while the native Live Talk runtime is absent.
-  When microphone levels become available, drive the same painter from the real
-  level instead of adding a second indicator.
+- Continuous animated water slosh and multi-wave crest inside the clipped
+  capsule, driven directly by real microphone RMS `audioLevel` with fast attack
+  so speech triggers an immediate, responsive surge.
+- While paused, the wave settles cleanly to a low, calm baseline.
 - Keep the geometry dark and restrained; the pill is the only place in the
-  composer that uses the additive glow.
+  composer that uses the fluid water-wave surface.
 
 ## 7. Shared context menu
 
@@ -271,7 +269,7 @@ popup menus.
 
 | Property | Value |
 | --- | --- |
-| Width | 200 px |
+| Width | Content-measured from the widest item (plus icon/padding), capped at a max width |
 | Row height | 48 px; the last row is 56 px with an 8 px bottom inset. Without a header the first row is also 56 px |
 | Corner radius | 24 px (`KrithaRadius.xl`) |
 | Surface | `bgPrimary`, `borderSubtle`, 24 px `menuShadow` |
@@ -283,7 +281,7 @@ popup menus.
 | Header (optional) | 55 px high, 20/20/20/8 padding: the 8 px top edge inset belongs to the header, so the first action row stays 48 px |
 | Anchor gap | 8 px |
 | Screen margin | 12 px on all sides; safe top 16 px |
-| Surface width | 200 px default; panel-bound menus may fill the panel minus the 12 px margin |
+| Surface width | Sized to the widest item up to the max-width cap; panel-bound menus clamp to the panel minus the 12 px margin |
 
 ### Behaviour
 
@@ -304,9 +302,8 @@ popup menus.
   content clears the rounded corners without a menu-level gutter or separator.
 - Disabled rows are dimmed and inert. Destructive rows use `error` (the real
   destructive red) for both icon and label.
-- Headed menus: user-message time, chat title. Headerless: attachment picker,
-  session actions and the sidebar account menu start directly with their first
-  56 px edge row.
+- Headed menus: user-message time, chat title. Headerless: attachment picker and
+  session actions start directly with their first 56 px edge row.
 - On desktop, session rows and message bubbles open the same menu on right
   click; touch keeps long-press.
 
@@ -318,7 +315,6 @@ popup menus.
 | Header ellipsis | Ellipsis button | Right-aligned |
 | User message | Long-press or right-click point/bubble | Right edge flush with the bubble, not the viewport |
 | Sidebar session | Long-press or right-click point | Clamped inside sidebar |
-| Sidebar account | Footer avatar/name row, fixed | Sized to the sidebar with its own 12 px inset, flips above near the bottom edge |
 
 ## 8. Dialogs, sheets and snackbars
 
@@ -352,8 +348,8 @@ popup menus.
   step. Do not swallow exceptions.
 - Stubs: label the action and report “not available in this build” (snackbar or
   disabled row). Visible stubs in the current build include Camera, Plugins,
-  Think harder, Library, More, chat search, Permissions, read aloud, video and
-  screen sharing.
+  Think harder, Library, More, chat search, Permissions, video and screen
+  sharing.
 - Missing local STT/TTS models should be explicit; do not fabricate a
   transcript.
 - Loading a workspace list or a detail surface uses a layout-shaped skeleton
@@ -373,7 +369,7 @@ popup menus.
 | Composer action state | `AnimatedContainer` 160 ms |
 | Scroll-down reveal | 180 ms fade; auto-hide 1.5 s |
 | Dictation waveform | Live meter; paused fade in place |
-| Live Talk pill | 2.4 s fluid loop; paused settles to dim static |
+| Live Talk pill | Continuous fish-pot water-wave slosh driven by live RMS `audioLevel`; paused settles to calm baseline |
 | Skeleton loading | 1.2 s left-to-right shimmer sweep; stops when data arrives |
 
 Do not animate layout for the composer expansion or menu position. Respect the

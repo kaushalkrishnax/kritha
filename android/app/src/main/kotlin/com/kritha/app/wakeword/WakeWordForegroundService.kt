@@ -1,7 +1,6 @@
 package com.kritha.app.wakeword
 
 import android.Manifest
-import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -199,8 +198,12 @@ class WakeWordForegroundService : Service() {
 
     private fun onWakeWordDetected(confidence: Float) {
         Log.i(TAG, "Wake word detected with confidence=$confidence")
-        if (KrithaOverlayActivity.isInstanceActive || isAppInForeground()) {
-            WakeWordEvents.emitDetected(confidence)
+        if (KrithaOverlayActivity.isInstanceActive) {
+            WakeWordEvents.emitToOverlay(confidence)
+            return
+        }
+        if (MainActivity.isResumed && WakeWordBridge.isMainChatActive) {
+            WakeWordEvents.emitToMain(confidence)
             return
         }
 
@@ -258,12 +261,6 @@ class WakeWordForegroundService : Service() {
     private fun stopListening() {
         listening.set(false)
         recorder.get()?.let { runCatching { it.stop() } }
-    }
-
-    private fun isAppInForeground(): Boolean {
-        val process = ActivityManager.RunningAppProcessInfo()
-        ActivityManager.getMyMemoryState(process)
-        return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
     private fun createNotificationChannel() {

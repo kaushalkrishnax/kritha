@@ -143,22 +143,23 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
   double _intrinsicWidth(BuildContext context) {
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
+    final baseStyle = DefaultTextStyle.of(context).style.merge(
+      const TextStyle(
+        fontSize: KrithaText.sizeMd,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+      ),
+    );
     var widest = 0.0;
     for (final item in widget.items) {
       final painter = TextPainter(
-        text: TextSpan(
-          text: item.label,
-          style: const TextStyle(
-            fontSize: KrithaText.sizeMd,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
+        text: TextSpan(text: item.label, style: baseStyle),
         maxLines: 1,
         textDirection: textDirection,
         textScaler: textScaler,
       )..layout();
-      var width = painter.width + KrithaSpacing.s20 * 2;
+      // +4 accounts for 1px left/right border and subpixel text rounding.
+      var width = painter.width + KrithaSpacing.s20 * 2 + 4.0;
       painter.dispose();
       if (item.icon != null) {
         width +=

@@ -79,8 +79,8 @@ which point the session row is created with a title derived from that prompt.
 | --- | --- | --- | --- |
 | `KrithaApp` | `lib/app.dart` | Real | Theme, router wiring. |
 | `ChatScreen` | `lib/features/chat/chat_screen.dart` | Real | Responsive shell, drawer/docked sidebar, session-change scroll, empty-chat state, loading/error screens, floating frosted composer and scroll-to-bottom arrow. `_KeyboardBackGuard` dismisses the IME before allowing a route pop. |
-| `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer; **wake-word runtime is a stub**. |
-| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows in the order New chat, Library, Models, Providers, Plugins, More (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, rename dialog, archive list, settings/account strip. `Models` and `Providers` open their workspaces; the docked Models row expands to Active Models and Provider Models and marks the current destination; the compact rail repeats the same order as icon buttons. |
+| `ChatHeader` | `lib/features/chat/widgets/chat_header.dart` | Real | Floating pills over the blurred top band: sidebar/menu, New chat and a per-chat ellipsis, with equal pill padding and full icon ripples. The ellipsis opens the shared menu with the chat title, Share, Pin/Unpin, Uploaded files, Find in chat, Archive and Delete. Settings stay in the sidebar footer. |
+| `ChatSidebar` | `lib/features/chat/widgets/chat_sidebar.dart` | Real | SQLite sessions, Pinned/Recents, six contiguous 56 px top action rows in the order New chat, Library, Models, Providers, Plugins, More (no inter-item gap), 24 px Lucide 600-weight action icons, 56 px session rows, long-press menu, stateful `_RenameChatDialog`, archive list, and a footer username block with a dedicated Settings icon button on the right. `Models` and `Providers` open their workspaces; the docked Models row expands to Active Models and Provider Models and marks the current destination; the compact rail repeats the same order as icon buttons. |
 | `ArchivedSessionsDialog` | same file | Real | Lists archived sessions; restore and delete are persisted. Also opened from Settings → Privacy. |
 | `SettingsScreen` | `lib/features/settings/settings_screen.dart` | Real | Runtime probes, local model selection/removal and confirmed history clearing are real. The model card validates the file and reports it separately from the loaded engine. Clearing history leaves an empty install empty. Privacy groups Archived chats and the Permissions stub. The back control is the shared borderless `WorkspaceBackButton`. The remaining settings toggles are not implemented (**gap**). |
 | `_EmptyChat` | `chat_screen.dart` | Real | Shown for a new, unsaved chat. |
@@ -91,11 +91,11 @@ which point the session row is created with a title derived from that prompt.
 | Component | File | Status | Notes / stub work |
 | --- | --- | --- | --- |
 | `ChatController` / `ChatState` | `lib/features/chat/chat_controller.dart` | Real | Session CRUD, per-session messages, streaming send, cancellation, typed reply failures and retry, pin, rename, archive/restore, delete, reset. History is mapped through `ConversationContextBuilder`; the assistant turn is persisted only after a successful stream. Editing a prompt deletes that turn and every later turn before saving the replacement. Retry regenerates without re-saving the user turn. |
-| `ConversationContextBuilder` | `lib/features/chat/conversation_context.dart` | Real | Maps one session's persisted user/assistant turns into an `AiRequest` in stored order, omitting empty and attachment-only turns. Rejects history that does not end in a user turn. |
+| `ConversationContextBuilder` | `lib/features/chat/conversation_context.dart` | Real | Maps one session's persisted user/assistant turns into an `AiRequest` in stored order, including typed `AiImageInput`, `AiAudioInput`, and `AiVideoInput` attachments resolved via `mime_types.dart`, plus optional image-generation routing. Rejects history that does not end in a user turn. |
 | `MessageList` | `lib/features/chat/widgets/message_list.dart` | Real | Shared transcript spacing, user bubble, no assistant bubble, thinking row, streamed partial assistant output, reply-failure row with retry, auto-scroll hooks. |
 | `_UserMessage` | same file | Real | Rounded bubble painted by `Material`, with a full-bubble `InkWell` press/focus ripple. Long-press menu has a message-time header, Copy, Edit message. Edit enters a persistent edit mode and shows the restart warning above the composer. |
 | `_AssistantMessage` | same file | Real | Markdown plus response actions. |
-| `ResponseActions` | `lib/features/chat/widgets/response_actions.dart` | Real / Stub | Copy is real with a 2 s confirmation; Share opens the native share sheet through `share_plus`. Each icon has a transparent Material ink surface with focus/hover/press feedback. Read-aloud is a stub (no TTS model); More reports the missing response menu. |
+| `ResponseActions` | `lib/features/chat/widgets/response_actions.dart` | Real | Copy (2 s confirmation), Share (`share_plus`), and Read-aloud via `SpeechPlaybackNotifier` (sherpa-onnx TTS with SHA-256 disk caching). Each icon has a transparent Material ink surface with focus/hover/press feedback; More reports the missing response menu. |
 | `_ThinkingRow`, `_StreamingMessage`, `_ReplyFailureRow` | `message_list.dart` | Real | Pending-reply affordance, streamed markdown, and a user-safe failure with a retry action when retryable. |
 | `MarkdownView` | `lib/features/chat/widgets/markdown_view.dart` | Real | GFM, tables, code highlighting, LaTeX. Links open a stub snackbar instead of a browser. |
 | `MessageAttachmentList` | `lib/features/chat/widgets/attachment_view.dart` | Real | Renders persisted sent attachments. |
@@ -112,11 +112,13 @@ which point the session row is created with a title derived from that prompt.
 | `showAttachmentMenu` / `_pick` | `.../composer_controls.dart` | Real | Shared context menu; Photos and Files use `file_picker`. Camera, Plugins and Think harder are disabled stubs. |
 | `PlusButton`, `VoiceModeButton`, `ComposerActionButton` | `.../composer_controls.dart` | Real | Attach, start dictation, send / Live Talk / busy states. |
 | `AttachmentPicker` | `.../attachment_picker.dart` | Real | Platform file/image picking, MIME inference, size read. Files are referenced, not copied into app storage (**gap**). |
-| `DictationNotifier` / `DictationState` | `lib/features/chat/dictation_controller.dart` | Real capture / Stub transcription | Real microphone recording, amplitude metering, cancel, transcribing phase and temp-file cleanup. `transcribe()` is the single STT seam; it currently reports that no local model is bundled and never attaches the recording to the message. |
-| `DictationBar` | `.../composer/dictation_bar.dart` | Real (visual) | Frosted composer chrome, X cancel, Flexiyo waveform, square stop-and-transcribe, arrow stop-transcribe-and-send, and a “Transcribing…” state. |
+| `DictationNotifier` / `DictationState` | `lib/features/chat/dictation_controller.dart` | Real | Real microphone recording, amplitude metering, cancel, sherpa-onnx STT transcription, `startAutoStop` for wake-word overlay dictation, and temp-file cleanup. |
+| `DictationBar` | `.../composer/dictation_bar.dart` | Real | Frosted composer chrome, X cancel, Flexiyo waveform, square stop-and-transcribe, arrow stop-transcribe-and-send, and a “Transcribing…” state. |
 | `RecordingWaveform` | `.../composer/recording_waveform.dart` | Real | Flexiyo-derived metering: newest bars right, 42-bar cap, 3 px light-grey bars (`waveformBar`) with a 4 px gap, 26 px height, paused fade. Responsive bar count for 320 px. |
-| `LiveTalkBar` | `.../composer/live_talk_bar.dart` | Visual | Listening/paused states, pause/resume and end are real state transitions. The centre `LiveTalkPill` glows with a fluid 2.4 s loop; paused settles to a dim static state. Video and screen sharing are stubs; no STT/TTS runtime. |
-| `LiveTalkPill` | `.../composer/live_talk_pill.dart` | Visual | Animated blue/cyan radial blobs and a moving level wave inside the 50 px capsule. Motion is synthetic while the Live Talk runtime is absent; do not treat it as real microphone metering. |
+| `LiveTalkNotifier`, `LiveTalkBar` | `lib/features/chat/live_talk_controller.dart`, `.../composer/live_talk_bar.dart` | Real | Full-duplex turn loop: `SileroVadSession` (`MODE_IN_COMMUNICATION` + OS AEC) barge-in, STT transcription, streamed LLM-to-sentence TTS pipelining (`splitTtsSentences` + `SpeechPlaybackNotifier`), screen wake lock (`setKeepScreenOn`), single unified mic toggle, and end. Video and screen sharing remain labelled stubs. |
+| `LiveTalkPill` | `.../composer/live_talk_pill.dart` | Real | Fish-pot water-wave capsule (`_FishPotWaterPainter`) inside the 50 px capsule, driven by live microphone RMS `audioLevel`, continuous slosh loop, and speaking/listening phase transitions. |
+| `SpeechPlaybackNotifier` | `lib/features/chat/speech_playback_controller.dart` | Real | Sentence-streamed sherpa-onnx TTS synthesis, SHA-256 disk audio caching, and `just_audio` playback. |
+| `WakeWordCoordinator`, `KrithaOverlayScreen` | `lib/services/wake_word_controller.dart`, `lib/features/overlay/kritha_overlay_screen.dart` | Real | Edge Impulse Android foreground service + `WakeWordBootReceiver` + auto-start on launch; launches `KrithaOverlayActivity` (`/overlay`) in Dictation, Live Talk, or Chat mode without opening old chats. |
 
 ## Shared widgets
 
@@ -124,7 +126,7 @@ which point the session row is created with a title derived from that prompt.
 | --- | --- | --- | --- |
 | `isNetworkUnavailable` | `lib/core/network/dio_error_utils.dart` | Real | Shared classification for Dio connection/time-out failures; catalogue and provider layers keep their own domain-specific status/error messages. |
 | `SecureStorageService`, `PlatformSecureStorageService` | `lib/core/storage/secure_storage_service.dart` | Real | One platform secure-storage mechanism shared by the Hub token, provider credentials and runtime probe. Feature stores retain separate keys and behavior. |
-| `showKrithaContextMenu`, `ContextMenuItem` | `lib/widgets/context_menu.dart` | Real | Shared menu geometry/motion: 200 px wide, 48 px middle rows, 24 px radius, 8 px gap, fade + scale from the nearest corner, disabled/destructive states. First/last rows are 56 px and own an 8 px outer edge inset inside their press surface, so there is no surface gutter, the content clears the rounded corners, and no separator rule is needed. Used by the composer attachment picker, header ellipsis, user-message long press and sidebar session long press. `requestFocus: false` keeps the composer keyboard open; with the keyboard up the menu stays fully above the IME (Android hides anything drawn inside the keyboard rectangle), ChatGPT-style. Auto-aligned sidebar menus accept a right boundary; message menus align right. |
+| `showKrithaContextMenu`, `ContextMenuItem` | `lib/widgets/context_menu.dart` | Real | Shared menu geometry/motion: content-measured width (fitting the widest item up to a max-width cap or panel bounds), 48 px middle rows, 24 px radius, 8 px gap, fade + scale from the nearest corner, disabled/destructive states. First/last rows are 56 px and own an 8 px outer edge inset inside their press surface, so there is no surface gutter, the content clears the rounded corners, and no separator rule is needed. Used by the composer attachment picker, header ellipsis, user-message long press and sidebar session long press. `requestFocus: false` keeps the composer keyboard open; with the keyboard up the menu stays fully above the IME (Android hides anything drawn inside the keyboard rectangle), ChatGPT-style. Auto-aligned sidebar menus accept a right boundary; message menus align right. |
 | `goBackOrExit`, `goBackOrExitRouter` | `lib/widgets/back_navigation.dart` | Real | Workspace back buttons pop the GoRouter stack instead of hard-coding a destination; Android system back uses the same stack, an app-level Escape shortcut invokes the same action on desktop, and a missing previous route delegates to `SystemNavigator.pop`. |
 | `KrithaGlassSurface` | `lib/widgets/glass_surface.dart` | Real | Rounded translucent surface with `BackdropFilter` blur; used by the normal composer and dictation bar. The composer floats over the transcript and the message list reserves its measured height. |
 | `SkeletonBox` | `lib/widgets/skeleton.dart` | Real | Left-to-right shimmer placeholder: a `bgTertiary` highlight sweeps a `bgSecondary` base over 1.2 s. `CatalogueSkeleton`, the model-details skeleton and the providers skeleton compose it into the real card/section layout so content does not jump when data arrives. Do not use it inside buttons, labels or icons. |
@@ -217,12 +219,16 @@ Providers configure inference connections separately from Hub discovery.
 - Attachments: plus → Photos/Files; previews can be removed; attachments
   persist with the sent message.
 - Dictation: mic → real recording with Flexiyo-style waveform → X cancels;
-  square stops and attempts transcription; arrow stops, transcribes and sends.
-  The “Transcribing…” state is shown while stopping. No audio file is attached;
-  without a bundled STT model the action reports the missing model and the temp
-  file is deleted.
-- Live Talk: send action on an empty composer → capsule starts → pause/resume →
-  X returns to the composer.
+  square stops and transcribes via sherpa-onnx into the composer; arrow stops,
+  transcribes and sends. The “Transcribing…” state is shown while stopping.
+- Live Talk: send action on an empty composer → capsule starts with Silero VAD,
+  OS-level AEC, wake lock and streamed sentence-pipelined TTS → speak to barge in
+  or tap mic to mute/unmute → X returns to the composer.
+- Read aloud: tap the speaker icon under an assistant reply → synthesizes or
+  replays cached TTS audio.
+- Wake word: always-on Android foreground service (auto-started on launch and
+  boot) → wakes `KrithaOverlay` in the configured mode (Dictation, Live Talk, or
+  Chat).
 - Message menu: long-press a user bubble → Copy / Edit message.
 - Edit a prompt: Edit message loads the text and shows a persistent warning above
   the composer. Sending deletes that turn and every later turn, then appends the
@@ -238,29 +244,22 @@ hand-off: the visible entry point already exists where noted.
 
 | # | Feature | Entry point / function | Current behaviour | Needed |
 | --- | --- | --- | --- | --- |
-| 1 | Assistant inference with a real model | `ChatController.send` → `intelligenceEngineProvider` | Wired: validated model selection, persisted history mapping, streaming, cancel, retry and user-safe failures. No model ships and no real generation has been verified. | Pick and validate an actual `.litertlm` file on a device, confirm native streaming/cancel semantics and tune prompts/samplers. Per-request conversations replay history; conversation reuse is deferred. |
-| 2 | Dictation transcription | `DictationNotifier.transcribe` | Stops and deletes the take, then raises a missing-model error; never attaches audio. | Pass the stopped file through sherpa-onnx/STT, return text so the square inserts it and the arrow sends it, keep the error surface. |
-| 3 | Live Talk runtime | `LiveTalkBar`, `ComposerNotifier` phases | Visual pulse and pause/resume only. | Mic session, VAD, STT, LLM turn taking, TTS playback, real phase transitions. |
-| 4 | Read aloud | `_AssistantMessage` → `ResponseActions.onSpeak` | Snackbar says TTS is unbundled. | Downloadable voice models + `just_audio` playback controls. |
-| 5 | Camera attachment | `showAttachmentMenu` `'camera'` | Visible, disabled. | Camera permission/capture, image attachment, storage copy. |
-| 6 | Plugins | `showAttachmentMenu` `'plugins'` | Visible, disabled. | Plugin picker and attachment/tool contract. |
-| 7 | Think harder | `showAttachmentMenu` `'think'` | Visible, disabled. | Reasoning-mode flag plumbed into the engine request. |
-| 8 | Library | Sidebar `Library` | Stub snackbar. | Library screen and its data source. |
-| 9 | Plugins | Sidebar row | Stub snackbar. | Plugin management. |
-| 10 | Permissions | Settings → Privacy | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
-| 11 | More | Sidebar row | Stub snackbar. | Remaining account/menu actions. |
-| 12 | Chat search | Sidebar search icon | Stub snackbar. | SQLite FTS or in-memory filter across titles/messages. |
-| 13 | Attachment storage | `FileAttachmentPicker` / send | Stores the picker path only. | Copy into app documents and delete on session removal. |
-| 14 | Message pagination | `AppDatabase.messagesForSession` | Loads every message. | Windowed queries for long conversations. |
-| 15 | Markdown links | `MarkdownView.onTapLink` | Stub snackbar. | Route through `url_launcher` with allow-listing. |
-| 16 | Wake word | `SettingsScreen` → Voice | Real Android foreground-service toggle. | iOS/desktop runtime and a model picker. |
-| 17 | Account identity | Sidebar footer → account menu | Static “Kaushal Krishna / KK” with Free, Profile, Settings and Log out entries; only Settings is wired. | Profile source, plan data and real account actions. |
-| 18 | Settings depth | `SettingsScreen` | Probes, local model selection/removal and confirmed history clearing. | Remaining settings toggles and richer model metadata. |
-| 19 | Backend/network | `dioProvider` | Configured, unused. | Auth, sync, remote models, request logging. |
-| 20 | Multimodal prompts | `AiRequest` / composer attachments | Attachments persist and render, but only text is sent; attachment-only prompts fail with a clear message. | Image/audio content parts, capability checks and runtime support. |
-| 21 | Custom catalogue | Models ellipsis menu → Custom catalogue (Pro) | Gated explanation screen; no endpoint or schema work. | Plan/billing gate, endpoint configuration and a response-schema adapter. |
-| 22 | Hosted provider routing | Providers workspace | Providers can be connected, configured and tested, but chat still uses the local engine. | Route `intelligenceEngineProvider` through the connected provider, map streaming/cancel/errors and add capability checks. |
-| 23 | Hub model download and activation | Model details → Active Models | Details and assignments are real; activation is limited to an already validated local `.litertlm` file. | Verified download with progress, checksum, storage policy, runtime compatibility probes and per-capability engines. |
+| 1 | Camera attachment | `showAttachmentMenu` `'camera'` | Visible, disabled. | Camera permission/capture, image attachment, storage copy. |
+| 2 | Plugins | `showAttachmentMenu` `'plugins'` | Visible, disabled. | Plugin picker and attachment/tool contract. |
+| 3 | Think harder | `showAttachmentMenu` `'think'` | Visible, disabled. | Reasoning-mode flag plumbed into the engine request. |
+| 4 | Live Talk video & screen share | `LiveTalkBar` video / share buttons | Visible, labelled stubs. | Camera frame stream and screen-capture permission/pipeline. |
+| 5 | Library | Sidebar `Library` | Stub snackbar. | Library screen and its data source. |
+| 6 | Plugins | Sidebar row | Stub snackbar. | Plugin management. |
+| 7 | Permissions | Settings → Privacy | Stub snackbar. | Per-capability permission panel (mic, camera, photos, notifications). |
+| 8 | More | Sidebar row | Stub snackbar. | Remaining account/menu actions. |
+| 9 | Chat search | Sidebar search icon | Stub snackbar. | SQLite FTS or in-memory filter across titles/messages. |
+| 10 | Attachment storage | `FileAttachmentPicker` / send | Auto-detects MIME via `mime_types.dart` (`image`, `video`, `audio`, `file`), stores picker path. | Copy into app documents and delete on session removal. |
+| 11 | Message pagination | `AppDatabase.messagesForSession` | Loads every message. | Windowed queries for long conversations. |
+| 12 | Markdown links | `MarkdownView.onTapLink` | Stub snackbar. | Route through `url_launcher` with allow-listing. |
+| 13 | Wake word (non-Android) | `SettingsScreen` → Voice | Real Android foreground-service + boot receiver + `KrithaOverlay`. | iOS/desktop runtime and a custom model picker. |
+| 14 | Account identity | Sidebar footer | Static “Kaushal Krishna / KK” with dedicated Settings button on the right. | Profile source, plan data and real account actions. |
+| 15 | Settings depth | `SettingsScreen` | Probes, voice/STT/TTS/wake-word settings, local model selection/removal and confirmed history clearing. | Remaining settings toggles and richer model metadata. |
+| 16 | Custom catalogue | Models ellipsis menu → Custom catalogue (Pro) | Gated explanation screen; no endpoint or schema work. | Plan/billing gate, endpoint configuration and a response-schema adapter. |
 
 ## Component docs checklist
 

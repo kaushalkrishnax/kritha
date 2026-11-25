@@ -162,7 +162,8 @@ class SileroVadSession {
       sumSq += sample * sample;
     }
     final rms = math.sqrt(sumSq / pcm16.length);
-    final level = (rms * 5.0).clamp(0.0, 1.0);
+    // Non-linear boost so normal conversational speech reaches 0.65..1.0.
+    final level = math.pow((rms * 14.0).clamp(0.0, 1.0), 0.65).toDouble();
 
     final vad = _vad;
     if (vad == null) {

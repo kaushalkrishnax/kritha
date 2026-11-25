@@ -36,10 +36,10 @@ class KrithaOverlayActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        WakeWordBridge(this).register(flutterEngine)
+        WakeWordBridge(this, isOverlay = true).register(flutterEngine)
         DownloadNotificationBridge(flutterEngine.dartExecutor.binaryMessenger, this).register()
         intent?.takeIf { it.hasExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE) }?.let {
-            WakeWordEvents.emitDetected(it.getFloatExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, 0f))
+            WakeWordEvents.emitToOverlay(it.getFloatExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, 0f))
             it.removeExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE)
         }
     }
@@ -71,7 +71,7 @@ class KrithaOverlayActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.hasExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE)) {
-            WakeWordEvents.emitDetected(intent.getFloatExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, 0f))
+            WakeWordEvents.emitToOverlay(intent.getFloatExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, 0f))
             intent.removeExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE)
         }
     }

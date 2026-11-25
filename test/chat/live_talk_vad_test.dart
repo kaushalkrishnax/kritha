@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kritha/features/chat/speech_playback_controller.dart';
 import 'package:kritha/services/silero_vad_service.dart';
 import 'package:kritha/services/wake_word_controller.dart';
 
@@ -39,5 +40,17 @@ void main() {
     expect(WakeWordMode.fromName('liveTalk'), WakeWordMode.liveTalk);
     expect(WakeWordMode.fromName('dictate'), WakeWordMode.dictate);
     expect(WakeWordMode.fromName(null), WakeWordMode.dictate);
+  });
+
+  test('splitTtsSentences breaks long text into natural chunks and merges tiny tails', () {
+    final chunks = splitTtsSentences(
+      'Hello there, this is the first full sentence. Here is another longer sentence for streamed synthesis! Ok.',
+    );
+    expect(chunks.length, 2);
+    expect(chunks.first, 'Hello there, this is the first full sentence.');
+    expect(
+      chunks.last,
+      'Here is another longer sentence for streamed synthesis! Ok.',
+    );
   });
 }

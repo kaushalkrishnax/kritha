@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../services/silero_vad_service.dart';
+import '../../services/wake_word_bridge.dart';
 import '../intelligence/models/task_registry.dart';
 import '../intelligence/providers/providers.dart';
 import '../models/active/active_models.dart';
@@ -52,9 +54,9 @@ class LiveTalkState {
   }
 }
 
-/// Orchestrates the continuous Live Talk loop:
-/// mic PCM stream -> Silero VAD + TurnDetector -> ASR -> Intelligence -> TTS -> playback,
-/// with voice barge-in and single-source-of-truth mic state.
+/// Orchestrates continuous Live Talk with streamed sentence-pipelined TTS:
+/// mic PCM stream -> Silero VAD + TurnDetector -> ASR -> streamed LLM ->
+/// per-sentence TTS -> playback, with voice barge-in.
 class LiveTalkNotifier extends Notifier<LiveTalkState> {
   AudioRecorder? _recorder;
   StreamSubscription<Uint8List>? _audioSub;
@@ -65,7 +67,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   final List<int> _utteranceBytes = [];
   int _sessionEpoch = 0;
   int _turnEpoch = 0;
-  String? _ttsTempPath;
+  final List<String> _ttsTempFiles = [];
 
   @override
   LiveTalkState build() {
@@ -120,6 +122,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       active: true,
       phase: LiveTalkPhase.listening,
     );
+    unawaited(WakeWordBridge.setKeepScreenOn(true));
 
     final stream = await recorder.startStream(
       const RecordConfig(
@@ -129,6 +132,11 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         echoCancel: true,
         noiseSuppress: true,
         autoGain: true,
+        androidConfig: AndroidRecordConfig(
+          audioSource: AndroidAudioSource.voiceCommunication,
+          audioManagerMode: AudioManagerMode.modeInCommunication,
+          speakerphone: true,
+        ),
       ),
     );
     if (epoch != _sessionEpoch || !ref.mounted) return;
@@ -153,15 +161,17 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       final vadResult = _vad?.processFrame(pcm16);
       if (vadResult == null) continue;
 
-      final smoothedLevel =
-          (state.audioLevel * 0.60 + vadResult.level * 0.40).clamp(0.0, 1.0);
-      if ((smoothedLevel - state.audioLevel).abs() > 0.015) {
+      final attack = vadResult.level > state.audioLevel;
+      final smoothedLevel = (attack
+              ? state.audioLevel * 0.25 + vadResult.level * 0.75
+              : state.audioLevel * 0.65 + vadResult.level * 0.35)
+          .clamp(0.0, 1.0);
+      if ((smoothedLevel - state.audioLevel).abs() > 0.008) {
         state = state.copyWith(audioLevel: smoothedLevel);
       }
 
       final signal = _turnDetector.accept(vadResult.probability);
       if (signal == TurnSignal.speechStart) {
-        // Voice barge-in: cancel in-flight response/TTS immediately.
         if (state.phase == LiveTalkPhase.speaking ||
             state.phase == LiveTalkPhase.thinking ||
             state.phase == LiveTalkPhase.processing) {
@@ -207,6 +217,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     }
 
     _setPhase(LiveTalkPhase.processing);
+    ProviderSubscription<AsyncValue<ChatState>>? chatSub;
     try {
       final active = await ref.read(activeModelsProvider.future);
       final sttModelId = _sttModelId(active);
@@ -229,7 +240,69 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       state = state.copyWith(lastTranscript: transcript);
       _setPhase(LiveTalkPhase.thinking);
 
+      final ttsModelId = _ttsModelId(active);
+      final ttsQueue = Queue<Future<String?>>();
+      var synthesizedOffset = 0;
+      var playbackStarted = false;
+      var playbackCompleter = Completer<void>();
+
+      Future<void> pumpPlayback() async {
+        if (playbackStarted) return;
+        playbackStarted = true;
+        try {
+          // Keep voice-communication mode and hardware AEC intact during TTS playback.
+          final player = _player ??= AudioPlayer(
+            handleAudioSessionActivation: false,
+            androidApplyAudioAttributes: false,
+          );
+          while (ttsQueue.isNotEmpty && isCurrent()) {
+            final path = await ttsQueue.removeFirst();
+            if (path == null || !isCurrent()) continue;
+            _setPhase(LiveTalkPhase.speaking);
+            await player.setFilePath(path);
+            if (!isCurrent()) break;
+            await player.play();
+          }
+        } finally {
+          playbackStarted = false;
+          if (!playbackCompleter.isCompleted) playbackCompleter.complete();
+        }
+      }
+
+      void enqueueSentence(String sentence) {
+        if (ttsModelId == null || sentence.trim().isEmpty || !isCurrent()) {
+          return;
+        }
+        final future = _synthesizeSentenceTemp(
+          engine: engine,
+          ttsModelId: ttsModelId,
+          sentence: sentence.trim(),
+        );
+        ttsQueue.add(future);
+        if (!playbackStarted) {
+          playbackCompleter = Completer<void>();
+          unawaited(pumpPlayback());
+        }
+      }
+
+      if (ttsModelId != null) {
+        chatSub = ref.listen(chatControllerProvider, (prev, next) {
+          if (!isCurrent()) return;
+          final streamed = next.value?.streamingText;
+          if (streamed == null || streamed.length <= synthesizedOffset) return;
+          final slice = streamed.substring(synthesizedOffset);
+          final boundary = RegExp(r'[.!?](?:\s+|$)|\n+').firstMatch(slice);
+          if (boundary != null && boundary.end >= 20) {
+            final sentence = slice.substring(0, boundary.end).trim();
+            synthesizedOffset += boundary.end;
+            enqueueSentence(sentence);
+          }
+        });
+      }
+
       await ref.read(chatControllerProvider.notifier).send(transcript);
+      chatSub?.close();
+      chatSub = null;
       if (!isCurrent()) return;
 
       final chatMessages = ref.read(chatControllerProvider).value?.messages;
@@ -244,35 +317,17 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       }
 
       state = state.copyWith(lastReply: replyText);
-      final ttsModelId = _ttsModelId(active);
       if (ttsModelId == null) {
         if (isCurrent()) _setPhase(LiveTalkPhase.listening);
         return;
       }
 
-      _setPhase(LiveTalkPhase.speaking);
-      final speech = await engine.synthesizeSpeech(
-        text: replyText,
-        modelId: ttsModelId,
-      );
-      if (!isCurrent()) return;
-
-      final dir = await getTemporaryDirectory();
-      final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
-      final file = File(
-        '${dir.path}/kritha_live_tts_${DateTime.now().microsecondsSinceEpoch}.$ext',
-      );
-      await file.writeAsBytes(speech.bytes, flush: true);
-      _cleanupTtsFile();
-      _ttsTempPath = file.path;
-
-      // Avoid stealing audio focus from the active mic capture stream.
-      final player = _player ??= AudioPlayer(
-        handleAudioSessionActivation: false,
-      );
-      await player.setFilePath(file.path);
-      if (!isCurrent()) return;
-      await player.play();
+      if (synthesizedOffset < replyText.length) {
+        enqueueSentence(replyText.substring(synthesizedOffset));
+      }
+      if (playbackStarted) {
+        await playbackCompleter.future;
+      }
       if (isCurrent()) {
         _turnDetector.reset();
         _vad?.reset();
@@ -285,6 +340,31 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         _vad?.reset();
         _setPhase(LiveTalkPhase.listening);
       }
+    } finally {
+      chatSub?.close();
+    }
+  }
+
+  Future<String?> _synthesizeSentenceTemp({
+    required dynamic engine,
+    required String ttsModelId,
+    required String sentence,
+  }) async {
+    try {
+      final speech = await engine.synthesizeSpeech(
+        text: sentence,
+        modelId: ttsModelId,
+      );
+      final dir = await getTemporaryDirectory();
+      final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
+      final file = File(
+        '${dir.path}/kritha_live_tts_${DateTime.now().microsecondsSinceEpoch}.$ext',
+      );
+      await file.writeAsBytes(speech.bytes, flush: true);
+      _ttsTempFiles.add(file.path);
+      return file.path;
+    } on Object {
+      return null;
     }
   }
 
@@ -336,6 +416,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     _pcmCarry.clear();
     _utteranceBytes.clear();
     _turnDetector.reset();
+    unawaited(WakeWordBridge.setKeepScreenOn(false));
     if (ref.mounted) {
       ref.read(composerProvider.notifier).setLiveTalkActive(false);
       state = const LiveTalkState();
@@ -348,19 +429,19 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     } on Object {
       // Best-effort stop.
     }
-    _cleanupTtsFile();
+    _cleanupTtsFiles();
   }
 
-  void _cleanupTtsFile() {
-    final path = _ttsTempPath;
-    _ttsTempPath = null;
-    if (path == null) return;
-    try {
-      final file = File(path);
-      if (file.existsSync()) file.deleteSync();
-    } on Object {
-      // Best-effort cleanup.
+  void _cleanupTtsFiles() {
+    for (final path in _ttsTempFiles) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) file.deleteSync();
+      } on Object {
+        // Best-effort cleanup.
+      }
     }
+    _ttsTempFiles.clear();
   }
 
   void _setPhase(LiveTalkPhase phase) {

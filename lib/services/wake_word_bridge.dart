@@ -79,4 +79,20 @@ abstract final class WakeWordBridge {
       // Main app launch is Android-only.
     }
   }
+
+  static Future<void> setKeepScreenOn(bool enabled) async {
+    try {
+      await _method.invokeMethod<void>('setKeepScreenOn', {'enabled': enabled});
+    } on MissingPluginException {
+      // Screen/wake lock is Android-only.
+    }
+  }
+
+  static Future<void> setMainChatActive(bool active) async {
+    try {
+      await _method.invokeMethod<void>('setMainChatActive', {'active': active});
+    } on MissingPluginException {
+      // Route-aware overlay handoff is Android-only.
+    }
+  }
 }

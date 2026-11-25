@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,33 @@ import '../intelligence/models/task_registry.dart';
 import '../intelligence/providers/providers.dart';
 import '../models/active/active_models.dart';
 import '../models/catalogue/catalogue_model.dart';
+
+/// Splits text into natural sentence chunks for low-latency streamed TTS.
+List<String> splitTtsSentences(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return const [];
+  final raw = trimmed.split(RegExp(r'(?<=[.!?])\s+|\n+'));
+  final result = <String>[];
+  final buffer = StringBuffer();
+  for (final part in raw) {
+    final s = part.trim();
+    if (s.isEmpty) continue;
+    if (buffer.isNotEmpty) buffer.write(' ');
+    buffer.write(s);
+    if (buffer.length >= 28) {
+      result.add(buffer.toString());
+      buffer.clear();
+    }
+  }
+  if (buffer.isNotEmpty) {
+    if (result.isNotEmpty && buffer.length < 18) {
+      result[result.length - 1] = '${result.last} ${buffer.toString()}';
+    } else {
+      result.add(buffer.toString());
+    }
+  }
+  return result;
+}
 
 class SpeechPlaybackState {
   const SpeechPlaybackState({this.playingMessageId, this.loading = false});
@@ -27,14 +55,16 @@ class SpeechPlaybackException implements Exception {
   String toString() => message;
 }
 
-/// Synthesizes assistant replies through the active TTS model, caching audio on disk.
+/// Synthesizes assistant replies sentence-by-sentence with disk caching for fast start.
 class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
   AudioPlayer? _player;
   final Map<String, String> _memoryCache = {};
+  int _playEpoch = 0;
 
   @override
   SpeechPlaybackState build() {
     ref.onDispose(() {
+      _playEpoch++;
       _player?.dispose();
       _player = null;
     });
@@ -50,8 +80,8 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
       return;
     }
     await stop();
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    final sentences = splitTtsSentences(text);
+    if (sentences.isEmpty) return;
 
     final active = await ref.read(activeModelsProvider.future);
     final ttsModelId =
@@ -63,35 +93,57 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
       );
     }
 
-    final cacheKey = '${ttsModelId}_${Object.hash(ttsModelId, trimmed)}';
+    final epoch = ++_playEpoch;
     state = SpeechPlaybackState(playingMessageId: messageId, loading: true);
     try {
-      var filePath = await _lookupCachedFile(cacheKey);
-      if (filePath == null) {
-        final speech = await ref
-            .read(intelligenceEngineProvider)
-            .synthesizeSpeech(text: trimmed, modelId: ttsModelId);
-        if (!ref.mounted) return;
-        final cacheDir = await _cacheDir();
-        final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
-        final file = File('${cacheDir.path}/$cacheKey.$ext');
-        await file.writeAsBytes(speech.bytes, flush: true);
-        filePath = file.path;
-        _memoryCache[cacheKey] = filePath;
-      }
+      // Kick off sentence synthesis sequentially in-order, starting playback on chunk 0.
+      final futures = <Future<String>>[
+        for (final sentence in sentences)
+          _synthesizeCached(ttsModelId: ttsModelId, text: sentence),
+      ];
 
       final player = _player ??= AudioPlayer();
-      await player.setFilePath(filePath);
-      if (!ref.mounted) return;
-      state = SpeechPlaybackState(playingMessageId: messageId, loading: false);
-      _listenCompletion(player, messageId);
-      await player.play();
+      for (var i = 0; i < futures.length; i++) {
+        final path = await futures[i];
+        if (epoch != _playEpoch || !ref.mounted) return;
+        await player.setFilePath(path);
+        if (epoch != _playEpoch || !ref.mounted) return;
+        if (i == 0) {
+          state = SpeechPlaybackState(
+            playingMessageId: messageId,
+            loading: false,
+          );
+        }
+        await player.play();
+      }
+      if (epoch == _playEpoch && ref.mounted) {
+        state = const SpeechPlaybackState();
+      }
     } on Object {
-      if (ref.mounted) {
+      if (epoch == _playEpoch && ref.mounted) {
         state = const SpeechPlaybackState();
       }
       rethrow;
     }
+  }
+
+  Future<String> _synthesizeCached({
+    required String ttsModelId,
+    required String text,
+  }) async {
+    final cacheKey = '${ttsModelId}_${Object.hash(ttsModelId, text)}';
+    final cached = await _lookupCachedFile(cacheKey);
+    if (cached != null) return cached;
+
+    final speech = await ref
+        .read(intelligenceEngineProvider)
+        .synthesizeSpeech(text: text, modelId: ttsModelId);
+    final cacheDir = await _cacheDir();
+    final ext = speech.mimeType.contains('wav') ? 'wav' : 'mp3';
+    final file = File('${cacheDir.path}/$cacheKey.$ext');
+    await file.writeAsBytes(speech.bytes, flush: true);
+    _memoryCache[cacheKey] = file.path;
+    return file.path;
   }
 
   Future<Directory> _cacheDir() async {
@@ -117,17 +169,8 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     return null;
   }
 
-  void _listenCompletion(AudioPlayer player, String messageId) {
-    player.playerStateStream.listen((playerState) {
-      if (playerState.processingState == ProcessingState.completed &&
-          ref.mounted &&
-          state.playingMessageId == messageId) {
-        state = const SpeechPlaybackState();
-      }
-    });
-  }
-
   Future<void> stop() async {
+    _playEpoch++;
     try {
       await _player?.stop();
     } on Object {

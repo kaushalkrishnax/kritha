@@ -69,29 +69,43 @@ Release artifacts are built locally under `dist/` and published on the
   <table>
     <tr>
       <td width="50%" align="center">
-      <br/>💬
-      <h3>Conversation that adapts</h3>
-      <sub>Responsive shell, persistent sessions, keyboard-aware composer and one shared context-menu language.</sub>
+      <br/>🎙️
+      <h3>Hands-Free Live Talk</h3>
+      <sub>Silero VAD barge-in, OS-level echo cancellation, streamed sentence-pipelined TTS with disk caching, screen wake lock, and a fluid water-wave capsule.</sub>
       <br/><br/>
       </td>
       <td width="50%" align="center">
+      <br/>⚡
+      <h3>Always-Ready Wake Word</h3>
+      <sub>Edge Impulse foreground service that auto-starts on launch and device boot, launching a dedicated <code>KrithaOverlay</code> in Dictation, Live Talk, or Chat mode.</sub>
+      <br/><br/>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
       <br/>🧠
-      <h3>On-device intelligence</h3>
-      <sub>Local LiteRT-LM inference behind explicit lifecycle controls — no silent downloads or hidden model loading.</sub>
+      <h3>On-Device &amp; Cloud Multimodal AI</h3>
+      <sub>Local LiteRT-LM (<code>.litertlm</code> text, image, audio) alongside Gemini, Anthropic, xAI, DeepSeek, Qwen, Mistral, Hugging Face, and custom OpenAI-compatible endpoints.</sub>
+      <br/><br/>
+      </td>
+      <td width="50%" align="center">
+      <br/>🎨
+      <h3>Rich Media &amp; Image Generation</h3>
+      <sub>Auto-detected MIME types for images, video, audio, and documents, plus in-chat image generation and unified multimodal model routing.</sub>
       <br/><br/>
       </td>
     </tr>
     <tr>
       <td width="50%" align="center">
       <br/>📦
-      <h3>Models, on demand</h3>
-      <sub>Discover LiteRT-LM repositories on the Hub, inspect files, prepare artifacts and resume large downloads.</sub>
+      <h3>Models, On Demand</h3>
+      <sub>Browse Hugging Face LiteRT-LM repositories, run device pre-checks, manage artifacts, and resume large downloads with notification controls.</sub>
       <br/><br/>
       </td>
       <td width="50%" align="center">
       <br/>🔐
-      <h3>Privacy by default</h3>
-      <sub>Local SQLite history, platform secure storage and provider keys that are never rendered back into the UI.</sub>
+      <h3>Privacy by Default</h3>
+      <sub>Local Drift/SQLite chat history, Android Keystore / Apple Keychain credentials, zero telemetry, and API keys that are never rendered back into the UI.</sub>
       <br/><br/>
       </td>
     </tr>
@@ -104,13 +118,14 @@ Release artifacts are built locally under `dist/` and published on the
 
 | Area | Technology |
 | --- | --- |
-| UI | Flutter · Material · custom design system |
+| UI | Flutter · Material · custom design system (`KrithaColors`, `KrithaMotion`) |
 | State | Riverpod |
 | Persistence | Drift · SQLite · SharedPreferences |
-| Secrets | Android Keystore / Apple Keychain via secure storage |
-| Local AI | LiteRT-LM · sherpa ONNX |
-| Wake word | Edge Impulse (Android foreground service) |
-| Cloud inference | Anthropic Messages · Gemini · xAI · DeepSeek · Qwen/DashScope · Hugging Face · Mistral · custom OpenAI-compatible endpoints |
+| Secrets | Android Keystore / Apple Keychain via `flutter_secure_storage` |
+| Local AI | LiteRT-LM (`litertlm`) · sherpa-onnx (STT / TTS) · Silero VAD |
+| Voice & Audio | OS-level AEC (`VOICE_COMMUNICATION`) · streamed sentence TTS + disk cache · `record` · `just_audio` |
+| Wake word | Edge Impulse (Android foreground service, boot receiver, `KrithaOverlayActivity`) |
+| Cloud inference | Anthropic · Google Gemini · xAI · DeepSeek · Qwen/DashScope · Hugging Face · Mistral · custom OpenAI-compatible endpoints |
 | Catalogue | Hugging Face Hub API |
 | Tooling | Dart · Node.js release scripts |
 
@@ -194,12 +209,12 @@ flutter analyze --no-pub
 flutter test
 ```
 
-The test suite covers the design system, responsive shell, composer, sessions,
-persistence, intelligence contracts, model catalogue and filters, artifact
-setup and downloads, provider-specific discovery, task-aware routing, local
-runtime selection, typed modality validation, Active Models persistence,
-providers, secure storage and shared widgets. The current complete suite is
-337 tests.
+The test suite covers the design system, responsive shell, composer, Live Talk
+VAD and sentence-streamed TTS, MIME sniffing, sessions, persistence,
+intelligence contracts, model catalogue and filters, artifact setup and
+downloads, provider-specific discovery, task-aware routing, local runtime
+selection, typed modality validation, Active Models persistence, providers,
+secure storage and shared widgets.
 
 `pubspec.yaml` pins `shared_preferences_foundation` 2.5.7 because its 2.6.0
 Swift source uses trailing commas that Xcode 16.2's Swift 6.0.3 rejects. Remove

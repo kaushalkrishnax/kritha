@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/router.dart';
 import '../features/chat/chat_controller.dart';
 import '../features/chat/dictation_controller.dart';
 import '../features/chat/live_talk_controller.dart';
@@ -62,10 +64,30 @@ final wakeWordModeProvider =
       WakeWordSettingsNotifier.new,
     );
 
-/// Coordinates native wake-word detections into Dictation (auto-send) or Live Talk.
+/// Coordinates native wake-word detections and auto-starts the service on launch.
 final wakeWordCoordinatorProvider = Provider<void>((ref) {
   StreamSubscription<Map<String, Object?>>? sub;
   var handling = false;
+
+  Future<void> ensureStartedOnLaunch() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final wanted = prefs.getBool('kritha.wake_word.enabled') ?? false;
+      if (!wanted) return;
+      if (!await WakeWordBridge.isAvailable() || await WakeWordBridge.isRunning()) {
+        return;
+      }
+      final mic = await Permission.microphone.status;
+      final notif = await Permission.notification.status;
+      if (mic.isGranted && notif.isGranted) {
+        await WakeWordBridge.start();
+      }
+    } on Object {
+      // Non-Android platforms or missing permissions skip background start.
+    }
+  }
+
+  unawaited(ensureStartedOnLaunch());
 
   Future<void> handleDetection() async {
     if (handling) return;
@@ -111,7 +133,17 @@ final wakeWordCoordinatorProvider = Provider<void>((ref) {
     }
   });
 
+  final router = ref.read(routerProvider);
+  void syncMainChatActive() {
+    final path = router.routerDelegate.currentConfiguration.uri.path;
+    unawaited(WakeWordBridge.setMainChatActive(path == '/chat'));
+  }
+
+  syncMainChatActive();
+  router.routerDelegate.addListener(syncMainChatActive);
+
   ref.onDispose(() {
+    router.routerDelegate.removeListener(syncMainChatActive);
     sub?.cancel();
   });
 });

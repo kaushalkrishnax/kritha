@@ -42,7 +42,9 @@ class _LiveTalkPillState extends State<LiveTalkPill>
   @override
   void didUpdateWidget(LiveTalkPill oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _smoothedLevel = _smoothedLevel * 0.55 + widget.audioLevel * 0.45;
+    _smoothedLevel = widget.audioLevel > _smoothedLevel
+        ? _smoothedLevel * 0.20 + widget.audioLevel * 0.80
+        : _smoothedLevel * 0.55 + widget.audioLevel * 0.45;
     if (oldWidget.active != widget.active) _sync();
   }
 
@@ -128,43 +130,43 @@ class _FishPotWaterPainter extends CustomPainter {
     _drawWaterLayer(
       canvas,
       size,
-      baseFillRatio: 0.72 - energy * 0.24,
-      amplitude: size.height * (idleRipple + 0.16 * energy),
+      baseFillRatio: 0.72 - energy * 0.34,
+      amplitude: size.height * (idleRipple + 0.26 * energy),
       spatialCycles: 2.0,
       phase: tau * 1.0 + 1.4,
-      sloshTilt: math.sin(tau * 1.0) * size.height * (0.015 + 0.08 * energy),
+      sloshTilt: math.sin(tau * 1.0) * size.height * (0.015 + 0.14 * energy),
       colors: [
-        KrithaColors.accentCyanBg.withValues(alpha: 0.22 + 0.20 * energy),
-        KrithaColors.accentBlue.withValues(alpha: 0.30 + 0.22 * energy),
+        KrithaColors.accentCyanBg.withValues(alpha: 0.22 + 0.24 * energy),
+        KrithaColors.accentBlue.withValues(alpha: 0.30 + 0.28 * energy),
       ],
     );
 
     _drawWaterLayer(
       canvas,
       size,
-      baseFillRatio: 0.76 - energy * 0.22,
-      amplitude: size.height * (idleRipple * 1.15 + 0.18 * energy),
+      baseFillRatio: 0.76 - energy * 0.32,
+      amplitude: size.height * (idleRipple * 1.15 + 0.28 * energy),
       spatialCycles: 2.0,
       phase: -tau * 2.0 + 0.5,
-      sloshTilt: math.cos(tau * 1.0) * size.height * (0.012 + 0.09 * energy),
+      sloshTilt: math.cos(tau * 1.0) * size.height * (0.012 + 0.15 * energy),
       colors: [
-        KrithaColors.accentLightBlue.withValues(alpha: 0.26 + 0.26 * energy),
-        KrithaColors.accentBlue.withValues(alpha: 0.42 + 0.26 * energy),
+        KrithaColors.accentLightBlue.withValues(alpha: 0.26 + 0.30 * energy),
+        KrithaColors.accentBlue.withValues(alpha: 0.42 + 0.30 * energy),
       ],
     );
 
     _drawWaterLayer(
       canvas,
       size,
-      baseFillRatio: 0.81 - energy * 0.18,
-      amplitude: size.height * (idleRipple * 0.85 + 0.14 * energy),
+      baseFillRatio: 0.81 - energy * 0.28,
+      amplitude: size.height * (idleRipple * 0.85 + 0.22 * energy),
       spatialCycles: 3.0,
       phase: tau * 2.0 + 2.6,
       sloshTilt:
-          math.sin(tau * 1.0 + 1.0) * size.height * (0.010 + 0.06 * energy),
+          math.sin(tau * 1.0 + 1.0) * size.height * (0.010 + 0.11 * energy),
       colors: [
-        KrithaColors.accentLightBlue.withValues(alpha: 0.32 + 0.28 * energy),
-        KrithaColors.accentCyanBg.withValues(alpha: 0.18 + 0.20 * energy),
+        KrithaColors.accentLightBlue.withValues(alpha: 0.32 + 0.32 * energy),
+        KrithaColors.accentCyanBg.withValues(alpha: 0.18 + 0.24 * energy),
       ],
     );
 
