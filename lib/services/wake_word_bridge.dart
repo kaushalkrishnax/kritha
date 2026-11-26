@@ -95,4 +95,20 @@ abstract final class WakeWordBridge {
       // Route-aware overlay handoff is Android-only.
     }
   }
+
+  static Future<bool> isDefaultAssistant() async {
+    try {
+      return await _method.invokeMethod<bool>('isDefaultAssistant') ?? false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  static Future<bool> openAssistantSettings() async {
+    try {
+      return await _method.invokeMethod<bool>('openAssistantSettings') ?? false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }

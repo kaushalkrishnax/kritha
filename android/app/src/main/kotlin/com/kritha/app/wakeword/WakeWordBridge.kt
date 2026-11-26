@@ -1,6 +1,7 @@
 package com.kritha.app.wakeword
 
 import android.Manifest
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -96,6 +97,8 @@ internal class WakeWordBridge(
                         }
                         result.success(true)
                     }
+                    "isDefaultAssistant" -> result.success(isDefaultAssistant())
+                    "openAssistantSettings" -> result.success(openAssistantSettings())
                     else -> result.notImplemented()
                 }
             }
@@ -150,6 +153,32 @@ internal class WakeWordBridge(
             if (lock != null && !lock.isHeld) lock.acquire(30 * 60 * 1000L)
         } else {
             liveTalkWakeLock?.let { if (it.isHeld) it.release() }
+        }
+    }
+
+    private fun isDefaultAssistant(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = activity.getSystemService(RoleManager::class.java)
+                roleManager?.isRoleHeld(RoleManager.ROLE_ASSISTANT) == true
+            } else {
+                val setting = Settings.Secure.getString(activity.contentResolver, "assistant")
+                setting != null && setting.contains(activity.packageName)
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun openAssistantSettings(): Boolean {
+        val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return try {
+            activity.startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 }

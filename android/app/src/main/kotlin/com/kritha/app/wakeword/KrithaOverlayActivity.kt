@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import com.kritha.app.MainActivity
 import com.kritha.app.downloads.DownloadNotificationBridge
+import com.kritha.app.voice.KrithaVoiceInteractionSessionService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs
 import io.flutter.embedding.engine.FlutterEngine
@@ -73,6 +74,13 @@ class KrithaOverlayActivity : FlutterActivity() {
         if (intent.hasExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE)) {
             WakeWordEvents.emitToOverlay(intent.getFloatExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE, 0f))
             intent.removeExtra(MainActivity.EXTRA_WAKE_WORD_CONFIDENCE)
+        } else if (
+            intent.action == Intent.ACTION_ASSIST ||
+            intent.action == Intent.ACTION_VOICE_COMMAND ||
+            intent.getStringExtra(KrithaVoiceInteractionSessionService.EXTRA_LAUNCH_SOURCE) ==
+                KrithaVoiceInteractionSessionService.LAUNCH_SOURCE_VOICE_INTERACTION
+        ) {
+            WakeWordEvents.emitToOverlay(1.0f)
         }
     }
 
