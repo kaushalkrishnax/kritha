@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../services/device_asr_service.dart';
 import '../../services/silero_vad_service.dart';
 
 import '../intelligence/models/task_registry.dart';
@@ -76,6 +77,9 @@ class DictationNotifier extends Notifier<DictationState> {
   StreamSubscription<Uint8List>? _vadSub;
   SileroVadSession? _vad;
   int _autoEpoch = 0;
+  bool _usingDeviceAsr = false;
+  String _deviceTranscript = '';
+  double _deviceSoundLevel = 0.18;
 
   @override
   DictationState build() {
@@ -101,6 +105,34 @@ class DictationNotifier extends Notifier<DictationState> {
           'Microphone permission is required for dictation.',
         );
       }
+
+      final active = await ref.read(activeModelsProvider.future);
+      final sttModelId = _sttModelId(active);
+      if (sttModelId == null || sttModelId.trim().isEmpty) {
+        _usingDeviceAsr = true;
+        _deviceTranscript = '';
+        _deviceSoundLevel = 0.18;
+        await ref
+            .read(deviceAsrServiceProvider)
+            .startListening(
+              onResult: (words, _) {
+                if (words.isNotEmpty) _deviceTranscript = words;
+              },
+              onSoundLevel: (level) => _deviceSoundLevel = level,
+            );
+        _watch
+          ..reset()
+          ..start();
+        _ticker?.cancel();
+        _ticker = Timer.periodic(
+          const Duration(milliseconds: 110),
+          (_) => _tickDeviceAsr(),
+        );
+        state = const DictationState(phase: DictationPhase.listening);
+        return;
+      }
+
+      _usingDeviceAsr = false;
       final directory = await getTemporaryDirectory();
       _path =
           '${directory.path}/kritha_dictation_${DateTime.now().microsecondsSinceEpoch}.m4a';
@@ -124,11 +156,22 @@ class DictationNotifier extends Notifier<DictationState> {
       state = const DictationState(phase: DictationPhase.listening);
     } on DictationException {
       await _discardFile();
+      _usingDeviceAsr = false;
       rethrow;
     } on Object catch (error) {
       await _discardFile();
+      _usingDeviceAsr = false;
       throw DictationException('Could not start recording: $error');
     }
+  }
+
+  void _tickDeviceAsr() {
+    if (!state.isListening) return;
+    final levels = [...state.levels, _deviceSoundLevel];
+    while (levels.length > maxBars) {
+      levels.removeAt(0);
+    }
+    state = state.copyWith(elapsed: _watch.elapsed, levels: levels);
   }
 
   Future<void> _tick() async {
@@ -155,7 +198,8 @@ class DictationNotifier extends Notifier<DictationState> {
     state = state.copyWith(elapsed: _watch.elapsed, levels: levels);
   }
 
-  /// Stops recording and transcribes audio via the active ASR or audio model.
+  /// Stops recording and transcribes audio via the active ASR or audio model,
+  /// falling back to the device speech recognizer when no model is configured.
   Future<String> transcribe() async {
     if (!state.isActive) {
       throw const DictationException('There is no recording to transcribe.');
@@ -163,6 +207,19 @@ class DictationNotifier extends Notifier<DictationState> {
     _ticker?.cancel();
     _watch.stop();
     state = state.copyWith(phase: DictationPhase.transcribing);
+
+    if (_usingDeviceAsr) {
+      try {
+        final result = await ref
+            .read(deviceAsrServiceProvider)
+            .stopListening();
+        return result.isNotEmpty ? result : _deviceTranscript.trim();
+      } on Object catch (error) {
+        throw DictationException('Transcription failed: $error');
+      } finally {
+        _reset();
+      }
+    }
 
     String? path;
     try {
@@ -185,12 +242,7 @@ class DictationNotifier extends Notifier<DictationState> {
       }
       final bytes = await file.readAsBytes();
       final active = await ref.read(activeModelsProvider.future);
-      final sttModelId =
-          active.executableSelection[AiTaskId.automaticSpeechRecognition] ??
-          active.singleModels[ModelCapability.speechRecognition] ??
-          active.executableSelection[AiTaskId.audioUnderstanding] ??
-          active.singleModels[ModelCapability.audio] ??
-          active.multiModel?.modelId;
+      final sttModelId = _sttModelId(active);
       if (sttModelId == null || sttModelId.trim().isEmpty) {
         throw const DictationException(
           'No Speech recognition or Audio model is assigned in Active Models.',
@@ -236,12 +288,34 @@ class DictationNotifier extends Notifier<DictationState> {
       return;
     }
 
-    final vad = await SileroVadSession.create();
-    if (epoch != _autoEpoch || !ref.mounted) {
-      vad.dispose();
+    final active = await ref.read(activeModelsProvider.future);
+    final sttModelId = _sttModelId(active);
+    if (sttModelId == null || sttModelId.trim().isEmpty) {
+      await _startDeviceAutoStop(
+        epoch: epoch,
+        onTranscript: onTranscript,
+        onError: onError,
+      );
       return;
     }
-    _vad = vad;
+
+    _usingDeviceAsr = false;
+    _vad = SileroVadSession.energyFallback();
+    unawaited(
+      SileroVadSession.create().then((silero) {
+        if (epoch != _autoEpoch || !ref.mounted) {
+          silero.dispose();
+          return;
+        }
+        if (silero.usesSilero) {
+          final prev = _vad;
+          _vad = silero;
+          prev?.dispose();
+        } else {
+          silero.dispose();
+        }
+      }),
+    );
     final turnDetector = TurnDetector(silenceFrameCount: 28);
     final pcmCarry = <int>[];
     final capturedPcm = <int>[];
@@ -270,7 +344,7 @@ class DictationNotifier extends Notifier<DictationState> {
           final frameBytes = pcmCarry.sublist(0, frameBytesCount);
           pcmCarry.removeRange(0, frameBytesCount);
           final pcm16 = Int16List.view(Uint8List.fromList(frameBytes).buffer);
-          final res = vad.processFrame(pcm16);
+          final res = _vad!.processFrame(pcm16);
 
           final levels = [...state.levels, res.level.clamp(0.12, 1.0)];
           while (levels.length > maxBars) {
@@ -358,6 +432,102 @@ class DictationNotifier extends Notifier<DictationState> {
     }
   }
 
+  Future<void> _startDeviceAutoStop({
+    required int epoch,
+    required Future<void> Function(String transcript) onTranscript,
+    void Function(String message)? onError,
+  }) async {
+    _usingDeviceAsr = true;
+    _deviceTranscript = '';
+    _deviceSoundLevel = 0.18;
+    _watch
+      ..reset()
+      ..start();
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(milliseconds: 110), (_) {
+      if (epoch != _autoEpoch || !state.isListening) return;
+      _tickDeviceAsr();
+      if (_deviceTranscript.isEmpty && _watch.elapsed.inSeconds >= 8) {
+        unawaited(
+          _finishDeviceAutoStop(
+            epoch: epoch,
+            onTranscript: onTranscript,
+            onError: onError,
+          ),
+        );
+      }
+    });
+    state = const DictationState(phase: DictationPhase.listening);
+
+    try {
+      await ref
+          .read(deviceAsrServiceProvider)
+          .startListening(
+            pauseFor: const Duration(seconds: 2),
+            onSoundLevel: (level) => _deviceSoundLevel = level,
+            onResult: (words, isFinal) {
+              if (epoch != _autoEpoch || !state.isListening) return;
+              if (words.isNotEmpty) _deviceTranscript = words;
+              if (isFinal) {
+                unawaited(
+                  _finishDeviceAutoStop(
+                    epoch: epoch,
+                    onTranscript: onTranscript,
+                    onError: onError,
+                  ),
+                );
+              }
+            },
+            onStatus: (status) {
+              if (epoch != _autoEpoch || !state.isListening) return;
+              if ((status == 'done' || status == 'notListening') &&
+                  _deviceTranscript.isNotEmpty) {
+                unawaited(
+                  _finishDeviceAutoStop(
+                    epoch: epoch,
+                    onTranscript: onTranscript,
+                    onError: onError,
+                  ),
+                );
+              }
+            },
+            onError: (message) {
+              if (epoch != _autoEpoch) return;
+              _autoEpoch++;
+              _reset();
+              onError?.call('Transcription failed: $message');
+            },
+          );
+    } on Object catch (error) {
+      _reset();
+      onError?.call('Could not start dictation: $error');
+    }
+  }
+
+  Future<void> _finishDeviceAutoStop({
+    required int epoch,
+    required Future<void> Function(String transcript) onTranscript,
+    void Function(String message)? onError,
+  }) async {
+    if (epoch != _autoEpoch) return;
+    _autoEpoch++;
+    _ticker?.cancel();
+    _watch.stop();
+    state = state.copyWith(phase: DictationPhase.transcribing);
+    try {
+      final stopped = await ref.read(deviceAsrServiceProvider).stopListening();
+      final transcript = (stopped.isNotEmpty ? stopped : _deviceTranscript)
+          .trim();
+      if (transcript.isNotEmpty) {
+        await onTranscript(transcript);
+      }
+    } on Object catch (error) {
+      onError?.call('Transcription failed: $error');
+    } finally {
+      _reset();
+    }
+  }
+
   Future<void> _cleanupAutoVad() async {
     await _vadSub?.cancel();
     _vadSub = null;
@@ -371,10 +541,18 @@ class DictationNotifier extends Notifier<DictationState> {
     await _cleanupAutoVad();
     _ticker?.cancel();
     _watch.stop();
-    try {
-      await _engine.cancel();
-    } on Object {
-      // Cancelling is best-effort; file is cleaned up below.
+    if (_usingDeviceAsr) {
+      try {
+        await ref.read(deviceAsrServiceProvider).cancelListening();
+      } on Object {
+        // Cancelling device ASR is best-effort.
+      }
+    } else {
+      try {
+        await _engine.cancel();
+      } on Object {
+        // Cancelling is best-effort; file is cleaned up below.
+      }
     }
     await _discardFile();
     _reset();
@@ -383,11 +561,20 @@ class DictationNotifier extends Notifier<DictationState> {
   void _reset() {
     _ticker?.cancel();
     _ticker = null;
+    _usingDeviceAsr = false;
+    _deviceTranscript = '';
     _watch
       ..stop()
       ..reset();
     state = const DictationState();
   }
+
+  static String? _sttModelId(ActiveModelsState active) =>
+      active.executableSelection[AiTaskId.automaticSpeechRecognition] ??
+      active.singleModels[ModelCapability.speechRecognition] ??
+      active.executableSelection[AiTaskId.audioUnderstanding] ??
+      active.singleModels[ModelCapability.audio] ??
+      active.multiModel?.modelId;
 
   Future<void> _discardFile() async {
     final path = _path;

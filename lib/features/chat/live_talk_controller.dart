@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:record/record.dart';
 
+import '../../services/device_asr_service.dart';
+import '../../services/device_tts_service.dart';
 import '../../services/silero_vad_service.dart';
 import '../../services/tts_audio_cache.dart';
 import '../../services/tts_playback_pipeline.dart';
@@ -68,6 +70,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   AudioPlayer? _player;
   SileroVadSession? _vad;
   TtsPlaybackPipeline? _pipeline;
+  DeviceTtsSession? _deviceTts;
   final TurnDetector _turnDetector = TurnDetector(
     silenceFrameCount: 22,
     maxSpeechFrames: 938,
@@ -77,6 +80,8 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
   int _sessionEpoch = 0;
   int _turnEpoch = 0;
   int _bargeInStreak = 0;
+  bool _usingDeviceAsr = false;
+  String _deviceTurnTranscript = '';
 
   @override
   LiveTalkState build() {
@@ -92,7 +97,15 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     _turnEpoch++;
     _bargeInStreak = 0;
     final recorder = _recorder ??= AudioRecorder();
-    final allowed = await recorder.hasPermission();
+
+    // Run permission, active-model lookup, and speech-stop concurrently.
+    final (allowed, active, _) = await (
+      recorder.hasPermission(),
+      ref.read(activeModelsProvider.future),
+      ref.read(speechPlaybackProvider.notifier).stop(),
+    ).wait;
+    if (epoch != _sessionEpoch || !ref.mounted) return;
+
     if (!allowed) {
       state = state.copyWith(
         errorMessage: 'Microphone permission is required for Live Talk.',
@@ -101,38 +114,63 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       return;
     }
 
-    final active = await ref.read(activeModelsProvider.future);
     final sttModelId = _sttModelId(active);
     final textModelId = _textModelId(active);
-    if (sttModelId == null || textModelId == null) {
+    if (textModelId == null) {
       state = state.copyWith(
-        errorMessage: sttModelId == null
-            ? 'Assign a Speech recognition or Audio model in Active Models.'
-            : 'Assign a Text model in Active Models.',
+        errorMessage: 'Assign a Text model in Active Models.',
       );
       ref.read(composerProvider.notifier).setLiveTalkActive(false);
       return;
     }
 
-    _vad = await SileroVadSession.create();
-    if (epoch != _sessionEpoch || !ref.mounted) {
-      _vad?.dispose();
-      _vad = null;
-      return;
-    }
-
-    await ref.read(speechPlaybackProvider.notifier).stop();
-    if (epoch != _sessionEpoch || !ref.mounted) return;
-
+    // Activate Live Talk UI immediately so startup feels instant.
     _turnDetector.reset();
     _pcmCarry.clear();
     _utteranceBytes.clear();
-
     ref.read(composerProvider.notifier)
       ..setLiveTalkActive(true)
       ..setLiveTalkPhase(LiveTalkPhase.listening);
     state = const LiveTalkState(active: true, phase: LiveTalkPhase.listening);
     unawaited(WakeWordBridge.setKeepScreenOn(true));
+
+    _usingDeviceAsr = sttModelId == null || sttModelId.trim().isEmpty;
+    if (_usingDeviceAsr) {
+      final ready = await ref
+          .read(deviceAsrServiceProvider)
+          .ensureInitialized();
+      if (epoch != _sessionEpoch || !ref.mounted) return;
+      if (!ready) {
+        unawaited(WakeWordBridge.setKeepScreenOn(false));
+        ref.read(composerProvider.notifier).setLiveTalkActive(false);
+        state = const LiveTalkState(
+          errorMessage:
+              'Device speech recognition is unavailable on this device.',
+        );
+        return;
+      }
+      await _startDeviceAsrTurn(epoch);
+      return;
+    }
+
+    // Start immediately with energy VAD and upgrade to Silero in the background
+    // so model loading or downloading never blocks Live Talk startup.
+    _vad = SileroVadSession.energyFallback();
+    unawaited(
+      SileroVadSession.create().then((silero) {
+        if (epoch != _sessionEpoch || !ref.mounted || !state.active) {
+          silero.dispose();
+          return;
+        }
+        if (silero.usesSilero) {
+          final previous = _vad;
+          _vad = silero;
+          previous?.dispose();
+        } else {
+          silero.dispose();
+        }
+      }),
+    );
 
     final stream = await recorder.startStream(
       const RecordConfig(
@@ -235,6 +273,80 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     }
   }
 
+  Future<void> _startDeviceAsrTurn(int epoch) async {
+    if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
+      return;
+    }
+    _deviceTurnTranscript = '';
+    final asr = ref.read(deviceAsrServiceProvider);
+    try {
+      await asr.startListening(
+        pauseFor: const Duration(seconds: 2),
+        onSoundLevel: (level) {
+          if (epoch != _sessionEpoch || !state.active) return;
+          if ((level - state.audioLevel).abs() > 0.01) {
+            state = state.copyWith(audioLevel: level);
+          }
+        },
+        onResult: (words, isFinal) {
+          if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
+            return;
+          }
+          if (words.isNotEmpty) {
+            _deviceTurnTranscript = words;
+            if (state.phase == LiveTalkPhase.listening) {
+              _setPhase(LiveTalkPhase.userSpeaking);
+            }
+          }
+          if (isFinal && _deviceTurnTranscript.isNotEmpty) {
+            final captured = _deviceTurnTranscript;
+            _deviceTurnTranscript = '';
+            unawaited(_submitDeviceAsrTurn(captured, epoch, ++_turnEpoch));
+          }
+        },
+        onStatus: (status) {
+          if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
+            return;
+          }
+          if (status == 'done' || status == 'notListening') {
+            if (_deviceTurnTranscript.isNotEmpty &&
+                (state.phase == LiveTalkPhase.listening ||
+                    state.phase == LiveTalkPhase.userSpeaking)) {
+              final captured = _deviceTurnTranscript;
+              _deviceTurnTranscript = '';
+              unawaited(_submitDeviceAsrTurn(captured, epoch, ++_turnEpoch));
+            } else if (state.phase == LiveTalkPhase.listening) {
+              unawaited(_startDeviceAsrTurn(epoch));
+            }
+          }
+        },
+        onError: (message) {
+          if (epoch != _sessionEpoch || !state.active || state.phase.isPaused) {
+            return;
+          }
+          if (state.phase == LiveTalkPhase.listening ||
+              state.phase == LiveTalkPhase.userSpeaking) {
+            _setPhase(LiveTalkPhase.listening);
+            unawaited(_startDeviceAsrTurn(epoch));
+          }
+        },
+      );
+    } on Object catch (error) {
+      if (epoch == _sessionEpoch && state.active) {
+        state = state.copyWith(errorMessage: '$error');
+      }
+    }
+  }
+
+  Future<void> _submitDeviceAsrTurn(
+    String transcript,
+    int epoch,
+    int turnEpoch,
+  ) async {
+    await ref.read(deviceAsrServiceProvider).stopListening();
+    await _respondToTranscript(transcript, epoch, turnEpoch);
+  }
+
   Future<void> _processUtterance(
     List<int> pcmBytes,
     int epoch,
@@ -252,9 +364,6 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     }
 
     _setPhase(LiveTalkPhase.processing);
-    ProviderSubscription<AsyncValue<ChatState>>? chatSub;
-    TtsPlaybackPipeline? pipeline;
-    var chunkedOffset = 0;
     try {
       final active = await ref.read(activeModelsProvider.future);
       final sttModelId = _sttModelId(active);
@@ -284,6 +393,50 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
         return;
       }
 
+      await _respondToTranscript(transcript, epoch, turnEpoch);
+    } on Object catch (error) {
+      if (isCurrent()) {
+        _turnDetector.reset();
+        _vad?.reset();
+        _setPhase(LiveTalkPhase.listening);
+        state = state.copyWith(errorMessage: '$error');
+      }
+    }
+  }
+
+  Future<void> _respondToTranscript(
+    String transcript,
+    int epoch,
+    int turnEpoch,
+  ) async {
+    bool isCurrent() =>
+        epoch == _sessionEpoch &&
+        turnEpoch == _turnEpoch &&
+        state.active &&
+        !state.phase.isPaused;
+
+    if (!isCurrent() || transcript.trim().isEmpty) {
+      if (isCurrent()) {
+        _setPhase(LiveTalkPhase.listening);
+        if (_usingDeviceAsr) unawaited(_startDeviceAsrTurn(epoch));
+      }
+      return;
+    }
+
+    ProviderSubscription<AsyncValue<ChatState>>? chatSub;
+    TtsPlaybackPipeline? pipeline;
+    DeviceTtsSession? deviceTts;
+    var chunkedOffset = 0;
+
+    void addTtsText(String text) {
+      pipeline?.addText(text);
+      deviceTts?.addText(text);
+    }
+
+    try {
+      final active = await ref.read(activeModelsProvider.future);
+      if (!isCurrent()) return;
+
       state = state.copyWith(lastTranscript: transcript);
       _setPhase(LiveTalkPhase.thinking);
 
@@ -299,7 +452,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
           androidApplyAudioAttributes: false,
         );
         pipeline = TtsPlaybackPipeline(
-          engine: engine,
+          engine: ref.read(intelligenceEngineProvider),
           cache: ref.read(ttsAudioCacheProvider),
           modelId: ttsModelId,
           cachingEnabled: settings.caching,
@@ -309,22 +462,30 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
           },
         );
         _pipeline = pipeline;
+      } else {
+        deviceTts = DeviceTtsSession(
+          driver: ref.read(deviceTtsDriverProvider),
+          onFirstAudio: () {
+            if (isCurrent()) _setPhase(LiveTalkPhase.speaking);
+          },
+        );
+        _deviceTts = deviceTts;
+      }
 
-        if (settings.streaming) {
-          chatSub = ref.listen(chatControllerProvider, (prev, next) {
-            if (!isCurrent() || pipeline == null) return;
-            final streamed = next.value?.streamingText;
-            if (streamed == null || streamed.length <= chunkedOffset) return;
-            while (chunkedOffset < streamed.length) {
-              final slice = streamed.substring(chunkedOffset);
-              final boundary = RegExp(r'(?<=[.!?…])\s+|\n+').firstMatch(slice);
-              if (boundary == null) break;
-              final sentence = slice.substring(0, boundary.end).trim();
-              chunkedOffset += boundary.end;
-              if (sentence.isNotEmpty) pipeline.addText(sentence);
-            }
-          });
-        }
+      if (settings.streaming) {
+        chatSub = ref.listen(chatControllerProvider, (prev, next) {
+          if (!isCurrent()) return;
+          final streamed = next.value?.streamingText;
+          if (streamed == null || streamed.length <= chunkedOffset) return;
+          while (chunkedOffset < streamed.length) {
+            final slice = streamed.substring(chunkedOffset);
+            final boundary = RegExp(r'(?<=[.!?…])\s+|\n+').firstMatch(slice);
+            if (boundary == null) break;
+            final sentence = slice.substring(0, boundary.end).trim();
+            chunkedOffset += boundary.end;
+            if (sentence.isNotEmpty) addTtsText(sentence);
+          }
+        });
       }
 
       await ref.read(chatControllerProvider.notifier).send(transcript);
@@ -341,44 +502,55 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
           : '';
       final replyText = rawReply.trim();
       if (replyText.isEmpty) {
-        if (isCurrent()) _setPhase(LiveTalkPhase.listening);
+        if (isCurrent()) {
+          _setPhase(LiveTalkPhase.listening);
+          if (_usingDeviceAsr) unawaited(_startDeviceAsrTurn(epoch));
+        }
         return;
       }
 
       state = state.copyWith(lastReply: replyText);
-      if (ttsModelId == null || pipeline == null) {
-        if (isCurrent()) _setPhase(LiveTalkPhase.listening);
-        return;
-      }
 
       if (settings.streaming) {
         if (chunkedOffset < rawReply.length) {
-          pipeline.addText(rawReply.substring(chunkedOffset));
+          addTtsText(rawReply.substring(chunkedOffset));
         }
       } else {
-        pipeline.addText(replyText);
+        addTtsText(replyText);
       }
 
-      await pipeline.finish();
+      if (pipeline != null) {
+        await pipeline.finish();
+      } else if (deviceTts != null) {
+        await deviceTts.finish();
+      }
       if (!isCurrent()) return;
-      final playbackError = pipeline.firstError;
+      final playbackError = pipeline?.firstError ?? deviceTts?.firstError;
       _turnDetector.reset();
       _vad?.reset();
       _setPhase(LiveTalkPhase.listening);
       if (playbackError != null) {
         state = state.copyWith(errorMessage: '$playbackError');
       }
+      if (_usingDeviceAsr) {
+        unawaited(_startDeviceAsrTurn(epoch));
+      }
     } on Object catch (error) {
       await pipeline?.cancel();
+      await deviceTts?.cancel();
       if (isCurrent()) {
         _turnDetector.reset();
         _vad?.reset();
         _setPhase(LiveTalkPhase.listening);
         state = state.copyWith(errorMessage: '$error');
+        if (_usingDeviceAsr) {
+          unawaited(_startDeviceAsrTurn(epoch));
+        }
       }
     } finally {
       chatSub?.close();
       if (identical(_pipeline, pipeline)) _pipeline = null;
+      if (identical(_deviceTts, deviceTts)) _deviceTts = null;
     }
   }
 
@@ -393,6 +565,7 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       _vad?.reset();
       _utteranceBytes.clear();
       _setPhase(LiveTalkPhase.listening);
+      if (_usingDeviceAsr) unawaited(_startDeviceAsrTurn(_sessionEpoch));
       return;
     }
     if (state.phase == LiveTalkPhase.speaking ||
@@ -403,9 +576,13 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
       _vad?.reset();
       _utteranceBytes.clear();
       _setPhase(LiveTalkPhase.listening);
+      if (_usingDeviceAsr) unawaited(_startDeviceAsrTurn(_sessionEpoch));
       return;
     }
     await _interruptAssistant();
+    if (_usingDeviceAsr) {
+      unawaited(ref.read(deviceAsrServiceProvider).cancelListening());
+    }
     _turnDetector.reset();
     _vad?.reset();
     _utteranceBytes.clear();
@@ -414,11 +591,21 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
 
   Future<void> stop() async {
     final wasActive = state.active;
+    final usingDeviceAsr = _usingDeviceAsr;
     _sessionEpoch++;
     _turnEpoch++;
     _bargeInStreak = 0;
+    _usingDeviceAsr = false;
+    _deviceTurnTranscript = '';
     await _audioSub?.cancel();
     _audioSub = null;
+    if (usingDeviceAsr) {
+      try {
+        await ref.read(deviceAsrServiceProvider).cancelListening();
+      } on Object {
+        // Device ASR may already be stopped.
+      }
+    }
     try {
       await _recorder?.stop();
     } on Object {
@@ -448,6 +635,9 @@ class LiveTalkNotifier extends Notifier<LiveTalkState> {
     final pipeline = _pipeline;
     _pipeline = null;
     await pipeline?.cancel();
+    final deviceTts = _deviceTts;
+    _deviceTts = null;
+    await deviceTts?.cancel();
     try {
       await _player?.stop();
     } on Object {

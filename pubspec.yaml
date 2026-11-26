@@ -50,6 +50,8 @@ dependencies:
   http: ^1.6.0
   tldts: ^0.0.1-beta
   url_launcher: ^6.3.3
+  flutter_tts: ^4.2.5
+  speech_to_text: ^7.5.0
 
 # Xcode 16.2 ships Swift 6.0.3, which rejects the trailing commas emitted by
 # shared_preferences_foundation 2.6.0. Pin the last compatible iOS plugin until

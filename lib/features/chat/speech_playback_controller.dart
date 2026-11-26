@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../services/device_tts_service.dart';
 import '../../services/tts_audio_cache.dart';
 import '../../services/tts_playback_pipeline.dart';
 import '../../services/tts_settings.dart';
@@ -60,6 +61,7 @@ class SpeechPlaybackException implements Exception {
 class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
   AudioPlayer? _player;
   TtsPlaybackPipeline? _pipeline;
+  DeviceTtsSession? _deviceTts;
   int _playEpoch = 0;
   final Queue<({String messageId, String text})> _queue = Queue();
   bool _draining = false;
@@ -70,6 +72,8 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
       _playEpoch++;
       _pipeline?.cancel();
       _pipeline = null;
+      _deviceTts?.cancel();
+      _deviceTts = null;
       _player?.dispose();
       _player = null;
       _queue.clear();
@@ -96,18 +100,21 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
 
     _queue.add((messageId: messageId, text: trimmed));
     if (!_draining) {
-      _drainQueue();
+      unawaited(_drainQueue());
     }
   }
 
   Future<void> _drainQueue() async {
     if (_draining || _queue.isEmpty || !ref.mounted) return;
     _draining = true;
-    while (_queue.isNotEmpty && ref.mounted) {
-      final request = _queue.removeFirst();
-      await _playRequest(messageId: request.messageId, text: request.text);
+    try {
+      while (_queue.isNotEmpty && ref.mounted) {
+        final request = _queue.removeFirst();
+        await _playRequest(messageId: request.messageId, text: request.text);
+      }
+    } finally {
+      _draining = false;
     }
-    _draining = false;
   }
 
   Future<void> _playRequest({
@@ -122,17 +129,49 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     final ttsModelId =
         active.executableSelection[AiTaskId.textToSpeech] ??
         active.singleModels[ModelCapability.textToSpeech];
-    if (ttsModelId == null || ttsModelId.trim().isEmpty) {
-      throw const SpeechPlaybackException(
-        'No Text to speech model assigned. Assign one in Active Models.',
-      );
-    }
 
     final settings = await ref
         .read(ttsSettingsProvider.notifier)
         .readSettings();
     if (epoch != _playEpoch || !ref.mounted) return;
-    state = SpeechPlaybackState(playingMessageId: messageId, loading: true);
+
+    final chunks = settings.streaming
+        ? splitTtsSentences(text)
+        : <String>[text];
+
+    if (ttsModelId == null || ttsModelId.trim().isEmpty) {
+      final session = DeviceTtsSession(
+        driver: ref.read(deviceTtsDriverProvider),
+        onFirstAudio: () {
+          if (epoch != _playEpoch || !ref.mounted) return;
+          state = SpeechPlaybackState(
+            playingMessageId: messageId,
+            loading: false,
+          );
+        },
+      );
+      _deviceTts = session;
+      for (final chunk in chunks) {
+        session.addText(chunk);
+      }
+      try {
+        await session.finish();
+        if (epoch == _playEpoch && ref.mounted) {
+          if (session.firstError != null && !session.playedAny) {
+            throw SpeechPlaybackException('${session.firstError}');
+          }
+          state = const SpeechPlaybackState();
+        }
+      } on Object {
+        if (epoch == _playEpoch && ref.mounted) {
+          state = const SpeechPlaybackState();
+        }
+        rethrow;
+      } finally {
+        if (identical(_deviceTts, session)) _deviceTts = null;
+      }
+      return;
+    }
 
     final player = _player ??= AudioPlayer();
     final pipeline = TtsPlaybackPipeline(
@@ -151,9 +190,6 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     );
     _pipeline = pipeline;
 
-    final chunks = settings.streaming
-        ? splitTtsSentences(text)
-        : <String>[text];
     for (final chunk in chunks) {
       pipeline.addText(chunk);
     }
@@ -187,6 +223,9 @@ class SpeechPlaybackNotifier extends Notifier<SpeechPlaybackState> {
     final pipeline = _pipeline;
     _pipeline = null;
     await pipeline?.cancel();
+    final deviceTts = _deviceTts;
+    _deviceTts = null;
+    await deviceTts?.cancel();
     try {
       await _player?.stop();
     } on Object {

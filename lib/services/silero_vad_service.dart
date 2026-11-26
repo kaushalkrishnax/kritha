@@ -75,12 +75,16 @@ class TurnDetector {
 class SileroVadSession {
   SileroVadSession._(this._vad);
 
+  /// Instant RMS-energy VAD session that requires zero model loading.
+  factory SileroVadSession.energyFallback() => SileroVadSession._(null);
+
   static const int sampleRate = 16000;
   static const int frameSamples = 512;
   static const String _modelUrl =
       'https://github.com/snakers4/silero-vad/raw/v5.1.2/src/silero_vad/data/silero_vad.onnx';
 
   static bool _bindingsInitialized = false;
+  static String? _cachedModelPath;
 
   final sherpa.VoiceActivityDetector? _vad;
 
@@ -125,11 +129,16 @@ class SileroVadSession {
   static Future<String?> _ensureModelFile(
     http.Client Function()? clientFactory,
   ) async {
+    final cached = _cachedModelPath;
+    if (cached != null && File(cached).existsSync()) {
+      return cached;
+    }
     final dir = await getApplicationDocumentsDirectory();
     final target = File(
       '${dir.path}/models/speech/silero-vad-v5/silero_vad.onnx',
     );
     if (target.existsSync() && target.lengthSync() > 100000) {
+      _cachedModelPath = target.path;
       return target.path;
     }
     final client = (clientFactory ?? http.Client.new)();
@@ -142,6 +151,7 @@ class SileroVadSession {
           response.bodyBytes.length > 100000) {
         await target.parent.create(recursive: true);
         await target.writeAsBytes(response.bodyBytes, flush: true);
+        _cachedModelPath = target.path;
         return target.path;
       }
     } on Object {

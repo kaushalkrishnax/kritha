@@ -9,36 +9,98 @@ import '../features/intelligence/intelligence_engine.dart';
 import '../features/intelligence/providers/provider.dart';
 import 'tts_audio_cache.dart';
 
-/// Plays TTS text chunks in order while synthesizing the next chunk.
+/// Minimal playlist-capable player contract used by [TtsPlaybackPipeline].
+abstract class TtsAudioPlayer {
+  Stream<int?> get currentIndexStream;
+  Stream<ProcessingState> get processingStateStream;
+  int? get currentIndex;
+  ProcessingState get processingState;
+  bool get playing;
+
+  Future<void> setAudioFiles(List<String> paths);
+  Future<void> addAudioFile(String path);
+  Future<void> seekToIndex(int index);
+  Future<void> play();
+  Future<void> stop();
+}
+
+class _JustAudioTtsPlayer implements TtsAudioPlayer {
+  _JustAudioTtsPlayer(this._player);
+
+  final AudioPlayer _player;
+
+  @override
+  Stream<int?> get currentIndexStream => _player.currentIndexStream;
+  @override
+  Stream<ProcessingState> get processingStateStream =>
+      _player.processingStateStream;
+  @override
+  int? get currentIndex => _player.currentIndex;
+  @override
+  ProcessingState get processingState => _player.processingState;
+  @override
+  bool get playing => _player.playing;
+
+  @override
+  Future<void> setAudioFiles(List<String> paths) => _player.setAudioSources([
+    for (final path in paths) AudioSource.file(path),
+  ]);
+  @override
+  Future<void> addAudioFile(String path) =>
+      _player.addAudioSource(AudioSource.file(path));
+  @override
+  Future<void> seekToIndex(int index) =>
+      _player.seek(Duration.zero, index: index);
+  @override
+  Future<void> play() => _player.play();
+  @override
+  Future<void> stop() => _player.stop();
+}
+
+/// Plays TTS text chunks in strict sequential order via a live playlist.
 ///
-/// The pipeline keeps at most one synthesis ahead of playback, so audio starts
-/// as soon as the first chunk is ready without firing every sentence request at
-/// once. Cancelling invalidates in-flight work so stale audio never resumes.
+/// Keeps at most one chunk synthesised ahead of the active item. Temporary
+/// files are deleted only after the player has advanced past them. All
+/// in-flight work is cancelled and cleaned up on [cancel].
 class TtsPlaybackPipeline {
   TtsPlaybackPipeline({
     required this.engine,
     required this.cache,
     required this.modelId,
     required this.cachingEnabled,
-    required this.player,
+    AudioPlayer? player,
+    TtsAudioPlayer? queuePlayer,
     this.onFirstAudio,
     this.onCompleted,
     this.onError,
-  });
+  }) : assert(
+         player != null || queuePlayer != null,
+         'Either player or queuePlayer must be provided.',
+       ),
+       _player = queuePlayer ?? _JustAudioTtsPlayer(player!);
 
   final IntelligenceEngine engine;
   final TtsAudioCache cache;
   final String modelId;
   final bool cachingEnabled;
-  final AudioPlayer player;
+  final TtsAudioPlayer _player;
   final void Function()? onFirstAudio;
   final void Function()? onCompleted;
   final void Function(Object error)? onError;
 
   final Queue<_TtsChunk> _pending = Queue();
-  final Set<String> _temporaryFiles = {};
+  final List<String> _appendedPaths = [];
+  final Set<int> _deletedIndices = {};
+
+  StreamSubscription<int?>? _indexSub;
+  StreamSubscription<ProcessingState>? _stateSub;
+
+  // Resolved once and reused across all chunks.
+  Future<Directory>? _tempDirFuture;
 
   int _generation = 0;
+  int _lastObservedIndex = -1;
+  bool _playlistStarted = false;
   bool _running = false;
   bool _sealed = false;
   bool _cancelled = false;
@@ -58,7 +120,6 @@ class TtsPlaybackPipeline {
     _pending.add(_TtsChunk(trimmed));
     _wake?.complete();
     _wake = null;
-    _startIfRunning();
     _ensureWorker();
   }
 
@@ -78,12 +139,13 @@ class TtsPlaybackPipeline {
     _pending.clear();
     _wake?.complete();
     _wake = null;
+    await _cancelSubscriptions();
     try {
-      await player.stop();
+      await _player.stop();
     } on Object {
-      // The player may already be stopped or disposed.
+      // Best-effort.
     }
-    _deleteTemporaryFiles();
+    _deleteAllFiles();
     if (!_done.isCompleted) _done.complete();
   }
 
@@ -93,66 +155,132 @@ class TtsPlaybackPipeline {
     unawaited(_run(_generation));
   }
 
-  void _startIfRunning() {
-    if (!_running || _pending.isEmpty) return;
-    final first = _pending.first;
-    first.synthesis ??= _synthesize(first.text, _generation);
-  }
-
-  void _startPrefetch(int generation) {
+  void _prefetchNext(int generation) {
     if (_pending.length < 2) return;
     final next = _pending.elementAt(1);
     next.synthesis ??= _synthesize(next.text, generation);
   }
 
+  void _attachListeners(int generation) {
+    _indexSub = _player.currentIndexStream.listen((index) {
+      if (generation != _generation || index == null) return;
+      if (index > _lastObservedIndex) {
+        for (var i = 0; i < index; i++) {
+          _deleteFile(i);
+        }
+        _lastObservedIndex = index;
+        // Unblock the worker so it can queue the next chunk.
+        _wake?.complete();
+        _wake = null;
+      }
+      _checkFinished();
+    });
+
+    _stateSub = _player.processingStateStream.listen((ps) {
+      if (generation == _generation && ps == ProcessingState.completed) {
+        _checkFinished();
+      }
+    });
+  }
+
+  void _checkFinished() {
+    if (!_sealed || _pending.isNotEmpty || !_playlistStarted) return;
+    final lastIndex = _appendedPaths.length - 1;
+    final current = _player.currentIndex ?? _lastObservedIndex;
+    if (_player.processingState == ProcessingState.completed &&
+        current >= lastIndex) {
+      _deleteAllFiles();
+      if (!_done.isCompleted) _done.complete();
+      onCompleted?.call();
+    }
+  }
+
   Future<void> _run(int generation) async {
     try {
+      _tempDirFuture ??= getTemporaryDirectory();
       while (true) {
         if (generation != _generation) return;
+
         if (_pending.isEmpty) {
-          if (_sealed) return;
+          if (_sealed) {
+            // Wait for the player to complete the last item.
+            if (_playlistStarted && !_done.isCompleted) {
+              final waiter = Completer<void>();
+              _wake = waiter;
+              await waiter.future;
+            }
+            return;
+          }
           final waiter = Completer<void>();
           _wake = waiter;
           await waiter.future;
-          if (generation != _generation) return;
           continue;
+        }
+
+        // Backpressure: at most 1 chunk ahead of the active item.
+        if (_playlistStarted) {
+          final ahead = _appendedPaths.length - (_lastObservedIndex < 0 ? 0 : _lastObservedIndex);
+          if (ahead >= 2) {
+            final waiter = Completer<void>();
+            _wake = waiter;
+            await waiter.future;
+            continue;
+          }
         }
 
         final chunk = _pending.first;
         chunk.synthesis ??= _synthesize(chunk.text, generation);
-        _startPrefetch(generation);
+        _prefetchNext(generation);
+
         final speech = await chunk.synthesis!;
         if (generation != _generation) return;
         _pending.removeFirst();
         if (speech == null) continue;
 
-        final path = await _writeTemporaryFile(speech, generation);
-        if (path == null) continue;
-        try {
-          if (generation != _generation) return;
-          await player.setFilePath(path);
-          if (generation != _generation) return;
-          final playback = player.play();
-          _startIfRunning();
-          if (!_playedAny) {
-            _playedAny = true;
-            onFirstAudio?.call();
-          }
-          await playback;
-        } on Object catch (error) {
-          _firstError ??= error;
-          onError?.call(error);
-        } finally {
-          _deleteTemporaryFile(path);
+        final path = await _writeTempFile(speech, generation);
+        if (path == null || generation != _generation) {
+          if (path != null) unawaited(_deleteFilePath(path));
+          return;
         }
-        if (generation != _generation) return;
+
+        final chunkIndex = _appendedPaths.length;
+        _appendedPaths.add(path);
+
+        try {
+          if (!_playlistStarted) {
+            _attachListeners(generation);
+            await _player.setAudioFiles([path]);
+            if (generation != _generation) return;
+            _playlistStarted = true;
+            _lastObservedIndex = 0;
+            if (!_playedAny) {
+              _playedAny = true;
+              onFirstAudio?.call();
+            }
+            unawaited(_player.play());
+          } else {
+            final wasEnded = _player.processingState == ProcessingState.completed ||
+                !_player.playing;
+            await _player.addAudioFile(path);
+            if (generation != _generation) return;
+            if (wasEnded) {
+              await _player.seekToIndex(chunkIndex);
+              if (generation != _generation) return;
+              unawaited(_player.play());
+            }
+          }
+        } on Object catch (e) {
+          _firstError ??= e;
+          onError?.call(e);
+        }
       }
     } finally {
       if (generation == _generation) {
         _running = false;
-        _deleteTemporaryFiles();
+        await _cancelSubscriptions();
+        _deleteAllFiles();
         if (!_done.isCompleted) _done.complete();
-        onCompleted?.call();
+        if (_playlistStarted) onCompleted?.call();
       }
     }
   }
@@ -165,76 +293,77 @@ class TtsPlaybackPipeline {
         text: text,
         enabled: cachingEnabled,
       );
-    } on Object catch (error) {
+    } on Object catch (e) {
       if (generation == _generation) {
-        _firstError ??= error;
-        onError?.call(error);
+        _firstError ??= e;
+        onError?.call(e);
       }
       return null;
     }
   }
 
-  Future<String?> _writeTemporaryFile(
-    SynthesizedSpeech speech,
-    int generation,
-  ) async {
+  Future<String?> _writeTempFile(SynthesizedSpeech speech, int generation) async {
     try {
-      final directory = await getTemporaryDirectory();
-      final extension = _extensionFor(speech.mimeType);
+      final dir = await _tempDirFuture!;
+      final ext = _ext(speech.mimeType);
       final file = File(
-        '${directory.path}/kritha_tts_${DateTime.now().microsecondsSinceEpoch}_${_temporaryFiles.length}.$extension',
+        '${dir.path}/kritha_tts_${DateTime.now().microsecondsSinceEpoch}_${_appendedPaths.length}.$ext',
       );
       await file.writeAsBytes(speech.bytes, flush: true);
       if (generation != _generation) {
-        await _deleteFile(file.path);
+        unawaited(_deleteFilePath(file.path));
         return null;
       }
-      _temporaryFiles.add(file.path);
       return file.path;
-    } on Object catch (error) {
+    } on Object catch (e) {
       if (generation == _generation) {
-        _firstError ??= error;
-        onError?.call(error);
+        _firstError ??= e;
+        onError?.call(e);
       }
       return null;
     }
   }
 
-  static String _extensionFor(String mimeType) {
-    final mime = mimeType.toLowerCase();
-    if (mime.contains('wav')) return 'wav';
-    if (mime.contains('ogg')) return 'ogg';
-    if (mime.contains('aac')) return 'aac';
-    if (mime.contains('flac')) return 'flac';
+  static String _ext(String mime) {
+    final m = mime.toLowerCase();
+    if (m.contains('wav')) return 'wav';
+    if (m.contains('ogg')) return 'ogg';
+    if (m.contains('aac')) return 'aac';
+    if (m.contains('flac')) return 'flac';
     return 'mp3';
   }
 
-  void _deleteTemporaryFile(String path) {
-    _temporaryFiles.remove(path);
-    unawaited(_deleteFile(path));
-  }
-
-  void _deleteTemporaryFiles() {
-    final paths = List<String>.from(_temporaryFiles);
-    _temporaryFiles.clear();
-    for (final path in paths) {
-      unawaited(_deleteFile(path));
+  void _deleteFile(int index) {
+    if (index >= 0 && index < _appendedPaths.length && _deletedIndices.add(index)) {
+      unawaited(_deleteFilePath(_appendedPaths[index]));
     }
   }
 
-  static Future<void> _deleteFile(String path) async {
+  void _deleteAllFiles() {
+    for (var i = 0; i < _appendedPaths.length; i++) {
+      _deleteFile(i);
+    }
+  }
+
+  static Future<void> _deleteFilePath(String path) async {
     try {
-      final file = File(path);
-      if (file.existsSync()) await file.delete();
+      final f = File(path);
+      if (f.existsSync()) await f.delete();
     } on Object {
-      // Temporary files are also reclaimed by the OS.
+      // OS reclaims temp files.
     }
+  }
+
+  Future<void> _cancelSubscriptions() async {
+    await _indexSub?.cancel();
+    _indexSub = null;
+    await _stateSub?.cancel();
+    _stateSub = null;
   }
 }
 
 class _TtsChunk {
   _TtsChunk(this.text);
-
   final String text;
   Future<SynthesizedSpeech?>? synthesis;
 }
