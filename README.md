@@ -71,13 +71,13 @@ Release artifacts are built locally under `dist/` and published on the
       <td width="50%" align="center">
       <br/>🎙️
       <h3>Hands-Free Live Talk</h3>
-      <sub>Silero VAD barge-in, OS-level echo cancellation, optional sentence-streamed TTS with in-memory caching, screen wake lock, and a fluid water-wave capsule.</sub>
+      <sub>Instant startup with energy VAD + background Silero VAD upgrade, OS-level echo cancellation, device ASR/TTS fallback, gapless playlist TTS, screen wake lock, and a fluid water-wave capsule.</sub>
       <br/><br/>
       </td>
       <td width="50%" align="center">
       <br/>⚡
-      <h3>Always-Ready Wake Word</h3>
-      <sub>Edge Impulse foreground service that auto-starts on launch and device boot, launching a dedicated <code>KrithaOverlay</code> in Dictation, Live Talk, or Chat mode.</sub>
+      <h3>Always-Ready Assistant &amp; Wake Word</h3>
+      <sub>Edge Impulse foreground service and Android <code>VoiceInteractionService</code> (Default Assistant + <code>ASSIST</code>/<code>VOICE_COMMAND</code> gestures) launching <code>KrithaOverlay</code>.</sub>
       <br/><br/>
       </td>
     </tr>
@@ -123,8 +123,8 @@ Release artifacts are built locally under `dist/` and published on the
 | Persistence | Drift · SQLite · SharedPreferences |
 | Secrets | Android Keystore / Apple Keychain via `flutter_secure_storage` |
 | Local AI | LiteRT-LM (`litertlm`) · sherpa-onnx (STT / TTS) · Silero VAD |
-| Voice & Audio | OS-level AEC (`VOICE_COMMUNICATION`) · optional sentence-streamed TTS + in-memory cache · `record` · `just_audio` |
-| Wake word | Edge Impulse (Android foreground service, boot receiver, `KrithaOverlayActivity`) |
+| Voice & Audio | OS-level AEC (`VOICE_COMMUNICATION`) · gapless playlist TTS + in-memory cache · `record` · `just_audio` · `speech_to_text` / `flutter_tts` fallback |
+| Wake word & Assistant | Edge Impulse (Android foreground service, boot receiver, `KrithaOverlayActivity`) · Android `VoiceInteractionService` (Default Assistant) |
 | Cloud inference | Anthropic · Google Gemini · xAI · DeepSeek · Qwen/DashScope · Hugging Face · Mistral · custom OpenAI-compatible endpoints |
 | Catalogue | Hugging Face Hub API |
 | Tooling | Dart · Node.js release scripts |

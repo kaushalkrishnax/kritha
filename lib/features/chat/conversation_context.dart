@@ -13,8 +13,13 @@ class ConversationContextBuilder {
     List<AiInput> inputs = const [],
     Map<String, String> metadata = const {},
     String? lastUserTextOverride,
+    String? systemPrompt,
   }) {
     final turns = <AiMessage>[];
+    final sys = systemPrompt?.trim() ?? '';
+    if (sys.isNotEmpty) {
+      turns.add(AiMessage.system(sys));
+    }
     for (var i = 0; i < messages.length; i++) {
       final message = messages[i];
       final isLast = i == messages.length - 1;

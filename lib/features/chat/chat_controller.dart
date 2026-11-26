@@ -11,6 +11,7 @@ import '../../data/app_database.dart';
 import '../../models/chat_attachment.dart';
 import '../../models/chat_message.dart';
 import '../../models/chat_session.dart';
+import '../../services/personalization_settings.dart';
 import '../intelligence/intelligence_exception.dart';
 import '../intelligence/models/ai_input.dart';
 import '../intelligence/models/ai_response.dart';
@@ -571,6 +572,10 @@ class ChatController extends AsyncNotifier<ChatState> {
         );
         return;
       }
+      final personalization = await ref
+          .read(personalizationProvider.notifier)
+          .readSettings();
+      if (generation != _generation) return;
       final request = _contextBuilder.build(
         messages,
         modelId: targetModelId,
@@ -579,6 +584,7 @@ class ChatController extends AsyncNotifier<ChatState> {
             ? const {'multimodal_route': 'active'}
             : const {},
         lastUserTextOverride: prepared.textOverride,
+        systemPrompt: personalization.buildEffectiveSystemPrompt(),
       );
       final stream = ref.read(intelligenceEngineProvider).stream(request);
       iterator = StreamIterator(stream);

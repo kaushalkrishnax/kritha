@@ -106,4 +106,20 @@ void main() {
       throwsA(isA<InvalidRequestException>()),
     );
   });
+
+  test('prepends systemPrompt at the top when provided', () {
+    final request = builder.build([
+      message(ChatRole.user, 'Hello'),
+      message(ChatRole.assistant, 'Hi!'),
+      message(ChatRole.user, 'How are you?'),
+    ], systemPrompt: 'You are Kritha.');
+
+    expect(request.messages.map((item) => item.role), [
+      AiRole.system,
+      AiRole.user,
+      AiRole.assistant,
+      AiRole.user,
+    ]);
+    expect(request.messages.first.text, 'You are Kritha.');
+  });
 }
