@@ -2,10 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/providers.dart';
 import '../../../core/theme.dart';
 import '../../../services/personalization_settings.dart';
 import '../../../widgets/create_popup.dart';
 import 'settings_primitives.dart';
+import 'theme_section.dart';
 
 class PersonalizeControl extends ConsumerWidget {
   const PersonalizeControl({super.key});
@@ -13,6 +15,7 @@ class PersonalizeControl extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(personalizationProvider);
+    final theme = ref.watch(themePreferenceProvider);
     final name = settings.userName.trim();
     final detailsSubtitle = name.isNotEmpty
         ? 'Name: $name${settings.hasPersonalDetails ? ' • Shared with Kritha' : ''}'
@@ -42,6 +45,13 @@ class PersonalizeControl extends ConsumerWidget {
               context: context,
               builder: (_) => const _AiInstructionsDialog(),
             ),
+          ),
+          const SettingsRowDivider(),
+          SettingsActionRow(
+            icon: HugeIcons.strokeRoundedSparkles,
+            label: 'Theme',
+            description: themePreferenceLabel(theme),
+            onTap: () => showThemeSelectorDialog(context),
           ),
           const SettingsRowDivider(),
           Padding(

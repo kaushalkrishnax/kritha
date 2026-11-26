@@ -52,6 +52,8 @@ dependencies:
   url_launcher: ^6.3.3
   flutter_tts: ^4.2.5
   speech_to_text: ^7.5.0
+  archive: ^4.7.1
+  crypto: ^3.0.8
 
 # Xcode 16.2 ships Swift 6.0.3, which rejects the trailing commas emitted by
 # shared_preferences_foundation 2.6.0. Pin the last compatible iOS plugin until
@@ -75,6 +77,7 @@ flutter:
     - assets/images/kritha_logo.png
     - assets/images/kritha_splash.png
     - assets/images/kritha_splash_android12.png
+    - assets/models/silero_vad.onnx
   fonts:
     - family: DMSans
       fonts:

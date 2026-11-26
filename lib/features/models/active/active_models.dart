@@ -417,7 +417,6 @@ class ActiveModelsController extends AsyncNotifier<ActiveModelsState> {
   @override
   Future<ActiveModelsState> build() async {
     await _writes;
-    await syncProviderModels();
     return _load();
   }
 

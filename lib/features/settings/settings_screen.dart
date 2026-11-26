@@ -2,16 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../widgets/back_navigation.dart';
 import '../../widgets/create_popup.dart';
 import '../chat/chat_controller.dart';
 import '../chat/widgets/chat_sidebar.dart';
+import 'widgets/data_backup_dialog.dart';
 import 'widgets/personalize_section.dart';
-import 'widgets/runtime_probes_section.dart';
 import 'widgets/settings_primitives.dart';
-import 'widgets/theme_section.dart';
 import 'widgets/voice_section.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -20,7 +18,6 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     watchKrithaPalette(context);
-    final runtime = ref.watch(runtimeStatusProvider);
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -52,9 +49,6 @@ class SettingsScreen extends ConsumerWidget {
                     const SettingsSectionLabel('PERSONALIZE'),
                     const PersonalizeControl(),
                     SizedBox(height: 22),
-                    const SettingsSectionLabel('THEME'),
-                    const ThemeControl(),
-                    SizedBox(height: 22),
                     const SettingsSectionLabel('PRIVACY'),
                     SettingsCard(
                       child: Column(
@@ -71,24 +65,18 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           const SettingsRowDivider(),
                           SettingsActionRow(
-                            icon: HugeIcons.strokeRoundedShieldCheck,
-                            label: 'Permissions',
+                            icon: HugeIcons.strokeRoundedDatabase,
+                            label: 'Import or Export Data',
                             description:
-                                'Microphone, notifications, and device access.',
-                            onTap: () => ScaffoldMessenger.of(context)
-                                .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Permissions are not available yet.',
-                                    ),
-                                  ),
-                                ),
+                                'Back up or restore chats, providers, models, settings, and media.',
+                            onTap: () => createPopup<void>(
+                              context: context,
+                              builder: (_) => const DataBackupDialog(),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 22),
-                    RuntimeProbesSection(runtime: runtime),
                     SizedBox(height: 18),
                     OutlinedButton.icon(
                       onPressed: () => _confirmClearHistory(context, ref),

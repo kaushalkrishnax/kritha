@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
@@ -80,8 +80,7 @@ class SileroVadSession {
 
   static const int sampleRate = 16000;
   static const int frameSamples = 512;
-  static const String _modelUrl =
-      'https://github.com/snakers4/silero-vad/raw/v5.1.2/src/silero_vad/data/silero_vad.onnx';
+  static const String _assetPath = 'assets/models/silero_vad.onnx';
 
   static bool _bindingsInitialized = false;
   static String? _cachedModelPath;
@@ -90,15 +89,13 @@ class SileroVadSession {
 
   bool get usesSilero => _vad != null;
 
-  static Future<SileroVadSession> create({
-    http.Client Function()? clientFactory,
-  }) async {
+  static Future<SileroVadSession> create() async {
     try {
       if (!_bindingsInitialized) {
         sherpa.initBindings();
         _bindingsInitialized = true;
       }
-      final modelPath = await _ensureModelFile(clientFactory);
+      final modelPath = await _ensureModelFile();
       if (modelPath != null) {
         final config = sherpa.VadModelConfig(
           sileroVad: sherpa.SileroVadModelConfig(
@@ -126,9 +123,7 @@ class SileroVadSession {
     return SileroVadSession._(null);
   }
 
-  static Future<String?> _ensureModelFile(
-    http.Client Function()? clientFactory,
-  ) async {
+  static Future<String?> _ensureModelFile() async {
     final cached = _cachedModelPath;
     if (cached != null && File(cached).existsSync()) {
       return cached;
@@ -141,25 +136,15 @@ class SileroVadSession {
       _cachedModelPath = target.path;
       return target.path;
     }
-    final client = (clientFactory ?? http.Client.new)();
-    try {
-      final response = await client
-          .get(Uri.parse(_modelUrl))
-          .timeout(const Duration(seconds: 25));
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300 &&
-          response.bodyBytes.length > 100000) {
-        await target.parent.create(recursive: true);
-        await target.writeAsBytes(response.bodyBytes, flush: true);
-        _cachedModelPath = target.path;
-        return target.path;
-      }
-    } on Object {
-      // Offline or download failed; caller falls back to energy VAD.
-    } finally {
-      client.close();
-    }
-    return null;
+    final data = await rootBundle.load(_assetPath);
+    final bytes = data.buffer.asUint8List(
+      data.offsetInBytes,
+      data.lengthInBytes,
+    );
+    await target.parent.create(recursive: true);
+    await target.writeAsBytes(bytes, flush: true);
+    _cachedModelPath = target.path;
+    return target.path;
   }
 
   /// Processes one 512-sample PCM16 frame and returns (probability, rmsLevel 0..1).
